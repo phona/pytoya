@@ -3,11 +3,19 @@ LLM-based structured data extraction from OCR text.
 Supports OpenAI and litellm providers.
 """
 
-import os
-import yaml
 from typing import Dict, Any, Optional
 from openai import OpenAI
 import logging
+import time
+
+import yaml
+from src.config import LLMConfig
+from src.extraction.prompts import (
+    get_system_prompt,
+    get_re_extract_system_prompt,
+    build_extraction_prompt,
+    build_re_extract_prompt,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,27 +23,25 @@ logger = logging.getLogger(__name__)
 class InvoiceExtractor:
     """Extract structured data from invoice text using LLM."""
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: LLMConfig):
         """
         Initialize LLM extractor.
 
         Args:
-            config: LLM configuration dict
+            config: LLMConfig with LLM configuration
         """
-        self.provider = config.get("provider", "openai")
-        self.model = config.get("model", "gpt-4o")
-        self.temperature = config.get("temperature", 0.1)
-        self.max_tokens = config.get("max_tokens", 2000)
+        self._config = config
+
+        self.provider = self._config.provider
+        self.model = self._config.model
+        self.temperature = self._config.temperature
+        self.max_tokens = self._config.max_tokens
+        self.required_fields = self._config.required_fields
 
         if self.provider == "openai":
-            api_key = config.get("api_key")
-            if api_key and api_key.startswith("${"):
-                # Environment variable
-                api_key = os.getenv(api_key[2:-1])
-
             self.client = OpenAI(
-                api_key=api_key,
-                base_url=config.get("base_url")
+                api_key=self._config.api_key,
+                base_url=self._config.base_url
             )
         else:
             # litellm support can be added here
@@ -53,77 +59,240 @@ class InvoiceExtractor:
         Returns:
             Structured data dictionary
         """
-        prompt = self._build_prompt(ocr_result)
+        start_time = time.time()
+        markdown_text = ocr_result.get('markdown', '')
+        raw_text = ocr_result.get('raw_text', '')
+        prompt = build_extraction_prompt(markdown_text, raw_text)
 
+        logger.info(f"[TIMING] Prompt built in {time.time() - start_time:.2f}s")
+        logger.info(f"[TIMING] Markdown length: {len(markdown_text)}, Raw text length: {len(raw_text)}")
+        logger.info(f"[TIMING] Prompt length: {len(prompt)} chars")
+
+        api_start = time.time()
         try:
+            logger.info(f"[TIMING] Calling LLM API: {self.model}")
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": self._get_system_prompt()},
+                    {"role": "system", "content": get_system_prompt()},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=self.temperature,
                 max_tokens=self.max_tokens
             )
+            api_duration = time.time() - api_start
+            logger.info(f"[TIMING] LLM API call completed in {api_duration:.2f}s")
 
             content = response.choices[0].message.content
+            logger.info(f"[TIMING] Response length: {len(content)} chars")
 
             # Parse YAML from response
+            parse_start = time.time()
             data = yaml.safe_load(content)
+            parse_duration = time.time() - parse_start
+            logger.info(f"[TIMING] YAML parsing completed in {parse_duration:.2f}s")
+
+            # Log extracted fields for debugging
+            if isinstance(data, dict):
+                logger.info(f"[DEBUG] Extracted keys: {list(data.keys())}")
+                if 'department' in data:
+                    logger.info(f"[DEBUG] Department: {data['department']}")
+                if 'invoice' in data:
+                    logger.info(f"[DEBUG] Invoice: {data['invoice']}")
+                if 'items' in data:
+                    logger.info(f"[DEBUG] Items count: {len(data.get('items', []))}")
+                if 'summary' in data:
+                    logger.info(f"[DEBUG] Summary: {data['summary']}")
+
+            total_duration = time.time() - start_time
+            logger.info(f"[TIMING] Total extract() time: {total_duration:.2f}s")
             return data
 
         except Exception as e:
             logger.error(f"LLM extraction failed: {e}")
+            logger.error(f"[TIMING] Failed after {time.time() - api_start:.2f}s")
             raise
 
-    def _get_system_prompt(self) -> str:
-        """Get system prompt for the LLM."""
-        return """You are an expert invoice data extraction system.
-Extract all fields from the invoice text and return ONLY valid YAML.
-If a field is not found, use null or appropriate default value.
-Do not include explanations, only the YAML data."""
+    def re_extract(
+        self,
+        ocr_result: Dict[str, Any],
+        previous_result: Dict[str, Any],
+        missing_fields: Optional[list] = None,
+        error_message: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Re-extract data with improved prompt based on previous attempt.
 
-    def _build_prompt(self, ocr_result: Dict[str, Any]) -> str:
-        """Build extraction prompt from OCR result."""
-        # Use markdown for better structure preservation
+        Use this when:
+        - YAML parsing failed
+        - Required fields are missing
+        - Previous extraction had errors
+
+        Args:
+            ocr_result: OCR output with raw_text and markdown
+            previous_result: Previous extraction result (for context)
+            missing_fields: List of field paths that were missing (e.g., ["department.code", "items[0].name"])
+            error_message: Error from previous attempt (e.g., "YAML parse error")
+
+        Returns:
+            Improved structured data dictionary
+        """
+        start_time = time.time()
+        logger.info(f"[RE-EXTRACT] Starting re-extraction. Missing fields: {missing_fields}, Error: {error_message}")
+
         markdown_text = ocr_result.get('markdown', '')
         raw_text = ocr_result.get('raw_text', '')
+        prompt = build_re_extract_prompt(
+            markdown_text,
+            raw_text,
+            previous_result,
+            missing_fields,
+            error_message
+        )
 
-        return f"""Extract structured data from this Chinese invoice:
+        logger.info(f"[RE-EXTRACT] Prompt length: {len(prompt)} chars")
 
-OCR Text (Raw):
-{raw_text}
+        api_start = time.time()
+        try:
+            logger.info(f"[RE-EXTRACT] Calling LLM API: {self.model}")
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": get_re_extract_system_prompt()},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=self.temperature,
+                max_tokens=self.max_tokens
+            )
+            api_duration = time.time() - api_start
+            logger.info(f"[RE-EXTRACT] LLM API call completed in {api_duration:.2f}s")
 
-Markdown Format:
-{markdown_text}
+            content = response.choices[0].message.content
+            logger.info(f"[RE-EXTRACT] Response length: {len(content)} chars")
 
-Return a YAML object with this exact structure:
-```yaml
-department:
-  code: string  # 部门代码
-  name: string  # 部门名称 (optional)
+            # Parse YAML from response
+            parse_start = time.time()
+            data = yaml.safe_load(content)
+            parse_duration = time.time() - parse_start
+            logger.info(f"[RE-EXTRACT] YAML parsing completed in {parse_duration:.2f}s")
 
-invoice:
-  po_no: string        # 订单号/PO号
-  delivery_no: string  # 交货单号
-  invoice_no: string   # 发票编号
-  invoice_date: string # 发票日期 (YYYY-MM-DD)
+            total_duration = time.time() - start_time
+            logger.info(f"[RE-EXTRACT] Total re_extract() time: {total_duration:.2f}s")
+            return data
 
-items:
-  - name: string                    # 货物描述/品名
-    quantity: number                # 数量
-    unit: string                    # 单位 (PCS, KG, etc)
-    unit_price_ex_tax: number       # 不含税单价
-    unit_price_inc_tax: number      # 含税单价
-    tax_rate: number                # 税率 (e.g., 0.13 for 13%)
-    tax_amount: number              # 税额
-    total_amount_inc_tax: number    # 含税总价
+        except Exception as e:
+            logger.error(f"LLM re-extraction failed: {e}")
+            logger.error(f"[RE-EXTRACT] Failed after {time.time() - api_start:.2f}s")
+            raise
 
-summary:
-  subtotal_ex_tax: number   # 不含税小计
-  total_tax: number         # 税额合计
-  total_inc_tax: number     # 含税总计
-  currency: string          # 货币代码 (CNY, USD, etc)
-```
+    def validate_result(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Validate extraction result against configured required fields.
 
-Extract ALL items listed in the invoice. Return only the YAML, no markdown code blocks."""
+        Args:
+            data: Extracted data dictionary
+
+        Returns:
+            Validation result with:
+                - valid (bool): Whether all required fields are present and valid
+                - missing_fields (list): Fields that are missing
+                - errors (list): Validation errors
+        """
+        logger.info(f"[VALIDATION] Starting validation. Required fields: {self.required_fields}")
+
+        validation_result = {
+            "valid": True,
+            "missing_fields": [],
+            "errors": []
+        }
+
+        for field_path in self.required_fields:
+            # Check if field is nullable (ends with ?)
+            nullable = field_path.endswith("?")
+            actual_field_path = field_path.rstrip("?") if nullable else field_path
+
+            field_exists, field_value = self._check_field_exists_with_value(data, actual_field_path)
+
+            if nullable:
+                # For nullable fields: field must exist but can be null
+                if not field_exists:
+                    logger.info(f"[VALIDATION] Checking field '{actual_field_path}': MISSING (nullable but not found)")
+                    validation_result["valid"] = False
+                    validation_result["missing_fields"].append(actual_field_path)
+                    validation_result["errors"].append(f"Missing nullable field: {actual_field_path}")
+                else:
+                    status = "NULL" if field_value is None else "EXISTS"
+                    logger.info(f"[VALIDATION] Checking field '{actual_field_path}': {status} (nullable)")
+            else:
+                # For non-nullable fields: field must exist and not be null/empty
+                logger.info(f"[VALIDATION] Checking field '{actual_field_path}': {'EXISTS' if field_exists else 'MISSING'}")
+                if not field_exists:
+                    validation_result["valid"] = False
+                    validation_result["missing_fields"].append(actual_field_path)
+                    validation_result["errors"].append(f"Missing required field: {actual_field_path}")
+
+        # Validate data types and values
+        items_count = len(data.get("items", []))
+        logger.info(f"[VALIDATION] Items count: {items_count}")
+        if not data.get("items"):
+            validation_result["valid"] = False
+            validation_result["errors"].append("No items found in extraction")
+
+        logger.info(f"[VALIDATION] Result: {'VALID' if validation_result['valid'] else 'INVALID'}, Missing: {validation_result['missing_fields']}, Errors: {validation_result['errors']}")
+        return validation_result
+
+    def _check_field_exists(self, data: Dict[str, Any], field_path: str) -> bool:
+        """
+        Check if a field exists in nested dictionary.
+
+        Args:
+            data: Data dictionary
+            field_path: Dot-separated field path (e.g., "department.code")
+
+        Returns:
+            True if field exists and is not None/empty
+        """
+        exists, _ = self._check_field_exists_with_value(data, field_path)
+        return exists
+
+    def _check_field_exists_with_value(self, data: Dict[str, Any], field_path: str) -> tuple:
+        """
+        Check if a field exists in nested dictionary and return its value.
+
+        Args:
+            data: Data dictionary
+            field_path: Dot-separated field path (e.g., "department.code")
+
+        Returns:
+            Tuple of (exists: bool, value: Any)
+        """
+        parts = field_path.split(".")
+        current = data
+
+        for part in parts:
+            # Handle array indexing (e.g., "items[0].name")
+            if "[" in part and part.endswith("]"):
+                key, index = part.split("[")
+                index = int(index.rstrip("]"))
+
+                if key not in current or not isinstance(current[key], list):
+                    return False, None
+
+                if index >= len(current[key]):
+                    return False, None
+
+                current = current[key][index]
+            else:
+                if part not in current:
+                    return False, None
+
+                current = current[part]
+
+        if current is None:
+            return True, None  # Field exists but is None
+
+        # For strings, check if not empty
+        if isinstance(current, str) and not current.strip():
+            return False, None
+
+        return True, current

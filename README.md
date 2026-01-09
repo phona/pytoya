@@ -1,20 +1,45 @@
 # PyToYa - PDF to YAML Invoice Processing System
 
-Automated invoice processing system that combines **PaddleOCR-VL** for OCR and **LLM** (OpenAI/litellm) for structured data extraction.
+Automated invoice processing system that combines **PaddleOCR-VL** for OCR, **LangGraph** for workflow orchestration, and **LLM** (OpenAI/litellm) for structured data extraction.
 
 ## Features
 
-- ✅ Remote PaddleOCR-VL service integration
+- ✅ Remote PaddleOCR-VL service integration with full TypedDict types
+- ✅ **LangGraph workflow** with state management and conditional routing
+- ✅ **Automatic retry logic** with exponential backoff
+- ✅ **Error checking and recovery** at each workflow step
 - ✅ LLM-based structured data extraction (OpenAI/litellm)
-- ✅ Parallel batch processing
+- ✅ Parallel batch processing with progress tracking
 - ✅ YAML output format
 - ✅ Configurable via YAML
-- ✅ Comprehensive error handling
+- ✅ **Flexible architecture**: Workflow built externally, injected into processor
 
 ## Architecture
 
 ```
-PDF Input → PaddleOCR-VL (Remote) → OCR Text → LLM Extraction → YAML Output
+PDF Input → LangGraph Workflow → YAML Output
+            ├─ validate_input
+            ├─ ocr_processing (with retry)
+            ├─ extraction (with retry)
+            └─ save_result
+```
+
+### Workflow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    LangGraph Workflow                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  validate_input ──→ ocr_processing ──→ extraction ──→ save_result │
+│       │                    │                  │                  │
+│       ↓ (invalid)          │ (retry loop)      │ (retry loop)  │
+│   mark_failed           ←───────←───────   ←───────────────  │
+│                           │                  │                  │
+│                           ↓ (max retries)   ↓ (max retries)   │
+│                        mark_failed ←────────────────────────   │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Installation
@@ -93,9 +118,18 @@ export OPENAI_API_KEY=your-api-key-here  # Linux/Mac
 
 # Place PDF invoices in ./invoices directory
 
-# Run processing
+# Run processing with LangGraph workflow
 python main.py
 ```
+
+### Workflow Features
+
+The LangGraph workflow provides:
+
+- **Automatic Retry**: Failed OCR or extraction steps are automatically retried with exponential backoff
+- **Error Checking**: Each step validates results before proceeding
+- **State Management**: Full tracking of processing state through the workflow
+- **Graceful Degradation**: Failed files are logged without stopping batch processing
 
 ### Advanced usage
 
@@ -146,14 +180,24 @@ summary:
 
 ```
 PyToYa/
-├── invoices/              # Input: PDF invoice files
-├── results/               # Output: YAML extracted data
+├── invoices/                    # Input: PDF invoice files
+├── results/                     # Output: YAML extracted data
 ├── src/
-│   ├── ocr/              # PaddleOCR-VL client
-│   ├── extraction/       # LLM extraction
-│   └── processing/       # Batch processing
-├── config.yaml           # Configuration
-├── main.py              # CLI entry point
+│   ├── ocr/                     # PaddleOCR-VL client
+│   │   ├── types.py             # TypedDict type definitions
+│   │   └── paddle_vl_client.py  # Remote HTTP client
+│   ├── extraction/              # LLM extraction
+│   │   └── extractor.py         # LLM extraction logic
+│   ├── workflow/                # LangGraph workflow
+│   │   ├── state.py             # Workflow state management
+│   │   ├── nodes.py             # Workflow node implementations
+│   │   ├── graph.py             # Workflow builder
+│   │   └── config.py            # Workflow configuration
+│   └── processing/              # Batch processing
+│       ├── batch.py             # Original batch processor
+│       └── workflow_batch.py    # LangGraph-based processor
+├── config.yaml                 # Configuration
+├── main.py                     # CLI entry point
 └── requirements.txt
 ```
 

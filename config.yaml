@@ -1,13 +1,13 @@
 # PaddleOCR-VL Remote Service Configuration
 paddleocr_vl:
-  base_url: "http://localhost:8080"  # Remote service endpoint
+  base_url: "http://localhost:8000"  # Remote service endpoint
   endpoint: "/layout-parsing"        # API endpoint
   timeout: 120                        # Request timeout in seconds
   max_retries: 3                     # Retry failed requests
 
   # OCR processing parameters
-  use_doc_orientation_classify: false  # 文档方向分类
-  use_doc_unwarping: false             # 文本图像矫正
+  use_doc_orientation_classify: true  # 文档方向分类
+  use_doc_unwarping: true             # 文本图像矫正
   use_layout_detection: true           # 版面区域检测
   use_chart_recognition: false         # 图表识别
   format_block_content: false          # 格式化block内容为Markdown
@@ -22,12 +22,23 @@ paddleocr_vl:
 # LLM Configuration
 llm:
   provider: "openai"     # openai or litellm
-  model: "gpt-4o"
+  model: "Pro/deepseek-ai/DeepSeek-V3.2"
   api_key: "${OPENAI_API_KEY}"
-  base_url: null         # Optional: custom endpoint
+  base_url: "https://api.siliconflow.cn/v1"         # Optional: custom endpoint
   temperature: 0.1
   max_tokens: 2000
-  timeout: 30
+  timeout: 180           # INCREASED: API takes 130+ seconds, 3 min timeout
+
+  # Required fields for extraction validation
+  # Remove fields from this list to make them optional
+  # Fields ending with ? tolerate null values (exist but can be null)
+  required_fields:
+    - "department.code"
+    - "invoice.po_no"
+    - "invoice.invoice_date"
+    - "items"
+    - "summary.subtotal_ex_tax?"  # ? means field must exist but can be null
+    - "summary.total_inc_tax"
 
 # Processing Configuration
 processing:
@@ -35,5 +46,20 @@ processing:
   output_dir: "./results"
   max_workers: 5         # Parallel workers
   batch_size: 1
-  retry_attempts: 2
+  retry_attempts: 1      # Number of retry attempts for each step
+  retry_delay: 2.0       # Base delay for exponential backoff (seconds)
   log_level: "INFO"
+
+  # Output structure options
+  preserve_source_structure: true  # Preserve source folder structure in output
+  copy_source_pdf: true            # Copy original PDF as input.pdf
+  save_ocr_markdown: true           # Save OCR markdown as ocr_result.md
+  save_ocr_json: true               # Save OCR full result as ocr_result.json
+
+# Workflow Configuration
+workflow:
+  max_retries: 1                    # REDUCED: Was 3, now 1 to avoid wasting time on slow API
+  retry_delay_base: 2.0             # Base delay for exponential backoff (seconds)
+  enable_ocr_retry: true            # Enable OCR retry logic
+  enable_extraction_retry: true     # Enable extraction retry logic
+  retry_ocr_on_missing_fields: true  # Retry OCR with different params when extraction validation fails

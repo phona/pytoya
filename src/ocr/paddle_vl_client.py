@@ -10,17 +10,17 @@ API Endpoint: POST /layout-parsing
 
 import requests
 import base64
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Union
 from pathlib import Path
 import logging
 
 from src.ocr.types import (
     LayoutParsingRequest,
-    ClientConfig,
     ExtractionResult,
     LayoutParsingResponseData,
     BlockContent,
 )
+from src.config import PaddleOCRConfig
 
 logger = logging.getLogger(__name__)
 
@@ -37,12 +37,12 @@ class PaddleOCRVLClient:
     https://www.paddleocr.ai/latest/en/version3.x/pipeline_usage/PaddleOCR-VL.html#43-client-side-invocation
     """
 
-    def __init__(self, config: ClientConfig):
+    def __init__(self, config: Union[PaddleOCRConfig, Dict[str, Any]]):
         """
         Initialize remote PaddleOCR-VL client.
 
         Args:
-            config: Client configuration with:
+            config: PaddleOCRConfig or dict with configuration:
                 - base_url: Remote service URL (e.g., "http://localhost:8080")
                 - endpoint: API endpoint path (default: "/layout-parsing")
                 - timeout: Request timeout in seconds (default: 120)
@@ -56,21 +56,17 @@ class PaddleOCRVLClient:
                 - prettify_markdown: Beautify Markdown output (default: True)
                 - show_formula_number: Include formula numbers in Markdown
         """
-        self.base_url: str = config['base_url'].rstrip('/')
-        self.endpoint: str = config.get('endpoint', '/layout-parsing')
-        self.api_url: str = f"{self.base_url}{self.endpoint}"
-        self.timeout: int = config.get('timeout', 120)
-        self.max_retries: int = config.get('max_retries', 3)
+        # Support both typed config and dict for backward compatibility
+        if isinstance(config, dict):
+            self._config = PaddleOCRConfig.from_dict(config)
+        else:
+            self._config = config
 
-        # OCR processing parameters
-        self.use_doc_orientation_classify: bool = config.get('use_doc_orientation_classify', False)
-        self.use_doc_unwarping: bool = config.get('use_doc_unwarping', False)
-        self.use_layout_detection: bool = config.get('use_layout_detection', True)
-        self.use_chart_recognition: bool = config.get('use_chart_recognition', False)
-        self.format_block_content: bool = config.get('format_block_content', False)
-        self.visualize: bool = config.get('visualize', False)
-        self.prettify_markdown: bool = config.get('prettify_markdown', True)
-        self.show_formula_number: bool = config.get('show_formula_number', False)
+        self.base_url: str = self._config.base_url.rstrip('/')
+        self.endpoint: str = self._config.endpoint
+        self.api_url: str = f"{self.base_url}{self.endpoint}"
+        self.timeout: int = self._config.timeout
+        self.max_retries: int = self._config.max_retries
 
         logger.info(f"Initialized PaddleOCR-VL client: {self.api_url}")
 
@@ -125,14 +121,14 @@ class PaddleOCRVLClient:
         payload: LayoutParsingRequest = {
             "file": file_data,  # Base64 encoded file or URL
             "fileType": 0,  # 0=PDF, 1=Image (inferred from URL if null)
-            "useDocOrientationClassify": self.use_doc_orientation_classify,
-            "useDocUnwarping": self.use_doc_unwarping,
-            "useLayoutDetection": self.use_layout_detection,
-            "useChartRecognition": self.use_chart_recognition,
-            "formatBlockContent": self.format_block_content,
-            "prettifyMarkdown": self.prettify_markdown,
-            "showFormulaNumber": self.show_formula_number,
-            "visualize": self.visualize
+            "useDocOrientationClassify": self._config.use_doc_orientation_classify,
+            "useDocUnwarping": self._config.use_doc_unwarping,
+            "useLayoutDetection": self._config.use_layout_detection,
+            "useChartRecognition": self._config.use_chart_recognition,
+            "formatBlockContent": self._config.format_block_content,
+            "prettifyMarkdown": self._config.prettify_markdown,
+            "showFormulaNumber": self._config.show_formula_number,
+            "visualize": self._config.visualize
         }
 
         return payload
@@ -265,8 +261,13 @@ class PaddleOCRVLClient:
             for block in sorted_blocks
         ])
 
-        # Combine markdown from all pages
-        full_markdown = '\n\n'.join(markdown_texts)
+        # Combine markdown from all pages with strong separator and page numbers
+        markdown_with_page_numbers = []
+        for i, text in enumerate(markdown_texts, 1):
+            page_header = f'\n\n{"=" * 80}\nPAGE {i}\n{"=" * 80}\n\n'
+            markdown_with_page_numbers.append(page_header + text)
+
+        full_markdown = ''.join(markdown_with_page_numbers)
 
         # Extract layout info
         layout: Dict[str, Any] = {

@@ -5,6 +5,11 @@ requests>=2.31.0
 openai>=1.0.0
 pyyaml>=6.0
 
+# Workflow orchestration
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-core>=0.3.0
+
 # Optional: litellm support
 # litellm>=1.0.0
 
