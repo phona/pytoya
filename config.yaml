@@ -1,0 +1,39 @@
+# PaddleOCR-VL Remote Service Configuration
+paddleocr_vl:
+  base_url: "http://localhost:8080"  # Remote service endpoint
+  endpoint: "/layout-parsing"        # API endpoint
+  timeout: 120                        # Request timeout in seconds
+  max_retries: 3                     # Retry failed requests
+
+  # OCR processing parameters
+  use_doc_orientation_classify: false  # 文档方向分类
+  use_doc_unwarping: false             # 文本图像矫正
+  use_layout_detection: true           # 版面区域检测
+  use_chart_recognition: false         # 图表识别
+  format_block_content: false          # 格式化block内容为Markdown
+
+  # Optional: Visual output
+  visualize: false                     # 返回可视化图像
+
+  # Optional: Markdown output
+  prettify_markdown: true              # 美化Markdown输出
+  show_formula_number: false           # 显示公式编号
+
+# LLM Configuration
+llm:
+  provider: "openai"     # openai or litellm
+  model: "gpt-4o"
+  api_key: "${OPENAI_API_KEY}"
+  base_url: null         # Optional: custom endpoint
+  temperature: 0.1
+  max_tokens: 2000
+  timeout: 30
+
+# Processing Configuration
+processing:
+  input_dir: "./invoices"
+  output_dir: "./results"
+  max_workers: 5         # Parallel workers
+  batch_size: 1
+  retry_attempts: 2
+  log_level: "INFO"
