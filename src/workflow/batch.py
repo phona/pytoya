@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
+import yaml
 
 from langgraph.graph import StateGraph
 
@@ -55,6 +56,35 @@ class WorkflowBatchProcessor:
         logger.info(f"  Output: {self.output_dir}")
         logger.info(f"  Max workers: {self.max_workers}")
 
+    def _check_human_checked(self, pdf_path: Path) -> bool:
+        """
+        Check if output.yaml exists and human_checked is true.
+
+        Args:
+            pdf_path: Path to PDF file
+
+        Returns:
+            True if file should be skipped (human_checked=True), False otherwise
+        """
+        # Build expected output path (same logic as OutputPathBuilder)
+        # Output directories are now named exactly as PDF stem (no PO suffix)
+        pdf_stem = pdf_path.stem
+
+        # Search in output directory for matching output.yaml
+        # Pattern: {pdf_stem}/output.yaml (exact match)
+        for output_yaml in self.output_dir.rglob("output.yaml"):
+            # Check if the parent directory name matches the PDF stem
+            if output_yaml.parent.name == pdf_stem:
+                try:
+                    with open(output_yaml, 'r', encoding='utf-8') as f:
+                        data = yaml.safe_load(f)
+                        if data and data.get('human_checked') is True:
+                            logger.info(f"Skipping {pdf_path.name}: already human checked ({output_yaml})")
+                            return True
+                except Exception as e:
+                    logger.warning(f"Failed to read {output_yaml}: {e}")
+        return False
+
     def process_file(self, pdf_path: Path) -> Dict[str, Any]:
         """
         Process a single PDF file using the injected StateGraph.
@@ -66,6 +96,14 @@ class WorkflowBatchProcessor:
             Result dict with status and details
         """
         try:
+            # Check if already human checked
+            if self._check_human_checked(pdf_path):
+                return {
+                    "status": "skipped",
+                    "input": str(pdf_path),
+                    "reason": "human_checked is true"
+                }
+
             logger.info(f"Processing: {pdf_path.name}")
 
             # Create initial state
@@ -114,8 +152,8 @@ class WorkflowBatchProcessor:
         Returns:
             List of result dictionaries
         """
-        # Find all PDFs
-        pdf_files = list(self.input_dir.glob("*.pdf"))
+        # Find all PDFs recursively (including subdirectories)
+        pdf_files = list(self.input_dir.rglob("*.pdf"))
 
         if not pdf_files:
             logger.warning(f"No PDF files found in {self.input_dir}")
@@ -170,10 +208,14 @@ class WorkflowBatchProcessor:
                 continue
             pdf_paths.append(pdf_path)
 
-        # Process files one by one
-        for pdf_path in pdf_paths:
-            result = self.process_file(pdf_path)
-            results.append(result)
+        # Process files in parallel
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = {executor.submit(self.process_file, pdf): pdf
+                      for pdf in pdf_paths}
+
+            for future in as_completed(futures):
+                result = future.result()
+                results.append(result)
 
         # Print summary
         self._print_summary(results)

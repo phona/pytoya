@@ -35,16 +35,13 @@ llm:
   required_fields:
     - "department.code"
     - "invoice.po_no"
-    - "invoice.invoice_date"
     - "items"
-    - "summary.subtotal_ex_tax?"  # ? means field must exist but can be null
-    - "summary.total_inc_tax"
 
 # Processing Configuration
 processing:
   input_dir: "./invoices"
   output_dir: "./results"
-  max_workers: 5         # Parallel workers
+  max_workers: 10        # Parallel workers
   batch_size: 1
   retry_attempts: 1      # Number of retry attempts for each step
   retry_delay: 2.0       # Base delay for exponential backoff (seconds)

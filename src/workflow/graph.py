@@ -127,20 +127,25 @@ def build_invoice_workflow(
             return "proceed"
 
         # Check if we should retry OCR when extraction fails due to missing fields
+        # Skip OCR retry if we already have valid OCR results with content
         if workflow_config.retry_ocr_on_missing_fields and state.can_retry_ocr():
             # Check if the failure is due to validation (missing fields)
             # We can determine this by looking at the error message
             if state.extraction_result and state.extraction_result.error:
                 error_lower = state.extraction_result.error.lower()
                 if any(keyword in error_lower for keyword in ['missing', 'required field', 'validation']):
-                    retry_count = state.increment_ocr_retry()
-                    delay = workflow_config.retry_delay_base * (2 ** (retry_count - 1))
-                    logger.warning(f"Extraction validation failed (missing fields), retrying OCR with different parameters ({retry_count}/{state.max_retries}) after {delay}s...")
-                    time.sleep(delay)
-                    # Reset extraction result for retry
-                    state.extraction_result = None
-                    state.status = ProcessingStatus.OCR_RETRY
-                    return "retry_ocr"
+                    # Don't retry OCR if we already have valid OCR results with content
+                    if state.ocr_result and state.ocr_result.success and len(state.ocr_result.raw_text.strip()) > 0:
+                        logger.info("OCR results already exist with content, skipping OCR retry")
+                    else:
+                        retry_count = state.increment_ocr_retry()
+                        delay = workflow_config.retry_delay_base * (2 ** (retry_count - 1))
+                        logger.warning(f"Extraction validation failed (missing fields), retrying OCR with different parameters ({retry_count}/{state.max_retries}) after {delay}s...")
+                        time.sleep(delay)
+                        # Reset extraction result for retry
+                        state.extraction_result = None
+                        state.status = ProcessingStatus.OCR_RETRY
+                        return "retry_ocr"
 
         # Retry extraction if enabled
         if workflow_config.enable_extraction_retry and state.can_retry_extraction():

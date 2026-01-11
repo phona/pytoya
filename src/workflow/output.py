@@ -5,7 +5,7 @@ Creates structured output directories with standardized filenames.
 """
 
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List
 import logging
 import yaml
 import json
@@ -14,6 +14,130 @@ import shutil
 from src.workflow.state import InvoiceState, ProcessingStatus, SaveResult
 
 logger = logging.getLogger(__name__)
+
+
+class TaskLister:
+    """List and filter processed invoice results."""
+
+    def __init__(self, config: Dict[str, Any]):
+        """
+        Initialize task lister.
+
+        Args:
+            config: Processing configuration dict
+        """
+        self.config = config
+        proc_config = config.get('processing', {})
+
+        self.base_dir = Path(proc_config.get('output_dir', './results'))
+        self.input_dir = Path(proc_config.get('input_dir', './invoices'))
+        self.preserve_structure = proc_config.get('preserve_source_structure', True)
+
+    def list_tasks(self, filter_type: str = "unchecked") -> List[Dict[str, Any]]:
+        """
+        List tasks based on filter type.
+
+        Args:
+            filter_type: One of 'unchecked', 'unprocessed', 'all'
+
+        Returns:
+            List of task dictionaries
+        """
+        if filter_type == "unprocessed":
+            return self._list_unprocessed()
+        else:
+            return self._list_results(filter_type)
+
+    def _list_results(self, filter_type: str) -> List[Dict[str, Any]]:
+        """List processed results with optional filtering."""
+        results = []
+
+        if not self.base_dir.exists():
+            return results
+
+        for yaml_file in self.base_dir.rglob("output.yaml"):
+            try:
+                with open(yaml_file, 'r', encoding='utf-8') as f:
+                    data = yaml.safe_load(f)
+
+                if data is None:
+                    continue
+
+                human_checked = data.get('human_checked', False)
+                po_no = data.get('invoice', {}).get('po_no') or 'UNKNOWN'
+                invoice_date = data.get('invoice', {}).get('invoice_date') or 'UNKNOWN'
+                rel_path = yaml_file.relative_to(self.base_dir)
+
+                status = "[OK]" if human_checked else "[TODO]"
+
+                # Normalize PO number to string for consistent sorting
+                po_no_str = str(po_no) if po_no != 'UNKNOWN' else 'UNKNOWN'
+
+                results.append({
+                    'status': status,
+                    'po_no': po_no_str,
+                    'invoice_date': str(invoice_date),
+                    'path': str(rel_path),
+                    'human_checked': human_checked
+                })
+            except Exception:
+                pass
+
+        # Sort by PO number (as string for consistency)
+        results.sort(key=lambda x: x['po_no'])
+
+        if filter_type == "unchecked":
+            return [r for r in results if not r['human_checked']]
+        else:  # "all"
+            return results
+
+    def _list_unprocessed(self) -> List[Dict[str, Any]]:
+        """List PDF files in input dir that don't have corresponding output."""
+        processed_pdfs = set()
+
+        if self.base_dir.exists():
+            # Find all output directories (each contains output.yaml)
+            for yaml_file in self.base_dir.rglob("output.yaml"):
+                # Get the parent directory name (matches original PDF filename)
+                output_dir = yaml_file.parent
+                processed_pdfs.add(output_dir.name)
+
+        unprocessed = []
+        for pdf_file in self.input_dir.rglob("*.pdf"):
+            if pdf_file.stem not in processed_pdfs:
+                rel_path = pdf_file.relative_to(self.input_dir)
+                unprocessed.append({
+                    'status': '[MISSING]',
+                    'po_no': '-',
+                    'invoice_date': '-',
+                    'path': str(rel_path),
+                    'human_checked': False
+                })
+
+        return sorted(unprocessed, key=lambda x: x['path'])
+
+    def get_summary(self, results: List[Dict[str, Any]], filter_type: str) -> Dict[str, int]:
+        """
+        Get summary statistics for results.
+
+        Args:
+            results: List of task dictionaries
+            filter_type: Filter type used
+
+        Returns:
+            Dict with counts
+        """
+        if filter_type == "unprocessed":
+            return {'total': len(results), 'unchecked': 0, 'checked': 0}
+
+        checked = sum(1 for r in results if r['human_checked'])
+        unchecked = len(results) - checked
+
+        return {
+            'total': len(results),
+            'checked': checked,
+            'unchecked': unchecked
+        }
 
 
 class OutputPathBuilder:
@@ -41,7 +165,7 @@ class OutputPathBuilder:
 
         Args:
             pdf_path: Original PDF path
-            extracted_data: Extracted invoice data
+            extracted_data: Extracted invoice data (PO_NO stored in YAML, not dir name)
             ocr_result: OCR result data
 
         Returns:
@@ -50,12 +174,8 @@ class OutputPathBuilder:
         pdf_path_obj = Path(pdf_path)
         original_filename = pdf_path_obj.stem  # filename without extension
 
-        # Get PO_NO from extracted data
-        po_no = extracted_data.get("invoice", {}).get("po_no", "UNKNOWN_PO")
-        sanitized_po = self._sanitize_name(po_no)
-
-        # Build directory name: {original_filename}-{PO_NO}
-        dir_name = f"{original_filename}-{sanitized_po}"
+        # Use only original filename for directory (PO_NO stored in YAML for tasks table)
+        dir_name = original_filename
 
         # Preserve source folder structure
         if self.preserve_structure:
@@ -78,26 +198,6 @@ class OutputPathBuilder:
             "ocr_markdown": target_dir / "ocr_result.md",
             "ocr_json": target_dir / "ocr_result.json"
         }
-
-    @staticmethod
-    def _sanitize_name(name: str) -> str:
-        """
-        Sanitize filename/directory name.
-
-        Args:
-            name: Original name (PO_NO, folder name, etc.)
-
-        Returns:
-            Sanitized name safe for filesystem
-        """
-        # Handle None values (e.g., when po_no is null)
-        if name is None:
-            return "UNKNOWN_PO"
-
-        invalid_chars = '<>:"/\\|?*'
-        for char in invalid_chars:
-            name = name.replace(char, '_')
-        return name.strip()
 
 
 class OutputHandler:
@@ -158,9 +258,13 @@ class OutputHandler:
             )
 
             # Save YAML (main output)
+            # Add human_checked field (set to false by default)
+            output_data = state.extraction_result.data.copy()
+            output_data['human_checked'] = False
+
             with open(paths['output_yaml'], 'w', encoding='utf-8') as f:
                 yaml.dump(
-                    state.extraction_result.data,
+                    output_data,
                     f,
                     allow_unicode=True,
                     sort_keys=False
