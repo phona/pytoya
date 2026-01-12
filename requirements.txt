@@ -10,12 +10,17 @@ langgraph>=0.2.0
 langchain>=0.3.0
 langchain-core>=0.3.0
 
-# Optional: litellm support
-# litellm>=1.0.0
+# Django
+Django>=4.2,<5.0
+djangorestframework>=3.14.0
+django-cors-headers>=4.3.0
+celery>=5.3.0
+redis>=5.0.0
+dj-database-url>=2.1.0
+python-dotenv>=1.0.0
 
 # Utilities
-python-dotenv>=1.0.0
 tabulate>=0.9.0
 
-# Audit dashboard
-flask>=2.0.0
+# Optional: litellm support
+# litellm>=1.0.0
