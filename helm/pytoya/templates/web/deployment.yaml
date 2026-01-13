@@ -1,0 +1,65 @@
+{{- if .Values.web.enabled }}
+{{- $ns := default .Release.Namespace .Values.global.namespace -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pytoya.fullname" . }}-web
+  namespace: {{ $ns }}
+  labels:
+    {{- include "pytoya.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  replicas: {{ .Values.web.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "pytoya.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        {{- include "pytoya.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+    spec:
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.global.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: web
+          image: {{ include "pytoya.image" (dict "registry" .Values.global.imageRegistry "image" .Values.web.image) }}:{{ .Values.web.tag }}
+          imagePullPolicy: {{ default "IfNotPresent" .Values.web.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.web.service.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "pytoya.fullname" . }}-config
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.web.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.web.healthCheck.initialDelay }}
+            periodSeconds: {{ .Values.web.healthCheck.period }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.web.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.web.healthCheck.initialDelay }}
+            periodSeconds: {{ .Values.web.healthCheck.period }}
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+{{- end }}

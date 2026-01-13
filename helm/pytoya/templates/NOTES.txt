@@ -1,0 +1,23 @@
+PyToYa has been deployed.
+
+Secrets:
+  Database password:
+    kubectl get secret {{ include "pytoya.fullname" . }}-secrets \
+      -n {{ default .Release.Namespace .Values.global.namespace }} \
+      -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 -d
+
+Access:
+  Ingress hosts:
+  {{- if .Values.ingress.hosts }}
+  {{- range .Values.ingress.hosts }}
+    http(s)://{{ . }}
+  {{- end }}
+  {{- else }}
+    kubectl get ingress {{ include "pytoya.fullname" . }} \
+      -n {{ default .Release.Namespace .Values.global.namespace }}
+  {{- end }}
+
+Status:
+  kubectl get pods -n {{ default .Release.Namespace .Values.global.namespace }}
+  kubectl get services -n {{ default .Release.Namespace .Values.global.namespace }}
+  kubectl get ingress -n {{ default .Release.Namespace .Values.global.namespace }}

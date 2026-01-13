@@ -1,0 +1,23 @@
+{{- $ns := default .Release.Namespace .Values.global.namespace -}}
+{{- $dbHost := default (printf "%s-postgres" (include "pytoya.fullname" .)) .Values.api.env.DB_HOST -}}
+{{- $dbPort := default (printf "%v" .Values.postgres.service.port) .Values.api.env.DB_PORT -}}
+{{- $redisHost := default (printf "%s-redis" (include "pytoya.fullname" .)) .Values.api.env.REDIS_HOST -}}
+{{- $redisPort := default (printf "%v" .Values.redis.service.port) .Values.api.env.REDIS_PORT -}}
+{{- $apiPort := default "3000" .Values.api.env.PORT -}}
+{{- $apiServiceUrl := default (printf "http://%s-api:%s" (include "pytoya.fullname" .) $apiPort) .Values.web.env.NEXT_PUBLIC_API_URL -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pytoya.fullname" . }}-config
+  namespace: {{ $ns }}
+  labels:
+    {{- include "pytoya.labels" . | nindent 4 }}
+data:
+  NODE_ENV: {{ .Values.api.env.NODE_ENV | quote }}
+  PORT: {{ $apiPort | quote }}
+  DB_HOST: {{ $dbHost | quote }}
+  DB_PORT: {{ $dbPort | quote }}
+  REDIS_HOST: {{ $redisHost | quote }}
+  REDIS_PORT: {{ $redisPort | quote }}
+  PADDLEOCR_BASE_URL: {{ .Values.api.env.PADDLEOCR_BASE_URL | quote }}
+  NEXT_PUBLIC_API_URL: {{ $apiServiceUrl | quote }}

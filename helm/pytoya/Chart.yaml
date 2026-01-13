@@ -1,0 +1,13 @@
+apiVersion: v2
+name: pytoya
+description: A Helm chart for PyToYa invoice processing system
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - invoice
+  - ocr
+  - llm
+  - extraction
+maintainers:
+  - name: PyToYa Team

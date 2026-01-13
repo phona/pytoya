@@ -1,0 +1,20 @@
+{{- if .Values.redis.enabled }}
+{{- $ns := default .Release.Namespace .Values.global.namespace -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pytoya.fullname" . }}-redis
+  namespace: {{ $ns }}
+  labels:
+    {{- include "pytoya.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  type: ClusterIP
+  ports:
+    - name: redis
+      port: {{ .Values.redis.service.port }}
+      targetPort: 6379
+  selector:
+    {{- include "pytoya.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+{{- end }}

@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: pytoya-postgres
+    environment:
+      POSTGRES_USER: pytoya_user
+      POSTGRES_PASSWORD: pytoya_pass
+      POSTGRES_DB: pytoya
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pytoya_user -d pytoya"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: pytoya-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./src/apps/api
+      dockerfile: Dockerfile
+    container_name: pytoya-api
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: pytoya_user
+      DB_PASSWORD: pytoya_pass
+      DB_DATABASE: pytoya
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      PADDLEOCR_BASE_URL: http://localhost:8080
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./src/apps/api:/app
+      - /app/node_modules
+      - api_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: npm run start:dev
+
+  web:
+    build:
+      context: ./src/apps/web
+      dockerfile: Dockerfile
+    container_name: pytoya-web
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./src/apps/web:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - api
+    command: npm run dev
+
+volumes:
+  postgres_data:
+  redis_data:
+  api_uploads:

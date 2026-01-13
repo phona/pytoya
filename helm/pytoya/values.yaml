@@ -1,0 +1,136 @@
+global:
+  namespace: pytoya
+  imageRegistry: ""
+  imagePullSecrets: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+postgres:
+  enabled: true
+  image: postgres:15-alpine
+  replicaCount: 1
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  auth:
+    database: pytoya
+    username: pytoya
+    password: ""
+  service:
+    port: 5432
+
+redis:
+  enabled: true
+  image: redis:7-alpine
+  replicaCount: 1
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+    limits:
+      cpu: "250m"
+      memory: "256Mi"
+  service:
+    port: 6379
+
+api:
+  enabled: true
+  replicaCount: 2
+  image: pytoya/api
+  tag: latest
+  pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+  ingress:
+    enabled: true
+    hosts: []
+    paths: /api
+  resources:
+    requests:
+      cpu: "1"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "2Gi"
+  persistence:
+    enabled: true
+    size: 50Gi
+    storageClass: ""
+  env:
+    NODE_ENV: production
+    PORT: "3000"
+    DB_HOST: ""
+    DB_PORT: ""
+    REDIS_HOST: ""
+    REDIS_PORT: ""
+    PADDLEOCR_BASE_URL: ""
+  healthCheck:
+    path: /health
+    initialDelay: 30
+    period: 10
+
+web:
+  enabled: true
+  replicaCount: 2
+  image: pytoya/web
+  tag: latest
+  pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+  ingress:
+    enabled: true
+    hosts: []
+    paths: /
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+  env:
+    NEXT_PUBLIC_API_URL: ""
+  healthCheck:
+    path: /
+    initialDelay: 30
+    period: 10
+
+ingress:
+  enabled: true
+  className: ""
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  tls: []
+  hosts: []
+
+hpa:
+  api:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  web:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+
+secrets:
+  jwtSecret: ""
+  llmApiKey: ""

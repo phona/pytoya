@@ -1,12 +1,12 @@
 ## 1. Implementation
 
-- [ ] 8.1 Create providers module (providers.module.ts, providers.service.ts, providers.controller.ts)
-- [ ] 8.2 Create prompts module (prompts.module.ts, prompts.service.ts, prompts.controller.ts)
-- [ ] 8.3 Define provider types (PaddleX, OpenAI-compatible) with validation
-- [ ] 8.4 Implement provider CRUD API endpoints
-- [ ] 8.5 Implement test connection endpoint
-- [ ] 8.6 Implement prompt CRUD API endpoints
-- [ ] 8.7 Port Python prompts to TypeScript templates (prompts.service.ts)
+- [x] 8.1 Create providers module (providers.module.ts, providers.service.ts, providers.controller.ts)
+- [x] 8.2 Create prompts module (prompts.module.ts, prompts.service.ts, prompts.controller.ts)
+- [x] 8.3 Define provider types (PaddleX, OpenAI-compatible) with validation
+- [x] 8.4 Implement provider CRUD API endpoints
+- [x] 8.5 Implement test connection endpoint
+- [x] 8.6 Implement prompt CRUD API endpoints
+- [x] 8.7 Port Python prompts to TypeScript templates (prompts.service.ts)
 - [ ] 8.8 Add provider/prompt fields to Project entity
 - [ ] 8.9 Update project APIs for provider/prompt configuration
 - [ ] 8.10 Create providers list page (app/(dashboard)/providers/page.tsx)

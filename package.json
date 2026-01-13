@@ -1,0 +1,30 @@
+{
+  "name": "pytoya",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "src/apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev": "concurrently \"npm:dev:*\" --names \"api,web\"",
+    "dev:api": "npm run dev --workspace=@pytoya/api",
+    "dev:web": "npm run dev --workspace=@pytoya/web",
+    "dev:api:watch": "npm run dev --workspace=@pytoya/api -- --watch",
+    "test": "npm run test --workspaces --if-present",
+    "test:watch": "npm run test --workspaces --if-present -- --watch",
+    "lint": "npm run lint --workspaces --if-present",
+    "clean": "rm -rf node_modules **/node_modules **/dist **/.next",
+    "install:all": "npm install && npm install --workspaces",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:ps": "docker-compose ps",
+    "docker:restart": "docker-compose restart"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.30",
+    "concurrently": "8.2.2",
+    "typescript": "5.4.5"
+  }
+}

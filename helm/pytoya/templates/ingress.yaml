@@ -1,0 +1,79 @@
+{{- if and .Values.ingress.enabled (or .Values.api.ingress.enabled .Values.web.ingress.enabled) }}
+{{- $ns := default .Release.Namespace .Values.global.namespace -}}
+{{- $fullName := include "pytoya.fullname" . -}}
+{{- $hosts := .Values.ingress.hosts -}}
+{{- if not $hosts }}
+{{- $hosts = .Values.api.ingress.hosts -}}
+{{- end }}
+{{- if not $hosts }}
+{{- $hosts = .Values.web.ingress.hosts -}}
+{{- end }}
+{{- $apiPath := default "/api" .Values.api.ingress.paths -}}
+{{- $webPath := default "/" .Values.web.ingress.paths -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "pytoya.labels" . | nindent 4 }}
+  annotations:
+    {{- range $k, $v := .Values.ingress.annotations }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- toYaml .Values.ingress.tls | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- if $hosts }}
+    {{- range $host := $hosts }}
+    - host: {{ $host }}
+      http:
+        paths:
+          {{- if and .Values.api.enabled .Values.api.ingress.enabled }}
+          - path: {{ $apiPath }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-api
+                port:
+                  number: {{ $.Values.api.service.port }}
+          {{- end }}
+          {{- if and .Values.web.enabled .Values.web.ingress.enabled }}
+          - path: {{ $webPath }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-web
+                port:
+                  number: {{ $.Values.web.service.port }}
+          {{- end }}
+    {{- end }}
+    {{- else }}
+    - http:
+        paths:
+          {{- if and .Values.api.enabled .Values.api.ingress.enabled }}
+          - path: {{ $apiPath }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-api
+                port:
+                  number: {{ .Values.api.service.port }}
+          {{- end }}
+          {{- if and .Values.web.enabled .Values.web.ingress.enabled }}
+          - path: {{ $webPath }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-web
+                port:
+                  number: {{ .Values.web.service.port }}
+          {{- end }}
+    {{- end }}
+{{- end }}

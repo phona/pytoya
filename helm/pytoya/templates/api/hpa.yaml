@@ -1,0 +1,33 @@
+{{- if and .Values.api.enabled .Values.hpa.api.enabled }}
+{{- $ns := default .Release.Namespace .Values.global.namespace -}}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "pytoya.fullname" . }}-api
+  namespace: {{ $ns }}
+  labels:
+    {{- include "pytoya.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "pytoya.fullname" . }}-api
+  minReplicas: {{ .Values.hpa.api.minReplicas }}
+  maxReplicas: {{ .Values.hpa.api.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.hpa.api.targetCPUUtilizationPercentage }}
+    {{- if .Values.hpa.api.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.hpa.api.targetMemoryUtilizationPercentage }}
+    {{- end }}
+{{- end }}

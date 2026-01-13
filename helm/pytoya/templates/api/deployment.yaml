@@ -1,0 +1,79 @@
+{{- if .Values.api.enabled }}
+{{- $ns := default .Release.Namespace .Values.global.namespace -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pytoya.fullname" . }}-api
+  namespace: {{ $ns }}
+  labels:
+    {{- include "pytoya.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "pytoya.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "pytoya.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      serviceAccountName: {{ include "pytoya.fullname" . }}-api
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.global.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: api
+          image: {{ include "pytoya.image" (dict "registry" .Values.global.imageRegistry "image" .Values.api.image) }}:{{ .Values.api.tag }}
+          imagePullPolicy: {{ .Values.api.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.api.service.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "pytoya.fullname" . }}-config
+            - secretRef:
+                name: {{ include "pytoya.fullname" . }}-secrets
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/uploads
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.api.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.api.healthCheck.initialDelay }}
+            periodSeconds: {{ .Values.api.healthCheck.period }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.api.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.api.healthCheck.initialDelay }}
+            periodSeconds: {{ .Values.api.healthCheck.period }}
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+      volumes:
+        - name: uploads
+          {{- if .Values.api.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "pytoya.fullname" . }}-api-uploads
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+{{- end }}

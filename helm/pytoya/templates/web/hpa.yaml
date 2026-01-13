@@ -1,0 +1,25 @@
+{{- if and .Values.web.enabled .Values.hpa.web.enabled }}
+{{- $ns := default .Release.Namespace .Values.global.namespace -}}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "pytoya.fullname" . }}-web
+  namespace: {{ $ns }}
+  labels:
+    {{- include "pytoya.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "pytoya.fullname" . }}-web
+  minReplicas: {{ .Values.hpa.web.minReplicas }}
+  maxReplicas: {{ .Values.hpa.web.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.hpa.web.targetCPUUtilizationPercentage }}
+{{- end }}

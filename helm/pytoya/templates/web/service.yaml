@@ -1,0 +1,20 @@
+{{- if .Values.web.enabled }}
+{{- $ns := default .Release.Namespace .Values.global.namespace -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pytoya.fullname" . }}-web
+  namespace: {{ $ns }}
+  labels:
+    {{- include "pytoya.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  type: {{ .Values.web.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.web.service.port }}
+      targetPort: {{ .Values.web.service.port }}
+  selector:
+    {{- include "pytoya.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+{{- end }}
