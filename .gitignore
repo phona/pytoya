@@ -30,6 +30,10 @@ invoices/
 results/
 processing.log
 
+# Allow TypeScript lib directory (only ignore Python lib at root)
+/lib/
+!/src/**/lib/
+
 # Dependencies
 node_modules/
 **/node_modules/
