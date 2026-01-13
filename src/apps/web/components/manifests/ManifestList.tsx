@@ -1,9 +1,10 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { Manifest } from '@/lib/api/manifests';
 import { ManifestFilterValues } from './ManifestFilters';
 import { ManifestTable } from './ManifestTable';
 import { ManifestCard } from './ManifestCard';
 import { Pagination } from './Pagination';
+import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/hooks/use-websocket';
 
 interface ManifestListProps {
   manifests: Manifest[];
@@ -32,6 +33,34 @@ export function ManifestList({
   const [selectAll, setSelectAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [manifestProgress, setManifestProgress] = useState<Record<number, { progress: number; status: string; error?: string }>>({});
+
+  // Handle WebSocket updates
+  const handleJobUpdate = useCallback((data: JobUpdateEvent) => {
+    setManifestProgress((prev) => ({
+      ...prev,
+      [data.manifestId]: {
+        progress: data.progress,
+        status: data.status,
+        error: data.error,
+      },
+    }));
+  }, []);
+
+  const handleManifestUpdate = useCallback((data: ManifestUpdateEvent) => {
+    setManifestProgress((prev) => {
+      const { manifestId, ...rest } = data;
+      return {
+        ...prev,
+        [manifestId]: rest,
+      };
+    });
+  }, []);
+
+  useWebSocket({
+    onJobUpdate: handleJobUpdate,
+    onManifestUpdate: handleManifestUpdate,
+  });
 
   const handleToggleSelect = (id: number) => {
     const newSelected = new Set(selectedIds);
@@ -268,6 +297,7 @@ export function ManifestList({
               onSelectToggle={handleToggleSelect}
               onSelectAll={handleToggleSelectAll}
               selectAll={selectAll}
+              manifestProgress={manifestProgress}
             />
           ) : (
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

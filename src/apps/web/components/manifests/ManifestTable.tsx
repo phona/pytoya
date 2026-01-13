@@ -1,4 +1,5 @@
 import { Manifest } from '@/lib/api/manifests';
+import { ProgressBar } from './ProgressBar';
 
 interface ManifestTableProps {
   manifests: Manifest[];
@@ -9,6 +10,7 @@ interface ManifestTableProps {
   onSelectToggle?: (id: number) => void;
   onSelectAll?: () => void;
   selectAll?: boolean;
+  manifestProgress?: Record<number, { progress: number; status: string; error?: string }>;
 }
 
 export function ManifestTable({
@@ -20,6 +22,7 @@ export function ManifestTable({
   onSelectToggle,
   onSelectAll,
   selectAll,
+  manifestProgress,
 }: ManifestTableProps) {
   const handleSort = (field: string) => {
     if (sort.field === field) {
@@ -83,6 +86,9 @@ export function ManifestTable({
             >
               Status {getSortIcon('status')}
             </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Progress
+            </th>
             <th
               onClick={() => handleSort('poNo')}
               className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -135,6 +141,22 @@ export function ManifestTable({
                 <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(manifest.status)}`}>
                   {manifest.status}
                 </span>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                {(manifest.status === 'processing' || manifestProgress?.[manifest.id]) ? (
+                  <div className="w-32">
+                    <ProgressBar
+                      progress={manifestProgress?.[manifest.id]?.progress ?? 0}
+                      status={manifestProgress?.[manifest.id]?.status}
+                      error={manifestProgress?.[manifest.id]?.error}
+                      size="sm"
+                      showLabel={false}
+                      showStatus={false}
+                    />
+                  </div>
+                ) : (
+                  <span className="text-xs text-gray-400">-</span>
+                )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" onClick={() => onSelectManifest(manifest.id)}>
                 {manifest.purchaseOrder ?? 'N/A'}

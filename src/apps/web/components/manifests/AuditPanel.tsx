@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useManifest, useManifestItems, useUpdateManifest, useReExtractField } from '@/hooks/use-manifests';
+import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/hooks/use-websocket';
 import { PdfViewer } from './PdfViewer';
 import { EditableForm } from './EditableForm';
 import { OcrViewer } from './OcrViewer';
+import { ProgressBar } from './ProgressBar';
 import { Manifest } from '@/lib/api/manifests';
 
 interface AuditPanelProps {
@@ -21,6 +23,37 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
   const [currentIndex, setCurrentIndex] = useState(allManifestIds.indexOf(manifestId));
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [jobProgress, setJobProgress] = useState<{ progress: number; status: string; error?: string } | null>(null);
+
+  // WebSocket integration
+  const { subscribeToManifest, unsubscribeFromManifest } = useWebSocket({
+    onJobUpdate: useCallback((data: JobUpdateEvent) => {
+      if (data.manifestId === manifestId) {
+        setJobProgress({
+          progress: data.progress,
+          status: data.status,
+          error: data.error,
+        });
+      }
+    }, [manifestId]),
+    onManifestUpdate: useCallback((data: ManifestUpdateEvent) => {
+      if (data.manifestId === manifestId) {
+        setJobProgress({
+          progress: data.progress,
+          status: data.status,
+          error: data.error,
+        });
+      }
+    }, [manifestId]),
+  });
+
+  // Auto-subscribe when panel opens
+  useEffect(() => {
+    subscribeToManifest(manifestId);
+    return () => {
+      unsubscribeFromManifest(manifestId);
+    };
+  }, [manifestId, subscribeToManifest, unsubscribeFromManifest]);
 
   // Navigation
   const goToPrevious = useCallback(() => {
@@ -220,7 +253,29 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
       </div>
 
       {/* Content */}
-      <div className="flex h-[calc(100vh-300px)]">
+      <div className="flex h-[calc(100vh-300px)] relative">
+        {/* Progress Overlay */}
+        {(manifest.status === 'processing' || jobProgress) && (
+          <div className="absolute inset-0 z-10 bg-white/90 backdrop-blur-sm flex items-center justify-center">
+            <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-6 max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                {jobProgress?.status === 'processing' ? 'Processing Invoice' : 'Updating'}
+              </h3>
+              <ProgressBar
+                progress={jobProgress?.progress ?? 0}
+                status={jobProgress?.status}
+                error={jobProgress?.error}
+                size="md"
+                showLabel={true}
+                showStatus={true}
+              />
+              {jobProgress?.error && (
+                <p className="mt-4 text-sm text-red-600">{jobProgress.error}</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* PDF Viewer */}
         <div className="w-1/2 border-r border-gray-200">
           <PdfViewer manifestId={manifest.id} />

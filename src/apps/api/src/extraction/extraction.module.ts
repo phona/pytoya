@@ -8,6 +8,7 @@ import { LlmModule } from '../llm/llm.module';
 import { OcrModule } from '../ocr/ocr.module';
 import { ManifestsModule } from '../manifests/manifests.module';
 import { PromptsModule } from '../prompts/prompts.module';
+import { WebSocketModule } from '../websocket/websocket.module';
 import { ExtractionController } from './extraction.controller';
 import { ExtractionService } from './extraction.service';
 import { ManifestExtractionProcessor } from './processors/manifest-extraction.processor';
@@ -23,6 +24,7 @@ import { ManifestExtractionProcessor } from './processors/manifest-extraction.pr
     OcrModule,
     PromptsModule,
     ManifestsModule,
+    WebSocketModule,
   ],
   controllers: [ExtractionController],
   providers: [ExtractionService, ManifestExtractionProcessor],

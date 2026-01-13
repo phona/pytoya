@@ -15,6 +15,7 @@ import { ProvidersModule } from './providers/providers.module';
 import { ProjectsModule } from './projects/projects.module';
 import { QueueModule } from './queue/queue.module';
 import { StorageModule } from './storage/storage.module';
+import { WebSocketModule } from './websocket/websocket.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { StorageModule } from './storage/storage.module';
     ProjectsModule,
     QueueModule,
     StorageModule,
+    WebSocketModule,
   ],
 })
 export class AppModule {}
