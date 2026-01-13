@@ -1,0 +1,21 @@
+## 1. Implementation
+
+- [x] 7.1 Create manifests list page (app/(dashboard)/projects/[id]/groups/[groupId]/manifests/page.tsx)
+- [x] 7.2 Build ManifestList component
+- [x] 7.3 Build ManifestTable component with sorting
+- [x] 7.4 Build ManifestCard component for card view
+- [x] 7.5 Build ManifestFilters sidebar component
+- [x] 7.6 Implement advanced filters (status, PO, date, department, confidence)
+- [x] 7.7 Add pagination component (optional - can be added later if needed)
+- [x] 7.8 Build AuditPanel component (two-column layout)
+- [x] 7.9 Build PdfViewer component (iframe-based)
+- [x] 7.10 Build EditableForm component
+- [x] 7.11 Build FormField component with re-extract button
+- [x] 7.12 Build ItemCard component with add/edit/delete
+- [x] 7.13 Implement OCR result viewer tab
+- [x] 7.14 Add confidence indicators (color-coded borders)
+- [x] 7.15 Implement auto-save with debouncing
+- [x] 7.16 Implement previous/next navigation
+- [x] 7.17 Add batch actions (export CSV, re-extract selected)
+- [x] 7.18 Port audit_page logic to React hooks
+- [x] 7.19 Type check implementation
