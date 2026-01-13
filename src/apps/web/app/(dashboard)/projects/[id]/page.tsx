@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useProject, useGroups } from '@/hooks/use-projects';
 import { GroupCard } from '@/components/GroupCard';
 import { GroupForm } from '@/components/GroupForm';
+import { ExportButton } from '@/components/ExportButton';
 import { Group, CreateGroupDto, UpdateGroupDto } from '@/lib/api/projects';
 
 export default function ProjectDetailPage() {
@@ -99,6 +100,10 @@ export default function ProjectDetailPage() {
                 <p className="mt-1 text-sm text-gray-600">{project.description}</p>
               )}
             </div>
+            <ExportButton
+              filters={{ projectId }}
+              filename={`${project.name.replace(/\s+/g, '-')}-export.csv`}
+            />
           </div>
 
           <div className="mt-4 flex items-center gap-6 text-sm text-gray-500">

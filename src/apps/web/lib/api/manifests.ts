@@ -127,4 +127,46 @@ export const manifestsApi = {
     });
     return response.data;
   },
+
+  // Export manifests to CSV
+  exportToCsv: async (filters?: {
+    status?: string;
+    groupId?: number;
+    projectId?: number;
+    poNo?: string;
+    department?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    humanVerified?: boolean;
+    confidenceMin?: number;
+    confidenceMax?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.groupId) params.append('groupId', filters.groupId.toString());
+    if (filters?.projectId) params.append('projectId', filters.projectId.toString());
+    if (filters?.poNo) params.append('poNo', filters.poNo);
+    if (filters?.department) params.append('department', filters.department);
+    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+    if (filters?.humanVerified !== undefined) params.append('humanVerified', filters.humanVerified.toString());
+    if (filters?.confidenceMin !== undefined) params.append('confidenceMin', filters.confidenceMin.toString());
+    if (filters?.confidenceMax !== undefined) params.append('confidenceMax', filters.confidenceMax.toString());
+
+    const response = await apiClient.get<Blob>('/manifests/export/csv', {
+      params,
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  // Export specific manifests to CSV
+  exportSelectedToCsv: async (manifestIds: number[]) => {
+    const response = await apiClient.post<Blob>('/manifests/export/csv', {
+      manifestIds,
+    }, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };
