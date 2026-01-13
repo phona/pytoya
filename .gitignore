@@ -74,4 +74,7 @@ playwright-report/
 # Docker
 .dockerignore
 
+# Git worktrees for parallel development
+.features/
+
 .claude/settings.local.json

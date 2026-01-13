@@ -20,6 +20,7 @@ export const databaseConfig: TypeOrmModuleAsyncOptions = {
       password: configService.get('DB_PASSWORD', 'pytoya_pass'),
       database: configService.get('DB_DATABASE', 'pytoya'),
       entities,
+      migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
       synchronize: false,
       logging: isDevelopment,
     };
