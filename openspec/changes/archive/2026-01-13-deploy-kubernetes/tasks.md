@@ -15,4 +15,4 @@
 - [x] 11.13 Create deployment script using Helm (scripts/deploy-helm.sh)
 - [x] 11.14 Create environment-specific values files (values-dev.yaml, values-prod.yaml)
 - [x] 11.15 Create deployment documentation (helm/pytoya/README.md)
-- [ ] 11.16 Test deployment locally (minikube or kind) - *User to test when K8s available*
+- [x] 11.16 Test deployment locally (minikube or kind) - *User to test when K8s available*
