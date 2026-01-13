@@ -6,8 +6,8 @@
 - [x] 5.4 Implement batch file upload API endpoint
 - [x] 5.5 Implement manifest list/read/update/delete endpoints
 - [x] 5.6 Configure local filesystem storage paths
-- [ ] 5.7 Create UploadDialog component
-- [ ] 5.8 Create API client functions (lib/api/manifests.ts)
+- [x] 5.7 Create UploadDialog component
+- [x] 5.8 Create API client functions (lib/api/manifests.ts)
 - [x] 5.9 Implement PDF viewer endpoint
-- [ ] 5.10 Add upload progress indicator
-- [ ] 5.11 Test file upload workflow end-to-end
+- [x] 5.10 Add upload progress indicator
+- [x] 5.11 Test file upload workflow end-to-end
