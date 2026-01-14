@@ -1,0 +1,40 @@
+## MODIFIED Requirements
+### Requirement: Kubernetes Deployment
+The system SHALL be deployable to Kubernetes with all services configured.
+
+#### Scenario: Namespace creation
+- **WHEN** deploying to Kubernetes
+- **THEN** pytoya namespace is created
+- **AND** all resources are deployed in this namespace
+
+#### Scenario: PostgreSQL deployment
+- **WHEN** deploying PostgreSQL
+- **THEN** PostgreSQL pod starts with PVC for data persistence
+- **AND** service is accessible on port 5432
+- **AND** secrets contain database password
+
+#### Scenario: Redis deployment
+- **WHEN** deploying Redis
+- **THEN** Redis pod starts
+- **AND** service is accessible on port 6379
+
+#### Scenario: API deployment
+- **WHEN** deploying backend API
+- **THEN** API pods start with PVC for /app/uploads
+- **AND** service is accessible on port 3000
+- **AND** health checks are configured (liveness and readiness probes)
+- **AND** environment variables include database, redis, and storage paths
+- **AND** backend REST endpoints are available under `/api/*` (no ingress rewrite required)
+
+#### Scenario: Web deployment
+- **WHEN** deploying frontend web
+- **THEN** web pods start
+- **AND** service is accessible on port 80
+- **AND** NEXT_PUBLIC_API_URL points to backend service
+
+#### Scenario: Ingress routing
+- **WHEN** deploying ingress
+- **THEN** `/api/*` routes to backend service
+- **AND** `/` routes to frontend service
+- **AND** TLS certificates are configured (optional)
+

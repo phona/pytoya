@@ -25,8 +25,12 @@ import { StorageService } from '../storage/storage.service';
 import { FileNotFoundException } from '../storage/exceptions/file-not-found.exception';
 import { CsvExportService } from './csv-export.service';
 import { ExportBulkDto } from './dto/export-bulk.dto';
+import { ExtractDto } from './dto/extract.dto';
+import { ExportManifestsDto } from './dto/export-manifests.dto';
+import { ReExtractFieldDto } from './dto/re-extract-field.dto';
 import { UpdateManifestDto } from './dto/update-manifest.dto';
 import { ManifestsService } from './manifests.service';
+import { QueueService } from '../queue/queue.service';
 import {
   PdfFileInterceptor,
   PdfFilesInterceptor,
@@ -38,6 +42,7 @@ export class ManifestsController {
   constructor(
     private readonly csvExportService: CsvExportService,
     private readonly manifestsService: ManifestsService,
+    private readonly queueService: QueueService,
     private readonly storageService: StorageService,
   ) {}
 
@@ -65,6 +70,17 @@ export class ManifestsController {
     return Promise.all(
       files.map((file) => this.manifestsService.create(user, groupId, file)),
     );
+  }
+
+  // Alias for uploadSingle - canonical path expected by web app
+  @Post('groups/:groupId/manifests')
+  @UseInterceptors(PdfFileInterceptor)
+  async upload(
+    @CurrentUser() user: UserEntity,
+    @Param('groupId', ParseIntPipe) groupId: number,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    return this.manifestsService.create(user, groupId, file);
   }
 
   @Get('groups/:groupId/manifests')
@@ -138,6 +154,59 @@ export class ManifestsController {
     );
 
     return csv;
+  }
+
+  // POST export for selected manifests (canonical path)
+  @Post('manifests/export/csv')
+  async exportManifests(
+    @CurrentUser() user: UserEntity,
+    @Body() body: ExportManifestsDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { filename, csv } =
+      await this.csvExportService.exportCsvByManifestIds(
+        user,
+        body.manifestIds.map(String),
+      );
+
+    response.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${filename}"`,
+    );
+
+    return csv;
+  }
+
+  @Post('manifests/:id/extract')
+  async extract(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: ExtractDto,
+  ) {
+    await this.manifestsService.findOne(user, id);
+    const jobId = await this.queueService.addExtractionJob(
+      id,
+      body.providerId,
+      body.promptId,
+    );
+    return { jobId };
+  }
+
+  @Post('manifests/:id/re-extract')
+  async reExtract(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: ReExtractFieldDto,
+  ) {
+    await this.manifestsService.findOne(user, id);
+    const jobId = await this.queueService.addExtractionJob(
+      id,
+      body.providerId,
+      body.promptId,
+      body.fieldName,
+    );
+    return { jobId };
   }
 
   @Get('manifests/:id')

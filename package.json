@@ -14,6 +14,7 @@
     "test": "npm run test --workspaces --if-present",
     "test:watch": "npm run test --workspaces --if-present -- --watch",
     "lint": "npm run lint --workspaces --if-present",
+    "type-check": "npm run type-check --workspaces --if-present",
     "clean": "rm -rf node_modules **/node_modules **/dist **/.next",
     "install:all": "npm install && npm install --workspaces",
     "docker:up": "docker-compose up -d",
@@ -25,6 +26,8 @@
   "devDependencies": {
     "@types/node": "20.11.30",
     "concurrently": "8.2.2",
+    "es-abstract": "^1.24.1",
+    "next": "14.2.5",
     "typescript": "5.4.5"
   },
   "dependencies": {

@@ -11,6 +11,7 @@ import {
 import { GroupEntity } from './group.entity';
 import { SchemaEntity } from './schema.entity';
 import { UserEntity } from './user.entity';
+import { ValidationScriptEntity } from './validation-script.entity';
 
 @Entity()
 export class ProjectEntity {
@@ -44,6 +45,9 @@ export class ProjectEntity {
 
   @OneToMany(() => SchemaEntity, (schema) => schema.project)
   schemas!: SchemaEntity[];
+
+  @OneToMany(() => ValidationScriptEntity, (validationScript) => validationScript.project)
+  validationScripts!: ValidationScriptEntity[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

@@ -1,5 +1,11 @@
 global:
-  imageRegistry: "localhost:5000"
+  imageRegistry: "registry.dev.lan"
+
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    kubernetes.io/ingress.class: traefik
 
 postgres:
   resources:
@@ -37,6 +43,9 @@ api:
 web:
   tag: dev
   replicaCount: 1
+  containerPort: 3000
+  service:
+    port: 80
   resources:
     requests:
       cpu: "200m"
@@ -45,7 +54,7 @@ web:
       cpu: "500m"
       memory: "512Mi"
   env:
-    NEXT_PUBLIC_API_URL: "http://localhost:3000/api"
+    NEXT_PUBLIC_API_URL: "/api"
 
 hpa:
   api:

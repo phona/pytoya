@@ -14,6 +14,21 @@ import { GroupEntity } from './group.entity';
 import { JobEntity } from './job.entity';
 import { ManifestItemEntity } from './manifest-item.entity';
 
+export interface ValidationIssue {
+  field: string;
+  message: string;
+  severity: 'warning' | 'error';
+  actual?: any;
+  expected?: any;
+}
+
+export interface ValidationResult {
+  issues: ValidationIssue[];
+  errorCount: number;
+  warningCount: number;
+  validatedAt: string;
+}
+
 export enum ManifestStatus {
   PENDING = 'pending',
   PROCESSING = 'processing',
@@ -73,6 +88,9 @@ export class ManifestEntity {
 
   @Column({ type: 'boolean', name: 'human_verified', default: false })
   humanVerified!: boolean;
+
+  @Column({ type: 'jsonb', name: 'validation_results', nullable: true })
+  validationResults!: ValidationResult | null;
 
   @ManyToOne(() => GroupEntity, (group) => group.manifests)
   @JoinColumn({ name: 'group_id' })

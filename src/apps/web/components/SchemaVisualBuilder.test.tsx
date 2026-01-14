@@ -83,7 +83,7 @@ describe('SchemaVisualBuilder', () => {
 
       await user.click(screen.getByRole('button', { name: /Add Property/i }));
       await user.type(screen.getByLabelText(/Name/i), 'testField');
-      await user.click(screen.getByRole('button', { name: /Add/i }));
+      await user.click(screen.getByRole('button', { name: /^Add$/i }));
 
       await waitFor(() => {
         expect(mockOnChange).toHaveBeenCalled();
@@ -163,10 +163,10 @@ describe('SchemaVisualBuilder', () => {
       await user.selectOptions(screen.getByLabelText(/Type/i), 'string');
       await user.click(screen.getByLabelText(/Format/i));
 
-      expect(screen.getByText('Date')).toBeInTheDocument();
-      expect(screen.getByText('Email')).toBeInTheDocument();
-      expect(screen.getByText('URI')).toBeInTheDocument();
-      expect(screen.getByText('UUID')).toBeInTheDocument();
+      expect(screen.getByText(/Date \(YYYY-MM-DD\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Email/i)).toBeInTheDocument();
+      expect(screen.getByText(/URI/i)).toBeInTheDocument();
+      expect(screen.getByText(/UUID/i)).toBeInTheDocument();
     });
 
     it('should show pattern field for string type', async () => {
@@ -251,7 +251,7 @@ describe('SchemaVisualBuilder', () => {
       await user.click(screen.getByRole('button', { name: /Add Property/i }));
       await user.type(screen.getByLabelText(/Name/i), 'requiredField');
       await user.click(screen.getByLabelText(/Required field/i));
-      await user.click(screen.getByRole('button', { name: /Add/i }));
+      await user.click(screen.getByRole('button', { name: /^Add$/i }));
 
       await waitFor(() => {
         expect(mockOnChange).toHaveBeenCalledWith(
@@ -435,7 +435,9 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      expect(screen.getByText('email')).toHaveClass('text-blue-600');
+      expect(
+        screen.getByText('email', { selector: 'span.text-blue-600' })
+      ).toHaveClass('text-blue-600');
     });
   });
 
@@ -469,7 +471,7 @@ describe('SchemaVisualBuilder', () => {
       await user.click(screen.getByRole('button', { name: /Add Property/i }));
       await user.type(screen.getByLabelText(/Name/i), 'status');
       await user.type(screen.getByLabelText(/Enum/i), 'active, inactive, pending');
-      await user.click(screen.getByRole('button', { name: /Add/i }));
+      await user.click(screen.getByRole('button', { name: /^Add$/i }));
 
       await waitFor(() => {
         const call = mockOnChange.mock.calls[0][0];

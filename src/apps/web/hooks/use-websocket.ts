@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { useAuthStore } from '../lib/auth-store';
+import { WS_BASE_URL } from '../lib/api-client';
 
 interface JobUpdateEvent {
   manifestId: number;
@@ -37,11 +39,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     onError,
   } = options;
 
-  // Get auth token from localStorage
+  // Get auth token from Zustand store (same as HTTP)
   const getAuthToken = useCallback(() => {
-    if (typeof window === 'undefined') return null;
-    const token = localStorage.getItem('auth_token');
-    return token;
+    return useAuthStore.getState().token;
   }, []);
 
   // Connect to WebSocket
@@ -52,9 +52,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
     try {
       const token = getAuthToken();
-      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-      const socket = io(`${wsUrl}/manifests`, {
+      const socket = io(`${WS_BASE_URL}/manifests`, {
         auth: token ? { token } : undefined,
         transports: ['websocket', 'polling'],
         reconnection: true,

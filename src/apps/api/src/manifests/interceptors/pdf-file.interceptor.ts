@@ -103,12 +103,23 @@ export function detectFileType(
 export class PdfFileInterceptor implements NestInterceptor {
   private readonly interceptor = new (FileInterceptor('file', multerOptions))();
 
-  async intercept(
+  intercept(
     context: ExecutionContext,
     next: CallHandler,
-  ): Promise<unknown> {
+  ): any {
     try {
-      return await this.interceptor.intercept(context, next);
+      const result = this.interceptor.intercept(context, next);
+      if (
+        result &&
+        typeof (result as Promise<unknown>).catch === 'function'
+      ) {
+        return (result as Promise<unknown>).catch(
+          (error) => {
+            throw mapMulterError(error);
+          },
+        );
+      }
+      return result;
     } catch (error) {
       throw mapMulterError(error);
     }
@@ -123,12 +134,23 @@ export class PdfFilesInterceptor implements NestInterceptor {
     multerOptions,
   ))();
 
-  async intercept(
+  intercept(
     context: ExecutionContext,
     next: CallHandler,
-  ): Promise<unknown> {
+  ): any {
     try {
-      return await this.interceptor.intercept(context, next);
+      const result = this.interceptor.intercept(context, next);
+      if (
+        result &&
+        typeof (result as Promise<unknown>).catch === 'function'
+      ) {
+        return (result as Promise<unknown>).catch(
+          (error) => {
+            throw mapMulterError(error);
+          },
+        );
+      }
+      return result;
     } catch (error) {
       throw mapMulterError(error);
     }

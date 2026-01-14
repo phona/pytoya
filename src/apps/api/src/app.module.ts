@@ -17,6 +17,7 @@ import { ProjectsModule } from './projects/projects.module';
 import { QueueModule } from './queue/queue.module';
 import { SchemasModule } from './schemas/schemas.module';
 import { StorageModule } from './storage/storage.module';
+import { ValidationModule } from './validation/validation.module';
 import { WebSocketModule } from './websocket/websocket.module';
 
 @Module({
@@ -41,6 +42,7 @@ import { WebSocketModule } from './websocket/websocket.module';
     QueueModule,
     SchemasModule,
     StorageModule,
+    ValidationModule,
     WebSocketModule,
   ],
 })

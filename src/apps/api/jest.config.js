@@ -25,6 +25,7 @@ module.exports = {
   },
   moduleNameMapper: {
     '^src/(.*)$': '<rootDir>/src/$1',
+    '^bcrypt$': '<rootDir>/test/mocks/bcrypt.ts',
   },
   setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
   testTimeout: 10000,

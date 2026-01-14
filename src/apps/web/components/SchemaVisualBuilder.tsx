@@ -406,7 +406,7 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
 
       {properties.length === 0 ? (
         <div className="text-center py-8 text-sm text-gray-500">
-          No properties defined yet. Click "Add Property" to start building your schema.
+          No properties defined yet. Click &quot;Add Property&quot; to start building your schema.
         </div>
       ) : (
         <div className="space-y-2">

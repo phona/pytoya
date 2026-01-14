@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import * as path from 'path';
 
 import { PdfToImageService, ConvertPdfToImagesOptions, ConvertedPage } from './pdf-to-image.service';
 import { IPdfConverterAdapter, PdfDoc } from './pdf-converter-adapter.service';
@@ -233,16 +234,17 @@ describe('PdfToImageService', () => {
         },
       ];
 
-      const result = await service.savePagesToDisk(pages, '/output', 'doc');
+      const outputDir = '/output';
+      const result = await service.savePagesToDisk(pages, outputDir, 'doc');
 
-      expect(mockFileSystem.ensureDirectory).toHaveBeenCalledWith('/output');
+      expect(mockFileSystem.ensureDirectory).toHaveBeenCalledWith(outputDir);
       expect(mockFileSystem.writeFile).toHaveBeenCalledTimes(2);
       expect(mockFileSystem.writeFile).toHaveBeenCalledWith(
-        '/output/doc-1.png',
+        path.join(outputDir, 'doc-1.png'),
         pages[0].buffer,
       );
       expect(mockFileSystem.writeFile).toHaveBeenCalledWith(
-        '/output/doc-2.jpg',
+        path.join(outputDir, 'doc-2.jpg'),
         pages[1].buffer,
       );
       expect(result).toHaveLength(2);
@@ -257,10 +259,11 @@ describe('PdfToImageService', () => {
         },
       ];
 
-      await service.savePagesToDisk(pages, '/output');
+      const outputDir = '/output';
+      await service.savePagesToDisk(pages, outputDir);
 
       expect(mockFileSystem.writeFile).toHaveBeenCalledWith(
-        '/output/page-1.png',
+        path.join(outputDir, 'page-1.png'),
         expect.any(Buffer),
       );
     });

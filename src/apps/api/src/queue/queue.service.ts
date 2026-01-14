@@ -16,6 +16,7 @@ type ExtractionJobData = {
   manifestId: number;
   providerId?: number;
   promptId?: number;
+  fieldName?: string;
 };
 
 @Injectable()
@@ -34,11 +35,12 @@ export class QueueService {
     manifestId: number,
     providerId?: number,
     promptId?: number,
+    fieldName?: string,
   ): Promise<string> {
     try {
       const job = await this.extractionQueue.add(
         PROCESS_MANIFEST_JOB,
-        { manifestId, providerId, promptId },
+        { manifestId, providerId, promptId, fieldName },
         {
           attempts: 3,
           backoff: {
@@ -57,7 +59,9 @@ export class QueueService {
         promptId,
       );
       this.logger.log(
-        `Queued extraction job ${job.id} for manifest ${manifestId}`,
+        `Queued extraction job ${job.id} for manifest ${manifestId}${
+          fieldName ? ` (field: ${fieldName})` : ''
+        }`,
       );
       return String(job.id);
     } catch (error) {

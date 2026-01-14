@@ -1,7 +1,15 @@
 import axios, { AxiosError } from 'axios';
 import { useAuthStore } from './auth-store';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+// Normalize API URL to ensure it ends with /api
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE_URL = rawApiUrl.endsWith('/api')
+  ? rawApiUrl
+  : `${rawApiUrl}/api`;
+
+// Derive WebSocket base URL by stripping /api suffix
+const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL ||
+  (rawApiUrl.endsWith('/api') ? rawApiUrl.slice(0, -4) : rawApiUrl);
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -9,6 +17,8 @@ export const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+export { WS_BASE_URL };
 
 // Request interceptor to add auth token
 apiClient.interceptors.request.use((config) => {

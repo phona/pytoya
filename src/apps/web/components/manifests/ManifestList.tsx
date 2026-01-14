@@ -5,6 +5,7 @@ import { ManifestTable } from './ManifestTable';
 import { ManifestCard } from './ManifestCard';
 import { Pagination } from './Pagination';
 import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/hooks/use-websocket';
+import { useRunBatchValidation } from '@/hooks/use-validation-scripts';
 
 interface ManifestListProps {
   manifests: Manifest[];
@@ -16,6 +17,7 @@ interface ManifestListProps {
   onSelectManifest: (manifestId: number) => void;
   onBatchExport?: (manifestIds: number[]) => void;
   onBatchReExtract?: (manifestIds: number[]) => void;
+  projectId?: number;
 }
 
 export function ManifestList({
@@ -28,12 +30,16 @@ export function ManifestList({
   onSelectManifest,
   onBatchExport,
   onBatchReExtract,
+  projectId,
 }: ManifestListProps) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [manifestProgress, setManifestProgress] = useState<Record<number, { progress: number; status: string; error?: string }>>({});
+  const [validationProgress, setValidationProgress] = useState<{ completed: number; total: number; results: Record<number, any> }>({ completed: 0, total: 0, results: {} });
+
+  const runBatchValidation = useRunBatchValidation();
 
   // Handle WebSocket updates
   const handleJobUpdate = useCallback((data: JobUpdateEvent) => {
@@ -82,6 +88,54 @@ export function ManifestList({
   const handleBatchReExtract = () => {
     if (onBatchReExtract && selectedIds.size > 0) {
       onBatchReExtract(Array.from(selectedIds));
+    }
+  };
+
+  const handleBatchValidate = async () => {
+    if (selectedIds.size === 0) return;
+
+    // Filter manifests that are completed
+    const completedManifests = manifests.filter(m => selectedIds.has(m.id) && m.status === 'completed');
+    if (completedManifests.length === 0) {
+      alert('Only completed manifests can be validated. Please select manifests with status "completed".');
+      return;
+    }
+
+    const manifestIdsToValidate = completedManifests.map(m => m.id);
+
+    setValidationProgress({
+      completed: 0,
+      total: manifestIdsToValidate.length,
+      results: {},
+    });
+
+    try {
+      const results = await runBatchValidation.mutateAsync({ manifestIds: manifestIdsToValidate });
+
+      // Process results
+      const totalErrors = Object.values(results).reduce((sum, r: any) => sum + (r.errorCount || 0), 0);
+      const totalWarnings = Object.values(results).reduce((sum, r: any) => sum + (r.warningCount || 0), 0);
+
+      setValidationProgress({
+        completed: manifestIdsToValidate.length,
+        total: manifestIdsToValidate.length,
+        results,
+      });
+
+      // Show summary
+      const message = `Validation complete!\n\n${manifestIdsToValidate.length} manifests validated\n${totalErrors} errors\n${totalWarnings} warnings`;
+      alert(message);
+
+      // Clear selection and progress after a delay
+      setTimeout(() => {
+        setValidationProgress({ completed: 0, total: 0, results: {} });
+        setSelectedIds(new Set());
+        setSelectAll(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Batch validation failed:', error);
+      alert('Batch validation failed. Please try again.');
+      setValidationProgress({ completed: 0, total: 0, results: {} });
     }
   };
   const filteredAndSortedManifests = useMemo(() => {
@@ -213,6 +267,17 @@ export function ManifestList({
                 className="px-3 py-1 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700"
               >
                 Export CSV
+              </button>
+              <button
+                onClick={handleBatchValidate}
+                disabled={runBatchValidation.isPending || validationProgress.total > 0}
+                className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {validationProgress.total > 0
+                  ? `Validating ${validationProgress.completed}/${validationProgress.total}`
+                  : runBatchValidation.isPending
+                    ? 'Validating...'
+                    : 'Run Validation'}
               </button>
               <button
                 onClick={handleBatchReExtract}

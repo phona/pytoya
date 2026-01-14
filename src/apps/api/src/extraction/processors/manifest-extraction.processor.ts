@@ -15,6 +15,7 @@ type ManifestExtractionJob = {
   manifestId: number;
   providerId?: number;
   promptId?: number;
+  fieldName?: string;
 };
 
 @Processor(EXTRACTION_QUEUE)
@@ -34,7 +35,7 @@ export class ManifestExtractionProcessor extends WorkerHost {
       this.logger.warn(`Unhandled job name ${job.name}`);
       return;
     }
-    const { manifestId, providerId, promptId } = job.data;
+    const { manifestId, providerId, promptId, fieldName } = job.data;
     this.logger.log(
       `Starting extraction job ${job.id} for manifest ${manifestId}`,
     );
@@ -61,6 +62,7 @@ export class ManifestExtractionProcessor extends WorkerHost {
         {
           providerId,
           promptId,
+          fieldName,
         },
         reportProgress,
       );

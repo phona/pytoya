@@ -1,4 +1,4 @@
-import { ProgressBar } from './ProgressBar';
+import { ProgressBar } from './manifests/ProgressBar';
 
 export interface ExtractionStage {
   name: string;

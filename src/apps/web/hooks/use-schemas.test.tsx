@@ -281,7 +281,9 @@ describe('useValidateSchema', () => {
     await result.current.mutateAsync(validateDto);
 
     expect(schemasApi.validateSchema).toHaveBeenCalledWith(validateDto);
-    expect(result.current.data).toEqual(validationResult);
+    await waitFor(() => {
+      expect(result.current.data).toEqual(validationResult);
+    });
   });
 
   it('should return validation errors', async () => {

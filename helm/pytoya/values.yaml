@@ -1,5 +1,6 @@
 global:
   namespace: pytoya
+  createNamespace: false
   imageRegistry: ""
   imagePullSecrets: []
   nodeSelector: {}
@@ -26,7 +27,9 @@ postgres:
     username: pytoya
     password: ""
   service:
+    type: ClusterIP
     port: 5432
+    nodePort: null
 
 redis:
   enabled: true
@@ -44,7 +47,9 @@ redis:
       cpu: "250m"
       memory: "256Mi"
   service:
+    type: ClusterIP
     port: 6379
+    nodePort: null
 
 api:
   enabled: true
@@ -55,6 +60,7 @@ api:
   service:
     type: ClusterIP
     port: 3000
+    nodePort: null
   ingress:
     enabled: true
     hosts: []
@@ -89,9 +95,11 @@ web:
   image: pytoya/web
   tag: latest
   pullPolicy: IfNotPresent
+  containerPort: 3000
   service:
     type: ClusterIP
-    port: 3000
+    port: 80
+    nodePort: null
   ingress:
     enabled: true
     hosts: []

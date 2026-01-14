@@ -14,18 +14,34 @@ Each Dockerfile is self-contained and builds only its respective application.
 
 ### Build API Image
 ```bash
-docker build -t pytoya/api:latest -f src/apps/api/Dockerfile src/apps/api
+docker build -t pytoya/api:latest -f src/apps/api/Dockerfile .
 ```
 
 ### Build Web Image
 ```bash
-docker build -t pytoya/web:latest -f src/apps/web/Dockerfile src/apps/web
+docker build -t pytoya/web:latest -f src/apps/web/Dockerfile .
 ```
 
 ### Build Both Images
 ```bash
-docker build -t pytoya/api:latest -f src/apps/api/Dockerfile src/apps/api
-docker build -t pytoya/web:latest -f src/apps/web/Dockerfile src/apps/web
+docker build -t pytoya/api:latest -f src/apps/api/Dockerfile .
+docker build -t pytoya/web:latest -f src/apps/web/Dockerfile .
+```
+
+### Build Web with a Kubernetes-friendly API base
+The web app reads `NEXT_PUBLIC_API_URL` at build time (bundled into the client). For an Ingress that routes `/api/*` to the backend, a good default is:
+
+```bash
+docker build -t pytoya/web:latest -f src/apps/web/Dockerfile . \
+  --build-arg NEXT_PUBLIC_API_URL=/api
+```
+
+### Building without Docker Hub
+If Docker Hub is blocked from your build environment, mirror the base image and pass it in:
+
+```bash
+docker build -t pytoya/api:latest -f src/apps/api/Dockerfile . \
+  --build-arg NODE_IMAGE=registry.dev.lan/<your-node-mirror>:20-alpine
 ```
 
 ## Running with Docker Compose
@@ -96,7 +112,7 @@ For Kubernetes deployment, use the Helm chart in `helm/pytoya/`:
 2. Update `helm/pytoya/values.yaml` with your registry
 3. Deploy with Helm
 
-See `helm/pytoya/README.md` for detailed Helm deployment instructions.
+See `helm/pytoya/README.md` and `docs/KUBERNETES_DEPLOYMENT.md` for Kubernetes deployment instructions.
 
 ## Troubleshooting
 

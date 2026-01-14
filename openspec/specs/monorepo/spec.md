@@ -22,6 +22,8 @@ The project SHALL be organized as a monorepo with separate applications.
 - **WHEN** developer runs `docker-compose up`
 - **THEN** PostgreSQL, Redis, backend API, and web frontend start successfully
 - **AND** applications can communicate via service names
+- **AND** web can call backend REST endpoints under `/api/*`
+- **AND** web can connect to backend WebSocket namespace `/manifests`
 
 #### Scenario: Monorepo scripts
 - **WHEN** developer runs `npm run dev`

@@ -9,6 +9,7 @@ import { PromptEntity } from './prompt.entity';
 import { ProviderEntity } from './provider.entity';
 import { SchemaEntity } from './schema.entity';
 import { UserEntity } from './user.entity';
+import { ValidationScriptEntity } from './validation-script.entity';
 
 export {
   ExtractionHistoryEntity,
@@ -22,13 +23,15 @@ export {
   ProviderEntity,
   SchemaEntity,
   UserEntity,
+  ValidationScriptEntity,
 };
 export { JobStatus } from './job.entity';
 export { LlmProviderType } from './llm-provider.entity';
-export { ManifestStatus } from './manifest.entity';
+export { ManifestStatus, ValidationIssue, ValidationResult } from './manifest.entity';
 export { PromptType } from './prompt.entity';
 export { ProviderType } from './provider.entity';
 export { UserRole } from './user.entity';
+export { ValidationSeverity } from './validation-script.entity';
 
 export const entities = [
   UserEntity,
@@ -42,4 +45,5 @@ export const entities = [
   PromptEntity,
   JobEntity,
   ExtractionHistoryEntity,
+  ValidationScriptEntity,
 ];

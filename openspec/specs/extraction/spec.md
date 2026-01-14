@@ -72,7 +72,9 @@ The system SHALL allow re-extracting specific fields.
 
 #### Scenario: Re-extract single field
 - **WHEN** user clicks re-extract button next to PO number field
-- **THEN** OCR and LLM are called for that field only
+- **THEN** web calls `POST /api/manifests/:id/re-extract` with `{ fieldName: "invoice.po_no" }`
+- **AND** job is queued with a field-level target
+- **AND** OCR and LLM are called for that field only
 - **AND** extracted value replaces current value
 - **AND** extraction info is updated
 

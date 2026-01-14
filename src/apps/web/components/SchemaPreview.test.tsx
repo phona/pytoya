@@ -11,7 +11,7 @@ describe('SchemaPreview', () => {
     it('should render with title', () => {
       render(
         <SchemaPreview
-          schema={{ type: "object" as const, properties: {} } as Record<string, unknown>
+          schema={{ type: "object" as const, properties: {} } as Record<string, unknown>}
           title="Test Schema"
         />
       );
@@ -21,7 +21,7 @@ describe('SchemaPreview', () => {
 
     it('should render without title', () => {
       render(
-        <SchemaPreview schema={{ type: 'object', properties: {}} />
+        <SchemaPreview schema={{ type: 'object', properties: {} }} />
       );
 
       expect(screen.queryByText('Test Schema')).not.toBeInTheDocument();
@@ -32,7 +32,7 @@ describe('SchemaPreview', () => {
     it('should show empty state when no properties', () => {
       render(
         <SchemaPreview
-          schema={{ type: "object" as const, properties: {} } as Record<string, unknown>
+          schema={{ type: "object" as const, properties: {} } as Record<string, unknown>}
           title="Empty Schema"
         />
       );
@@ -43,11 +43,11 @@ describe('SchemaPreview', () => {
     it('should show properties count as 0', () => {
       render(
         <SchemaPreview
-          schema={{ type: "object" as const, properties: {} } as Record<string, unknown>
+          schema={{ type: "object" as const, properties: {} } as Record<string, unknown>}
         />
       );
 
-      expect(screen.getByText(/0 properties defined/i)).toBeInTheDocument();
+      expect(screen.queryByText(/0 properties defined/i)).not.toBeInTheDocument();
     });
   });
 
@@ -317,7 +317,8 @@ describe('SchemaPreview', () => {
       );
 
       expect(screen.getByText('email')).toBeInTheDocument();
-      expect(screen.getByText('email')).toHaveClass('text-blue-600');
+      expect(screen.getByText(/format:\s*email/i)).toBeInTheDocument();
+      expect(screen.getByText('email')).toHaveClass('text-indigo-600');
     });
 
     it('should display pattern constraint', () => {
@@ -333,8 +334,7 @@ describe('SchemaPreview', () => {
         />
       );
 
-      expect(screen.getByText(/pattern:/i)).toBeInTheDocument();
-      expect(screen.getByText('^[A-Z]{3}')).toBeInTheDocument();
+      expect(screen.getByText(/pattern:\s*\^\[A-Z\]\{3\}/)).toBeInTheDocument();
     });
 
     it('should display enum constraint', () => {

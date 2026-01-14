@@ -1,50 +1,43 @@
-// Example backend test using NestJS testing utilities
-// This demonstrates dependency injection pattern for mocking
-
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UserEntity } from '../entities/user.entity';
-import { createMockUser } from '../../test/mocks/factories';
+import { UsersService } from '../users/users.service';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let userRepository: jest.Mocked<Partial<Repository<UserEntity>>>;
+  let usersService: jest.Mocked<Pick<UsersService, 'findByEmail' | 'create'>>;
 
   beforeEach(async () => {
-    // Create mock repository with jest functions
-    const mockRepository = {
-      findOne: jest.fn(),
+    usersService = {
+      findByEmail: jest.fn(),
       create: jest.fn(),
-      save: jest.fn(),
+    };
+    const jwtService = {
+      signAsync: jest.fn().mockResolvedValue('test-token'),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         {
-          provide: getRepositoryToken(UserEntity),
-          useValue: mockRepository,
+          provide: UsersService,
+          useValue: usersService,
         },
         {
           provide: JwtService,
-          useValue: {
-            sign: jest.fn().mockReturnValue('test-token'),
-          },
+          useValue: jwtService,
         },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    userRepository = module.get(getRepositoryToken(UserEntity));
   });
 
   describe('validateUser', () => {
     it('should return null if user not found', async () => {
-      userRepository.findOne = jest.fn().mockResolvedValue(null);
+      usersService.findByEmail.mockResolvedValue(null as any);
 
       const result = await service.validateUser('notfound@example.com', 'password');
 
@@ -52,10 +45,16 @@ describe('AuthService', () => {
     });
 
     it('should return user if credentials are valid', async () => {
-      const mockUser = createMockUser({
+      const mockUser = {
+        id: 1,
         email: 'test@example.com',
-      });
-      userRepository.findOne = jest.fn().mockResolvedValue(mockUser);
+        password: '$2b$10$abcdefghijklmnopqrstuvwxyz',
+        role: 'user',
+      } as UserEntity;
+      usersService.findByEmail.mockResolvedValue(mockUser);
+      jest
+        .spyOn(service as any, 'comparePassword')
+        .mockResolvedValue(true);
 
       const result = await service.validateUser('test@example.com', 'password');
 

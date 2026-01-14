@@ -1,5 +1,20 @@
 import apiClient from '@/lib/api-client';
 
+export interface ValidationIssue {
+  field: string;
+  message: string;
+  severity: 'warning' | 'error';
+  actual?: unknown;
+  expected?: unknown;
+}
+
+export interface ValidationResult {
+  issues: ValidationIssue[];
+  errorCount: number;
+  warningCount: number;
+  validatedAt: string;
+}
+
 export interface Manifest {
   id: number;
   filename: string;
@@ -14,6 +29,7 @@ export interface Manifest {
   invoiceDate: string | null;
   department: string | null;
   humanVerified: boolean;
+  validationResults: ValidationResult | null;
   createdAt: string;
   updatedAt: string;
 }

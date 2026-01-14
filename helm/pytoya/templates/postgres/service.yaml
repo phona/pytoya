@@ -9,11 +9,14 @@ metadata:
     {{- include "pytoya.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgres
 spec:
-  type: ClusterIP
+  type: {{ default "ClusterIP" .Values.postgres.service.type }}
   ports:
     - name: postgres
       port: {{ .Values.postgres.service.port }}
       targetPort: 5432
+      {{- if and (eq (default "ClusterIP" .Values.postgres.service.type) "NodePort") .Values.postgres.service.nodePort }}
+      nodePort: {{ .Values.postgres.service.nodePort }}
+      {{- end }}
   selector:
     {{- include "pytoya.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: postgres

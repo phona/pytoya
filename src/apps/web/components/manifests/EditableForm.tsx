@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Manifest, ManifestItem } from '@/lib/api/manifests';
 
 interface EditableFormProps {
@@ -24,16 +24,7 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
 
   const [unsavedChanges, setUnsavedChanges] = useState(false);
 
-  useEffect(() => {
-    if (unsavedChanges) {
-      const timer = setTimeout(() => {
-        handleSave();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [formData, unsavedChanges]);
-
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     const updatedData = {
       ...manifest.extractedData,
       department: { code: formData.department },
@@ -47,7 +38,17 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
     });
 
     setUnsavedChanges(false);
-  };
+  }, [formData, manifest.extractedData, onSave]);
+
+  useEffect(() => {
+    if (!unsavedChanges) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      handleSave();
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [handleSave, unsavedChanges]);
 
   const handleFieldChange = (field: string, value: any) => {
     setFormData((prev) => {
@@ -178,7 +179,7 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
 
         {formData.items.length === 0 && (
           <div className="text-center py-8 text-gray-500 text-sm">
-            No items. Click "Add Item" to create one.
+            No items. Click &quot;Add Item&quot; to create one.
           </div>
         )}
       </div>

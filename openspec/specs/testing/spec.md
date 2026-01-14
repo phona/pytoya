@@ -73,3 +73,11 @@ The system SHALL document testing conventions and best practices.
 - **AND** examples of DI mocking (not monkey patching)
 - **AND** anti-patterns are documented with explanations
 
+### Requirement: Non-interactive Linting
+The system SHALL run linting in non-interactive mode for CI and automation.
+
+#### Scenario: Lint runs without prompts
+- **WHEN** developer runs `npm run lint`
+- **THEN** lint completes without interactive prompts
+- **AND** lint exits non-zero on violations
+

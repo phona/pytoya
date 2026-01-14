@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useManifest, useManifestItems, useUpdateManifest, useReExtractField } from '@/hooks/use-manifests';
 import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/hooks/use-websocket';
+import { useRunValidation } from '@/hooks/use-validation-scripts';
 import { PdfViewer } from './PdfViewer';
 import { EditableForm } from './EditableForm';
 import { OcrViewer } from './OcrViewer';
 import { ProgressBar } from './ProgressBar';
+import { ValidationResultsPanel } from '@/components/ValidationResultsPanel';
 import { Manifest } from '@/lib/api/manifests';
 
 interface AuditPanelProps {
@@ -18,8 +20,9 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
   const { data: items } = useManifestItems(manifestId);
   const updateManifest = useUpdateManifest();
   const reExtractField = useReExtractField();
+  const runValidation = useRunValidation();
 
-  const [activeTab, setActiveTab] = useState<'form' | 'ocr'>('form');
+  const [activeTab, setActiveTab] = useState<'form' | 'ocr' | 'validation'>('form');
   const [currentIndex, setCurrentIndex] = useState(allManifestIds.indexOf(manifestId));
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
@@ -68,6 +71,14 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
     }
   }, [currentIndex, allManifestIds.length]);
 
+  const handleSave = useCallback(async () => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    // Trigger immediate save - the form will call this
+    setSaveStatus('saving');
+  }, [debounceTimer]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -94,7 +105,7 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goToPrevious, goToNext, onClose]);
+  }, [goToPrevious, goToNext, handleSave, onClose]);
 
   // Auto-save with debouncing
   const handleAutoSave = useCallback(
@@ -130,14 +141,6 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
     },
     [manifestId, updateManifest, debounceTimer],
   );
-
-  const handleSave = useCallback(async () => {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-    }
-    // Trigger immediate save - the form will call this
-    setSaveStatus('saving');
-  }, [debounceTimer]);
 
   const handleReExtractField = async (fieldName: string) => {
     try {
@@ -228,27 +231,65 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
 
       {/* Tabs */}
       <div className="px-6 pt-4 border-b border-gray-200">
-        <div className="flex gap-4">
-          <button
-            onClick={() => setActiveTab('form')}
-            className={`pb-2 px-1 text-sm font-medium border-b-2 ${
-              activeTab === 'form'
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Invoice Form
-          </button>
-          <button
-            onClick={() => setActiveTab('ocr')}
-            className={`pb-2 px-1 text-sm font-medium border-b-2 ${
-              activeTab === 'ocr'
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            OCR Results
-          </button>
+        <div className="flex items-center justify-between">
+          <div className="flex gap-4">
+            <button
+              onClick={() => setActiveTab('form')}
+              className={`pb-2 px-1 text-sm font-medium border-b-2 ${
+                activeTab === 'form'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Invoice Form
+            </button>
+            <button
+              onClick={() => setActiveTab('ocr')}
+              className={`pb-2 px-1 text-sm font-medium border-b-2 ${
+                activeTab === 'ocr'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              OCR Results
+            </button>
+            <button
+              onClick={() => setActiveTab('validation')}
+              className={`pb-2 px-1 text-sm font-medium border-b-2 ${
+                activeTab === 'validation'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Validation
+              {manifest.validationResults && (
+                <span
+                  className={`ml-2 px-2 py-0.5 text-xs font-medium rounded-full ${
+                    manifest.validationResults.errorCount > 0
+                      ? 'bg-red-100 text-red-800'
+                      : manifest.validationResults.warningCount > 0
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-green-100 text-green-800'
+                  }`}
+                >
+                  {manifest.validationResults.errorCount > 0
+                    ? `${manifest.validationResults.errorCount} errors`
+                    : manifest.validationResults.warningCount > 0
+                      ? `${manifest.validationResults.warningCount} warnings`
+                      : 'Passed'}
+                </span>
+              )}
+            </button>
+          </div>
+          {activeTab === 'validation' && (
+            <button
+              onClick={() => runValidation.mutate({ manifestId })}
+              disabled={runValidation.isPending}
+              className="px-3 py-1 text-sm font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {runValidation.isPending ? 'Running...' : 'Run Validation'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -289,6 +330,11 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
               items={items ?? []}
               onSave={handleAutoSave}
               onReExtractField={handleReExtractField}
+            />
+          ) : activeTab === 'validation' ? (
+            <ValidationResultsPanel
+              result={manifest.validationResults}
+              isLoading={runValidation.isPending}
             />
           ) : (
             <OcrViewer manifest={manifest} />

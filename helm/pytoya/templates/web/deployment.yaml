@@ -44,7 +44,7 @@ spec:
           imagePullPolicy: {{ default "IfNotPresent" .Values.web.pullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.web.service.port }}
+              containerPort: {{ .Values.web.containerPort }}
           envFrom:
             - configMapRef:
                 name: {{ include "pytoya.fullname" . }}-config

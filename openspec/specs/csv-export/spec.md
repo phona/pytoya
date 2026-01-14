@@ -19,7 +19,8 @@ The system SHALL export manifest data to CSV format with advanced filtering.
 
 #### Scenario: Export selected manifests
 - **WHEN** user selects multiple manifests and clicks "Export Selected"
-- **THEN** CSV contains only selected manifests
+- **THEN** web calls `POST /api/manifests/export/csv` with `{ manifestIds: [...] }`
+- **AND** CSV contains only selected manifests
 - **AND** selection order is preserved in CSV
 
 #### Scenario: Export by group

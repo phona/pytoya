@@ -14,6 +14,9 @@ spec:
     - name: http
       port: {{ .Values.api.service.port }}
       targetPort: {{ .Values.api.service.port }}
+      {{- if and (eq .Values.api.service.type "NodePort") .Values.api.service.nodePort }}
+      nodePort: {{ .Values.api.service.nodePort }}
+      {{- end }}
   selector:
     {{- include "pytoya.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: api

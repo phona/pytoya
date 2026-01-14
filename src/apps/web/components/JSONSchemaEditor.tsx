@@ -29,11 +29,15 @@ export function JSONSchemaEditor({
   // Validate JSON and update error state
   useEffect(() => {
     try {
-      if (value.trim()) {
-        JSON.parse(value);
+      const trimmed = value.trim();
+      if (!trimmed) {
         setError(null);
         onError?.(null);
+        return;
       }
+      JSON.parse(value);
+      setError(null);
+      onError?.(null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Invalid JSON';
       setError(errorMessage);
@@ -60,11 +64,15 @@ export function JSONSchemaEditor({
       e.preventDefault();
       const start = e.currentTarget.selectionStart;
       const end = e.currentTarget.selectionEnd;
+      const target = e.currentTarget;
       const newValue = value.substring(0, start) + '  ' + value.substring(end);
       onChange(newValue);
       // Set cursor position after the inserted spaces
       setTimeout(() => {
-        e.currentTarget.selectionStart = e.currentTarget.selectionEnd = start + 2;
+        if (!target) {
+          return;
+        }
+        target.selectionStart = target.selectionEnd = start + 2;
       }, 0);
     }
   };

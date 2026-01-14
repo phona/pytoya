@@ -1,6 +1,8 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { act } from 'react-dom/test-utils';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import { SchemaForm } from './SchemaForm';
 import { CreateSchemaDto, UpdateSchemaDto, Schema } from '@/lib/api/schemas';
 
@@ -22,9 +24,11 @@ const createWrapper = () => {
     },
   });
 
-  return ({ children }: { children: React.ReactNode }) => (
+  const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
+  Wrapper.displayName = 'QueryClientWrapper';
+  return Wrapper;
 };
 
 describe('SchemaForm', () => {
@@ -49,7 +53,7 @@ describe('SchemaForm', () => {
       expect(screen.getByLabelText(/Schema Name/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Project/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Description/i)).toBeInTheDocument();
-      expect(screen.getByText(/JSON Schema/i)).toBeInTheDocument();
+      expect(screen.getByText(/^JSON Schema/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Required Fields/i)).toBeInTheDocument();
     });
 
@@ -69,7 +73,7 @@ describe('SchemaForm', () => {
       await user.selectOptions(screen.getByLabelText(/Project/i), '1');
 
       // Submit form
-      fireEvent.click(screen.getByRole('button', { name: /Create/i }));
+      await user.click(screen.getByRole('button', { name: /Create/i }));
 
       await waitFor(() => {
         expect(mockOnSubmit).toHaveBeenCalled();
@@ -191,13 +195,17 @@ describe('SchemaForm', () => {
       await user.click(screen.getByRole('button', { name: /Code Editor/i }));
 
       // Find the textarea and type invalid JSON
-      const textarea = screen.getByPlaceholderText(/JSON Schema/i);
+      const textarea = screen.getByPlaceholderText(/"type": "object"/i);
       await user.clear(textarea);
-      await user.type(textarea, '{ invalid json }');
+      await act(async () => {
+        fireEvent.change(textarea, { target: { value: '{ invalid json }' } });
+      });
 
       // Should show error
       await waitFor(() => {
-        expect(screen.getByText(/Invalid JSON/i)).toBeInTheDocument();
+        expect(
+          screen.getByText('Invalid JSON', { selector: 'span' })
+        ).toBeInTheDocument();
       });
     });
 
@@ -214,9 +222,11 @@ describe('SchemaForm', () => {
       );
 
       // Type invalid JSON
-      const textarea = screen.getByPlaceholderText(/JSON Schema/i);
+      const textarea = screen.getByPlaceholderText(/"type": "object"/i);
       await user.clear(textarea);
-      await user.type(textarea, '{ invalid }');
+      await act(async () => {
+        fireEvent.change(textarea, { target: { value: '{ invalid }' } });
+      });
 
       await waitFor(() => {
         const submitButton = screen.getByRole('button', { name: /Create/i });
@@ -280,7 +290,7 @@ describe('SchemaForm', () => {
 
       await waitFor(() => {
         // Verify template schema is loaded
-        const textarea = screen.getByPlaceholderText(/JSON Schema/i);
+        const textarea = screen.getByPlaceholderText(/"type": "object"/i);
         expect(textarea).toHaveValue(
           JSON.stringify(mockTemplates[0].jsonSchema, null, 2)
         );

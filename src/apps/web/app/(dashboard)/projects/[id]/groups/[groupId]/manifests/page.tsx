@@ -114,6 +114,7 @@ export default function ManifestsPage() {
                 viewMode={viewMode}
                 onBatchExport={handleBatchExport}
                 onBatchReExtract={handleBatchReExtract}
+                projectId={projectId}
               />
             )}
           </div>

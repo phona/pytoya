@@ -8,10 +8,11 @@ Before deploying, you need to build Docker images for each app:
 
 ```bash
 # Build API image
-docker build -t pytoya/api:latest -f src/apps/api/Dockerfile src/apps/api
+docker build -t pytoya/api:latest -f src/apps/api/Dockerfile .
 
 # Build Web image
-docker build -t pytoya/web:latest -f src/apps/web/Dockerfile src/apps/web
+docker build -t pytoya/web:latest -f src/apps/web/Dockerfile . \
+  --build-arg NEXT_PUBLIC_API_URL=/api
 
 # Optional: Push to registry
 docker tag pytoya/api:latest your-registry/pytoya/api:latest
@@ -36,6 +37,39 @@ docker push your-registry/pytoya/web:latest
 helm install pytoya helm/pytoya \
   --namespace pytoya \
   --create-namespace
+```
+
+## NodePort (No Ingress)
+
+If you don't have an Ingress controller, you can expose Services via NodePort.
+
+Example: deploy only Postgres + Redis for development:
+
+```bash
+POSTGRES_PASSWORD=change-me ./scripts/deploy-deps-nodeport.sh
+```
+
+Manual Helm command:
+
+```bash
+helm upgrade --install pytoya-dev helm/pytoya \
+  --namespace pytoya-dev \
+  --create-namespace \
+  --set global.namespace=pytoya-dev \
+  --set api.enabled=false \
+  --set web.enabled=false \
+  --set ingress.enabled=false \
+  --set postgres.service.type=NodePort \
+  --set redis.service.type=NodePort \
+  --set postgres.auth.password=change-me \
+  --set secrets.jwtSecret=dummy \
+  --set secrets.llmApiKey=dummy
+```
+
+To see assigned NodePorts:
+
+```bash
+kubectl get svc -n pytoya-dev
 ```
 
 ### Development
@@ -83,6 +117,9 @@ helm install pytoya helm/pytoya \
   --set secrets.llmApiKey=change-me
 ```
 
+### Notes on `NEXT_PUBLIC_API_URL`
+`NEXT_PUBLIC_API_URL` is compiled into the web frontend at image build time (Next.js `NEXT_PUBLIC_*` variables). For the default Ingress routing (`/api/*` to the backend), use `--build-arg NEXT_PUBLIC_API_URL=/api` when building the web image.
+
 ## Upgrading
 
 ```bash
@@ -109,3 +146,6 @@ helm uninstall pytoya --namespace pytoya
 - Describe a pod: `kubectl describe pod <pod> -n pytoya`
 - Check logs: `kubectl logs <pod> -n pytoya`
 - Check ingress: `kubectl get ingress -n pytoya`
+
+## See Also
+- `docs/KUBERNETES_DEPLOYMENT.md`

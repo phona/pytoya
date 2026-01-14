@@ -9,11 +9,14 @@ metadata:
     {{- include "pytoya.labels" . | nindent 4 }}
     app.kubernetes.io/component: redis
 spec:
-  type: ClusterIP
+  type: {{ default "ClusterIP" .Values.redis.service.type }}
   ports:
     - name: redis
       port: {{ .Values.redis.service.port }}
       targetPort: 6379
+      {{- if and (eq (default "ClusterIP" .Values.redis.service.type) "NodePort") .Values.redis.service.nodePort }}
+      nodePort: {{ .Values.redis.service.nodePort }}
+      {{- end }}
   selector:
     {{- include "pytoya.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: redis

@@ -32,6 +32,7 @@ type ExtractionOptions = {
   reExtractPrompt?: PromptEntity;
   providerId?: number;
   promptId?: number;
+  fieldName?: string;
 };
 
 const DEFAULT_REQUIRED_FIELDS = [
@@ -144,6 +145,16 @@ export class ExtractionService {
       throw new Error(`Manifest ${manifestId} not found`);
     }
 
+    const previousExtractedData =
+      manifest.extractedData &&
+      typeof manifest.extractedData === 'object' &&
+      !Array.isArray(manifest.extractedData)
+        ? (manifest.extractedData as ExtractedData)
+        : null;
+    const targetFieldName = this.normalizeFieldPath(options.fieldName);
+    const isFieldReExtract =
+      Boolean(targetFieldName) && Boolean(previousExtractedData);
+
     const reportProgress = this.buildProgressReporter(onProgress);
     reportProgress(5);
 
@@ -222,6 +233,21 @@ export class ExtractionService {
       strategy: this.determineExtractionStrategy(schema, manifest.fileType, provider),
     };
 
+    if (isFieldReExtract && previousExtractedData && targetFieldName) {
+      state.extractionRetryCount = 1;
+      state.extractionResult = {
+        data: previousExtractedData,
+        success: false,
+        retryCount: 0,
+        error: `Re-extract requested for ${targetFieldName}`,
+        validation: {
+          valid: false,
+          missingFields: [targetFieldName],
+          errors: [],
+        },
+      };
+    }
+
     await this.updateManifestStatus(manifest, ManifestStatus.PROCESSING);
 
     try {
@@ -278,11 +304,28 @@ export class ExtractionService {
           reExtractPrompt,
         },
         schema,
+        isFieldReExtract && targetFieldName
+          ? [targetFieldName]
+          : schema?.requiredFields ?? this.getRequiredFields(),
       );
       reportProgress(80);
 
       state.status = ExtractionStatus.SAVING;
       reportProgress(90);
+
+      if (
+        isFieldReExtract &&
+        previousExtractedData &&
+        targetFieldName &&
+        state.extractionResult?.success
+      ) {
+        state.extractionResult.data = this.mergeFieldReExtractResult(
+          previousExtractedData,
+          state.extractionResult.data,
+          targetFieldName,
+        );
+      }
+
       await this.saveResult(manifest, state);
       state.status = ExtractionStatus.COMPLETED;
       reportProgress(100);
@@ -305,9 +348,8 @@ export class ExtractionService {
     state: ExtractionWorkflowState,
     options: ExtractionOptions,
     schema: SchemaEntity | null,
+    requiredFields: string[],
   ): Promise<void> {
-    // Get required fields from schema or fall back to defaults
-    const requiredFields = schema?.requiredFields ?? this.getRequiredFields();
     const providerConfig = this.buildProviderConfig(options.provider);
     const systemPrompt = this.getSystemPrompt(options.prompt);
     const reExtractSystemPrompt = this.getReExtractPrompt(
@@ -788,6 +830,61 @@ export class ExtractionService {
       temperature: provider.temperature,
       maxTokens: provider.maxTokens,
     };
+  }
+
+  private normalizeFieldPath(fieldName: string | undefined): string | undefined {
+    const trimmed = fieldName?.trim();
+    if (!trimmed) return undefined;
+    return trimmed.endsWith('?') ? trimmed.slice(0, -1) : trimmed;
+  }
+
+  private mergeFieldReExtractResult(
+    base: ExtractedData,
+    patch: ExtractedData,
+    fieldPath: string,
+  ): ExtractedData {
+    const merged = this.cloneJson(base);
+    const value = this.getPathValue(patch, fieldPath);
+    this.setPathValue(merged, fieldPath, value);
+
+    const extractionInfo = this.getPathValue(patch, '_extraction_info');
+    if (extractionInfo !== undefined) {
+      this.setPathValue(merged, '_extraction_info', extractionInfo);
+    }
+
+    return merged;
+  }
+
+  private cloneJson<T>(value: T): T {
+    return JSON.parse(JSON.stringify(value)) as T;
+  }
+
+  private getPathValue(obj: unknown, fieldPath: string): unknown {
+    if (!obj || typeof obj !== 'object') return undefined;
+    const parts = fieldPath.split('.').filter(Boolean);
+    let current: any = obj;
+    for (const part of parts) {
+      if (current == null || typeof current !== 'object') return undefined;
+      current = current[part];
+    }
+    return current;
+  }
+
+  private setPathValue(obj: unknown, fieldPath: string, value: unknown): void {
+    if (!obj || typeof obj !== 'object') return;
+    const parts = fieldPath.split('.').filter(Boolean);
+    if (parts.length === 0) return;
+
+    let current: any = obj;
+    for (let i = 0; i < parts.length - 1; i += 1) {
+      const key = parts[i];
+      if (current[key] == null || typeof current[key] !== 'object') {
+        current[key] = {};
+      }
+      current = current[key];
+    }
+
+    current[parts[parts.length - 1]] = value;
   }
 
   private parseOptionalNumber(value?: string | null): number | null {

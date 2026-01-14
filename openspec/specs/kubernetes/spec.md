@@ -28,6 +28,7 @@ The system SHALL be deployable to Kubernetes with all services configured.
 - **AND** service is accessible on port 3000
 - **AND** health checks are configured (liveness and readiness probes)
 - **AND** environment variables include database, redis, and storage paths
+- **AND** backend REST endpoints are available under `/api/*` (no ingress rewrite required)
 
 #### Scenario: Web deployment
 - **WHEN** deploying frontend web
@@ -37,7 +38,7 @@ The system SHALL be deployable to Kubernetes with all services configured.
 
 #### Scenario: Ingress routing
 - **WHEN** deploying ingress
-- **THEN** /api/* routes to backend service
-- **AND** / routes to frontend service
+- **THEN** `/api/*` routes to backend service
+- **AND** `/` routes to frontend service
 - **AND** TLS certificates are configured (optional)
 
