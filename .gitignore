@@ -83,3 +83,4 @@ playwright-report/
 .features/
 
 .claude/settings.local.json
+.jest-cache

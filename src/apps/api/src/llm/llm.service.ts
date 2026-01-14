@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
 
+import { ProviderType } from '../entities/provider.entity';
 import {
   LLM_AXIOS_INSTANCE,
   LLM_CHAT_COMPLETIONS_ENDPOINT,
@@ -99,9 +100,20 @@ export class LlmService {
       max_tokens: maxTokens,
     };
 
+    // Add response_format if specified and provider supports it
+    if (options.responseFormat) {
+      const supportsStructuredOutput =
+        provider?.supportsStructuredOutput ??
+        this.providerSupportsStructuredOutput(provider?.type, model);
+      if (supportsStructuredOutput) {
+        payload.response_format = options.responseFormat;
+      }
+    }
+
     if (this.logVerbose) {
       this.logger.debug(
-        `LLM request prepared (model=${model}, messages=${messages.length})`,
+        `LLM request prepared (model=${model}, messages=${messages.length}, ` +
+        `response_format=${payload.response_format?.type ?? 'none'})`,
       );
     }
 
@@ -145,6 +157,29 @@ export class LlmService {
       this.logger.warn(`LLM request failed: ${errorMessage}`);
       throw new Error(`LLM request failed: ${errorMessage}`);
     }
+  }
+
+  /**
+   * Check if a provider/model combination supports structured output.
+   * OpenAI and compatible APIs support structured output for gpt-4o and later models.
+   */
+  providerSupportsStructuredOutput(
+    providerType?: ProviderType,
+    model?: string,
+  ): boolean {
+    // OPENAI provider supports structured output for gpt-4o and later
+    if (providerType === ProviderType.OPENAI) {
+      const modelName = model?.toLowerCase() ?? this.model.toLowerCase();
+      return (
+        modelName.startsWith('gpt-4o') ||
+        modelName.startsWith('gpt-4.1') ||
+        modelName.startsWith('o1')
+      );
+    }
+
+    // PADDLEX and CUSTOM providers: assume support if explicitly configured
+    // This can be enhanced with capability detection in the future
+    return false;
   }
 
   private formatError(error: unknown): string {

@@ -28,7 +28,20 @@ module.exports = {
   },
   setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
   testTimeout: 10000,
+  // Optimized ts-jest configuration (using transform syntax instead of deprecated globals)
   transform: {
-    '^.+\\.ts$': 'ts-jest',
+    '^.+\\.ts$': [
+      'ts-jest',
+      {
+        tsconfig: {
+          ...require('./tsconfig.json').compilerOptions,
+          // Faster compilation for tests
+          isolatedModules: false,
+        },
+      },
+    ],
   },
+  cacheDirectory: '<rootDir>/.jest-cache',
+  // Increase max workers for parallel execution
+  maxWorkers: '50%',
 };

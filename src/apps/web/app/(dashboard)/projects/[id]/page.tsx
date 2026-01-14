@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useProject, useGroups } from '@/hooks/use-projects';
+import { useProject, useGroups, useProjects } from '@/hooks/use-projects';
+import { useProjectSchemas } from '@/hooks/use-schemas';
 import { GroupCard } from '@/components/GroupCard';
 import { GroupForm } from '@/components/GroupForm';
 import { ExportButton } from '@/components/ExportButton';
@@ -24,9 +25,12 @@ export default function ProjectDetailPage() {
     isUpdating,
     isDeleting,
   } = useGroups(projectId);
+  const { schemas: projectSchemas } = useProjectSchemas(projectId);
+  const { updateProject, isUpdating: isProjectUpdating } = useProjects();
 
   const [showForm, setShowForm] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
+  const [selectedSchemaId, setSelectedSchemaId] = useState<number | null>(null);
 
   const handleCreateGroup = async (data: CreateGroupDto) => {
     await createGroup(data);
@@ -56,6 +60,13 @@ export default function ProjectDetailPage() {
   const handleEditGroup = (group: Group) => {
     setEditingGroup(group);
     setShowForm(false);
+  };
+
+  const handleUpdateDefaultSchema = async () => {
+    await updateProject({
+      id: projectId,
+      data: { defaultSchemaId: selectedSchemaId },
+    });
   };
 
   if (projectLoading) {
@@ -188,6 +199,54 @@ export default function ProjectDetailPage() {
               ))}
             </div>
           )}
+
+          {/* Schema Settings Section */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Default Schema</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Select the default JSON Schema to use for data extraction in this project.
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <label htmlFor="schema-select" className="block text-sm font-medium text-gray-700 mb-1">
+                  Default Schema
+                </label>
+                <select
+                  id="schema-select"
+                  value={selectedSchemaId ?? project?.defaultSchemaId ?? ''}
+                  onChange={(e) => setSelectedSchemaId(e.target.value ? Number(e.target.value) : null)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                >
+                  <option value="">No default schema</option>
+                  {projectSchemas.map((schema) => (
+                    <option key={schema.id} value={schema.id.toString()}>
+                      {schema.name}
+                      {schema.id === project?.defaultSchemaId && ' (Current)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={handleUpdateDefaultSchema}
+                disabled={isProjectUpdating || selectedSchemaId === project?.defaultSchemaId}
+                className="mt-5 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isProjectUpdating ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+            {projectSchemas.length === 0 && (
+              <p className="mt-4 text-sm text-gray-500">
+                No schemas available.{' '}
+                <button
+                  onClick={() => window.location.href = '/schemas'}
+                  className="text-indigo-600 hover:text-indigo-700 font-medium"
+                >
+                  Create a schema
+                </button>
+                {' '}to enable data extraction.
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>

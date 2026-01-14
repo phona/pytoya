@@ -29,7 +29,7 @@ export interface ExtractionValidationResult {
 }
 
 export interface ExtractionStateResult {
-  data: ExtractedData | Record<string, unknown>;
+  data: ExtractedData;
   success: boolean;
   error?: string;
   retryCount: number;

@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { GroupEntity } from './group.entity';
+import { SchemaEntity } from './schema.entity';
 import { UserEntity } from './user.entity';
 
 @Entity()
@@ -28,6 +29,9 @@ export class ProjectEntity {
   @Column({ type: 'varchar', nullable: true, name: 'default_prompt_id' })
   defaultPromptId!: string | null;
 
+  @Column({ type: 'int', nullable: true, name: 'default_schema_id' })
+  defaultSchemaId!: number | null;
+
   @Column({ type: 'int', name: 'user_id' })
   ownerId!: number;
 
@@ -37,6 +41,9 @@ export class ProjectEntity {
 
   @OneToMany(() => GroupEntity, (group) => group.project)
   groups!: GroupEntity[];
+
+  @OneToMany(() => SchemaEntity, (schema) => schema.project)
+  schemas!: SchemaEntity[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

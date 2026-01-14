@@ -9,9 +9,9 @@
     "experimentalDecorators": true,
     "sourceMap": true,
     "incremental": true,
-    "types": ["node"],
+    "types": ["node", "jest"],
     "strictPropertyInitialization": false
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "test"]
+  "exclude": ["node_modules", "dist"]
 }

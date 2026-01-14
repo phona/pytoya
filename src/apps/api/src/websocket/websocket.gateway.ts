@@ -67,7 +67,10 @@ export class ManifestGateway implements OnGatewayConnection, OnGatewayDisconnect
     if (!this.manifestSubscriptions.has(manifestId)) {
       this.manifestSubscriptions.set(manifestId, new Set());
     }
-    this.manifestSubscriptions.get(manifestId).add(client.id);
+    const subscribers = this.manifestSubscriptions.get(manifestId);
+    if (subscribers) {
+      subscribers.add(client.id);
+    }
 
     // Join room for this manifest
     client.join(`manifest:${manifestId}`);

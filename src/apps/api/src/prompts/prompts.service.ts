@@ -1,17 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import * as yaml from 'js-yaml';
 import { Repository } from 'typeorm';
 
 import { PromptEntity } from '../entities/prompt.entity';
-import { INVOICE_YAML_SCHEMA } from './constants/invoice-schema.constant';
+import { INVOICE_JSON_SCHEMA } from './constants/invoice-json-schema.constant';
 import {
-  FEEDBACK_TEMPLATE,
+  JSON_FEEDBACK_TEMPLATE,
   OCR_SECTION,
-  PREVIOUS_RESULT_TEMPLATE,
-  RE_EXTRACT_RETURN_INSTRUCTION,
-  RETURN_YAML_INSTRUCTION,
-} from './constants/prompt-templates.constant';
+  PREVIOUS_RESULT_TEMPLATE as JSON_PREVIOUS_RESULT_TEMPLATE,
+  RE_EXTRACT_RETURN_JSON_INSTRUCTION,
+  RETURN_JSON_INSTRUCTION,
+} from './constants/json-prompt-templates.constant';
 import {
   RE_EXTRACT_SYSTEM_PROMPT,
   SYSTEM_PROMPT,
@@ -87,12 +86,10 @@ export class PromptsService {
     const ocrSection = this.interpolateTemplate(OCR_SECTION, {
       markdown_text: ocrMarkdown,
     });
-    const instruction = this.interpolateTemplate(
-      RETURN_YAML_INSTRUCTION,
-      {
-        schema: INVOICE_YAML_SCHEMA,
-      },
-    );
+    const schema = JSON.stringify(INVOICE_JSON_SCHEMA, null, 2);
+    const instruction = this.interpolateTemplate(RETURN_JSON_INSTRUCTION, {
+      schema,
+    });
 
     return `${ocrSection}
 
@@ -110,26 +107,28 @@ ${instruction}`;
       .map((field) => `  - ${field}`)
       .join('\n');
 
-    const feedback = this.interpolateTemplate(FEEDBACK_TEMPLATE, {
+    const feedback = this.interpolateTemplate(JSON_FEEDBACK_TEMPLATE, {
       error: errorStr,
       missing_fields: missingFieldsStr,
     });
 
-    const previousYaml = this.formatResultAsYaml(previousResult);
+    const previousResultStr = this.formatResultAsJson(previousResult);
     const previousResultSection = this.interpolateTemplate(
-      PREVIOUS_RESULT_TEMPLATE,
+      JSON_PREVIOUS_RESULT_TEMPLATE,
       {
-        previous_yaml: previousYaml,
+        previous_json: previousResultStr,
       },
     );
 
     const ocrSection = this.interpolateTemplate(OCR_SECTION, {
       markdown_text: ocrMarkdown,
     });
+
+    const schema = JSON.stringify(INVOICE_JSON_SCHEMA, null, 2);
     const returnInstruction = this.interpolateTemplate(
-      RE_EXTRACT_RETURN_INSTRUCTION,
+      RE_EXTRACT_RETURN_JSON_INSTRUCTION,
       {
-        schema: INVOICE_YAML_SCHEMA,
+        schema,
       },
     );
 
@@ -142,15 +141,12 @@ ${previousResultSection}
 ${returnInstruction}`;
   }
 
-  formatResultAsYaml(result: ExtractedData): string {
-    return yaml.dump(result, {
-      sortKeys: false,
-      lineWidth: -1,
-    });
+  formatResultAsJson(result: ExtractedData): string {
+    return JSON.stringify(result, null, 2);
   }
 
-  getInvoiceSchema(): string {
-    return INVOICE_YAML_SCHEMA;
+  getInvoiceJsonSchema(): Record<string, unknown> {
+    return INVOICE_JSON_SCHEMA;
   }
 
   private interpolateTemplate(

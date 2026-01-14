@@ -7,6 +7,7 @@ export interface Project {
   userId: number;
   createdAt: string;
   updatedAt: string;
+  defaultSchemaId?: number | null;
   _count?: {
     groups?: number;
     manifests?: number;
@@ -32,6 +33,7 @@ export interface CreateProjectDto {
 export interface UpdateProjectDto {
   name?: string;
   description?: string;
+  defaultSchemaId?: number | null;
 }
 
 export interface CreateGroupDto {

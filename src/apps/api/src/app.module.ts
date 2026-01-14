@@ -14,6 +14,7 @@ import { PromptsModule } from './prompts/prompts.module';
 import { ProvidersModule } from './providers/providers.module';
 import { ProjectsModule } from './projects/projects.module';
 import { QueueModule } from './queue/queue.module';
+import { SchemasModule } from './schemas/schemas.module';
 import { StorageModule } from './storage/storage.module';
 import { WebSocketModule } from './websocket/websocket.module';
 
@@ -36,6 +37,7 @@ import { WebSocketModule } from './websocket/websocket.module';
     ProvidersModule,
     ProjectsModule,
     QueueModule,
+    SchemasModule,
     StorageModule,
     WebSocketModule,
   ],

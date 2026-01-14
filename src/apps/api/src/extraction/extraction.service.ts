@@ -4,15 +4,17 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { Repository } from 'typeorm';
-import * as yaml from 'js-yaml';
 
 import { ManifestEntity, ManifestStatus } from '../entities/manifest.entity';
 import { ProviderEntity } from '../entities/provider.entity';
 import { PromptEntity, PromptType } from '../entities/prompt.entity';
+import { SchemaEntity } from '../entities/schema.entity';
+import { LlmResponseFormat } from '../llm/llm.types';
 import { LlmService } from '../llm/llm.service';
 import { LlmChatMessage, LlmProviderConfig } from '../llm/llm.types';
 import { OcrService } from '../ocr/ocr.service';
 import { PromptsService } from '../prompts/prompts.service';
+import { SchemasService } from '../schemas/schemas.service';
 import { ExtractedData } from '../prompts/types/prompts.types';
 import {
   ExtractionStateResult,
@@ -52,6 +54,7 @@ export class ExtractionService {
     private readonly ocrService: OcrService,
     private readonly llmService: LlmService,
     private readonly promptsService: PromptsService,
+    private readonly schemasService: SchemasService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -76,6 +79,17 @@ export class ExtractionService {
     reportProgress(5);
 
     const project = manifest.group?.project ?? null;
+
+    // Load schema from project
+    let schema: SchemaEntity | null = null;
+    if (project?.defaultSchemaId) {
+      try {
+        schema = await this.schemasService.findOne(project.defaultSchemaId);
+      } catch (error) {
+        this.logger.warn(`Default schema ${project.defaultSchemaId} not found, using fallback`);
+      }
+    }
+
     const defaultProviderId = this.parseOptionalNumber(
       project?.defaultProviderId ?? null,
     );
@@ -161,6 +175,7 @@ export class ExtractionService {
           prompt: systemPrompt,
           reExtractPrompt,
         },
+        schema,
       );
       reportProgress(80);
 
@@ -187,8 +202,10 @@ export class ExtractionService {
     fileBuffer: Buffer,
     state: ExtractionWorkflowState,
     options: ExtractionOptions,
+    schema: SchemaEntity | null,
   ): Promise<void> {
-    const requiredFields = this.getRequiredFields();
+    // Get required fields from schema or fall back to defaults
+    const requiredFields = schema?.requiredFields ?? this.getRequiredFields();
     const providerConfig = this.buildProviderConfig(options.provider);
     const systemPrompt = this.getSystemPrompt(options.prompt);
     const reExtractSystemPrompt = this.getReExtractPrompt(
@@ -207,6 +224,7 @@ export class ExtractionService {
         systemPrompt,
         reExtractSystemPrompt,
         requiredFields,
+        schema,
       );
       state.extractionResult = extractionResult;
 
@@ -334,6 +352,7 @@ export class ExtractionService {
     systemPrompt: string,
     reExtractSystemPrompt: string,
     requiredFields: string[],
+    schema: SchemaEntity | null,
   ): Promise<ExtractionStateResult> {
     const ocrResult = state.ocrResult;
     if (!ocrResult || !ocrResult.success) {
@@ -352,7 +371,7 @@ export class ExtractionService {
       useReExtract && previousExtraction
         ? this.promptsService.buildReExtractPrompt(
             ocrResult.markdown,
-            previousExtraction.data as ExtractedData,
+            previousExtraction.data,
             previousExtraction.validation?.missingFields,
             previousExtraction.error,
           )
@@ -371,21 +390,59 @@ export class ExtractionService {
       },
     ];
 
+    // Build LLM options with structured output if supported
+    const llmOptions: {
+      responseFormat?: LlmResponseFormat;
+    } = {};
+
+    if (schema && providerConfig) {
+      const supportsStructuredOutput = this.llmService.providerSupportsStructuredOutput(
+        providerConfig.type,
+        providerConfig.modelName ?? undefined,
+      );
+      if (supportsStructuredOutput) {
+        // Use native structured output with JSON Schema
+        llmOptions.responseFormat = {
+          type: 'json_schema',
+          json_schema: {
+            name: 'extracted_data',
+            description: 'Extracted data from the document',
+            strict: false,
+            schema: schema.jsonSchema as Record<string, unknown>,
+          },
+        };
+        this.logger.log(`Using structured output for extraction with schema: ${schema.name}`);
+      }
+    }
+
     try {
       const completion = await this.llmService.createChatCompletion(
         messages,
-        {},
+        llmOptions,
         providerConfig,
       );
-      const data = this.parseYamlResult(completion.content);
-      const validation = this.validateResult(
-        data as Record<string, unknown>,
-        requiredFields,
-      );
+      const data = this.parseJsonResult(completion.content);
+
+      // Use ajv validation if schema is provided, otherwise use basic validation
+      let validation: ExtractionValidationResult;
+      if (schema) {
+        const ajvResult = this.schemasService.validateWithRequiredFields({
+          jsonSchema: schema.jsonSchema as Record<string, unknown>,
+          data,
+          requiredFields: schema.requiredFields,
+        });
+        validation = {
+          valid: ajvResult.valid,
+          missingFields: [],
+          errors: ajvResult.errors ?? [],
+        };
+      } else {
+        validation = this.validateResult(data, requiredFields);
+      }
 
       if (!validation.valid) {
         return {
-          data: data as ExtractedData,
+          data,
           success: false,
           error: validation.errors.join('; '),
           retryCount: state.extractionRetryCount,
@@ -394,7 +451,7 @@ export class ExtractionService {
       }
 
       return {
-        data: data as ExtractedData,
+        data,
         success: true,
         retryCount: state.extractionRetryCount,
         validation,
@@ -418,10 +475,10 @@ export class ExtractionService {
       throw new Error('Cannot save: extraction failed');
     }
 
-    manifest.extractedData = extraction.data as Record<string, unknown>;
+    manifest.extractedData = extraction.data;
     const confidence =
-      (extraction.data as ExtractedData)?._extraction_info
-        ?.confidence;
+      (extraction.data._extraction_info as Record<string, unknown> | undefined)
+        ?.confidence as number | undefined;
     if (confidence !== undefined) {
       manifest.confidence = confidence;
     }
@@ -573,22 +630,23 @@ export class ExtractionService {
     return { exists: true, value: current };
   }
 
-  private parseYamlResult(content: string): Record<string, unknown> {
-    const sanitized = this.stripYamlCodeFence(content);
-    const parsed = yaml.load(sanitized);
+  private parseJsonResult(content: string): Record<string, unknown> {
+    const sanitized = this.stripJsonCodeFence(content);
+    const parsed = JSON.parse(sanitized);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       throw new Error('Invalid extraction result: not an object');
     }
     return parsed as Record<string, unknown>;
   }
 
-  private stripYamlCodeFence(content: string): string {
+  private stripJsonCodeFence(content: string): string {
     const trimmed = content.trim();
     if (!trimmed.startsWith('```')) {
       return trimmed;
     }
 
     return trimmed
+      .replace(/^```json\n?/, '')
       .replace(/^```[a-zA-Z]*\n?/, '')
       .replace(/```$/, '')
       .trim();

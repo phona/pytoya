@@ -7,12 +7,30 @@ export interface LlmChatMessage {
   content: string;
 }
 
+export interface LlmStructuredOutputSchema {
+  name: string;
+  description?: string;
+  strict?: boolean;
+  schema: Record<string, unknown>;
+}
+
+export interface LlmJsonSchemaFormat {
+  type: 'json_schema';
+  json_schema: LlmStructuredOutputSchema;
+}
+
+export interface LlmResponseFormat {
+  type: 'text' | 'json_object' | 'json_schema';
+  json_schema?: LlmStructuredOutputSchema;
+}
+
 export interface LlmChatOptions {
   apiKey?: string;
   model?: string;
   temperature?: number;
   maxTokens?: number;
   timeoutMs?: number;
+  responseFormat?: LlmResponseFormat;
 }
 
 export interface LlmProviderConfig {
@@ -22,6 +40,7 @@ export interface LlmProviderConfig {
   modelName?: string | null;
   temperature?: number | null;
   maxTokens?: number | null;
+  supportsStructuredOutput?: boolean;
 }
 
 export interface LlmChatCompletionRequest {
@@ -29,6 +48,7 @@ export interface LlmChatCompletionRequest {
   messages: LlmChatMessage[];
   temperature?: number;
   max_tokens?: number;
+  response_format?: LlmResponseFormat;
 }
 
 export interface LlmChatCompletionChoice {
