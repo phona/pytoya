@@ -89,6 +89,24 @@ Get the NodePorts:
 kubectl get svc -n pytoya-dev
 ```
 
+### Dev Deps + Local .env Helper
+
+Use the PowerShell helper to read NodePorts and update your local `.env`:
+
+```powershell
+pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -Namespace pytoya-dev -ReleaseName pytoya-dev
+```
+
+If you have `bash` on PATH (Git Bash or WSL), the helper can also deploy:
+
+```powershell
+pwsh -File scripts/setup-dev-k8s-deps.ps1 -PostgresPassword change-me -Namespace pytoya-dev -ReleaseName pytoya-dev
+```
+
+Notes:
+- The helper updates only `DB_HOST`, `DB_PORT`, `REDIS_HOST`, and `REDIS_PORT` in `.env`.
+- If `-NodeIp` is not provided, the helper prompts for a reachable node IP.
+
 ## Verify
 
 ```bash
