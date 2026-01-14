@@ -3,6 +3,7 @@ param(
   [string]$Namespace = "pytoya-dev",
   [string]$ReleaseName = "pytoya-dev",
   [string]$NodeIp,
+  [string]$BashPath,
   [switch]$SkipDeploy,
   [switch]$DisablePersistence,
   [string]$EnvPath = ".env"
@@ -23,6 +24,33 @@ function Require-Command {
     }
     throw $message
   }
+}
+
+function Resolve-BashPath {
+  if ($BashPath) {
+    if (-not (Test-Path $BashPath)) {
+      throw "BashPath '$BashPath' not found."
+    }
+    return $BashPath
+  }
+
+  $cmd = Get-Command bash -ErrorAction SilentlyContinue
+  if ($cmd -and $cmd.Source -and ($cmd.Source -notmatch "\\System32\\bash\.exe$")) {
+    return $cmd.Source
+  }
+
+  $gitBashCandidates = @(
+    "$env:ProgramFiles\Git\bin\bash.exe",
+    "$env:ProgramFiles\Git\usr\bin\bash.exe",
+    "$env:ProgramFiles(x86)\Git\bin\bash.exe",
+    "$env:ProgramFiles(x86)\Git\usr\bin\bash.exe"
+  ) | Where-Object { $_ -and (Test-Path $_) }
+
+  if ($gitBashCandidates.Count -gt 0) {
+    return $gitBashCandidates[0]
+  }
+
+  return $null
 }
 
 function Upsert-EnvValue {
@@ -51,7 +79,11 @@ function Invoke-Deploy {
   param(
     [Parameter(Mandatory = $true)][string]$Password
   )
-  Require-Command -Name "bash" -Hint "Install Git Bash or WSL, or run the deploy script manually and use -SkipDeploy."
+  Require-Command -Name "helm" -Hint "Install Helm or run the deploy script manually and use -SkipDeploy."
+  $resolvedBash = Resolve-BashPath
+  if (-not $resolvedBash) {
+    throw "Unable to find Git Bash. Install Git Bash or pass -BashPath, or run the deploy script manually and use -SkipDeploy."
+  }
   $env:POSTGRES_PASSWORD = $Password
   $env:NAMESPACE = $Namespace
   $env:RELEASE_NAME = $ReleaseName
@@ -60,9 +92,9 @@ function Invoke-Deploy {
   } else {
     Remove-Item Env:DISABLE_PERSISTENCE -ErrorAction SilentlyContinue
   }
-  & bash "scripts/deploy-deps-nodeport.sh"
+  & $resolvedBash "scripts/deploy-deps-nodeport.sh"
   if ($LASTEXITCODE -ne 0) {
-    throw "deploy-deps-nodeport.sh failed with exit code $LASTEXITCODE."
+    throw "deploy-deps-nodeport.sh failed with exit code $LASTEXITCODE. If you are on Windows, ensure Git Bash is installed or pass -BashPath."
   }
 }
 

@@ -106,6 +106,7 @@ pwsh -File scripts/setup-dev-k8s-deps.ps1 -PostgresPassword change-me -Namespace
 Notes:
 - The helper updates only `DB_HOST`, `DB_PORT`, `REDIS_HOST`, and `REDIS_PORT` in `.env`.
 - If `-NodeIp` is not provided, the helper prompts for a reachable node IP.
+- If `bash` resolves to `C:\Windows\System32\bash.exe`, pass `-BashPath` to Git Bash (for example: `C:\Program Files\Git\bin\bash.exe`).
 
 ## Verify
 

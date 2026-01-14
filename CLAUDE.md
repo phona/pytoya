@@ -64,6 +64,9 @@ POSTGRES_PASSWORD=123456 ./scripts/deploy-deps-nodeport.sh
 
 # Update .env from NodePorts
 pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -Namespace pytoya-dev -ReleaseName pytoya-dev
+
+# If bash resolves to System32, pass Git Bash explicitly
+pwsh -File scripts/setup-dev-k8s-deps.ps1 -PostgresPassword change-me -BashPath "C:\Program Files\Git\bin\bash.exe"
 ```
 
 ### Backend-Specific (`src/apps/api/`)
