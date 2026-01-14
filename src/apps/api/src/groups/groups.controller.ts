@@ -15,6 +15,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UserEntity } from '../entities/user.entity';
 import { CreateGroupDto } from './dto/create-group.dto';
+import { GroupResponseDto } from './dto/group-response.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupsService } from './groups.service';
 
@@ -33,7 +34,8 @@ export class GroupsController {
       throw new BadRequestException('projectId mismatch');
     }
 
-    return this.groupsService.create(user, createGroupDto);
+    const group = await this.groupsService.create(user, createGroupDto);
+    return GroupResponseDto.fromEntity(group);
   }
 
   @Get('projects/:projectId/groups')
@@ -41,7 +43,8 @@ export class GroupsController {
     @CurrentUser() user: UserEntity,
     @Param('projectId', ParseIntPipe) projectId: number,
   ) {
-    return this.groupsService.findByProject(user, projectId);
+    const groups = await this.groupsService.findByProject(user, projectId);
+    return groups.map(GroupResponseDto.fromEntity);
   }
 
   @Get('groups/:id')
@@ -49,7 +52,8 @@ export class GroupsController {
     @CurrentUser() user: UserEntity,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.groupsService.findOne(user, id);
+    const group = await this.groupsService.findOne(user, id);
+    return GroupResponseDto.fromEntity(group);
   }
 
   @Patch('groups/:id')
@@ -58,7 +62,12 @@ export class GroupsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateGroupDto: UpdateGroupDto,
   ) {
-    return this.groupsService.update(user, id, updateGroupDto);
+    const group = await this.groupsService.update(
+      user,
+      id,
+      updateGroupDto,
+    );
+    return GroupResponseDto.fromEntity(group);
   }
 
   @Delete('groups/:id')
@@ -66,6 +75,7 @@ export class GroupsController {
     @CurrentUser() user: UserEntity,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.groupsService.remove(user, id);
+    const group = await this.groupsService.remove(user, id);
+    return GroupResponseDto.fromEntity(group);
   }
 }

@@ -1,4 +1,10 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
 import * as fs from 'fs';
@@ -77,12 +83,14 @@ export class LlmService {
     provider?: LlmProviderConfig,
   ): Promise<LlmChatCompletionResult> {
     if (!messages.length) {
-      throw new Error('LLM chat completion requires at least one message');
+      throw new BadRequestException(
+        'LLM chat completion requires at least one message',
+      );
     }
 
     const apiKey = options.apiKey ?? provider?.apiKey ?? this.apiKey;
     if (!apiKey) {
-      throw new Error('LLM API key is missing');
+      throw new InternalServerErrorException('LLM API key is missing');
     }
 
     const baseUrl = this.normalizeBaseUrl(
@@ -140,7 +148,9 @@ export class LlmService {
       const choice = data.choices?.[0];
       const content = choice?.message?.content ?? '';
       if (!content) {
-        throw new Error('LLM response missing message content');
+        throw new InternalServerErrorException(
+          'LLM response missing message content',
+        );
       }
 
       if (this.logVerbose) {
@@ -159,7 +169,9 @@ export class LlmService {
     } catch (error) {
       const errorMessage = this.formatError(error);
       this.logger.warn(`LLM request failed: ${errorMessage}`);
-      throw new Error(`LLM request failed: ${errorMessage}`);
+      throw new InternalServerErrorException(
+        `LLM request failed: ${errorMessage}`,
+      );
     }
   }
 

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConvertedPage } from './pdf-to-image.service';
 
 /**
@@ -77,7 +77,9 @@ export class PdfToImgConverterAdapter implements IPdfConverterAdapter {
       const pdfFunc = (module as unknown as { default: any }).default;
 
       if (!pdfFunc) {
-        throw new Error('pdf-to-img module does not export a default function');
+        throw new InternalServerErrorException(
+          'pdf-to-img module does not export a default function',
+        );
       }
 
       this.pdfToImg = pdfFunc;

@@ -11,6 +11,8 @@ import { UserEntity, UserRole } from '../entities/user.entity';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { AuthResponseDto } from './dto/auth-response.dto';
+import { AuthUserResponseDto } from './dto/auth-user-response.dto';
 
 @Injectable()
 export class AuthService {
@@ -29,7 +31,7 @@ export class AuthService {
     return passwordMatches ? user : null;
   }
 
-  async register(registerDto: RegisterDto) {
+  async register(registerDto: RegisterDto): Promise<AuthUserResponseDto> {
     const existingUser = await this.usersService.findByEmail(registerDto.email);
     if (existingUser) {
       throw new ConflictException('Email already registered');
@@ -42,10 +44,10 @@ export class AuthService {
       role: UserRole.USER,
     });
 
-    return this.sanitizeUser(user);
+    return this.toUserResponse(user);
   }
 
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto): Promise<AuthResponseDto> {
     const user = await this.validateUser(loginDto.email, loginDto.password);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -54,10 +56,7 @@ export class AuthService {
     const payload = { userId: user.id, role: user.role };
     const accessToken = await this.jwtService.signAsync(payload);
 
-    return {
-      access_token: accessToken,
-      user: this.sanitizeUser(user),
-    };
+    return AuthResponseDto.fromToken(this.toUserResponse(user), accessToken);
   }
 
   private async hashPassword(password: string): Promise<string> {
@@ -71,11 +70,7 @@ export class AuthService {
     return bcrypt.compare(password, hashedPassword);
   }
 
-  private sanitizeUser(user: UserEntity) {
-    return {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-    };
+  private toUserResponse(user: UserEntity): AuthUserResponseDto {
+    return AuthUserResponseDto.fromEntity(user);
   }
 }

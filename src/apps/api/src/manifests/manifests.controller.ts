@@ -27,6 +27,7 @@ import { CsvExportService } from './csv-export.service';
 import { ExportBulkDto } from './dto/export-bulk.dto';
 import { ExtractDto } from './dto/extract.dto';
 import { ExportManifestsDto } from './dto/export-manifests.dto';
+import { ManifestResponseDto } from './dto/manifest-response.dto';
 import { ReExtractFieldDto } from './dto/re-extract-field.dto';
 import { UpdateManifestDto } from './dto/update-manifest.dto';
 import { ManifestsService } from './manifests.service';
@@ -53,7 +54,8 @@ export class ManifestsController {
     @Param('groupId', ParseIntPipe) groupId: number,
     @UploadedFile() file: Express.Multer.File | undefined,
   ) {
-    return this.manifestsService.create(user, groupId, file);
+    const manifest = await this.manifestsService.create(user, groupId, file);
+    return ManifestResponseDto.fromEntity(manifest);
   }
 
   @Post('groups/:groupId/manifests/batch')
@@ -67,9 +69,10 @@ export class ManifestsController {
       throw new FileNotFoundException();
     }
 
-    return Promise.all(
+    const manifests = await Promise.all(
       files.map((file) => this.manifestsService.create(user, groupId, file)),
     );
+    return manifests.map(ManifestResponseDto.fromEntity);
   }
 
   // Alias for uploadSingle - canonical path expected by web app
@@ -80,7 +83,8 @@ export class ManifestsController {
     @Param('groupId', ParseIntPipe) groupId: number,
     @UploadedFile() file: Express.Multer.File | undefined,
   ) {
-    return this.manifestsService.create(user, groupId, file);
+    const manifest = await this.manifestsService.create(user, groupId, file);
+    return ManifestResponseDto.fromEntity(manifest);
   }
 
   @Get('groups/:groupId/manifests')
@@ -88,7 +92,11 @@ export class ManifestsController {
     @CurrentUser() user: UserEntity,
     @Param('groupId', ParseIntPipe) groupId: number,
   ) {
-    return this.manifestsService.findByGroup(user, groupId);
+    const manifests = await this.manifestsService.findByGroup(
+      user,
+      groupId,
+    );
+    return manifests.map(ManifestResponseDto.fromEntity);
   }
 
   @Get('manifests/export/csv')
@@ -214,7 +222,8 @@ export class ManifestsController {
     @CurrentUser() user: UserEntity,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.manifestsService.findOne(user, id);
+    const manifest = await this.manifestsService.findOne(user, id);
+    return ManifestResponseDto.fromEntity(manifest);
   }
 
   @Get('manifests/:id/pdf')
@@ -233,7 +242,12 @@ export class ManifestsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateManifestDto: UpdateManifestDto,
   ) {
-    return this.manifestsService.update(user, id, updateManifestDto);
+    const manifest = await this.manifestsService.update(
+      user,
+      id,
+      updateManifestDto,
+    );
+    return ManifestResponseDto.fromEntity(manifest);
   }
 
   @Delete('manifests/:id')
@@ -241,7 +255,8 @@ export class ManifestsController {
     @CurrentUser() user: UserEntity,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.manifestsService.remove(user, id);
+    const manifest = await this.manifestsService.remove(user, id);
+    return ManifestResponseDto.fromEntity(manifest);
   }
 
   private parseOptionalNumber(value?: string): number | null {

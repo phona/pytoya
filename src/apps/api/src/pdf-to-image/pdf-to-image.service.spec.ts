@@ -1,3 +1,8 @@
+import {
+  BadRequestException,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as path from 'path';
 
@@ -71,7 +76,7 @@ describe('PdfToImageService', () => {
 
       await expect(
         service.convertPdfToImages('/nonexistent/file.pdf'),
-      ).rejects.toThrow('PDF file not found');
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should convert PDF to images with default options', async () => {
@@ -103,7 +108,7 @@ describe('PdfToImageService', () => {
 
       await expect(
         service.convertPdfToImages('/test/file.pdf'),
-      ).rejects.toThrow('Failed to convert PDF to images');
+      ).rejects.toThrow(InternalServerErrorException);
     });
 
     it('should handle single page PDF', async () => {
@@ -140,7 +145,7 @@ describe('PdfToImageService', () => {
     it('should throw error for invalid page number (< 1)', async () => {
       await expect(
         service.convertPdfPageToImage('/test/file.pdf', 0),
-      ).rejects.toThrow('Page number must be >= 1');
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw error if PDF file does not exist', async () => {
@@ -148,7 +153,7 @@ describe('PdfToImageService', () => {
 
       await expect(
         service.convertPdfPageToImage('/nonexistent/file.pdf', 1),
-      ).rejects.toThrow('PDF file not found');
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should call getPage with correct page number', async () => {
@@ -176,7 +181,7 @@ describe('PdfToImageService', () => {
 
       await expect(
         service.getPageCount('/nonexistent/file.pdf'),
-      ).rejects.toThrow('PDF file not found');
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

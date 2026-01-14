@@ -1,4 +1,10 @@
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import * as path from 'path';
 
 import {
@@ -52,7 +58,7 @@ export class PdfToImageService {
 
     // Validate PDF exists using injected file system service
     if (!this.fileSystem.fileExists(pdfPath)) {
-      throw new Error(`PDF file not found: ${pdfPath}`);
+      throw new NotFoundException(`PDF file not found: ${pdfPath}`);
     }
 
     const pages: ConvertedPage[] = [];
@@ -74,8 +80,9 @@ export class PdfToImageService {
 
       return pages;
     } catch (error) {
-      throw new Error(
-        `Failed to convert PDF to images: ${error instanceof Error ? error.message : String(error)}`,
+      const message = error instanceof Error ? error.message : String(error);
+      throw new InternalServerErrorException(
+        `Failed to convert PDF to images: ${message}`,
       );
     }
   }
@@ -96,11 +103,13 @@ export class PdfToImageService {
 
     // Validate PDF exists
     if (!this.fileSystem.fileExists(pdfPath)) {
-      throw new Error(`PDF file not found: ${pdfPath}`);
+      throw new NotFoundException(`PDF file not found: ${pdfPath}`);
     }
 
     if (pageNumber < 1) {
-      throw new Error(`Page number must be >= 1, got ${pageNumber}`);
+      throw new BadRequestException(
+        `Page number must be >= 1, got ${pageNumber}`,
+      );
     }
 
     try {
@@ -115,8 +124,9 @@ export class PdfToImageService {
         mimeType: 'image/png',
       };
     } catch (error) {
-      throw new Error(
-        `Failed to convert PDF page ${pageNumber} to image: ${error instanceof Error ? error.message : String(error)}`,
+      const message = error instanceof Error ? error.message : String(error);
+      throw new InternalServerErrorException(
+        `Failed to convert PDF page ${pageNumber} to image: ${message}`,
       );
     }
   }
@@ -128,15 +138,16 @@ export class PdfToImageService {
    */
   async getPageCount(pdfPath: string): Promise<number> {
     if (!this.fileSystem.fileExists(pdfPath)) {
-      throw new Error(`PDF file not found: ${pdfPath}`);
+      throw new NotFoundException(`PDF file not found: ${pdfPath}`);
     }
 
     try {
       const doc = await this.pdfAdapter.convert(pdfPath);
       return doc.length;
     } catch (error) {
-      throw new Error(
-        `Failed to get PDF page count: ${error instanceof Error ? error.message : String(error)}`,
+      const message = error instanceof Error ? error.message : String(error);
+      throw new InternalServerErrorException(
+        `Failed to get PDF page count: ${message}`,
       );
     }
   }

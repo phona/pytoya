@@ -57,6 +57,15 @@ npm run docker:logs        # View logs
 npm run docker:ps          # Check status
 ```
 
+### Kubernetes Dev Dependencies (Postgres + Redis)
+```bash
+# Deploy deps (bash required: Git Bash or WSL)
+POSTGRES_PASSWORD=123456 ./scripts/deploy-deps-nodeport.sh
+
+# Update .env from NodePorts
+pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -Namespace pytoya-dev -ReleaseName pytoya-dev
+```
+
 ### Backend-Specific (`src/apps/api/`)
 ```bash
 npm run start:dev          # Development with watch
@@ -95,6 +104,9 @@ openspec/                  # Spec-driven development
 - **Database**: TypeORM with PostgreSQL, entities in `src/entities/`, migrations in `src/database/migrations/`
 - **Job Queue**: BullMQ with Redis for async extraction jobs
 - **WebSocket**: Gateway at `src/websocket/websocket.gateway.ts` for real-time progress updates
+
+### Backend Guardrails (NestJS)
+- See `docs/nestjs-coding-agent-guardrails.md` for required patterns (validation, config, errors, DTOs)
 
 ### Frontend (Next.js Web)
 - **Framework**: App Router (`src/apps/web/app/`)

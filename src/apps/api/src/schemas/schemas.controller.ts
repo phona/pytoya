@@ -12,6 +12,7 @@ import {
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateSchemaDto } from './dto/create-schema.dto';
+import { SchemaResponseDto } from './dto/schema-response.dto';
 import { UpdateSchemaDto } from './dto/update-schema.dto';
 import { ValidateSchemaDto } from './dto/validate-schema.dto';
 import { SchemasService } from './schemas.service';
@@ -23,27 +24,32 @@ export class SchemasController {
 
   @Post()
   async create(@Body() createSchemaDto: CreateSchemaDto) {
-    return this.schemasService.create(createSchemaDto);
+    const schema = await this.schemasService.create(createSchemaDto);
+    return SchemaResponseDto.fromEntity(schema);
   }
 
   @Get()
   async findAll() {
-    return this.schemasService.findAll();
+    const schemas = await this.schemasService.findAll();
+    return schemas.map(SchemaResponseDto.fromEntity);
   }
 
   @Get('templates')
   async findTemplates() {
-    return this.schemasService.findTemplates();
+    const schemas = await this.schemasService.findTemplates();
+    return schemas.map(SchemaResponseDto.fromEntity);
   }
 
   @Get('project/:projectId')
   async findByProject(@Param('projectId', ParseIntPipe) projectId: number) {
-    return this.schemasService.findByProject(projectId);
+    const schemas = await this.schemasService.findByProject(projectId);
+    return schemas.map(SchemaResponseDto.fromEntity);
   }
 
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.schemasService.findOne(id);
+    const schema = await this.schemasService.findOne(id);
+    return SchemaResponseDto.fromEntity(schema);
   }
 
   @Post('validate')
@@ -61,11 +67,13 @@ export class SchemasController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateSchemaDto: UpdateSchemaDto,
   ) {
-    return this.schemasService.update(id, updateSchemaDto);
+    const schema = await this.schemasService.update(id, updateSchemaDto);
+    return SchemaResponseDto.fromEntity(schema);
   }
 
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number) {
-    return this.schemasService.remove(id);
+    const schema = await this.schemasService.remove(id);
+    return SchemaResponseDto.fromEntity(schema);
   }
 }

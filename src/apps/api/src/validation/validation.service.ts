@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -194,7 +199,7 @@ export class ValidationService implements OnModuleInit {
     // Validate script syntax
     const syntaxCheck = this.scriptExecutor.validateSyntax(input.script);
     if (!syntaxCheck.valid) {
-      throw new Error(syntaxCheck.error);
+      throw new BadRequestException(syntaxCheck.error);
     }
 
     const script = this.validationScriptRepository.create({
@@ -265,7 +270,7 @@ export class ValidationService implements OnModuleInit {
     if (input.script) {
       const syntaxCheck = this.scriptExecutor.validateSyntax(input.script);
       if (!syntaxCheck.valid) {
-        throw new Error(syntaxCheck.error);
+        throw new BadRequestException(syntaxCheck.error);
       }
     }
 
@@ -304,11 +309,13 @@ export class ValidationService implements OnModuleInit {
 
     // Check if extraction is complete
     if (manifest.status !== ManifestStatus.COMPLETED) {
-      throw new Error('Cannot validate manifest that has not completed extraction');
+      throw new BadRequestException(
+        'Cannot validate manifest that has not completed extraction',
+      );
     }
 
     if (!manifest.extractedData) {
-      throw new Error('No extracted data to validate');
+      throw new BadRequestException('No extracted data to validate');
     }
 
     // Get scripts to run

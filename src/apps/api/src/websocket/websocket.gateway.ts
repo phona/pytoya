@@ -27,10 +27,6 @@ interface JobUpdatePayload {
 }
 
 @WebSocketGateway({
-  cors: {
-    origin: process.env.WEB_URL || 'http://localhost:3000',
-    credentials: true,
-  },
   namespace: '/manifests',
 })
 export class ManifestGateway implements OnGatewayConnection, OnGatewayDisconnect {

@@ -14,6 +14,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UserEntity } from '../entities/user.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { ProjectResponseDto } from './dto/project-response.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectsService } from './projects.service';
 
@@ -27,12 +28,17 @@ export class ProjectsController {
     @CurrentUser() user: UserEntity,
     @Body() createProjectDto: CreateProjectDto,
   ) {
-    return this.projectsService.create(user, createProjectDto);
+    const project = await this.projectsService.create(
+      user,
+      createProjectDto,
+    );
+    return ProjectResponseDto.fromEntity(project);
   }
 
   @Get()
   async findAll(@CurrentUser() user: UserEntity) {
-    return this.projectsService.findAll(user);
+    const projects = await this.projectsService.findAll(user);
+    return projects.map(ProjectResponseDto.fromEntity);
   }
 
   @Get(':id')
@@ -40,7 +46,8 @@ export class ProjectsController {
     @CurrentUser() user: UserEntity,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.projectsService.findOne(user, id);
+    const project = await this.projectsService.findOne(user, id);
+    return ProjectResponseDto.fromEntity(project);
   }
 
   @Patch(':id')
@@ -49,7 +56,12 @@ export class ProjectsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateProjectDto: UpdateProjectDto,
   ) {
-    return this.projectsService.update(user, id, updateProjectDto);
+    const project = await this.projectsService.update(
+      user,
+      id,
+      updateProjectDto,
+    );
+    return ProjectResponseDto.fromEntity(project);
   }
 
   @Delete(':id')
@@ -57,6 +69,7 @@ export class ProjectsController {
     @CurrentUser() user: UserEntity,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.projectsService.remove(user, id);
+    const project = await this.projectsService.remove(user, id);
+    return ProjectResponseDto.fromEntity(project);
   }
 }

@@ -17,6 +17,7 @@ import { UpdateValidationScriptDto } from './dto/update-validation-script.dto';
 import { ValidateScriptSyntaxDto } from './dto/validate-script-syntax.dto';
 import { RunValidationDto } from './dto/run-validation.dto';
 import { BatchValidationDto } from './dto/batch-validation.dto';
+import { ValidationScriptResponseDto } from './dto/validation-script-response.dto';
 import { ValidationService } from './validation.service';
 
 @UseGuards(JwtAuthGuard)
@@ -31,17 +32,20 @@ export class ValidationController {
     @CurrentUser() user: UserEntity,
     @Body() createScriptDto: CreateValidationScriptDto,
   ) {
-    return this.validationService.create(user, createScriptDto);
+    const script = await this.validationService.create(user, createScriptDto);
+    return ValidationScriptResponseDto.fromEntity(script);
   }
 
   @Get('scripts')
   async findAllScripts(@CurrentUser() user: UserEntity) {
-    return this.validationService.findAll(user);
+    const scripts = await this.validationService.findAll(user);
+    return scripts.map(ValidationScriptResponseDto.fromEntity);
   }
 
   @Get('scripts/templates')
   async findTemplates() {
-    return this.validationService.findTemplates();
+    const scripts = await this.validationService.findTemplates();
+    return scripts.map(ValidationScriptResponseDto.fromEntity);
   }
 
   @Get('scripts/project/:projectId')
@@ -49,7 +53,11 @@ export class ValidationController {
     @CurrentUser() user: UserEntity,
     @Param('projectId', ParseIntPipe) projectId: number,
   ) {
-    return this.validationService.findByProject(user, projectId);
+    const scripts = await this.validationService.findByProject(
+      user,
+      projectId,
+    );
+    return scripts.map(ValidationScriptResponseDto.fromEntity);
   }
 
   @Get('scripts/:id')
@@ -57,7 +65,8 @@ export class ValidationController {
     @CurrentUser() user: UserEntity,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.validationService.findOne(user, id);
+    const script = await this.validationService.findOne(user, id);
+    return ValidationScriptResponseDto.fromEntity(script);
   }
 
   @Post('scripts/:id')
@@ -66,7 +75,12 @@ export class ValidationController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateScriptDto: UpdateValidationScriptDto,
   ) {
-    return this.validationService.update(user, id, updateScriptDto);
+    const script = await this.validationService.update(
+      user,
+      id,
+      updateScriptDto,
+    );
+    return ValidationScriptResponseDto.fromEntity(script);
   }
 
   @Delete('scripts/:id')
@@ -74,7 +88,8 @@ export class ValidationController {
     @CurrentUser() user: UserEntity,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.validationService.remove(user, id);
+    const script = await this.validationService.remove(user, id);
+    return ValidationScriptResponseDto.fromEntity(script);
   }
 
   // ========== Script Validation ==========

@@ -12,6 +12,7 @@ import {
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreatePromptDto } from './dto/create-prompt.dto';
+import { PromptResponseDto } from './dto/prompt-response.dto';
 import { UpdatePromptDto } from './dto/update-prompt.dto';
 import { PromptsService } from './prompts.service';
 
@@ -22,17 +23,20 @@ export class PromptsController {
 
   @Post()
   async create(@Body() createPromptDto: CreatePromptDto) {
-    return this.promptsService.create(createPromptDto);
+    const prompt = await this.promptsService.create(createPromptDto);
+    return PromptResponseDto.fromEntity(prompt);
   }
 
   @Get()
   async findAll() {
-    return this.promptsService.findAll();
+    const prompts = await this.promptsService.findAll();
+    return prompts.map(PromptResponseDto.fromEntity);
   }
 
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.promptsService.findOne(id);
+    const prompt = await this.promptsService.findOne(id);
+    return PromptResponseDto.fromEntity(prompt);
   }
 
   @Patch(':id')
@@ -40,11 +44,13 @@ export class PromptsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePromptDto: UpdatePromptDto,
   ) {
-    return this.promptsService.update(id, updatePromptDto);
+    const prompt = await this.promptsService.update(id, updatePromptDto);
+    return PromptResponseDto.fromEntity(prompt);
   }
 
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number) {
-    return this.promptsService.remove(id);
+    const prompt = await this.promptsService.remove(id);
+    return PromptResponseDto.fromEntity(prompt);
   }
 }

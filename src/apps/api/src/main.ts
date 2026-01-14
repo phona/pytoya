@@ -1,17 +1,22 @@
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import * as express from 'express';
 import * as path from 'path';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
+import { SocketIoAdapter } from './websocket/socket-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const configService = app.get(ConfigService);
+  app.useWebSocketAdapter(new SocketIoAdapter(app, configService));
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
       whitelist: true,
+      forbidNonWhitelisted: true,
     }),
   );
 

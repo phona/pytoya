@@ -9,6 +9,13 @@ The backend currently works, but several inconsistent patterns make it easy to s
 
 This proposal standardizes the NestJS backend rules so humans and coding agents generate fewer mistakes and the API is more predictable.
 
+## What Changes
+- Enforce strict global request validation (reject unknown fields).
+- Centralize runtime config access via `ConfigService` (remove `process.env` reads and insecure fallbacks).
+- Replace raw `Error` throws in request paths with Nest exceptions.
+- Return explicit response DTOs from controllers instead of TypeORM entities.
+- Document and link backend guardrails for humans and coding agents.
+
 ## Root Cause
 No single documented + enforced “backend standards” reference, leading to drift:
 - Global validation pipe lacks strict defaults (`forbidNonWhitelisted`) in `src/apps/api/src/main.ts`.
@@ -102,4 +109,3 @@ Add a documented ruleset for the repo to keep humans and agents aligned:
 - `npm run lint`
 - `npm run type-check`
 - Smoke: login, list projects, upload manifest, receive WebSocket updates.
-

@@ -1,4 +1,11 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as path from 'path';
@@ -142,7 +149,7 @@ export class ExtractionService {
     });
 
     if (!manifest) {
-      throw new Error(`Manifest ${manifestId} not found`);
+      throw new NotFoundException(`Manifest ${manifestId} not found`);
     }
 
     const previousExtractedData =
@@ -184,7 +191,9 @@ export class ExtractionService {
         })
       : null;
     if (options.providerId && !providerFromId) {
-      throw new Error(`Provider ${options.providerId} not found`);
+      throw new NotFoundException(
+        `Provider ${options.providerId} not found`,
+      );
     }
     const provider =
       options.provider ??
@@ -206,7 +215,9 @@ export class ExtractionService {
         })
       : null;
     if (options.promptId && !promptFromId) {
-      throw new Error(`Prompt ${options.promptId} not found`);
+      throw new NotFoundException(
+        `Prompt ${options.promptId} not found`,
+      );
     }
     const systemPrompt =
       options.prompt ??
@@ -392,7 +403,7 @@ export class ExtractionService {
         const error =
           extractionResult.error ??
           'Extraction failed after retries';
-        throw new Error(error);
+        throw new InternalServerErrorException(error);
       }
     }
   }
@@ -480,7 +491,7 @@ export class ExtractionService {
   ): Promise<void> {
     while (state.ocrResult && !state.ocrResult.success) {
       if (!this.canRetryOcr(state)) {
-        throw new Error(
+        throw new InternalServerErrorException(
           state.ocrResult.error ??
             'OCR failed after retries',
         );
@@ -759,7 +770,9 @@ export class ExtractionService {
   ): LlmChatMessage[] {
     const ocrResult = state.ocrResult;
     if (!ocrResult || !ocrResult.success) {
-      throw new Error('OCR result not available for OCR_FIRST strategy');
+      throw new InternalServerErrorException(
+        'OCR result not available for OCR_FIRST strategy',
+      );
     }
 
     const prompt =
@@ -792,7 +805,9 @@ export class ExtractionService {
   ): Promise<void> {
     const extraction = state.extractionResult;
     if (!extraction || !extraction.success) {
-      throw new Error('Cannot save: extraction failed');
+      throw new InternalServerErrorException(
+        'Cannot save: extraction failed',
+      );
     }
 
     manifest.extractedData = extraction.data;
@@ -1009,7 +1024,9 @@ export class ExtractionService {
     const sanitized = this.stripJsonCodeFence(content);
     const parsed = JSON.parse(sanitized);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error('Invalid extraction result: not an object');
+      throw new InternalServerErrorException(
+        'Invalid extraction result: not an object',
+      );
     }
     return parsed as Record<string, unknown>;
   }
@@ -1131,7 +1148,7 @@ export class ExtractionService {
   ): never {
     state.errors.push(message);
     state.currentError = message;
-    throw new Error(message);
+    throw new BadRequestException(message);
   }
 
   private getBooleanConfig(

@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -441,7 +442,7 @@ describe('ValidationService', () => {
 
       await expect(
         service.runValidation(mockUser, { manifestId: 1 }),
-      ).rejects.toThrow('Cannot validate manifest that has not completed extraction');
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

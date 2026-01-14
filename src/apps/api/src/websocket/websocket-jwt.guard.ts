@@ -5,11 +5,15 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { Socket } from 'socket.io';
 
 @Injectable()
 export class WebSocketJwtGuard extends AuthGuard('jwt') {
-  constructor(private readonly jwtService: JwtService) {
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+  ) {
     super();
   }
 
@@ -21,11 +25,12 @@ export class WebSocketJwtGuard extends AuthGuard('jwt') {
       throw new UnauthorizedException('WebSocket authentication token missing');
     }
 
+    const secret = this.configService.getOrThrow<string>('JWT_SECRET');
+
     try {
       const payload = await this.jwtService.verifyAsync(authToken, {
-        secret: process.env.JWT_SECRET || 'your-secret-key',
+        secret,
       });
-
       // Attach user to socket data for use in handlers
       client.data.user = payload;
       return true;
