@@ -2,9 +2,24 @@ import { ProviderType } from '../entities/provider.entity';
 
 export type LlmRole = 'system' | 'user' | 'assistant' | 'tool';
 
+export interface LlmContentText {
+  type: 'text';
+  text: string;
+}
+
+export interface LlmContentImage {
+  type: 'image_url';
+  image_url: {
+    url: string; // Can be base64 data URL or public URL
+    detail?: 'low' | 'high' | 'auto'; // OpenAI vision API detail level
+  };
+}
+
+export type LlmChatMessageContent = string | LlmContentText | LlmContentImage | Array<LlmContentText | LlmContentImage>;
+
 export interface LlmChatMessage {
   role: LlmRole;
-  content: string;
+  content: LlmChatMessageContent;
 }
 
 export interface LlmStructuredOutputSchema {
@@ -31,6 +46,7 @@ export interface LlmChatOptions {
   maxTokens?: number;
   timeoutMs?: number;
   responseFormat?: LlmResponseFormat;
+  maxRetries?: number;
 }
 
 export interface LlmProviderConfig {
@@ -41,6 +57,7 @@ export interface LlmProviderConfig {
   temperature?: number | null;
   maxTokens?: number | null;
   supportsStructuredOutput?: boolean;
+  supportsVision?: boolean;
 }
 
 export interface LlmChatCompletionRequest {

@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { JobEntity, JobStatus } from '../entities/job.entity';
-import { ManifestEntity, ManifestStatus } from '../entities/manifest.entity';
+import { ManifestEntity, ManifestStatus, FileType } from '../entities/manifest.entity';
 import { UserEntity } from '../entities/user.entity';
 import { GroupsService } from '../groups/groups.service';
 import { ProjectOwnershipException } from '../projects/exceptions/project-ownership.exception';
@@ -13,9 +13,9 @@ import { InvalidFileTypeException } from '../storage/exceptions/invalid-file-typ
 import { StorageService } from '../storage/storage.service';
 import { UpdateManifestDto } from './dto/update-manifest.dto';
 import { ManifestNotFoundException } from './exceptions/manifest-not-found.exception';
+import { detectFileType } from './interceptors/pdf-file.interceptor';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
-const PDF_MIME_TYPE = 'application/pdf';
 
 @Injectable()
 export class ManifestsService {
@@ -36,6 +36,15 @@ export class ManifestsService {
     const group = await this.groupsService.findOne(user, groupId);
     this.validateFile(file);
 
+    if (!file) {
+      throw new FileNotFoundException();
+    }
+
+    const detectedFileType = detectFileType(file.mimetype);
+    if (detectedFileType === 'unknown') {
+      throw new InvalidFileTypeException();
+    }
+
     const storedFile = await this.storageService.saveFile(
       file,
       group.projectId,
@@ -47,6 +56,7 @@ export class ManifestsService {
       originalFilename: storedFile.originalFilename,
       storagePath: storedFile.storagePath,
       fileSize: storedFile.fileSize,
+      fileType: detectedFileType === 'pdf' ? FileType.PDF : FileType.IMAGE,
       status: ManifestStatus.PENDING,
       groupId: group.id,
     });
@@ -242,11 +252,6 @@ export class ManifestsService {
     if (!file) {
       throw new FileNotFoundException();
     }
-
-    if (file.mimetype !== PDF_MIME_TYPE) {
-      throw new InvalidFileTypeException();
-    }
-
     if (file.size > MAX_FILE_SIZE) {
       throw new FileTooLargeException();
     }

@@ -1,5 +1,7 @@
 import apiClient from '@/lib/api-client';
 
+export type ExtractionStrategy = 'ocr-first' | 'vision-first' | 'vision-only' | 'two-stage';
+
 export interface Schema {
   id: number;
   name: string;
@@ -8,6 +10,7 @@ export interface Schema {
   projectId: number;
   isTemplate: boolean;
   description: string | null;
+  extractionStrategy: ExtractionStrategy | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -19,6 +22,7 @@ export interface CreateSchemaDto {
   projectId: number;
   description?: string;
   isTemplate?: boolean;
+  extractionStrategy?: ExtractionStrategy;
 }
 
 export interface UpdateSchemaDto {
@@ -27,6 +31,7 @@ export interface UpdateSchemaDto {
   requiredFields?: string[];
   description?: string;
   isTemplate?: boolean;
+  extractionStrategy?: ExtractionStrategy;
 }
 
 export interface ValidateSchemaDto {

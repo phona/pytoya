@@ -21,6 +21,11 @@ export enum ManifestStatus {
   FAILED = 'failed',
 }
 
+export enum FileType {
+  PDF = 'pdf',
+  IMAGE = 'image',
+}
+
 @Entity()
 export class ManifestEntity {
   @PrimaryGeneratedColumn()
@@ -37,6 +42,10 @@ export class ManifestEntity {
 
   @Column({ type: 'int', name: 'file_size' })
   fileSize!: number;
+
+  @Index()
+  @Column({ type: 'enum', enum: FileType, default: FileType.PDF })
+  fileType!: FileType;
 
   @Index()
   @Column({ type: 'enum', enum: ManifestStatus, default: ManifestStatus.PENDING })

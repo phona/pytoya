@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { CreateSchemaDto, UpdateSchemaDto, Schema } from '@/lib/api/schemas';
+import { CreateSchemaDto, UpdateSchemaDto, Schema, ExtractionStrategy } from '@/lib/api/schemas';
 import { useProjects } from '@/hooks/use-projects';
 import { JSONSchemaEditor } from '@/components/JSONSchemaEditor';
 import { SchemaVisualBuilder } from '@/components/SchemaVisualBuilder';
+import { ExtractionStrategySelector } from '@/components/ExtractionStrategySelector';
 
 interface SchemaFormProps {
   schema?: Schema;
@@ -26,6 +27,9 @@ export function SchemaForm({ schema, templates = [], onSubmit, onCancel, isLoadi
   );
   const [requiredFields, setRequiredFields] = useState(
     schema?.requiredFields?.join('\n') ?? ''
+  );
+  const [extractionStrategy, setExtractionStrategy] = useState<ExtractionStrategy | null>(
+    schema?.extractionStrategy ?? null
   );
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -79,6 +83,7 @@ export function SchemaForm({ schema, templates = [], onSubmit, onCancel, isLoadi
         jsonSchema: parsedJsonSchema,
         requiredFields: fieldsArray,
         description: description || undefined,
+        extractionStrategy: extractionStrategy || undefined,
       };
       await onSubmit(updateData);
     } else {
@@ -89,6 +94,7 @@ export function SchemaForm({ schema, templates = [], onSubmit, onCancel, isLoadi
         projectId: parseInt(projectId, 10),
         description: description || undefined,
         isTemplate: false,
+        extractionStrategy: extractionStrategy || undefined,
       };
       await onSubmit(data);
     }
@@ -167,6 +173,12 @@ export function SchemaForm({ schema, templates = [], onSubmit, onCancel, isLoadi
           placeholder="Optional description..."
         />
       </div>
+
+      <ExtractionStrategySelector
+        value={extractionStrategy}
+        onChange={setExtractionStrategy}
+        showCostEstimate={true}
+      />
 
       <div>
         <div className="flex justify-between items-center mb-2">

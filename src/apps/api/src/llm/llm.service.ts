@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
+import * as fs from 'fs';
 
 import { ProviderType } from '../entities/provider.entity';
 import {
@@ -14,6 +15,9 @@ import {
   LlmChatMessage,
   LlmChatOptions,
   LlmProviderConfig,
+  LlmContentImage,
+  LlmContentText,
+  LlmChatMessageContent,
 } from './llm.types';
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
@@ -180,6 +184,128 @@ export class LlmService {
     // PADDLEX and CUSTOM providers: assume support if explicitly configured
     // This can be enhanced with capability detection in the future
     return false;
+  }
+
+  /**
+   * Check if a provider/model combination supports vision (image input).
+   * OpenAI GPT-4o, GPT-4o-mini, GPT-4 Turbo, and Claude 3.5+ support vision.
+   */
+  providerSupportsVision(
+    providerType?: ProviderType,
+    model?: string,
+  ): boolean {
+    const modelName = model?.toLowerCase() ?? this.model.toLowerCase();
+
+    // OPENAI provider: GPT-4o, GPT-4o-mini, GPT-4 Turbo with vision support
+    if (providerType === ProviderType.OPENAI) {
+      return (
+        modelName.startsWith('gpt-4o') ||
+        modelName.startsWith('gpt-4-turbo') ||
+        modelName.includes('vision')
+      );
+    }
+
+    // For PADDLEX and CUSTOM providers, check if vision is explicitly configured
+    return false;
+  }
+
+  /**
+   * Create a vision chat message with text and image content.
+   * This is useful for sending images to vision-enabled LLMs.
+   *
+   * @param text - The text prompt/instruction
+   * @param images - Array of image data URLs or file paths
+   * @param detail - Detail level for vision API ('low', 'high', or 'auto')
+   * @returns A chat message with mixed text and image content
+   */
+  createVisionMessage(
+    text: string,
+    images: string[],
+    detail: 'low' | 'high' | 'auto' = 'auto',
+  ): LlmChatMessage {
+    const content: Array<LlmContentText | LlmContentImage> = [
+      { type: 'text', text },
+    ];
+
+    for (const imagePath of images) {
+      if (imagePath.startsWith('data:')) {
+        // Already a data URL
+        content.push({
+          type: 'image_url',
+          image_url: { url: imagePath, detail },
+        });
+      } else if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+        // Public URL
+        content.push({
+          type: 'image_url',
+          image_url: { url: imagePath, detail },
+        });
+      } else {
+        // File path - read and convert to base64
+        const imageBuffer = fs.readFileSync(imagePath);
+        const base64 = imageBuffer.toString('base64');
+        const mimeType = this.getMimeType(imagePath);
+        content.push({
+          type: 'image_url',
+          image_url: { url: `data:${mimeType};base64,${base64}`, detail },
+        });
+      }
+    }
+
+    return {
+      role: 'user',
+      content,
+    };
+  }
+
+  /**
+   * Create vision messages from PDF page images (buffers).
+   *
+   * @param text - The text prompt/instruction
+   * @param imageBuffers - Array of page buffers with metadata
+   * @param detail - Detail level for vision API
+   * @returns A chat message with mixed text and image content
+   */
+  createVisionMessageFromBuffers(
+    text: string,
+    imageBuffers: Array<{ buffer: Buffer; mimeType: string }>,
+    detail: 'low' | 'high' | 'auto' = 'auto',
+  ): LlmChatMessage {
+    const content: Array<LlmContentText | LlmContentImage> = [
+      { type: 'text', text },
+    ];
+
+    for (const { buffer, mimeType } of imageBuffers) {
+      const base64 = buffer.toString('base64');
+      content.push({
+        type: 'image_url',
+        image_url: { url: `data:${mimeType};base64,${base64}`, detail },
+      });
+    }
+
+    return {
+      role: 'user',
+      content,
+    };
+  }
+
+  private getMimeType(filePath: string): string {
+    const ext = filePath.toLowerCase().split('.').pop();
+    switch (ext) {
+      case 'png':
+        return 'image/png';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'bmp':
+        return 'image/bmp';
+      default:
+        return 'image/png';
+    }
   }
 
   private formatError(error: unknown): string {

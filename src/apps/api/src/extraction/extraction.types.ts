@@ -1,5 +1,13 @@
 import { LayoutSummary } from '../ocr/types/ocr.types';
 import { ExtractedData } from '../prompts/types/prompts.types';
+import { ConvertedPage } from '../pdf-to-image/pdf-to-image.service';
+
+export enum ExtractionStrategy {
+  OCR_FIRST = 'ocr-first',
+  VISION_FIRST = 'vision-first',
+  VISION_ONLY = 'vision-only',
+  TWO_STAGE = 'two-stage',
+}
 
 export enum ExtractionStatus {
   PENDING = 'PENDING',
@@ -44,6 +52,9 @@ export interface ExtractionWorkflowState {
   maxRetries: number;
   ocrRetryCount: number;
   extractionRetryCount: number;
+  strategy: ExtractionStrategy;
   ocrResult?: OcrState;
   extractionResult?: ExtractionStateResult;
+  convertedPages?: ConvertedPage[];
 }
+

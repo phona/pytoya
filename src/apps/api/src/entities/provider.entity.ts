@@ -43,6 +43,12 @@ export class ProviderEntity {
   @Column({ type: 'boolean', default: false })
   isDefault!: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  supportsVision!: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  supportsStructuredOutput!: boolean;
+
   @CreateDateColumn()
   createdAt!: Date;
 

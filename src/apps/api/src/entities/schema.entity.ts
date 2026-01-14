@@ -8,6 +8,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { ProjectEntity } from './project.entity';
+import { ExtractionStrategy } from '../extraction/extraction.types';
 
 @Entity('schemas')
 export class SchemaEntity {
@@ -28,6 +29,13 @@ export class SchemaEntity {
 
   @Column({ type: 'boolean', default: false })
   isTemplate!: boolean;
+
+  @Column({
+    type: 'enum',
+    enum: ExtractionStrategy,
+    default: ExtractionStrategy.OCR_FIRST,
+  })
+  extractionStrategy!: ExtractionStrategy;
 
   @Column({ type: 'varchar', nullable: true })
   description!: string | null;

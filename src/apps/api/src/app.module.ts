@@ -10,6 +10,7 @@ import { JobsModule } from './jobs/jobs.module';
 import { ManifestsModule } from './manifests/manifests.module';
 import { LlmModule } from './llm/llm.module';
 import { OcrModule } from './ocr/ocr.module';
+import { PdfToImageModule } from './pdf-to-image/pdf-to-image.module';
 import { PromptsModule } from './prompts/prompts.module';
 import { ProvidersModule } from './providers/providers.module';
 import { ProjectsModule } from './projects/projects.module';
@@ -33,6 +34,7 @@ import { WebSocketModule } from './websocket/websocket.module';
     LlmModule,
     ManifestsModule,
     OcrModule,
+    PdfToImageModule,
     PromptsModule,
     ProvidersModule,
     ProjectsModule,

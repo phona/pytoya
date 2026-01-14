@@ -1,6 +1,6 @@
 import apiClient from '@/lib/api-client';
 
-export type ProviderType = 'PADDLEX' | 'OPENAI' | 'CUSTOM';
+export type ProviderType = 'PADDLEX' | 'OPENAI' | 'CUSTOM' | 'ANTHROPIC' | 'BAIDU' | 'SILICONFLOW';
 
 export interface Provider {
   id: number;
@@ -11,6 +11,8 @@ export interface Provider {
   modelName?: string | null;
   temperature?: number | null;
   maxTokens?: number | null;
+  supportsVision: boolean;
+  supportsStructuredOutput: boolean;
   isDefault: boolean;
   createdAt: string;
   updatedAt: string;
@@ -24,6 +26,8 @@ export interface CreateProviderDto {
   modelName?: string;
   temperature?: number;
   maxTokens?: number;
+  supportsVision?: boolean;
+  supportsStructuredOutput?: boolean;
 }
 
 export interface UpdateProviderDto {
@@ -33,6 +37,8 @@ export interface UpdateProviderDto {
   modelName?: string;
   temperature?: number;
   maxTokens?: number;
+  supportsVision?: boolean;
+  supportsStructuredOutput?: boolean;
   isDefault?: boolean;
 }
 

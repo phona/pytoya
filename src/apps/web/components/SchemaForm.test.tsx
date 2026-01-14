@@ -103,6 +103,7 @@ describe('SchemaForm', () => {
       requiredFields: ['field'],
       isTemplate: false,
       description: 'Test schema',
+      extractionStrategy: null,
       createdAt: '2025-01-13T00:00:00.000Z',
       updatedAt: '2025-01-13T00:00:00.000Z',
     };
@@ -241,6 +242,7 @@ describe('SchemaForm', () => {
         requiredFields: ['invoice_number'],
         isTemplate: true,
         description: 'Invoice template',
+        extractionStrategy: null,
         createdAt: '2025-01-13T00:00:00.000Z',
         updatedAt: '2025-01-13T00:00:00.000Z',
       },

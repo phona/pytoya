@@ -1,11 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { promises as fs } from 'fs';
 import * as path from 'path';
 import { Repository } from 'typeorm';
 
-import { ManifestEntity, ManifestStatus } from '../entities/manifest.entity';
+import { ManifestEntity, ManifestStatus, FileType } from '../entities/manifest.entity';
 import { ProviderEntity } from '../entities/provider.entity';
 import { PromptEntity, PromptType } from '../entities/prompt.entity';
 import { SchemaEntity } from '../entities/schema.entity';
@@ -13,8 +12,10 @@ import { LlmResponseFormat } from '../llm/llm.types';
 import { LlmService } from '../llm/llm.service';
 import { LlmChatMessage, LlmProviderConfig } from '../llm/llm.types';
 import { OcrService } from '../ocr/ocr.service';
+import { PdfToImageService, ConvertedPage } from '../pdf-to-image/pdf-to-image.service';
 import { PromptsService } from '../prompts/prompts.service';
 import { SchemasService } from '../schemas/schemas.service';
+import { IFileAccessService, FileStats } from '../file-access/file-access.service';
 import { ExtractedData } from '../prompts/types/prompts.types';
 import {
   ExtractionStateResult,
@@ -22,6 +23,7 @@ import {
   ExtractionValidationResult,
   ExtractionWorkflowState,
   OcrState,
+  ExtractionStrategy,
 } from './extraction.types';
 
 type ExtractionOptions = {
@@ -53,10 +55,77 @@ export class ExtractionService {
     private readonly promptRepository: Repository<PromptEntity>,
     private readonly ocrService: OcrService,
     private readonly llmService: LlmService,
+    private readonly pdfToImageService: PdfToImageService,
     private readonly promptsService: PromptsService,
     private readonly schemasService: SchemasService,
     private readonly configService: ConfigService,
+    @Inject('IFileAccessService')
+    private readonly fileSystem: IFileAccessService,
   ) {}
+
+  /**
+   * Determine the extraction strategy based on schema, file type, and provider capabilities.
+   */
+  private determineExtractionStrategy(
+    schema: SchemaEntity | null,
+    fileType: FileType,
+    provider?: ProviderEntity,
+  ): ExtractionStrategy {
+    // If schema explicitly specifies a strategy, use it
+    if (schema?.extractionStrategy) {
+      // Validate that the strategy is compatible with the provider
+      if (provider && schema.extractionStrategy !== ExtractionStrategy.OCR_FIRST) {
+        const supportsVision = provider.supportsVision ??
+          this.llmService.providerSupportsVision(provider.type, provider.modelName ?? undefined);
+        if (!supportsVision) {
+          this.logger.warn(
+            `Schema specifies ${schema.extractionStrategy} but provider doesn't support vision, falling back to OCR_FIRST`,
+          );
+          return ExtractionStrategy.OCR_FIRST;
+        }
+      }
+      return schema.extractionStrategy;
+    }
+
+    // For image files, use VISION_ONLY if provider supports it
+    if (fileType === FileType.IMAGE) {
+      const supportsVision = provider ? (provider.supportsVision ??
+        this.llmService.providerSupportsVision(provider.type, provider.modelName ?? undefined)) : false;
+      if (supportsVision) {
+        return ExtractionStrategy.VISION_ONLY;
+      }
+      // Image files require vision - if provider doesn't support it, we'll fail later
+      this.logger.warn('Image file uploaded but provider does not support vision');
+    }
+
+    // Default to OCR_FIRST for backward compatibility
+    return ExtractionStrategy.OCR_FIRST;
+  }
+
+  /**
+   * Check if the extraction strategy requires PDF-to-image conversion.
+   */
+  private requiresPdfToImageConversion(
+    strategy: ExtractionStrategy,
+    fileType: FileType,
+  ): boolean {
+    return (
+      fileType === FileType.PDF &&
+      (strategy === ExtractionStrategy.VISION_FIRST ||
+        strategy === ExtractionStrategy.VISION_ONLY ||
+        strategy === ExtractionStrategy.TWO_STAGE)
+    );
+  }
+
+  /**
+   * Convert PDF to images for vision-based extraction.
+   */
+  private async convertPdfToImages(
+    filePath: string,
+  ): Promise<ConvertedPage[]> {
+    this.logger.log(`Converting PDF to images: ${filePath}`);
+    return await this.pdfToImageService.convertPdfToImages(filePath);
+  }
 
   async runExtraction(
     manifestId: number,
@@ -150,6 +219,7 @@ export class ExtractionService {
       ),
       ocrRetryCount: 0,
       extractionRetryCount: 0,
+      strategy: this.determineExtractionStrategy(schema, manifest.fileType, provider),
     };
 
     await this.updateManifestStatus(manifest, ManifestStatus.PROCESSING);
@@ -159,11 +229,43 @@ export class ExtractionService {
       reportProgress(10);
       await this.validateManifest(manifest, state);
 
-      const fileBuffer = await fs.readFile(manifest.storagePath);
-      state.ocrResult = await this.executeOcr(fileBuffer, state);
-      reportProgress(40);
+      const fileBuffer = await this.fileSystem.readFile(manifest.storagePath);
 
-      await this.retryOcrIfNeeded(fileBuffer, state);
+      // Handle different extraction strategies
+      if (this.requiresPdfToImageConversion(state.strategy, manifest.fileType)) {
+        // Convert PDF to images for vision-based strategies
+        state.convertedPages = await this.convertPdfToImages(manifest.storagePath);
+        this.logger.log(
+          `Converted ${state.convertedPages.length} pages for ${state.strategy} extraction`,
+        );
+        reportProgress(25);
+      } else if (manifest.fileType === FileType.IMAGE && state.strategy === ExtractionStrategy.VISION_ONLY) {
+        // For image files with VISION_ONLY, create a converted page from the image buffer
+        const mimeType = this.getMimeTypeFromFilename(manifest.originalFilename);
+        state.convertedPages = [
+          {
+            pageNumber: 1,
+            buffer: fileBuffer,
+            mimeType,
+          },
+        ];
+        this.logger.log(`Using image file directly for ${state.strategy} extraction`);
+        reportProgress(25);
+      }
+
+      // Run OCR for OCR_FIRST, VISION_FIRST, and TWO_STAGE strategies
+      if (
+        state.strategy === ExtractionStrategy.OCR_FIRST ||
+        state.strategy === ExtractionStrategy.VISION_FIRST ||
+        state.strategy === ExtractionStrategy.TWO_STAGE
+      ) {
+        state.ocrResult = await this.executeOcr(fileBuffer, state);
+        reportProgress(40);
+        await this.retryOcrIfNeeded(fileBuffer, state);
+      } else if (manifest.fileType === FileType.IMAGE) {
+        // For images with VISION_ONLY, we don't need OCR
+        this.logger.log('Skipping OCR for image file with VISION_ONLY strategy');
+      }
 
       await this.runExtractionLoop(
         manifest,
@@ -260,16 +362,18 @@ export class ExtractionService {
     const filePath = manifest.storagePath;
     const fileExt = path.extname(manifest.originalFilename).toLowerCase();
 
-    if (fileExt !== '.pdf') {
+    // Accept both PDF and image files
+    const validExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'];
+    if (!validExtensions.includes(fileExt)) {
       this.raiseError(
         state,
-        `Manifest file is not a PDF: ${manifest.originalFilename}`,
+        `Manifest file type not supported: ${manifest.originalFilename}. Supported types: PDF, PNG, JPEG, GIF, WebP, BMP`,
       );
     }
 
     try {
-      const stats = await fs.stat(filePath);
-      if (!stats.isFile()) {
+      const stats = await this.fileSystem.getFileStats(filePath);
+      if (!stats.isFile) {
         this.raiseError(
           state,
           `Manifest file path is not a file: ${filePath}`,
@@ -354,12 +458,28 @@ export class ExtractionService {
     requiredFields: string[],
     schema: SchemaEntity | null,
   ): Promise<ExtractionStateResult> {
-    const ocrResult = state.ocrResult;
-    if (!ocrResult || !ocrResult.success) {
+    // Check if vision is required and available
+    const requiresVision = state.strategy !== ExtractionStrategy.OCR_FIRST;
+    const supportsVision = providerConfig
+      ? (providerConfig.supportsVision ??
+        this.llmService.providerSupportsVision(providerConfig.type, providerConfig.modelName ?? undefined))
+      : false;
+
+    if (requiresVision && !supportsVision) {
       return {
         data: {},
         success: false,
-        error: 'Cannot extract data: OCR processing failed',
+        error: `Extraction strategy ${state.strategy} requires vision support, but provider does not support it`,
+        retryCount: state.extractionRetryCount,
+      };
+    }
+
+    // For vision-only strategies, we need converted pages
+    if (state.strategy === ExtractionStrategy.VISION_ONLY && !state.convertedPages?.length) {
+      return {
+        data: {},
+        success: false,
+        error: 'VISION_ONLY strategy requires converted pages, but none are available',
         retryCount: state.extractionRetryCount,
       };
     }
@@ -367,28 +487,47 @@ export class ExtractionService {
     const previousExtraction = state.extractionResult;
     const useReExtract =
       state.extractionRetryCount > 0 && Boolean(previousExtraction);
-    const prompt =
-      useReExtract && previousExtraction
-        ? this.promptsService.buildReExtractPrompt(
-            ocrResult.markdown,
-            previousExtraction.data,
-            previousExtraction.validation?.missingFields,
-            previousExtraction.error,
-          )
-        : this.promptsService.buildExtractionPrompt(
-            ocrResult.markdown,
-          );
 
-    const messages: LlmChatMessage[] = [
-      {
-        role: 'system',
-        content: useReExtract ? reExtractSystemPrompt : systemPrompt,
-      },
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ];
+    // Build messages based on strategy
+    let messages: LlmChatMessage[];
+
+    if (state.strategy === ExtractionStrategy.VISION_ONLY) {
+      // Vision-only: use images directly
+      messages = this.buildVisionOnlyMessages(
+        state,
+        systemPrompt,
+        reExtractSystemPrompt,
+        useReExtract,
+        previousExtraction,
+      );
+    } else if (state.strategy === ExtractionStrategy.VISION_FIRST) {
+      // Vision-first: use images with OCR as fallback context
+      messages = this.buildVisionFirstMessages(
+        state,
+        systemPrompt,
+        reExtractSystemPrompt,
+        useReExtract,
+        previousExtraction,
+      );
+    } else if (state.strategy === ExtractionStrategy.TWO_STAGE) {
+      // Two-stage: combine vision and OCR
+      messages = this.buildTwoStageMessages(
+        state,
+        systemPrompt,
+        reExtractSystemPrompt,
+        useReExtract,
+        previousExtraction,
+      );
+    } else {
+      // OCR_FIRST: traditional OCR-based extraction
+      messages = this.buildOcrFirstMessages(
+        state,
+        systemPrompt,
+        reExtractSystemPrompt,
+        useReExtract,
+        previousExtraction,
+      );
+    }
 
     // Build LLM options with structured output if supported
     const llmOptions: {
@@ -464,6 +603,145 @@ export class ExtractionService {
         retryCount: state.extractionRetryCount,
       };
     }
+  }
+
+  private buildVisionOnlyMessages(
+    state: ExtractionWorkflowState,
+    systemPrompt: string,
+    reExtractSystemPrompt: string,
+    useReExtract: boolean,
+    previousExtraction?: ExtractionStateResult,
+  ): LlmChatMessage[] {
+    const pages = state.convertedPages ?? [];
+    const imageBuffers = pages.map((p) => ({ buffer: p.buffer, mimeType: p.mimeType }));
+
+    let userPrompt = 'Extract structured data from these document images.';
+    if (useReExtract && previousExtraction) {
+      userPrompt = this.promptsService.buildReExtractPrompt(
+        '',
+        previousExtraction.data,
+        previousExtraction.validation?.missingFields,
+        previousExtraction.error,
+      );
+      userPrompt += '\n\nPlease re-examine the document images and correct the missing or incorrect fields.';
+    }
+
+    return [
+      {
+        role: 'system',
+        content: useReExtract ? reExtractSystemPrompt : systemPrompt,
+      },
+      this.llmService.createVisionMessageFromBuffers(userPrompt, imageBuffers),
+    ];
+  }
+
+  private buildVisionFirstMessages(
+    state: ExtractionWorkflowState,
+    systemPrompt: string,
+    reExtractSystemPrompt: string,
+    useReExtract: boolean,
+    previousExtraction?: ExtractionStateResult,
+  ): LlmChatMessage[] {
+    const pages = state.convertedPages ?? [];
+    const imageBuffers = pages.map((p) => ({ buffer: p.buffer, mimeType: p.mimeType }));
+
+    // For vision-first, we use images primarily but can include OCR text as context
+    let userPrompt = 'Extract structured data from these document images.';
+    if (state.ocrResult?.success && state.ocrResult.rawText) {
+      userPrompt += `\n\nAdditional OCR text context (may be useful for small text):\n${state.ocrResult.rawText.slice(0, 5000)}`;
+    }
+
+    if (useReExtract && previousExtraction) {
+      userPrompt = this.promptsService.buildReExtractPrompt(
+        '',
+        previousExtraction.data,
+        previousExtraction.validation?.missingFields,
+        previousExtraction.error,
+      );
+      userPrompt += '\n\nPlease re-examine the document images and correct the missing or incorrect fields.';
+    }
+
+    return [
+      {
+        role: 'system',
+        content: useReExtract ? reExtractSystemPrompt : systemPrompt,
+      },
+      this.llmService.createVisionMessageFromBuffers(userPrompt, imageBuffers),
+    ];
+  }
+
+  private buildTwoStageMessages(
+    state: ExtractionWorkflowState,
+    systemPrompt: string,
+    reExtractSystemPrompt: string,
+    useReExtract: boolean,
+    previousExtraction?: ExtractionStateResult,
+  ): LlmChatMessage[] {
+    const pages = state.convertedPages ?? [];
+    const imageBuffers = pages.map((p) => ({ buffer: p.buffer, mimeType: p.mimeType }));
+
+    // Two-stage: provide both vision content and OCR text
+    let userPrompt = 'Extract structured data from this document. ';
+    userPrompt += 'You have both the document images and OCR text available. ';
+    userPrompt += 'Use the images for visual understanding and OCR text for precise text extraction.';
+
+    if (state.ocrResult?.success && state.ocrResult.rawText) {
+      userPrompt += `\n\nOCR Text:\n${state.ocrResult.rawText}`;
+    }
+
+    if (useReExtract && previousExtraction) {
+      userPrompt = this.promptsService.buildReExtractPrompt(
+        state.ocrResult?.markdown ?? '',
+        previousExtraction.data,
+        previousExtraction.validation?.missingFields,
+        previousExtraction.error,
+      );
+      userPrompt += '\n\nPlease re-examine both the document images and OCR text, then correct the missing or incorrect fields.';
+    }
+
+    return [
+      {
+        role: 'system',
+        content: useReExtract ? reExtractSystemPrompt : systemPrompt,
+      },
+      this.llmService.createVisionMessageFromBuffers(userPrompt, imageBuffers),
+    ];
+  }
+
+  private buildOcrFirstMessages(
+    state: ExtractionWorkflowState,
+    systemPrompt: string,
+    reExtractSystemPrompt: string,
+    useReExtract: boolean,
+    previousExtraction?: ExtractionStateResult,
+  ): LlmChatMessage[] {
+    const ocrResult = state.ocrResult;
+    if (!ocrResult || !ocrResult.success) {
+      throw new Error('OCR result not available for OCR_FIRST strategy');
+    }
+
+    const prompt =
+      useReExtract && previousExtraction
+        ? this.promptsService.buildReExtractPrompt(
+            ocrResult.markdown,
+            previousExtraction.data,
+            previousExtraction.validation?.missingFields,
+            previousExtraction.error,
+          )
+        : this.promptsService.buildExtractionPrompt(
+            ocrResult.markdown,
+          );
+
+    return [
+      {
+        role: 'system',
+        content: useReExtract ? reExtractSystemPrompt : systemPrompt,
+      },
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ];
   }
 
   private async saveResult(
@@ -809,5 +1087,22 @@ export class ExtractionService {
       return error.message;
     }
     return String(error ?? 'Unknown error');
+  }
+
+  /**
+   * Get MIME type from filename extension.
+   * Used for image files in vision-based extraction.
+   */
+  private getMimeTypeFromFilename(filename: string): string {
+    const ext = path.extname(filename).toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.bmp': 'image/bmp',
+    };
+    return mimeTypes[ext] || 'image/png';
   }
 }

@@ -18,6 +18,8 @@ export function ProviderForm({ provider, onSubmit, onCancel, isLoading }: Provid
   const [modelName, setModelName] = useState(provider?.modelName ?? '');
   const [temperature, setTemperature] = useState(provider?.temperature?.toString() ?? '');
   const [maxTokens, setMaxTokens] = useState(provider?.maxTokens?.toString() ?? '');
+  const [supportsVision, setSupportsVision] = useState(provider?.supportsVision ?? false);
+  const [supportsStructuredOutput, setSupportsStructuredOutput] = useState(provider?.supportsStructuredOutput ?? false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +32,8 @@ export function ProviderForm({ provider, onSubmit, onCancel, isLoading }: Provid
       if (modelName) data.modelName = modelName;
       if (temperature) data.temperature = parseFloat(temperature);
       if (maxTokens) data.maxTokens = parseInt(maxTokens, 10);
+      data.supportsVision = supportsVision;
+      data.supportsStructuredOutput = supportsStructuredOutput;
       await onSubmit(data);
     } else {
       const data: CreateProviderDto = {
@@ -40,6 +44,8 @@ export function ProviderForm({ provider, onSubmit, onCancel, isLoading }: Provid
         modelName: modelName || undefined,
         temperature: temperature ? parseFloat(temperature) : undefined,
         maxTokens: maxTokens ? parseInt(maxTokens, 10) : undefined,
+        supportsVision,
+        supportsStructuredOutput,
       };
       await onSubmit(data);
     }
@@ -132,6 +138,35 @@ export function ProviderForm({ provider, onSubmit, onCancel, isLoading }: Provid
           placeholder="4096"
           className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
         />
+      </div>
+
+      <div className="border-t border-gray-200 pt-4">
+        <label className="block text-sm font-medium text-gray-700 mb-3">Capabilities</label>
+        <div className="space-y-2">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={supportsVision}
+              onChange={(e) => setSupportsVision(e.target.checked)}
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            />
+            <span className="ml-2 text-sm text-gray-700">Supports Vision</span>
+            <span className="ml-2 text-xs text-gray-500">(can process images directly)</span>
+          </label>
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={supportsStructuredOutput}
+              onChange={(e) => setSupportsStructuredOutput(e.target.checked)}
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            />
+            <span className="ml-2 text-sm text-gray-700">Supports Structured Output</span>
+            <span className="ml-2 text-xs text-gray-500">(JSON schema enforcement)</span>
+          </label>
+        </div>
+        <p className="mt-2 text-xs text-gray-500">
+          Enable capabilities based on your provider. Vision allows direct image processing. Structured output ensures JSON schema compliance.
+        </p>
       </div>
 
       <div className="flex justify-end gap-3 pt-4">

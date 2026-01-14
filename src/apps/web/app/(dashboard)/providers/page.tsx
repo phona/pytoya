@@ -135,8 +135,8 @@ export default function ProvidersPage() {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base URL</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Model</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capabilities</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -149,8 +149,26 @@ export default function ProvidersPage() {
                         {provider.type}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{provider.baseUrl}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{provider.modelName || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="flex gap-1">
+                        {provider.supportsVision && (
+                          <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800" title="Can process images">
+                            Vision
+                          </span>
+                        )}
+                        {provider.supportsStructuredOutput && (
+                          <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800" title="JSON schema enforcement">
+                            Structured
+                          </span>
+                        )}
+                        {!provider.supportsVision && !provider.supportsStructuredOutput && (
+                          <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                            Standard
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => handleTest(provider.id)}

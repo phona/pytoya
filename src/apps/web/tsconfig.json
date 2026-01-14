@@ -5,15 +5,40 @@
     "moduleResolution": "bundler",
     "jsx": "preserve",
     "incremental": true,
-    "types": ["node"],
-    "plugins": [{ "name": "next" }],
+    "types": [
+      "node"
+    ],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
-      "@pytoya/api/*": ["src/apps/api/src/*"],
-      "@pytoya/web/*": ["src/apps/web/*"],
-      "@pytoya/common/*": ["src/apps/common/src/*"],
-      "@/*": ["src/apps/web/*"],
-      "components/*": ["src/apps/web/components/*"]
-    }
+      "@pytoya/api/*": [
+        "src/apps/api/src/*"
+      ],
+      "@pytoya/web/*": [
+        "src/apps/web/*"
+      ],
+      "@pytoya/common/*": [
+        "src/apps/common/src/*"
+      ],
+      "@/*": [
+        "src/apps/web/*"
+      ],
+      "components/*": [
+        "src/apps/web/components/*"
+      ]
+    },
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
   },
   "include": [
     "next-env.d.ts",
@@ -21,5 +46,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

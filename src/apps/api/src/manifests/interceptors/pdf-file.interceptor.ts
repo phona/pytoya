@@ -20,6 +20,21 @@ import { InvalidFileTypeException } from '../../storage/exceptions/invalid-file-
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const PDF_MIME_TYPE = 'application/pdf';
+
+// Supported image MIME types for vision-enabled LLMs
+const IMAGE_MIME_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/bmp',
+] as const;
+
+const ALLOWED_MIME_TYPES = [PDF_MIME_TYPE, ...IMAGE_MIME_TYPES];
+
+export { ALLOWED_MIME_TYPES, IMAGE_MIME_TYPES, PDF_MIME_TYPE };
+
 const TEMP_UPLOADS_PATH = path.resolve(process.cwd(), 'uploads', 'tmp');
 const MAX_FILES = 20;
 
@@ -48,7 +63,7 @@ const fileFilter: NonNullable<MulterModuleOptions['fileFilter']> = (
   file,
   cb,
 ) => {
-  if (file.mimetype !== PDF_MIME_TYPE) {
+  if (!ALLOWED_MIME_TYPES.includes(file.mimetype as any)) {
     return cb(new InvalidFileTypeException(), false);
   }
   return cb(null, true);
@@ -66,6 +81,23 @@ const mapMulterError = (error: unknown) => {
   }
   return error;
 };
+
+/**
+ * Detect file type based on MIME type
+ * @param mimeType - The MIME type of the file
+ * @returns 'pdf' | 'image' | 'unknown'
+ */
+export function detectFileType(
+  mimeType: string,
+): 'pdf' | 'image' | 'unknown' {
+  if (mimeType === PDF_MIME_TYPE) {
+    return 'pdf';
+  }
+  if (IMAGE_MIME_TYPES.includes(mimeType as any)) {
+    return 'image';
+  }
+  return 'unknown';
+}
 
 @Injectable()
 export class PdfFileInterceptor implements NestInterceptor {
