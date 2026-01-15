@@ -10,7 +10,8 @@
 ## 3. Port App Features
 - [ ] 3.1 Replace Next.js navigation and search params with React Router equivalents
 - [ ] 3.2 Port global providers (React Query, auth store) to new entry
-- [ ] 3.3 Port shared components and pages to new routes
+- [ ] 3.3 Centralize API access through TanStack Query hooks (queries/mutations)
+- [ ] 3.4 Port shared components and pages to new routes
 
 ## 4. Tooling and Testing
 - [ ] 4.1 Replace Jest with Vitest for frontend unit tests

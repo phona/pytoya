@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 ### Requirement: Frontend Testing Standards
-The system SHALL use Vitest with React Testing Library and MSW for API mocking, avoiding global patches.
+The system SHALL use Vitest with React Testing Library and MSW for API mocking, avoiding global patches, and SHALL keep API mocks compatible with the TanStack Query data layer.
 
 #### Scenario: Component tests
 - **WHEN** writing React component tests

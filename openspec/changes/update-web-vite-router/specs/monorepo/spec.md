@@ -13,6 +13,7 @@ The project SHALL be organized as a monorepo with separate applications.
 #### Scenario: Frontend application structure
 - **WHEN** developer navigates to `src/apps/web`
 - **THEN** Vite React application structure exists with package.json, src/, index.html
+- **AND** frontend folders follow `src/app`, `src/routes`, `src/features`, `src/shared`, `src/api`, `src/mocks`, `src/tests`
 
 #### Scenario: Docker Compose orchestration
 - **WHEN** developer runs `docker-compose up`

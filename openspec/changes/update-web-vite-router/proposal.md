@@ -10,6 +10,13 @@ The current frontend uses Next.js App Router even though the app is a client-onl
 - Switch frontend unit testing from Jest to Vitest.
 - **BREAKING** Update monorepo expectations for frontend app structure and scripts.
 
+## Guidance (agent-friendly defaults)
+- Use a single data layer: TanStack Query for API calls; use route loaders only for auth gating and critical prefetch, then hydrate the Query cache.
+- Use React Router data router with `createBrowserRouter` and nested layouts plus error boundaries.
+- Keep typed boundaries: strict TypeScript and runtime validation for external data (API responses).
+- Adopt a predictable structure: `src/app` (providers/router), `src/routes` (route modules), `src/features` (feature slices), `src/shared` (UI/utils), `src/api` (client), `src/mocks` (MSW), `src/tests` (test utils).
+- Keep tooling consistent: Vite + React + TypeScript, MSW for mocks, Vitest + Testing Library.
+
 ## Impact
 - Affected specs: monorepo, testing
 - Affected code: src/apps/web (routing, app entry, config), root package scripts, Docker/K8s web build config

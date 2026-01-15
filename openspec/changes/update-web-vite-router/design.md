@@ -5,6 +5,8 @@ The frontend currently uses Next.js 14 App Router but does not rely on server-si
 - Goals:
   - Provide a Vite + React Router data router foundation that supports nested layouts and dynamic routes.
   - Preserve existing UI behavior and API interactions.
+  - Standardize data access on TanStack Query, using loaders only for auth gating and critical prefetch.
+  - Keep typed boundaries for external data with runtime validation.
   - Move frontend unit tests to Vitest while keeping RTL and MSW patterns.
 - Non-Goals:
   - Add SSR/SSG.
@@ -15,9 +17,15 @@ The frontend currently uses Next.js 14 App Router but does not rely on server-si
 - Decision: Use React Router data router (createBrowserRouter) for nested layouts.
   - Alternatives considered: BrowserRouter + Routes
   - Rationale: Matches nested layout needs and allows future loader usage without rework.
+- Decision: Keep a single data-fetching path via TanStack Query; use loaders only for auth gating and critical prefetch.
+  - Alternatives considered: mix loaders and per-component fetch logic
+  - Rationale: avoids divergent patterns and keeps server state consistent.
 - Decision: Replace Next.js metadata handling with a client-side head manager.
   - Alternatives considered: manual document.title management
   - Rationale: preserves per-route titles with minimal boilerplate.
+- Decision: Use a predictable frontend structure (`src/app`, `src/routes`, `src/features`, `src/shared`, `src/api`, `src/mocks`, `src/tests`).
+  - Alternatives considered: ad-hoc folders per feature
+  - Rationale: reduces placement ambiguity and scales with feature count.
 - Decision: Switch to Vitest for unit tests.
   - Alternatives considered: keep Jest
   - Rationale: aligns with Vite ecosystem and reduces config duplication.
