@@ -6,6 +6,7 @@ import * as express from 'express';
 import * as path from 'path';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
+import { AdminSeedService } from './users/admin-seed.service';
 import { SocketIoAdapter } from './websocket/socket-io.adapter';
 
 async function bootstrap() {
@@ -40,6 +41,7 @@ async function bootstrap() {
     next();
   });
 
+  await app.get(AdminSeedService).seedAdminIfMissing();
   await app.listen(3000);
 }
 

@@ -2,12 +2,14 @@ import {
   BadRequestException,
   Injectable,
   Logger,
-  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { ValidationScriptEntity, ValidationSeverity } from '../entities/validation-script.entity';
+import { LlmChatMessage } from '../llm/llm.types';
+import { LlmService } from '../llm/llm.service';
+import { ProviderEntity } from '../entities/provider.entity';
 import { ManifestEntity, ManifestStatus, ValidationResult, ValidationIssue } from '../entities/manifest.entity';
 import { ProjectEntity } from '../entities/project.entity';
 import { UserEntity } from '../entities/user.entity';
@@ -20,155 +22,9 @@ import { ScriptExecutorService } from './script-executor.service';
 import { ProjectOwnershipException } from '../projects/exceptions/project-ownership.exception';
 import { ManifestNotFoundException } from '../manifests/exceptions/manifest-not-found.exception';
 
-// Validation Script Templates
-export const VALIDATION_TEMPLATES: Array<{
-  name: string;
-  description: string;
-  script: string;
-  severity: ValidationSeverity;
-}> = [
-  {
-    name: 'Tax Calculation Check',
-    description: 'Validates that unit prices with tax match expected calculations (13% VAT)',
-    script: `function validate(extractedData) {
-  const issues = [];
-  const taxRate = 0.13; // 13% VAT
-
-  for (const [i, item] of (extractedData.items || []).entries()) {
-    const exTax = item.unit_price_ex_tax || 0;
-    const incTax = item.unit_price_inc_tax || 0;
-    const expected = exTax * (1 + taxRate);
-    const diff = Math.abs(expected - incTax);
-
-    if (diff > 0.01) {
-      issues.push({
-        field: \`items[\${i}].unit_price_inc_tax\`,
-        message: \`Tax mismatch: expected \${expected.toFixed(2)}, got \${incTax}\`,
-        severity: 'warning',
-        actual: incTax,
-        expected: expected,
-      });
-    }
-  }
-  return issues;
-}`,
-    severity: ValidationSeverity.WARNING,
-  },
-  {
-    name: 'Invoice Totals Check',
-    description: 'Verifies that the sum of line item totals matches the invoice total',
-    script: `function validate(extractedData) {
-  const issues = [];
-  const items = extractedData.items || [];
-
-  const calculatedTotal = items.reduce((sum, item) =>
-    sum + (item.total_amount_inc_tax || 0), 0
-  );
-
-  const statedTotal = extractedData.invoice?.total_amount_inc_tax || 0;
-  const diff = Math.abs(calculatedTotal - statedTotal);
-
-  if (diff > 0.05) {
-    issues.push({
-      field: 'invoice.total_amount_inc_tax',
-      message: \`Sum mismatch: items total \${calculatedTotal.toFixed(2)}, invoice total \${statedTotal.toFixed(2)}\`,
-      severity: 'error',
-      actual: statedTotal,
-      expected: calculatedTotal,
-    });
-  }
-
-  return issues;
-}`,
-    severity: ValidationSeverity.ERROR,
-  },
-  {
-    name: 'Required Fields Check',
-    description: 'Ensures critical invoice fields are present and non-empty',
-    script: `function validate(extractedData) {
-  const issues = [];
-  const requiredFields = [
-    'invoice.po_no',
-    'invoice.invoice_date',
-    'invoice.supplier_name',
-    'department.code',
-  ];
-
-  for (const field of requiredFields) {
-    const value = getNestedValue(extractedData, field);
-    if (value === undefined || value === null || value === '') {
-      issues.push({
-        field: field,
-        message: \`Required field '\${field}' is missing or empty\`,
-        severity: 'error',
-      });
-    }
-  }
-
-  return issues;
-}
-
-function getNestedValue(obj, path) {
-  return path.split('.').reduce((current, key) => {
-    return current && typeof current === 'object' ? current[key] : undefined;
-  }, obj);
-}`,
-    severity: ValidationSeverity.ERROR,
-  },
-  {
-    name: 'Date Range Check',
-    description: 'Validates that invoice date is within expected ranges',
-    script: `function validate(extractedData) {
-  const issues = [];
-
-  const invoiceDateStr = extractedData.invoice?.invoice_date;
-  if (!invoiceDateStr) {
-    return issues;
-  }
-
-  const invoiceDate = new Date(invoiceDateStr);
-  const today = new Date();
-  const oneYearAgo = new Date(today);
-  oneYearAgo.setFullYear(today.getFullYear() - 1);
-
-  if (isNaN(invoiceDate.getTime())) {
-    issues.push({
-      field: 'invoice.invoice_date',
-      message: 'Invalid date format',
-      severity: 'error',
-      actual: invoiceDateStr,
-    });
-  } else if (invoiceDate > today) {
-    issues.push({
-      field: 'invoice.invoice_date',
-      message: 'Invoice date is in the future',
-      severity: 'warning',
-      actual: invoiceDateStr,
-      expected: 'Today or earlier',
-    });
-  } else if (invoiceDate < oneYearAgo) {
-    issues.push({
-      field: 'invoice.invoice_date',
-      message: 'Invoice date is more than one year old',
-      severity: 'warning',
-      actual: invoiceDateStr,
-    });
-  }
-
-  return issues;
-}`,
-    severity: ValidationSeverity.WARNING,
-  },
-];
-
 @Injectable()
-export class ValidationService implements OnModuleInit {
+export class ValidationService {
   private readonly logger = new Logger(ValidationService.name);
-
-  async onModuleInit() {
-    // Seed templates on module initialization
-    await this.seedTemplates();
-  }
 
   constructor(
     @InjectRepository(ValidationScriptEntity)
@@ -177,7 +33,10 @@ export class ValidationService implements OnModuleInit {
     private readonly manifestRepository: Repository<ManifestEntity>,
     @InjectRepository(ProjectEntity)
     private readonly projectRepository: Repository<ProjectEntity>,
+    @InjectRepository(ProviderEntity)
+    private readonly providerRepository: Repository<ProviderEntity>,
     private readonly scriptExecutor: ScriptExecutorService,
+    private readonly llmService: LlmService,
   ) {}
 
   // ========== Script CRUD ==========
@@ -207,7 +66,6 @@ export class ValidationService implements OnModuleInit {
       projectId: project.id,
       severity: input.severity ?? ValidationSeverity.WARNING,
       enabled: input.enabled ?? true,
-      isTemplate: input.isTemplate ?? false,
       description: input.description ?? null,
     });
 
@@ -216,15 +74,7 @@ export class ValidationService implements OnModuleInit {
 
   async findAll(user: UserEntity): Promise<ValidationScriptEntity[]> {
     return this.validationScriptRepository.find({
-      where: { isTemplate: false },
       relations: ['project'],
-      order: { createdAt: 'DESC' },
-    });
-  }
-
-  async findTemplates(): Promise<ValidationScriptEntity[]> {
-    return this.validationScriptRepository.find({
-      where: { isTemplate: true },
       order: { createdAt: 'DESC' },
     });
   }
@@ -240,7 +90,7 @@ export class ValidationService implements OnModuleInit {
     }
 
     return this.validationScriptRepository.find({
-      where: { projectId, isTemplate: false },
+      where: { projectId },
       order: { createdAt: 'DESC' },
     });
   }
@@ -255,8 +105,8 @@ export class ValidationService implements OnModuleInit {
       throw new ValidationScriptNotFoundException(id);
     }
 
-    // Check ownership (unless it's a template)
-    if (!script.isTemplate && script.project.ownerId !== user.id) {
+    // Check ownership
+    if (script.project.ownerId !== user.id) {
       throw new ProjectOwnershipException(script.projectId);
     }
 
@@ -416,30 +266,82 @@ export class ValidationService implements OnModuleInit {
     };
   }
 
-  // ========== Template Seeding ==========
+  // ========== LLM Generation ==========
 
-  async seedTemplates(): Promise<void> {
-    const existingTemplates = await this.validationScriptRepository.find({
-      where: { isTemplate: true },
+  async generateScriptTemplate(input: {
+    providerId: number;
+    prompt: string;
+    structured: Record<string, unknown>;
+  }): Promise<{ name: string; description: string; severity: ValidationSeverity; script: string }> {
+    const provider = await this.providerRepository.findOne({
+      where: { id: input.providerId },
     });
 
-    if (existingTemplates.length > 0) {
-      this.logger.log('Templates already exist, skipping seed');
-      return;
+    if (!provider) {
+      throw new BadRequestException(`Provider ${input.providerId} not found`);
     }
 
-    this.logger.log('Seeding validation script templates...');
+    const messages: LlmChatMessage[] = [
+      {
+        role: 'system',
+        content:
+          'You generate invoice validation scripts. Return JSON only with fields: name, description, severity, script. ' +
+          'severity must be "warning" or "error". script must define function validate(extractedData) that returns an array of issues.',
+      },
+      {
+        role: 'user',
+        content: JSON.stringify({
+          structured: input.structured,
+          prompt: input.prompt,
+        }),
+      },
+    ];
 
-    for (const template of VALIDATION_TEMPLATES) {
-      const script = this.validationScriptRepository.create({
-        ...template,
-        projectId: 0, // Templates use project ID 0
-        enabled: true,
-        isTemplate: true,
-      });
-      await this.validationScriptRepository.save(script);
+    const completion = await this.llmService.createChatCompletion(
+      messages,
+      {
+        responseFormat: { type: 'json_object' },
+        temperature: 0.2,
+        maxTokens: 1200,
+      },
+      {
+        type: provider.type,
+        baseUrl: provider.baseUrl,
+        apiKey: provider.apiKey,
+        modelName: provider.modelName,
+        temperature: provider.temperature,
+        maxTokens: provider.maxTokens,
+        supportsStructuredOutput: provider.supportsStructuredOutput,
+      },
+    );
+
+    const parsed = this.parseJsonObject(completion.content);
+    const name = typeof parsed.name === 'string' ? parsed.name.trim() : '';
+    const description = typeof parsed.description === 'string' ? parsed.description.trim() : '';
+    const severity = parsed.severity === 'error' ? ValidationSeverity.ERROR : ValidationSeverity.WARNING;
+    const script = typeof parsed.script === 'string' ? parsed.script.trim() : '';
+
+    if (!name || !script) {
+      throw new BadRequestException('Generated script response is missing required fields');
     }
 
-    this.logger.log(`Seeded ${VALIDATION_TEMPLATES.length} validation script templates`);
+    return { name, description, severity, script };
+  }
+
+  private parseJsonObject(content: string): Record<string, unknown> {
+    const trimmed = content.trim();
+    const sanitized = trimmed.startsWith('```')
+      ? trimmed
+          .replace(/^```json\n?/, '')
+          .replace(/^```[a-zA-Z]*\n?/, '')
+          .replace(/```$/, '')
+          .trim()
+      : trimmed;
+
+    const parsed = JSON.parse(sanitized);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new BadRequestException('Invalid LLM response: expected JSON object');
+    }
+    return parsed as Record<string, unknown>;
   }
 }

@@ -47,6 +47,14 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   LLM_API_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  ADMIN_USERNAME?: string;
+
+  @IsOptional()
+  @IsString()
+  ADMIN_PASSWORD?: string;
 }
 
 const formatErrors = (errors: Array<{ property: string }>): string =>

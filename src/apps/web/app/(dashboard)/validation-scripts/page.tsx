@@ -1,11 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import {
-  useValidationScripts,
-  useValidationScriptTemplates,
-} from '@/hooks/use-validation-scripts';
+import { useValidationScripts } from '@/hooks/use-validation-scripts';
 import {
   CreateValidationScriptDto,
   UpdateValidationScriptDto,
@@ -25,7 +21,6 @@ export default function ValidationScriptsPage() {
     isUpdating,
     isDeleting,
   } = useValidationScripts();
-  const { templates: templateScripts } = useValidationScriptTemplates();
 
   const [showForm, setShowForm] = useState(false);
   const [editingScript, setEditingScript] = useState<ValidationScript | null>(null);
@@ -73,7 +68,6 @@ export default function ValidationScriptsPage() {
       severity: script.severity,
       enabled: script.enabled,
       description: script.description ?? undefined,
-      isTemplate: false,
     };
     await createScript(duplicateData);
   };
@@ -99,46 +93,6 @@ export default function ValidationScriptsPage() {
           </button>
         </div>
 
-        {templateScripts.length > 0 && !showForm && !editingScript && (
-          <div className="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Template Scripts</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {templateScripts.map((template) => (
-                <div
-                  key={template.id}
-                  className="p-4 border border-gray-200 rounded-lg hover:border-indigo-300 cursor-pointer transition"
-                  onClick={() => {
-                    setShowForm(true);
-                    setEditingScript({
-                      ...template,
-                      name: '',
-                      id: 0,
-                      projectId: 0,
-                      isTemplate: false,
-                      createdAt: '',
-                      updatedAt: '',
-                    } as ValidationScript);
-                  }}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-medium text-gray-900">{template.name}</h3>
-                    <span
-                      className={`px-2 py-0.5 text-xs font-medium rounded ${
-                        template.severity === 'error'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}
-                    >
-                      {template.severity}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-500">{template.description ?? 'Template script'}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {(showForm || editingScript) && (
           <div className="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
@@ -146,7 +100,6 @@ export default function ValidationScriptsPage() {
             </h2>
             <ValidationScriptForm
               script={editingScript ?? undefined}
-              templates={templateScripts}
               onSubmit={handleFormSubmit}
               onCancel={() => {
                 setShowForm(false);

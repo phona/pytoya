@@ -20,7 +20,7 @@ export class UserEntity {
   id!: number;
 
   @Column({ type: 'varchar', unique: true })
-  email!: string;
+  username!: string;
 
   @Column({ type: 'varchar', name: 'password_hash' })
   password!: string;
@@ -45,7 +45,7 @@ export class UserEntity {
   toJSON() {
     return {
       id: this.id,
-      email: this.email,
+      username: this.username,
       role: this.role,
     };
   }

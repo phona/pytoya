@@ -7,10 +7,10 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "dev": "concurrently \"npm:dev:*\" --names \"api,web\"",
-    "dev:api": "npm run dev --workspace=@pytoya/api",
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\" --names \"api,web\"",
+    "dev:api": "npm run start:dev --workspace=@pytoya/api",
     "dev:web": "npm run dev --workspace=@pytoya/web",
-    "dev:api:watch": "npm run dev --workspace=@pytoya/api -- --watch",
+    "dev:api:watch": "npm run start:dev --workspace=@pytoya/api",
     "test": "npm run test --workspaces --if-present",
     "test:watch": "npm run test --workspaces --if-present -- --watch",
     "lint": "npm run lint --workspaces --if-present",

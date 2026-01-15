@@ -2,12 +2,12 @@ import { useAuthStore } from '@/lib/auth-store';
 import apiClient from '@/lib/api-client';
 
 export interface LoginCredentials {
-  email: string;
+  username: string;
   password: string;
 }
 
 export interface RegisterData {
-  email: string;
+  username: string;
   password: string;
   confirmPassword: string;
 }
@@ -15,7 +15,7 @@ export interface RegisterData {
 export interface AuthResponse {
   user: {
     id: number;
-    email: string;
+    username: string;
     role: 'admin' | 'user';
   };
   token: string;
@@ -33,7 +33,7 @@ export function useAuth() {
 
   const register = async (data: RegisterData) => {
     const response = await apiClient.post<AuthResponse>('/auth/register', {
-      email: data.email,
+      username: data.username,
       password: data.password,
     });
     const { user, token } = response.data;
@@ -43,7 +43,10 @@ export function useAuth() {
 
   const logout = () => {
     clearAuth();
-    window.location.href = '/login';
+    const nextUrl = `${window.location.pathname}${window.location.search}`;
+    if (window.location.pathname !== '/login') {
+      window.location.href = `/login?next_url=${encodeURIComponent(nextUrl)}`;
+    }
   };
 
   return {

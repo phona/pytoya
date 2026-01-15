@@ -50,6 +50,27 @@ helm upgrade --install pytoya helm/pytoya \
   --set secrets.llmApiKey=change-me
 ```
 
+### Production Deployment
+
+Use the Helm helper script for production deployment.
+
+```powershell
+pwsh -File scripts/deploy-helm.ps1 `
+  -Environment prod `
+  -PostgresPassword change-me `
+  -JwtSecret change-me `
+  -LlmApiKey change-me `
+  -Registry registry.prod.lan `
+  -ApiTag 1.0.0 `
+  -WebTag 1.0.0 `
+  -Namespace pytoya `
+  -ReleaseName pytoya
+```
+
+Notes:
+- Values files live under `helm/pytoya/` (e.g., `values-prod.yaml`).
+- Run migrations as a separate, explicit step in CI/CD or a one-off job.
+
 ## NodePort (No Ingress)
 
 If you don't have (or don't want) an Ingress controller, you can expose Services via NodePort.
@@ -60,10 +81,10 @@ Notes:
 
 ### Dependencies Only (Postgres + Redis)
 
-Helper script:
+PowerShell helper:
 
-```bash
-POSTGRES_PASSWORD=change-me ./scripts/deploy-deps-nodeport.sh
+```powershell
+pwsh -File scripts/deploy-deps-nodeport.ps1 -PostgresPassword change-me
 ```
 
 Manual Helm command:
@@ -91,22 +112,23 @@ kubectl get svc -n pytoya-dev
 
 ### Dev Deps + Local .env Helper
 
-Use the PowerShell helper to read NodePorts and update your local `.env`:
+Use the PowerShell helper to read NodePorts and update `src/apps/api/.env`:
 
 ```powershell
 pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -Namespace pytoya-dev -ReleaseName pytoya-dev
 ```
 
-If you have `bash` on PATH (Git Bash or WSL), the helper can also deploy:
+The setup helper can also deploy:
 
 ```powershell
 pwsh -File scripts/setup-dev-k8s-deps.ps1 -PostgresPassword change-me -Namespace pytoya-dev -ReleaseName pytoya-dev
 ```
 
 Notes:
-- The helper updates only `DB_HOST`, `DB_PORT`, `REDIS_HOST`, and `REDIS_PORT` in `.env`.
+- The helper updates `DB_HOST`, `DB_PORT`, `REDIS_HOST`, and `REDIS_PORT` in `src/apps/api/.env`.
+- Pass `-EnvPath` to write a different env file.
+- The helper creates or updates the Postgres app user by default (use `-SkipDbUserSetup` to skip).
 - If `-NodeIp` is not provided, the helper prompts for a reachable node IP.
-- If `bash` resolves to `C:\Windows\System32\bash.exe`, pass `-BashPath` to Git Bash (for example: `C:\Program Files\Git\bin\bash.exe`).
 
 ## Verify
 

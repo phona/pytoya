@@ -6,7 +6,7 @@ export class AddManifestFileType1705240000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Add fileType column to manifest table
     await queryRunner.query(`
-      ALTER TABLE "manifest"
+      ALTER TABLE "manifests"
       ADD "fileType" varchar NOT NULL DEFAULT 'pdf'
     `);
   }
@@ -14,7 +14,7 @@ export class AddManifestFileType1705240000000 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Rollback: remove fileType column from manifest table
     await queryRunner.query(`
-      ALTER TABLE "manifest"
+      ALTER TABLE "manifests"
       DROP COLUMN "fileType"
     `);
   }

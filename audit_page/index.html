@@ -73,20 +73,6 @@
                             <option value="status">By Status</option>
                         </select>
                     </div>
-                    <div class="flex gap-2 mt-2">
-                        <select id="searchAttribute" class="w-28 text-sm border rounded px-2 py-1">
-                            <option value="all" selected>All</option>
-                            <option value="name">Name</option>
-                            <option value="po">PO</option>
-                            <option value="date">Date</option>
-                            <option value="department">Dept</option>
-                            <option value="folder">Folder</option>
-                            <option value="path">Path</option>
-                            <option value="status">Status</option>
-                            <option value="confidence">Confidence</option>
-                        </select>
-                        <input id="searchInput" type="text" class="flex-1 text-sm border rounded px-2 py-1" placeholder="Search">
-                    </div>
                 </div>
                 <div id="taskList" class="divide-y">
                     <!-- Tasks will be inserted here -->
@@ -161,10 +147,6 @@
                                         <label class="text-xs text-gray-500">Invoice Date</label>
                                         <input type="text" id="invoice_date" class="field-editable w-full border rounded px-2 py-1 text-sm" placeholder="YYYY-MM-DD">
                                     </div>
-                                    <div class="col-span-2">
-                                        <label class="text-xs text-gray-500">Usage</label>
-                                        <input type="text" id="invoice_usage" class="field-editable w-full border rounded px-2 py-1 text-sm" placeholder="设备信息 (从申请/归口部门需求说明提取)">
-                                    </div>
                                 </div>
                             </div>
 
@@ -201,7 +183,10 @@
                         </div>
                         <div class="flex gap-2">
                             <button onclick="saveChanges()" class="px-5 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-base font-medium">
-                                <i class="fas fa-save mr-2"></i> Save (Ctrl+S)
+                                <i class="fas fa-save mr-2"></i> Save
+                            </button>
+                            <button onclick="printView()" class="px-5 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-base font-medium">
+                                <i class="fas fa-print mr-2"></i> Print
                             </button>
                         </div>
                     </div>

@@ -7,11 +7,11 @@ import { UsersService } from '../users/users.service';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let usersService: jest.Mocked<Pick<UsersService, 'findByEmail' | 'create'>>;
+  let usersService: jest.Mocked<Pick<UsersService, 'findByUsername' | 'create'>>;
 
   beforeEach(async () => {
     usersService = {
-      findByEmail: jest.fn(),
+      findByUsername: jest.fn(),
       create: jest.fn(),
     };
     const jwtService = {
@@ -37,9 +37,9 @@ describe('AuthService', () => {
 
   describe('validateUser', () => {
     it('should return null if user not found', async () => {
-      usersService.findByEmail.mockResolvedValue(null as any);
+      usersService.findByUsername.mockResolvedValue(null as any);
 
-      const result = await service.validateUser('notfound@example.com', 'password');
+      const result = await service.validateUser('missing-user', 'password');
 
       expect(result).toBeNull();
     });
@@ -47,16 +47,16 @@ describe('AuthService', () => {
     it('should return user if credentials are valid', async () => {
       const mockUser = {
         id: 1,
-        email: 'test@example.com',
+        username: 'test-user',
         password: '$2b$10$abcdefghijklmnopqrstuvwxyz',
         role: 'user',
       } as UserEntity;
-      usersService.findByEmail.mockResolvedValue(mockUser);
+      usersService.findByUsername.mockResolvedValue(mockUser);
       jest
         .spyOn(service as any, 'comparePassword')
         .mockResolvedValue(true);
 
-      const result = await service.validateUser('test@example.com', 'password');
+      const result = await service.validateUser('test-user', 'password');
 
       expect(result).toBeDefined();
     });
@@ -70,7 +70,7 @@ describe('AuthController', () => {
   beforeEach(async () => {
     const mockAuthService = {
       login: jest.fn().mockResolvedValue({
-        user: { id: 1, email: 'test@example.com', role: 'user' },
+        user: { id: 1, username: 'test-user', role: 'user' },
         token: 'jwt-token',
       }),
     };
@@ -92,7 +92,7 @@ describe('AuthController', () => {
   describe('login', () => {
     it('should login user with valid credentials', async () => {
       const loginDto = {
-        email: 'test@example.com',
+        username: 'test-user',
         password: 'password123',
       };
 

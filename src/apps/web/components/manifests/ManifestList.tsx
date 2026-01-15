@@ -216,7 +216,7 @@ export function ManifestList({
   const totalPages = Math.ceil(filteredAndSortedManifests.length / pageSize);
 
   // Reset to page 1 when filters or sort changes
-  useMemo(() => {
+  useEffect(() => {
     setCurrentPage(1);
   }, [filters, sort]);
 

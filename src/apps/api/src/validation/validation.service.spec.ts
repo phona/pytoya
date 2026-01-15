@@ -8,8 +8,10 @@ import { ValidationService } from './validation.service';
 import { ValidationScriptEntity, ValidationSeverity } from '../entities/validation-script.entity';
 import { ManifestEntity, ManifestStatus } from '../entities/manifest.entity';
 import { ProjectEntity } from '../entities/project.entity';
+import { ProviderEntity } from '../entities/provider.entity';
 import { UserEntity, UserRole } from '../entities/user.entity';
 import { GroupEntity } from '../entities/group.entity';
+import { LlmService } from '../llm/llm.service';
 import { ValidationScriptNotFoundException } from './exceptions/validation-script-not-found.exception';
 import { ManifestNotFoundException } from '../manifests/exceptions/manifest-not-found.exception';
 
@@ -201,10 +203,12 @@ describe('ValidationService', () => {
   let validationScriptRepository: jest.Mocked<Repository<ValidationScriptEntity>>;
   let manifestRepository: jest.Mocked<Repository<ManifestEntity>>;
   let projectRepository: jest.Mocked<Repository<ProjectEntity>>;
+  let providerRepository: jest.Mocked<Repository<ProviderEntity>>;
+  let llmService: jest.Mocked<LlmService>;
 
   const mockUser: UserEntity = {
     id: 1,
-    email: 'test@example.com',
+    username: 'test-user',
     password: 'hashed',
     role: UserRole.USER,
     createdAt: new Date(),
@@ -213,7 +217,7 @@ describe('ValidationService', () => {
     toJSON() {
       return {
         id: this.id,
-        email: this.email,
+        username: this.username,
         role: this.role,
       };
     },
@@ -285,6 +289,14 @@ describe('ValidationService', () => {
       findOne: jest.fn(),
     } as unknown as jest.Mocked<Repository<ProjectEntity>>;
 
+    providerRepository = {
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<ProviderEntity>>;
+
+    llmService = {
+      createChatCompletion: jest.fn(),
+    } as unknown as jest.Mocked<LlmService>;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ValidationService,
@@ -300,6 +312,14 @@ describe('ValidationService', () => {
         {
           provide: getRepositoryToken(ProjectEntity),
           useValue: projectRepository,
+        },
+        {
+          provide: getRepositoryToken(ProviderEntity),
+          useValue: providerRepository,
+        },
+        {
+          provide: LlmService,
+          useValue: llmService,
         },
       ],
     }).compile();
@@ -322,7 +342,6 @@ describe('ValidationService', () => {
         id: 1,
         ...createDto,
         projectId: 1,
-        isTemplate: false,
         description: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -358,7 +377,6 @@ describe('ValidationService', () => {
         script: 'function validate(extractedData) { return []; }',
         severity: ValidationSeverity.WARNING,
         enabled: true,
-        isTemplate: false,
         project: mockProject,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -396,7 +414,6 @@ describe('ValidationService', () => {
         }`,
         severity: ValidationSeverity.WARNING,
         enabled: true,
-        isTemplate: false,
         project: mockProject,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -466,7 +483,6 @@ describe('ValidationService', () => {
         }`,
         severity: ValidationSeverity.ERROR,
         enabled: true,
-        isTemplate: false,
         project: mockProject,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -536,7 +552,6 @@ describe('ValidationService', () => {
         }`,
         severity: ValidationSeverity.WARNING,
         enabled: true,
-        isTemplate: false,
         project: mockProject,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -594,7 +609,6 @@ describe('ValidationService', () => {
         }`,
         severity: ValidationSeverity.WARNING,
         enabled: true,
-        isTemplate: false,
         project: mockProject,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -646,7 +660,6 @@ describe('ValidationService', () => {
         }`,
         severity: ValidationSeverity.ERROR,
         enabled: true,
-        isTemplate: false,
         project: mockProject,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -678,71 +691,4 @@ describe('ValidationService', () => {
     });
   });
 
-  describe('template seeding and instantiation', () => {
-    it('should seed templates on module init', async () => {
-      validationScriptRepository.find.mockResolvedValue([]);
-      validationScriptRepository.create.mockReturnValue({
-        id: 1,
-        name: 'Template',
-        projectId: 0,
-        script: 'function validate(extractedData) { return []; }',
-        severity: ValidationSeverity.WARNING,
-        enabled: true,
-        isTemplate: true,
-        description: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as any);
-      validationScriptRepository.save.mockResolvedValue({ id: 1 } as any);
-
-      await service.seedTemplates();
-
-      expect(validationScriptRepository.find).toHaveBeenCalledWith({
-        where: { isTemplate: true },
-      });
-      expect(validationScriptRepository.create).toHaveBeenCalledTimes(4); // 4 templates defined
-      expect(validationScriptRepository.save).toHaveBeenCalledTimes(4);
-    });
-
-    it('should skip seeding if templates already exist', async () => {
-      validationScriptRepository.find.mockResolvedValue([{ id: 1 } as any]);
-
-      await service.seedTemplates();
-
-      expect(validationScriptRepository.create).not.toHaveBeenCalled();
-      expect(validationScriptRepository.save).not.toHaveBeenCalled();
-    });
-
-    it('should create templates with correct properties', async () => {
-      validationScriptRepository.find.mockResolvedValue([]);
-      validationScriptRepository.create.mockImplementation((input: any) => {
-        return {
-          ...input,
-          id: Math.random(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        } as any;
-      });
-      validationScriptRepository.save.mockResolvedValue({ id: 1 } as any);
-
-      await service.seedTemplates();
-
-      const createCalls = validationScriptRepository.create.mock.calls;
-      expect(createCalls.length).toBe(4);
-
-      // Check that templates have isTemplate: true and projectId: 0
-      createCalls.forEach((call) => {
-        expect(call[0].isTemplate).toBe(true);
-        expect(call[0].projectId).toBe(0);
-        expect(call[0].enabled).toBe(true);
-      });
-
-      // Verify template names
-      const templateNames = createCalls.map((call) => call[0].name);
-      expect(templateNames).toContain('Tax Calculation Check');
-      expect(templateNames).toContain('Invoice Totals Check');
-      expect(templateNames).toContain('Required Fields Check');
-      expect(templateNames).toContain('Date Range Check');
-    });
-  });
 });

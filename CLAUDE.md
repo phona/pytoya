@@ -59,14 +59,17 @@ npm run docker:ps          # Check status
 
 ### Kubernetes Dev Dependencies (Postgres + Redis)
 ```bash
-# Deploy deps (bash required: Git Bash or WSL)
-POSTGRES_PASSWORD=123456 ./scripts/deploy-deps-nodeport.sh
+# Deploy deps (PowerShell)
+pwsh -File scripts/deploy-deps-nodeport.ps1 -PostgresPassword 123456
 
-# Update .env from NodePorts
+# Update src/apps/api/.env from NodePorts
 pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -Namespace pytoya-dev -ReleaseName pytoya-dev
 
-# If bash resolves to System32, pass Git Bash explicitly
-pwsh -File scripts/setup-dev-k8s-deps.ps1 -PostgresPassword change-me -BashPath "C:\Program Files\Git\bin\bash.exe"
+# Override the env file path if needed
+pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -EnvPath "src/apps/api/.env.local"
+
+# Skip DB user setup if you only need NodePorts
+pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -SkipDbUserSetup
 ```
 
 ### Backend-Specific (`src/apps/api/`)
@@ -75,9 +78,9 @@ npm run start:dev          # Development with watch
 npm run start:debug        # Debug mode
 npm run test               # Jest tests
 npm run test:cov           # Coverage report
-npm run migration:generate  # Generate TypeORM migration
-npm run migration:run      # Run migrations
-npm run migration:revert   # Revert last migration
+npm run migration:generate  # Generate TypeORM migration (ts-node/register)
+npm run migration:run      # Run migrations (ts-node/register)
+npm run migration:revert   # Revert last migration (ts-node/register)
 ```
 
 ### Frontend-Specific (`src/apps/web/`)

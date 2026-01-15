@@ -6,11 +6,11 @@ import {
   ValidationSeverity,
 } from '@/lib/api/validation';
 import { useProjects } from '@/hooks/use-projects';
-import { useValidateScriptSyntax } from '@/hooks/use-validation-scripts';
+import { useValidateScriptSyntax, useGenerateValidationScript } from '@/hooks/use-validation-scripts';
+import { useProviders } from '@/hooks/use-providers';
 
 interface ValidationScriptFormProps {
   script?: ValidationScript;
-  templates?: ValidationScript[];
   onSubmit: (data: CreateValidationScriptDto | UpdateValidationScriptDto) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
@@ -34,13 +34,14 @@ const DEFAULT_SCRIPT = `function validate(extractedData) {
 
 export function ValidationScriptForm({
   script,
-  templates = [],
   onSubmit,
   onCancel,
   isLoading,
 }: ValidationScriptFormProps) {
   const { projects } = useProjects();
+  const { providers } = useProviders();
   const validateSyntax = useValidateScriptSyntax();
+  const generateScript = useGenerateValidationScript();
 
   const [name, setName] = useState(script?.name ?? '');
   const [description, setDescription] = useState(script?.description ?? '');
@@ -48,9 +49,12 @@ export function ValidationScriptForm({
   const [scriptCode, setScriptCode] = useState(script?.script ?? DEFAULT_SCRIPT);
   const [severity, setSeverity] = useState<ValidationSeverity>(script?.severity ?? 'warning');
   const [enabled, setEnabled] = useState(script?.enabled ?? true);
-  const [selectedTemplate, setScriptSelectedTemplate] = useState<string>('');
   const [syntaxError, setSyntaxError] = useState<string | null>(null);
   const [isCheckingSyntax, setIsCheckingSyntax] = useState(false);
+  const [providerId, setProviderId] = useState('');
+  const [promptText, setPromptText] = useState('');
+  const [structuredInput, setStructuredInput] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     if (script?.projectId) {
@@ -58,20 +62,66 @@ export function ValidationScriptForm({
     }
   }, [script?.projectId]);
 
-  const handleTemplateSelect = (templateId: string) => {
-    const template = templates.find((t) => t.id.toString() === templateId);
-    if (template) {
-      setScriptCode(template.script);
-      setSeverity(template.severity);
-      setDescription(template.description ?? '');
-      setScriptSelectedTemplate(templateId);
-      setSyntaxError(null);
+  useEffect(() => {
+    const defaultProvider = providers.find((provider) => provider.isDefault);
+    if (defaultProvider && !providerId) {
+      setProviderId(defaultProvider.id.toString());
     }
-  };
+  }, [providers, providerId]);
 
   const handleScriptChange = (value: string) => {
     setScriptCode(value);
     setSyntaxError(null);
+  };
+
+  const handleGenerate = async () => {
+    if (!providerId) {
+      alert('Please select a provider');
+      return;
+    }
+
+    if (!promptText.trim()) {
+      alert('Please enter a prompt');
+      return;
+    }
+
+    let structured: Record<string, unknown> = {};
+    if (structuredInput.trim()) {
+      try {
+        structured = JSON.parse(structuredInput);
+      } catch (error) {
+        alert('Structured input must be valid JSON');
+        return;
+      }
+    }
+
+    const hasExisting =
+      name.trim() || description.trim() || scriptCode.trim() !== DEFAULT_SCRIPT.trim();
+
+    if (hasExisting) {
+      const confirmed = confirm('Replace the current script with the generated result?');
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    setIsGenerating(true);
+    try {
+      const result = await generateScript.mutateAsync({
+        providerId: Number(providerId),
+        prompt: promptText.trim(),
+        structured,
+      });
+      setName(result.name);
+      setDescription(result.description ?? '');
+      setSeverity(result.severity);
+      setScriptCode(result.script);
+      setSyntaxError(null);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to generate script');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleCheckSyntax = async () => {
@@ -117,7 +167,6 @@ export function ValidationScriptForm({
         severity: severity,
         enabled: enabled,
         description: description || undefined,
-        isTemplate: false,
       };
       await onSubmit(data);
     }
@@ -125,27 +174,71 @@ export function ValidationScriptForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Template Selection */}
-      {!script && templates.length > 0 && (
-        <div>
-          <label htmlFor="template" className="block text-sm font-medium text-gray-700">
-            Start from Template (Optional)
-          </label>
-          <select
-            id="template"
-            value={selectedTemplate}
-            onChange={(e) => handleTemplateSelect(e.target.value)}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          >
-            <option value="">Start with blank script...</option>
-            {templates.map((template) => (
-              <option key={template.id} value={template.id.toString()}>
-                {template.name}
-              </option>
-            ))}
-          </select>
+      <div className="rounded-md border border-gray-200 p-4">
+        <h3 className="text-sm font-semibold text-gray-900">Generate with LLM</h3>
+        <p className="mt-1 text-xs text-gray-500">
+          Provide a structured JSON and a prompt to generate a validation script.
+        </p>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label htmlFor="providerId" className="block text-sm font-medium text-gray-700">
+              Provider *
+            </label>
+            <select
+              id="providerId"
+              value={providerId}
+              onChange={(e) => setProviderId(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            >
+              <option value="">Select a provider...</option>
+              {providers.map((provider) => (
+                <option key={provider.id} value={provider.id.toString()}>
+                  {provider.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="promptText" className="block text-sm font-medium text-gray-700">
+              Prompt *
+            </label>
+            <input
+              id="promptText"
+              type="text"
+              value={promptText}
+              onChange={(e) => setPromptText(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              placeholder="Describe the validation rule"
+            />
+          </div>
         </div>
-      )}
+        <div className="mt-4">
+          <label htmlFor="structuredInput" className="block text-sm font-medium text-gray-700">
+            Structured JSON
+          </label>
+          <textarea
+            id="structuredInput"
+            value={structuredInput}
+            onChange={(e) => setStructuredInput(e.target.value)}
+            rows={4}
+            className="mt-1 block w-full px-3 py-2 font-mono text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            placeholder='{"taxRate":0.13,"requiredFields":["invoice.po_no"]}'
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Optional. Must be valid JSON if provided.
+          </p>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={isGenerating}
+            className="px-3 py-1.5 text-xs font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isGenerating ? 'Generating...' : 'Generate'}
+          </button>
+        </div>
+      </div>
 
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700">

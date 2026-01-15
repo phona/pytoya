@@ -6,20 +6,20 @@ describe('LoginPage', () => {
     renderWithProviders(<LoginPage />);
 
     expect(screen.getByText(/PyToYa/i)).toBeInTheDocument();
-    expect(screen.getByText(/Sign in to your account/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Email address/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Password/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Sign in/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Username/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Password/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Sign in/i })).toBeInTheDocument();
   });
 
-  it('should have email and password inputs with correct attributes', () => {
+  it('should have username and password inputs with correct attributes', () => {
     renderWithProviders(<LoginPage />);
 
-    const emailInput = screen.getByPlaceholderText(/Email address/i);
-    const passwordInput = screen.getByPlaceholderText(/Password/i);
+    const usernameInput = screen.getByLabelText(/Username/i);
+    const passwordInput = screen.getByLabelText(/Password/i);
 
-    expect(emailInput).toHaveAttribute('type', 'email');
-    expect(emailInput).toHaveAttribute('required');
+    expect(usernameInput).toHaveAttribute('type', 'text');
+    expect(usernameInput).toHaveAttribute('required');
     expect(passwordInput).toHaveAttribute('type', 'password');
     expect(passwordInput).toHaveAttribute('required');
   });

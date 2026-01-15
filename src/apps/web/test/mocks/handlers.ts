@@ -6,7 +6,7 @@ export const handlers = [
     return HttpResponse.json({
       user: {
         id: 1,
-        email: 'test@example.com',
+        username: 'test-user',
         role: 'user',
       },
       token: 'mock-jwt-token',
@@ -17,7 +17,7 @@ export const handlers = [
     return HttpResponse.json({
       user: {
         id: 1,
-        email: 'test@example.com',
+        username: 'test-user',
         role: 'user',
       },
       token: 'mock-jwt-token',
@@ -27,7 +27,7 @@ export const handlers = [
   http.get('/api/auth/profile', () => {
     return HttpResponse.json({
       id: 1,
-      email: 'test@example.com',
+      username: 'test-user',
       role: 'user',
     });
   }),

@@ -6,13 +6,13 @@ export class AddProviderVisionSupport1705220000000 implements MigrationInterface
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Add supportsVision column to providers table
     await queryRunner.query(`
-      ALTER TABLE "provider"
+      ALTER TABLE "providers"
       ADD "supportsVision" boolean NOT NULL DEFAULT false
     `);
 
     // Add supportsStructuredOutput column to providers table
     await queryRunner.query(`
-      ALTER TABLE "provider"
+      ALTER TABLE "providers"
       ADD "supportsStructuredOutput" boolean NOT NULL DEFAULT false
     `);
   }
@@ -20,12 +20,12 @@ export class AddProviderVisionSupport1705220000000 implements MigrationInterface
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Rollback: remove columns from providers table
     await queryRunner.query(`
-      ALTER TABLE "provider"
+      ALTER TABLE "providers"
       DROP COLUMN "supportsStructuredOutput"
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "provider"
+      ALTER TABLE "providers"
       DROP COLUMN "supportsVision"
     `);
   }

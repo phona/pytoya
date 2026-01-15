@@ -5,7 +5,7 @@
 export function createMockUser(overrides = {}) {
   return {
     id: 1,
-    email: 'test@example.com',
+    username: 'test-user',
     passwordHash: '$2b$10$abcdefghijklmnopqrstuvwxyz',
     role: 'user',
     createdAt: new Date(),

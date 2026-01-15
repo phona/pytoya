@@ -11,7 +11,6 @@ export const databaseConfig: TypeOrmModuleAsyncOptions = {
       configService.get<string>('NODE_ENV', 'development') === 'development';
     const port = Number(configService.get('DB_PORT', 5432));
     const dbPort = Number.isNaN(port) ? 5432 : port;
-
     return {
       type: 'postgres',
       host: configService.get('DB_HOST', 'localhost'),
@@ -21,6 +20,7 @@ export const databaseConfig: TypeOrmModuleAsyncOptions = {
       database: configService.get('DB_DATABASE', 'pytoya'),
       entities,
       migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
+      migrationsRun: false,
       synchronize: false,
       logging: isDevelopment,
     };

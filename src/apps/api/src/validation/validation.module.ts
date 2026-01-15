@@ -7,6 +7,8 @@ import { ValidationScriptEntity } from '../entities/validation-script.entity';
 import { ValidationController } from './validation.controller';
 import { ValidationService } from './validation.service';
 import { ScriptExecutorService } from './script-executor.service';
+import { ProviderEntity } from '../entities/provider.entity';
+import { LlmModule } from '../llm/llm.module';
 
 @Module({
   imports: [
@@ -14,7 +16,9 @@ import { ScriptExecutorService } from './script-executor.service';
       ValidationScriptEntity,
       ManifestEntity,
       ProjectEntity,
+      ProviderEntity,
     ]),
+    LlmModule,
   ],
   controllers: [ValidationController],
   providers: [ValidationService, ScriptExecutorService],

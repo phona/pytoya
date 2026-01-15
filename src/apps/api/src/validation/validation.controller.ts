@@ -8,6 +8,8 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { GenerateValidationScriptDto } from './dto/generate-validation-script.dto';
+import { GeneratedValidationScriptResponseDto } from './dto/generated-validation-script-response.dto';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -39,12 +41,6 @@ export class ValidationController {
   @Get('scripts')
   async findAllScripts(@CurrentUser() user: UserEntity) {
     const scripts = await this.validationService.findAll(user);
-    return scripts.map(ValidationScriptResponseDto.fromEntity);
-  }
-
-  @Get('scripts/templates')
-  async findTemplates() {
-    const scripts = await this.validationService.findTemplates();
     return scripts.map(ValidationScriptResponseDto.fromEntity);
   }
 
@@ -97,6 +93,12 @@ export class ValidationController {
   @Post('scripts/validate-syntax')
   async validateScriptSyntax(@Body() validateDto: ValidateScriptSyntaxDto) {
     return this.validationService.validateScriptSyntax(validateDto.script);
+  }
+
+  @Post('scripts/generate')
+  async generateScript(@Body() generateDto: GenerateValidationScriptDto) {
+    const result = await this.validationService.generateScriptTemplate(generateDto);
+    return GeneratedValidationScriptResponseDto.fromGenerated(result);
   }
 
   // ========== Validation Execution ==========

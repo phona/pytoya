@@ -11,7 +11,6 @@ export class ValidationScriptResponseDto {
   script!: string;
   severity!: ValidationSeverity;
   enabled!: boolean;
-  isTemplate!: boolean;
   createdAt!: Date;
   updatedAt!: Date;
 
@@ -26,7 +25,6 @@ export class ValidationScriptResponseDto {
       script: script.script,
       severity: script.severity,
       enabled: script.enabled,
-      isTemplate: script.isTemplate,
       createdAt: script.createdAt,
       updatedAt: script.updatedAt,
     };

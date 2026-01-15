@@ -5,7 +5,7 @@ import { Repository } from 'typeorm';
 import { UserEntity, UserRole } from '../entities/user.entity';
 
 interface CreateUserInput {
-  email: string;
+  username: string;
   password: string;
   role: UserRole;
 }
@@ -17,12 +17,16 @@ export class UsersService {
     private readonly userRepository: Repository<UserEntity>,
   ) {}
 
-  async findByEmail(email: string): Promise<UserEntity | null> {
-    return this.userRepository.findOne({ where: { email } });
+  async findByUsername(username: string): Promise<UserEntity | null> {
+    return this.userRepository.findOne({ where: { username } });
   }
 
   async findById(id: number): Promise<UserEntity | null> {
     return this.userRepository.findOne({ where: { id } });
+  }
+
+  async findAdmin(): Promise<UserEntity | null> {
+    return this.userRepository.findOne({ where: { role: UserRole.ADMIN } });
   }
 
   async create(input: CreateUserInput): Promise<UserEntity> {

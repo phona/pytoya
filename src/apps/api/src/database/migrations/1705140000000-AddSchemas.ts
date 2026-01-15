@@ -4,14 +4,6 @@ export class AddSchemas1705140000000 implements MigrationInterface {
   name = 'AddSchemas1705140000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Add default_schema_id column to projects table
-    await queryRunner.query(`
-      ALTER TABLE "projects"
-      ADD COLUMN "default_schema_id" INT;
-      ALTER TABLE "projects"
-      ADD CONSTRAINT "fk_projects_default_schema" FOREIGN KEY ("default_schema_id") REFERENCES "schemas"("id") ON DELETE SET NULL;
-    `);
-
     // Create schemas table
     await queryRunner.query(`
       CREATE TABLE "schemas" (
@@ -28,6 +20,14 @@ export class AddSchemas1705140000000 implements MigrationInterface {
       );
       CREATE INDEX "schemas_project_id_idx" ON "schemas"("project_id");
       CREATE INDEX "schemas_is_template_idx" ON "schemas"("is_template");
+    `);
+
+    // Add default_schema_id column to projects table
+    await queryRunner.query(`
+      ALTER TABLE "projects"
+      ADD COLUMN "default_schema_id" INT;
+      ALTER TABLE "projects"
+      ADD CONSTRAINT "fk_projects_default_schema" FOREIGN KEY ("default_schema_id") REFERENCES "schemas"("id") ON DELETE SET NULL;
     `);
   }
 

@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { validateEnv } from './config/env.validation';
 import { DatabaseModule } from './database/database.module';
+import { UsersModule } from './users/users.module';
 import { ExtractionModule } from './extraction/extraction.module';
 import { GroupsModule } from './groups/groups.module';
 import { HealthModule } from './health/health.module';
@@ -30,6 +31,7 @@ import { WebSocketModule } from './websocket/websocket.module';
     }),
     AuthModule,
     DatabaseModule,
+    UsersModule,
     ExtractionModule,
     GroupsModule,
     HealthModule,

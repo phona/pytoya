@@ -35,7 +35,10 @@ apiClient.interceptors.response.use(
   (error: AxiosError) => {
     if (error.response?.status === 401) {
       useAuthStore.getState().clearAuth();
-      window.location.href = '/login';
+      const nextUrl = `${window.location.pathname}${window.location.search}`;
+      if (window.location.pathname !== '/login') {
+        window.location.href = `/login?next_url=${encodeURIComponent(nextUrl)}`;
+      }
     }
     return Promise.reject(error);
   },

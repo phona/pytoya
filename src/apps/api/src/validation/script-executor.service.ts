@@ -123,8 +123,15 @@ export class ScriptExecutorService {
       }
 
       // Execute the validate function with timeout
+      let timeoutId: NodeJS.Timeout | undefined;
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Script execution timeout')), SCRIPT_TIMEOUT);
+        timeoutId = setTimeout(
+          () => reject(new Error('Script execution timeout')),
+          SCRIPT_TIMEOUT,
+        );
+        if (typeof timeoutId.unref === 'function') {
+          timeoutId.unref();
+        }
       });
 
       const executionPromise = Promise.resolve().then(() => {
@@ -136,7 +143,14 @@ export class ScriptExecutorService {
         return result as unknown;
       });
 
-      const result = await Promise.race([executionPromise, timeoutPromise]);
+      let result: unknown;
+      try {
+        result = await Promise.race([executionPromise, timeoutPromise]);
+      } finally {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      }
 
       // Validate the result format
       if (!Array.isArray(result)) {

@@ -21,8 +21,11 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<UserEntity | null> {
-    const user = await this.usersService.findByEmail(email);
+  async validateUser(
+    username: string,
+    password: string,
+  ): Promise<UserEntity | null> {
+    const user = await this.usersService.findByUsername(username);
     if (!user) {
       return null;
     }
@@ -32,14 +35,14 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto): Promise<AuthUserResponseDto> {
-    const existingUser = await this.usersService.findByEmail(registerDto.email);
+    const existingUser = await this.usersService.findByUsername(registerDto.username);
     if (existingUser) {
-      throw new ConflictException('Email already registered');
+      throw new ConflictException('Username already registered');
     }
 
     const passwordHash = await this.hashPassword(registerDto.password);
     const user = await this.usersService.create({
-      email: registerDto.email,
+      username: registerDto.username,
       password: passwordHash,
       role: UserRole.USER,
     });
@@ -48,7 +51,7 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
-    const user = await this.validateUser(loginDto.email, loginDto.password);
+    const user = await this.validateUser(loginDto.username, loginDto.password);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }

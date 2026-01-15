@@ -25,7 +25,6 @@ export interface ValidationScript {
   script: string;
   severity: ValidationSeverity;
   enabled: boolean;
-  isTemplate: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -37,7 +36,6 @@ export interface CreateValidationScriptDto {
   script: string;
   severity?: ValidationSeverity;
   enabled?: boolean;
-  isTemplate?: boolean;
 }
 
 export interface UpdateValidationScriptDto {
@@ -55,6 +53,19 @@ export interface ValidateScriptSyntaxDto {
 export interface ValidateScriptSyntaxResult {
   valid: boolean;
   error?: string;
+}
+
+export interface GenerateValidationScriptDto {
+  providerId: number;
+  prompt: string;
+  structured: Record<string, unknown>;
+}
+
+export interface GeneratedValidationScript {
+  name: string;
+  description: string;
+  severity: ValidationSeverity;
+  script: string;
 }
 
 export interface RunValidationDto {
@@ -84,11 +95,6 @@ export const validationApi = {
     return response.data;
   },
 
-  getTemplates: async () => {
-    const response = await apiClient.get<ValidationScript[]>('/validation/scripts/templates');
-    return response.data;
-  },
-
   createScript: async (data: CreateValidationScriptDto) => {
     const response = await apiClient.post<ValidationScript>('/validation/scripts', data);
     return response.data;
@@ -106,6 +112,11 @@ export const validationApi = {
   // Script syntax validation
   validateScriptSyntax: async (data: ValidateScriptSyntaxDto) => {
     const response = await apiClient.post<ValidateScriptSyntaxResult>('/validation/scripts/validate-syntax', data);
+    return response.data;
+  },
+
+  generateScript: async (data: GenerateValidationScriptDto) => {
+    const response = await apiClient.post<GeneratedValidationScript>('/validation/scripts/generate', data);
     return response.data;
   },
 

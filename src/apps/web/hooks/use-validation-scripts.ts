@@ -5,6 +5,7 @@ import {
   CreateValidationScriptDto,
   UpdateValidationScriptDto,
   ValidateScriptSyntaxDto,
+  GenerateValidationScriptDto,
   RunValidationDto,
   BatchValidationDto,
   ValidationResult,
@@ -82,22 +83,15 @@ export function useProjectValidationScripts(projectId: number) {
   };
 }
 
-export function useValidationScriptTemplates() {
-  const templates = useQuery({
-    queryKey: ['validation-scripts', 'templates'],
-    queryFn: validationApi.getTemplates,
-  });
-
-  return {
-    templates: templates.data ?? [],
-    isLoading: templates.isLoading,
-    error: templates.error,
-  };
-}
-
 export function useValidateScriptSyntax() {
   return useMutation({
     mutationFn: (data: ValidateScriptSyntaxDto) => validationApi.validateScriptSyntax(data),
+  });
+}
+
+export function useGenerateValidationScript() {
+  return useMutation({
+    mutationFn: (data: GenerateValidationScriptDto) => validationApi.generateScript(data),
   });
 }
 

@@ -31,7 +31,7 @@ export class ProviderEntity {
   @Column()
   apiKey!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   modelName!: string | null;
 
   @Column({ type: 'float', nullable: true })

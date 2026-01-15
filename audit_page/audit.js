@@ -4,17 +4,13 @@
 let state = {
     tasks: [],
     filteredTasks: [],
-    currentTaskIndex: 0,
-    searchQuery: '',
-    searchAttribute: 'all'
+    currentTaskIndex: 0
 };
 
 // DOM Elements
 const elements = {
     filterSelect: document.getElementById('filterSelect'),
     sortSelect: document.getElementById('sortSelect'),
-    searchInput: document.getElementById('searchInput'),
-    searchAttribute: document.getElementById('searchAttribute'),
     taskList: document.getElementById('taskList'),
     taskCounter: document.getElementById('taskCounter'),
     loadingState: document.getElementById('loadingState'),
@@ -43,19 +39,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function setupEventListeners() {
     elements.filterSelect.addEventListener('change', applyFilters);
     elements.sortSelect.addEventListener('change', sortTasks);
-    if (elements.searchInput) elements.searchInput.addEventListener('input', applyFilters);
-    if (elements.searchAttribute) elements.searchAttribute.addEventListener('change', applyFilters);
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
-        // Ctrl+S to save (works even when focused on input)
-        if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
-            e.preventDefault();
-            saveChanges();
-            return;
-        }
-
-        // Other shortcuts only work when not focused on input
         if (e.target.tagName === 'INPUT') return;
 
         switch(e.key) {
@@ -65,33 +51,13 @@ function setupEventListeners() {
             case 'ArrowRight':
                 nextTask();
                 break;
+            case 's':
+            case 'S':
+                if (e.ctrlKey || e.metaKey) return;
+                saveChanges();
+                break;
         }
     });
-}
-
-function getTaskSearchValue(task, attribute) {
-    const confidence = task.data?._extraction_info?.confidence;
-    const confidencePercent = confidence != null ? Math.round(confidence * 100) : '';
-    const po = task.data?.invoice?.po_no || '';
-    const date = task.data?.invoice?.invoice_date || '';
-    const departmentCode = task.data?.department?.code || '';
-    const items = Array.isArray(task.data?.items)
-        ? task.data.items.map(i => i?.name).filter(Boolean).join(' ')
-        : '';
-
-    const values = {
-        all: `${task.name || ''} ${task.folder || ''} ${task.path || ''} ${task.status || ''} ${po} ${date} ${departmentCode} ${confidencePercent} ${items}`,
-        name: task.name || '',
-        folder: task.folder || '',
-        path: task.path || '',
-        po,
-        date,
-        department: departmentCode,
-        status: task.status || '',
-        confidence: String(confidencePercent)
-    };
-
-    return String(values[attribute] ?? values.all);
 }
 
 // Load tasks from selected folder
@@ -120,23 +86,11 @@ async function loadTasks() {
 // Apply filters
 function applyFilters() {
     const filter = elements.filterSelect.value;
-    const searchQuery = (elements.searchInput?.value || '').trim().toLowerCase();
-    const searchAttribute = elements.searchAttribute?.value || 'all';
-    state.searchQuery = searchQuery;
-    state.searchAttribute = searchAttribute;
-
     state.filteredTasks = state.tasks.filter(task => {
         if (filter === 'unchecked') return !task.data?.human_checked;
         if (filter === 'checked') return task.data?.human_checked;
         return true;
     });
-
-    if (state.searchQuery) {
-        state.filteredTasks = state.filteredTasks.filter(task => {
-            const haystack = getTaskSearchValue(task, state.searchAttribute).toLowerCase();
-            return haystack.includes(state.searchQuery);
-        });
-    }
 
     sortTasks();
 }
@@ -286,7 +240,6 @@ async function loadCurrentTask() {
     document.getElementById('department_code').value = data.department?.code || '';
     document.getElementById('invoice_po_no').value = data.invoice?.po_no || '';
     document.getElementById('invoice_date').value = data.invoice?.invoice_date || '';
-    document.getElementById('invoice_usage').value = data.invoice?.usage || '';
     document.getElementById('human_checked').checked = data.human_checked || false;
 
     // Items
@@ -327,10 +280,6 @@ function renderItems(items) {
                 <div>
                     <label class="text-xs text-gray-500">Unit Price (Inc Tax)</label>
                     <input type="number" step="0.01" class="item-price-inc field-editable w-full border rounded px-2 py-1" value="${item.unit_price_inc_tax || ''}">
-                </div>
-                <div>
-                    <label class="text-xs text-gray-500">Cost</label>
-                    <input type="text" class="item-cost field-editable w-full border rounded px-2 py-1" value="${item.cost || ''}">
                 </div>
                 <div class="col-span-2">
                     <label class="text-xs text-gray-500">Total (Inc Tax)</label>
@@ -376,8 +325,7 @@ async function saveChanges() {
     task.data.department = { code: document.getElementById('department_code').value };
     task.data.invoice = {
         po_no: document.getElementById('invoice_po_no').value,
-        invoice_date: document.getElementById('invoice_date').value,
-        usage: document.getElementById('invoice_usage').value
+        invoice_date: document.getElementById('invoice_date').value
     };
     task.data.human_checked = document.getElementById('human_checked').checked;
 
@@ -391,7 +339,6 @@ async function saveChanges() {
             unit: el.querySelector('.item-unit').value,
             unit_price_ex_tax: parseFloat(el.querySelector('.item-price-ex').value) || 0,
             unit_price_inc_tax: parseFloat(el.querySelector('.item-price-inc').value) || 0,
-            cost: el.querySelector('.item-cost').value || '',
             total_amount_inc_tax: parseFloat(el.querySelector('.item-total').value) || 0
         });
     }
@@ -455,10 +402,6 @@ function addItem() {
                 <label class="text-xs text-gray-500">Unit Price (Inc Tax)</label>
                 <input type="number" step="0.01" class="item-price-inc field-editable w-full border rounded px-2 py-1" placeholder="Price inc">
             </div>
-            <div>
-                <label class="text-xs text-gray-500">Cost</label>
-                <input type="text" class="item-cost field-editable w-full border rounded px-2 py-1" placeholder="Cost">
-            </div>
             <div class="col-span-2">
                 <label class="text-xs text-gray-500">Total (Inc Tax)</label>
                 <input type="number" step="0.01" class="item-total field-editable w-full border rounded px-2 py-1" placeholder="Total">
@@ -495,6 +438,10 @@ function openPdfNewTab() {
     if (task?.pdfPath) {
         window.open(task.pdfPath, '_blank');
     }
+}
+
+function printView() {
+    window.print();
 }
 
 // UI State helpers
@@ -569,6 +516,6 @@ function showToast(message, type = 'info') {
 console.log(`
 PyToYa Audit Dashboard - Keyboard Shortcuts:
 --------------------------------------------
-← / →         Previous / Next task
-Ctrl+S        Save changes
+← / →     Previous / Next task
+S         Save changes
 `);

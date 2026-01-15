@@ -15,7 +15,7 @@ export enum ValidationSeverity {
   ERROR = 'error',
 }
 
-@Entity()
+@Entity('validation_scripts')
 export class ValidationScriptEntity {
   @PrimaryGeneratedColumn()
   id!: number;
@@ -39,9 +39,6 @@ export class ValidationScriptEntity {
 
   @Column({ type: 'boolean', default: true })
   enabled!: boolean;
-
-  @Column({ type: 'boolean', name: 'is_template', default: false })
-  isTemplate!: boolean;
 
   @ManyToOne(() => ProjectEntity, (project) => project.validationScripts)
   @JoinColumn({ name: 'project_id' })

@@ -2,19 +2,29 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+
+const safeNextUrl = (value: string | null) => {
+  if (!value) {
+    return '/';
+  }
+  return value.startsWith('/') ? value : '/';
+};
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { register, isAuthenticated } = useAuth();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  const nextUrl = safeNextUrl(searchParams.get('next_url'));
+
   if (isAuthenticated) {
-    router.push('/');
+    router.push(nextUrl);
     return null;
   }
 
@@ -35,8 +45,8 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      await register({ email, password, confirmPassword });
-      router.push('/');
+      await register({ username, password, confirmPassword });
+      router.push(nextUrl);
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { message?: string } } };
       setError(axiosError.response?.data?.message || 'Registration failed. Please try again.');
@@ -61,19 +71,19 @@ export default function RegisterPage() {
           )}
           <div className="rounded-md shadow-sm space-y-4">
             <div>
-              <label htmlFor="email" className="sr-only">
-                Email address
+              <label htmlFor="username" className="sr-only">
+                Username
               </label>
               <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
+                id="username"
+                name="username"
+                type="text"
+                autoComplete="username"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="Email address"
+                placeholder="Username"
               />
             </div>
             <div>

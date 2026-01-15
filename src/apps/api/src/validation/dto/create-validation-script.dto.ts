@@ -26,7 +26,4 @@ export class CreateValidationScriptDto {
   @IsOptional()
   enabled?: boolean;
 
-  @IsBoolean()
-  @IsOptional()
-  isTemplate?: boolean;
 }
