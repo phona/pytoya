@@ -15,7 +15,7 @@
     "test:watch": "npm run test --workspaces --if-present -- --watch",
     "lint": "npm run lint --workspaces --if-present",
     "type-check": "npm run type-check --workspaces --if-present",
-    "clean": "rm -rf node_modules **/node_modules **/dist **/.next",
+    "clean": "rm -rf node_modules **/node_modules **/dist",
     "install:all": "npm install && npm install --workspaces",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
@@ -24,13 +24,15 @@
     "docker:restart": "docker-compose restart"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/lodash": "^4.17.23",
     "@types/node": "20.11.30",
     "concurrently": "8.2.2",
     "es-abstract": "^1.24.1",
-    "next": "14.2.5",
     "typescript": "5.4.5"
   },
   "dependencies": {
-    "@testing-library/dom": "^10.4.1"
+    "@testing-library/dom": "^10.4.1",
+    "lodash": "^4.17.21"
   }
 }

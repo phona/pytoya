@@ -1,8 +1,6 @@
-'use client';
-
-import { useState } from 'react';
-import { useAuth } from '@/hooks/use-auth';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '@/shared/hooks/use-auth';
 
 const safeNextUrl = (value: string | null) => {
   if (!value) {
@@ -11,9 +9,9 @@ const safeNextUrl = (value: string | null) => {
   return value.startsWith('/') ? value : '/';
 };
 
-export default function LoginPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+export function LoginPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login, isAuthenticated } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -23,8 +21,13 @@ export default function LoginPage() {
   const nextUrl = safeNextUrl(searchParams.get('next_url'));
 
   // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(nextUrl, { replace: true });
+    }
+  }, [isAuthenticated, navigate, nextUrl]);
+
   if (isAuthenticated) {
-    router.push(nextUrl);
     return null;
   }
 
@@ -35,7 +38,7 @@ export default function LoginPage() {
 
     try {
       await login({ username, password });
-      router.push(nextUrl);
+      navigate(nextUrl, { replace: true });
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { message?: string } } };
       setError(axiosError.response?.data?.message || 'Login failed. Please try again.');

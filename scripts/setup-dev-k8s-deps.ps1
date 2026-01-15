@@ -46,14 +46,11 @@
 .PARAMETER SkipDbUserSetup
   Skip creating/updating the AppDbUser.
 
-.PARAMETER EnvPath
-  Path to the API .env file to update (default: src/apps/api/.env).
+.PARAMETER ConfigPath
+  Path to the API config.yaml file to update (default: src/apps/api/config.yaml).
 
 .EXAMPLE
   pwsh -File scripts/setup-dev-k8s-deps.ps1 -PostgresPassword 123456
-
-.EXAMPLE
-  pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -EnvPath "src/apps/api/.env.local"
 #>
 param(
   [string]$PostgresPassword,
@@ -69,7 +66,7 @@ param(
   [switch]$SkipDeploy,
   [switch]$DisablePersistence,
   [switch]$SkipDbUserSetup,
-  [string]$EnvPath = "src/apps/api/.env"
+  [string]$ConfigPath = "src/apps/api/config.yaml"
 )
 
 Set-StrictMode -Version Latest
@@ -89,28 +86,69 @@ function Require-Command {
   }
 }
 
-function Upsert-EnvValue {
+function Upsert-YamlValue {
   param(
     [string[]]$Lines,
-    [Parameter(Mandatory = $true)][string]$Key,
+    [Parameter(Mandatory = $true)][string]$Path,
     [Parameter(Mandatory = $true)][string]$Value
   )
   if (-not $Lines) {
     $Lines = @()
   }
-  $pattern = "^\s*$([regex]::Escape($Key))="
+
+  $parts = $Path -split '\.'
+  $currentPath = ""
+  $indent = "  "
+
   $found = $false
-  $output = foreach ($line in $Lines) {
-    if ($line -match $pattern) {
-      $found = $true
-      "$Key=$Value"
-    } else {
-      $line
+  $output = @()
+
+  for ($i = 0; $i -lt $Lines.Count; $i++) {
+    $line = $Lines[$i]
+    $output += $line
+
+    if (-not $found) {
+      $trimmedLine = $line.Trim()
+      $lineIndent = $line.Substring(0, $line.Length - $trimmedLine.Length)
+
+      if ($trimmedLine -match "^(\w+):\s*(.+)$") {
+        $key = $matches[1]
+        $lineValue = $matches[2]
+
+        $fullPath = if ($currentPath) { "$currentPath.$key" } else { $key }
+
+        if ($fullPath -eq $Path) {
+          $found = $true
+          $output[$output.Count - 1] = "$lineIndent${key}: ${Value}"
+        }
+      }
+
+      if ($trimmedLine -match "^(\w+):$") {
+        $key = $matches[1]
+        $fullPath = if ($currentPath) { "$currentPath.$key" } else { $key }
+
+        if ($parts -contains $key) {
+          $currentPath = if ($currentPath) { "$currentPath.$key" } else { $key }
+        }
+      }
+    }
+
+    if ($trimmedLine -eq "" -or $trimmedLine -notmatch ":") {
+      $currentPath = ""
     }
   }
+
   if (-not $found) {
-    $output += "$Key=$Value"
+    if ($output.Count -gt 0 -and $output[-1] -notmatch "^\s*$") {
+      $output += ""
+    }
+
+    for ($i = 0; $i -lt $parts.Count; $i++) {
+      $output += "$indent" * $i + $parts[$i] + ":"
+    }
+    $output += "$indent" * $parts.Count + $parts[-1] + ": $Value"
   }
+
   return ,$output
 }
 
@@ -267,28 +305,30 @@ $postgresPort = Get-NodePort -ServiceName $postgresService
 $redisPort = Get-NodePort -ServiceName $redisService
 $resolvedNodeIp = Resolve-NodeIp
 
-$rawEnv = ""
-if (Test-Path $EnvPath) {
-  $rawEnv = Get-Content -Path $EnvPath -Raw
+$configPath = $ConfigPath
+
+$rawConfig = ""
+if (Test-Path $configPath) {
+  $rawConfig = Get-Content -Path $configPath -Raw
 }
 
 $lines = @()
-if ($rawEnv) {
-  $lines = $rawEnv -split "`r?`n"
+if ($rawConfig) {
+  $lines = $rawConfig -split "`r?`n"
 }
 
-$lines = Upsert-EnvValue -Lines $lines -Key "DB_HOST" -Value $resolvedNodeIp
-$lines = Upsert-EnvValue -Lines $lines -Key "DB_PORT" -Value $postgresPort
-$lines = Upsert-EnvValue -Lines $lines -Key "REDIS_HOST" -Value $resolvedNodeIp
-$lines = Upsert-EnvValue -Lines $lines -Key "REDIS_PORT" -Value $redisPort
+$lines = Upsert-YamlValue -Lines $lines -Path "database.host" -Value $resolvedNodeIp
+$lines = Upsert-YamlValue -Lines $lines -Path "database.port" -Value $postgresPort
+$lines = Upsert-YamlValue -Lines $lines -Path "redis.host" -Value $resolvedNodeIp
+$lines = Upsert-YamlValue -Lines $lines -Path "redis.port" -Value $redisPort
 
-Set-Content -Path $EnvPath -Value ($lines -join "`r`n") -Encoding ASCII
+Set-Content -Path $configPath -Value ($lines -join "`r`n") -Encoding UTF8
 
-Write-Host "Updated $EnvPath with:"
-Write-Host "  DB_HOST=$resolvedNodeIp"
-Write-Host "  DB_PORT=$postgresPort"
-Write-Host "  REDIS_HOST=$resolvedNodeIp"
-Write-Host "  REDIS_PORT=$redisPort"
+Write-Host "Updated $configPath with:"
+Write-Host "  database.host: $resolvedNodeIp"
+Write-Host "  database.port: $postgresPort"
+Write-Host "  redis.host: $resolvedNodeIp"
+Write-Host "  redis.port: $redisPort"
 
 if (-not $SkipDbUserSetup) {
   $adminPassword = if ($PostgresPassword) { $PostgresPassword } else { $DbAdminPassword }

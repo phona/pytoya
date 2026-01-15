@@ -1,15 +1,14 @@
-'use client';
-
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSchema, useValidateSchema } from '@/hooks/use-schemas';
-import { UpdateSchemaDto, ValidateSchemaDto } from '@/lib/api/schemas';
-import { SchemaForm } from '@/components/SchemaForm';
-import { SchemaPreview } from '@/components/SchemaPreview';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useSchema, useValidateSchema } from '@/shared/hooks/use-schemas';
+import { UpdateSchemaDto, ValidateSchemaDto } from '@/api/schemas';
+import { SchemaForm } from '@/shared/components/SchemaForm';
+import { SchemaPreview } from '@/shared/components/SchemaPreview';
 
-export default function SchemaDetailPage({ params }: { params: { id: string } }) {
-  const router = useRouter();
-  const schemaId = parseInt(params.id, 10);
+export function SchemaDetailPage() {
+  const navigate = useNavigate();
+  const params = useParams();
+  const schemaId = Number(params.id);
   const { schema, isLoading } = useSchema(schemaId);
   const validateSchema = useValidateSchema();
 
@@ -31,7 +30,7 @@ export default function SchemaDetailPage({ params }: { params: { id: string } })
         <div className="text-center">
           <h2 className="text-xl font-semibold text-gray-900">Schema not found</h2>
           <button
-            onClick={() => router.push('/schemas')}
+            onClick={() => navigate('/schemas')}
             className="mt-4 text-indigo-600 hover:text-indigo-800"
           >
             Back to Schemas
@@ -64,7 +63,7 @@ export default function SchemaDetailPage({ params }: { params: { id: string } })
   const handleDelete = async () => {
     if (confirm('Are you sure you want to delete this schema?')) {
       // Delete logic would go here
-      router.push('/schemas');
+      navigate('/schemas');
     }
   };
 
@@ -73,7 +72,7 @@ export default function SchemaDetailPage({ params }: { params: { id: string } })
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <button
-            onClick={() => router.push('/schemas')}
+            onClick={() => navigate('/schemas')}
             className="text-indigo-600 hover:text-indigo-800 text-sm font-medium mb-4 inline-block"
           >
             ← Back to Schemas

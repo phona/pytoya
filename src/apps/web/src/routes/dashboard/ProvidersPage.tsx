@@ -1,10 +1,8 @@
-'use client';
-
 import { useState } from 'react';
-import { providersApi, Provider, CreateProviderDto, UpdateProviderDto } from '@/lib/api/providers';
-import { ProviderForm } from '@/components/ProviderForm';
+import { providersApi, Provider, CreateProviderDto, UpdateProviderDto } from '@/api/providers';
+import { ProviderForm } from '@/shared/components/ProviderForm';
 
-export default function ProvidersPage() {
+export function ProvidersPage() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);

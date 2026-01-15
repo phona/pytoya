@@ -37,9 +37,13 @@ spec:
             - run
             - migration:run
             - --workspace=@pytoya/api
-          envFrom:
-            - configMapRef:
-                name: {{ include "pytoya.fullname" . }}-config
-            - secretRef:
-                name: {{ include "pytoya.fullname" . }}-secrets
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "pytoya.fullname" . }}-config
 {{- end }}

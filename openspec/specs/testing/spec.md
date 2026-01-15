@@ -31,11 +31,11 @@ The system SHALL use Jest with NestJS testing utilities, preferring dependency i
 - **AND** no global module-level mocks affect other tests
 
 ### Requirement: Frontend Testing Standards
-The system SHALL use Jest with React Testing Library and MSW for API mocking, avoiding global patches.
+The system SHALL use Vitest with React Testing Library and MSW for API mocking, avoiding global patches, and SHALL keep API mocks compatible with the TanStack Query data layer.
 
 #### Scenario: Component tests
 - **WHEN** writing React component tests
-- **THEN** tests use `jest.mock()` at component level (not globally)
+- **THEN** tests use vi.mock() at component level (not globally)
 - **AND** MSW handlers are used for API mocking
 - **AND** React Testing Library utilities (render, screen, fireEvent) are used
 

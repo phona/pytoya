@@ -1,16 +1,14 @@
-'use client';
-
 import { useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { useProject, useGroups, useProjects } from '@/hooks/use-projects';
-import { useProjectSchemas } from '@/hooks/use-schemas';
-import { GroupCard } from '@/components/GroupCard';
-import { GroupForm } from '@/components/GroupForm';
-import { ExportButton } from '@/components/ExportButton';
-import { Group, CreateGroupDto, UpdateGroupDto } from '@/lib/api/projects';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useProject, useGroups, useProjects } from '@/shared/hooks/use-projects';
+import { useProjectSchemas } from '@/shared/hooks/use-schemas';
+import { GroupCard } from '@/shared/components/GroupCard';
+import { GroupForm } from '@/shared/components/GroupForm';
+import { ExportButton } from '@/shared/components/ExportButton';
+import { Group, CreateGroupDto, UpdateGroupDto } from '@/api/projects';
 
-export default function ProjectDetailPage() {
-  const router = useRouter();
+export function ProjectDetailPage() {
+  const navigate = useNavigate();
   const params = useParams();
   const projectId = Number(params.id);
 
@@ -83,7 +81,7 @@ export default function ProjectDetailPage() {
         <div className="text-center">
           <h2 className="text-xl font-medium text-gray-900">Project not found</h2>
           <button
-            onClick={() => router.push('/projects')}
+            onClick={() => navigate('/projects')}
             className="mt-4 text-indigo-600 hover:text-indigo-700"
           >
             Back to Projects
@@ -99,7 +97,7 @@ export default function ProjectDetailPage() {
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => router.push('/projects')}
+            onClick={() => navigate('/projects')}
             className="text-sm text-indigo-600 hover:text-indigo-700 mb-4"
           >
             ← Back to Projects
@@ -238,7 +236,7 @@ export default function ProjectDetailPage() {
               <p className="mt-4 text-sm text-gray-500">
                 No schemas available.{' '}
                 <button
-                  onClick={() => window.location.href = '/schemas'}
+                  onClick={() => navigate('/schemas')}
                   className="text-indigo-600 hover:text-indigo-700 font-medium"
                 >
                   Create a schema

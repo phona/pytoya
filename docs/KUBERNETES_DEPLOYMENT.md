@@ -2,7 +2,7 @@
 
 PyToYa ships with a Helm chart at `helm/pytoya/` that deploys:
 - NestJS API
-- Next.js Web
+- Vite Web
 - PostgreSQL
 - Redis
 
@@ -24,12 +24,12 @@ Build from the repo root (the Dockerfiles depend on the root `package-lock.json`
 ```bash
 # API
 docker build -t registry.dev.lan/pytoya/api:1.0.0 -f src/apps/api/Dockerfile . \
-  --build-arg NODE_IMAGE=registry.dev.lan/<your-node-mirror>:18-alpine
+  --build-arg NODE_IMAGE=registry.dev.lan/<your-node-mirror>:20-alpine
 docker push registry.dev.lan/pytoya/api:1.0.0
 
 # Web (compile the API base URL into the frontend bundle)
 docker build -t registry.dev.lan/pytoya/web:1.0.0 -f src/apps/web/Dockerfile . \
-  --build-arg NEXT_PUBLIC_API_URL=/api
+  --build-arg VITE_API_URL=/api
 docker push registry.dev.lan/pytoya/web:1.0.0
 ```
 

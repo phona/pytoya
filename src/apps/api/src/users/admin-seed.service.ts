@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 
 import { UserEntity, UserRole } from '../entities/user.entity';
 import { UsersService } from './users.service';
@@ -9,17 +8,13 @@ export class AdminSeedService {
   private readonly logger = new Logger(AdminSeedService.name);
 
   constructor(
-    private readonly configService: ConfigService,
     private readonly usersService: UsersService,
   ) {}
 
-  async seedAdminIfMissing(): Promise<void> {
-    const adminUsername = this.configService.get<string>('ADMIN_USERNAME');
-    const adminPassword = this.configService.get<string>('ADMIN_PASSWORD');
-
-    if (!adminUsername || !adminPassword) {
+  async seedAdminIfMissing(username: string, password: string): Promise<void> {
+    if (!username || !password) {
       this.logger.error(
-        'Admin seed skipped: ADMIN_USERNAME and ADMIN_PASSWORD must be set',
+        'Admin seed skipped: username and password must be provided as arguments',
       );
       return;
     }
@@ -29,9 +24,9 @@ export class AdminSeedService {
       return;
     }
 
-    const passwordHash = await UserEntity.hashPassword(adminPassword);
+    const passwordHash = await UserEntity.hashPassword(password);
     await this.usersService.create({
-      username: adminUsername,
+      username,
       password: passwordHash,
       role: UserRole.ADMIN,
     });

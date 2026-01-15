@@ -1,6 +1,6 @@
 # PyToYa Helm Chart
 
-Helm chart for deploying the PyToYa invoice processing system (NestJS API, Next.js web, PostgreSQL, Redis).
+Helm chart for deploying the PyToYa invoice processing system (NestJS API, Vite web, PostgreSQL, Redis).
 
 ## Quick Start: Building Images
 
@@ -12,7 +12,7 @@ docker build -t pytoya/api:latest -f src/apps/api/Dockerfile .
 
 # Build Web image
 docker build -t pytoya/web:latest -f src/apps/web/Dockerfile . \
-  --build-arg NEXT_PUBLIC_API_URL=/api
+  --build-arg VITE_API_URL=/api
 
 # Optional: Push to registry
 docker tag pytoya/api:latest your-registry/pytoya/api:latest
@@ -117,8 +117,8 @@ helm install pytoya helm/pytoya \
   --set secrets.llmApiKey=change-me
 ```
 
-### Notes on `NEXT_PUBLIC_API_URL`
-`NEXT_PUBLIC_API_URL` is compiled into the web frontend at image build time (Next.js `NEXT_PUBLIC_*` variables). For the default Ingress routing (`/api/*` to the backend), use `--build-arg NEXT_PUBLIC_API_URL=/api` when building the web image.
+### Notes on `VITE_API_URL`
+`VITE_API_URL` is compiled into the web frontend at image build time. For the default Ingress routing (`/api/*` to the backend), use `--build-arg VITE_API_URL=/api` when building the web image.
 
 ## Upgrading
 

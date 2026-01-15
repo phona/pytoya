@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
+import { Link, NavLink } from 'react-router-dom';
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+export function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-200">
@@ -8,38 +9,56 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <a href="/" className="text-xl font-bold text-gray-900">
+                <Link to="/" className="text-xl font-bold text-gray-900">
                   PyToYa
-                </a>
+                </Link>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                <a
-                  href="/projects"
-                  className="inline-flex items-center px-1 pt-1 border-b-2 border-indigo-500 text-sm font-medium text-gray-900"
+                <NavLink
+                  to="/projects"
+                  className={({ isActive }) =>
+                    `inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                      isActive
+                        ? 'border-indigo-500 text-gray-900'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`
+                  }
                 >
                   Projects
-                </a>
-                <a
-                  href="/providers"
-                  className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                </NavLink>
+                <NavLink
+                  to="/providers"
+                  className={({ isActive }) =>
+                    `inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                      isActive
+                        ? 'border-indigo-500 text-gray-900'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`
+                  }
                 >
                   Providers
-                </a>
-                <a
-                  href="/prompts"
-                  className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                </NavLink>
+                <NavLink
+                  to="/prompts"
+                  className={({ isActive }) =>
+                    `inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                      isActive
+                        ? 'border-indigo-500 text-gray-900'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`
+                  }
                 >
                   Prompts
-                </a>
+                </NavLink>
               </div>
             </div>
             <div className="flex items-center">
-              <a
-                href="/login"
+              <Link
+                to="/login"
                 className="text-sm text-gray-700 hover:text-gray-900"
               >
                 Sign out
-              </a>
+              </Link>
             </div>
           </div>
         </div>

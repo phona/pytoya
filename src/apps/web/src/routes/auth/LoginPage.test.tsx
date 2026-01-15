@@ -1,5 +1,5 @@
-import { renderWithProviders, screen } from '@/test/utils';
-import LoginPage from './page';
+import { renderWithProviders, screen } from '@/tests/utils';
+import { LoginPage } from './LoginPage';
 
 describe('LoginPage', () => {
   it('should render login form', () => {

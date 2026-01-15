@@ -1,4 +1,4 @@
-export default function Home() {
+export function HomePage() {
   return (
     <main>
       <h1>PyToYa</h1>

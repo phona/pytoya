@@ -34,9 +34,17 @@ spec:
             - node
             - dist/cli
             - newadmin
-          envFrom:
-            - configMapRef:
-                name: {{ include "pytoya.fullname" . }}-config
-            - secretRef:
-                name: {{ include "pytoya.fullname" . }}-secrets
+            - -u
+            - {{ .Values.admin.username | quote }}
+            - -p
+            - {{ .Values.admin.password | quote }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "pytoya.fullname" . }}-config
 {{- end }}

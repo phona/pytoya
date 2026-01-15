@@ -25,7 +25,7 @@ export class WebSocketJwtGuard extends AuthGuard('jwt') {
       throw new UnauthorizedException('WebSocket authentication token missing');
     }
 
-    const secret = this.configService.getOrThrow<string>('JWT_SECRET');
+    const secret = this.configService.getOrThrow<string>('jwt.secret');
 
     try {
       const payload = await this.jwtService.verifyAsync(authToken, {

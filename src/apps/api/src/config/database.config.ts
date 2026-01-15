@@ -7,22 +7,17 @@ export const databaseConfig: TypeOrmModuleAsyncOptions = {
   imports: [ConfigModule],
   inject: [ConfigService],
   useFactory: (configService: ConfigService): DataSourceOptions => {
-    const isDevelopment =
-      configService.get<string>('NODE_ENV', 'development') === 'development';
-    const port = Number(configService.get('DB_PORT', 5432));
-    const dbPort = Number.isNaN(port) ? 5432 : port;
     return {
       type: 'postgres',
-      host: configService.get('DB_HOST', 'localhost'),
-      port: dbPort,
-      username: configService.get('DB_USERNAME', 'pytoya_user'),
-      password: configService.get('DB_PASSWORD', 'pytoya_pass'),
-      database: configService.get('DB_DATABASE', 'pytoya'),
+      host: configService.get<string>('database.host', 'localhost'),
+      port: configService.get<number>('database.port', 5432),
+      username: configService.get<string>('database.username', 'pytoya_user'),
+      password: configService.get<string>('database.password', 'pytoya_pass'),
+      database: configService.get<string>('database.database', 'pytoya'),
       entities,
       migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
       migrationsRun: false,
       synchronize: false,
-      logging: isDevelopment,
     };
   },
 };

@@ -41,7 +41,6 @@ export class LlmService {
   private readonly model: string;
   private readonly temperature: number;
   private readonly maxTokens: number;
-  private readonly logVerbose: boolean;
 
   constructor(
     private readonly configService: ConfigService,
@@ -54,9 +53,7 @@ export class LlmService {
       DEFAULT_BASE_URL;
     this.baseUrl = this.normalizeBaseUrl(baseUrl);
 
-    this.apiKey =
-      this.configService.get<string>('LLM_API_KEY') ??
-      this.configService.get<string>('OPENAI_API_KEY');
+    this.apiKey = this.configService.get<string>('llm.apiKey');
     this.timeoutMs = this.getNumberConfig(
       'LLM_TIMEOUT',
       DEFAULT_TIMEOUT_MS,
@@ -71,10 +68,6 @@ export class LlmService {
       'LLM_MAX_TOKENS',
       DEFAULT_MAX_TOKENS,
     );
-
-    const nodeEnv =
-      this.configService.get<string>('NODE_ENV') ?? 'development';
-    this.logVerbose = nodeEnv !== 'production';
   }
 
   async createChatCompletion(
@@ -122,12 +115,10 @@ export class LlmService {
       }
     }
 
-    if (this.logVerbose) {
-      this.logger.debug(
-        `LLM request prepared (model=${model}, messages=${messages.length}, ` +
-        `response_format=${payload.response_format?.type ?? 'none'})`,
-      );
-    }
+    this.logger.debug(
+      `LLM request prepared (model=${model}, messages=${messages.length}, ` +
+      `response_format=${payload.response_format?.type ?? 'none'})`,
+    );
 
     try {
       const response =
@@ -153,12 +144,10 @@ export class LlmService {
         );
       }
 
-      if (this.logVerbose) {
-        this.logger.debug(
-          `LLM response received (model=${data.model ?? model}, ` +
-            `tokens=${data.usage?.total_tokens ?? 'unknown'})`,
-        );
-      }
+      this.logger.debug(
+        `LLM response received (model=${data.model ?? model}, ` +
+          `tokens=${data.usage?.total_tokens ?? 'unknown'})`,
+      );
 
       return {
         content,

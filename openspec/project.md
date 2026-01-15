@@ -25,13 +25,13 @@
 - **Extraction Engine**: TypeScript port of LangGraph workflow
 
 ### Frontend
-- **Framework**: Next.js 14 with App Router
+- **Framework**: Vite + React Router
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
 - **State Management**: Zustand
 - **HTTP Client**: Axios
 - **WebSockets**: Native WebSocket API
-- **Testing**: Jest + React Testing Library + Playwright
+- **Testing**: Vitest + React Testing Library + Playwright
 
 ### DevOps
 - **Containerization**: Docker (local dev), Kubernetes (production)
@@ -49,11 +49,11 @@
 - **Imports**: Organize alphabetically (external libs, internal modules)
 - **Formatting**: Prettier with 2-space indent, single quotes
 
-#### Frontend (Next.js)
+#### Frontend (Vite)
 - **Components**: Functional components with hooks
 - **Hooks**: Custom hooks prefix with `use` (e.g., useAuth, useProjects)
 - **Naming**: PascalCase for components, camelCase for utilities
-- **File Structure**: `index.tsx` for pages, `component.tsx` for components
+- **File Structure**: `index.tsx` for routes, `component.tsx` for components
 - **Styling**: Tailwind utility classes, custom component variants
 - **Type Safety**: Avoid `as any`, use proper TypeScript types
 
@@ -81,7 +81,7 @@
 - **Anti-patterns**: Avoid global `jest.mock()`, avoid monkey patching
 
 #### Frontend Testing
-- **Framework**: Jest + React Testing Library for unit tests
+- **Framework**: Vitest + React Testing Library for unit tests
 - **E2E Testing**: Playwright for end-to-end tests
 - **Mocking**: MSW (Mock Service Worker) for API mocking in tests
 - **Coverage Thresholds**: 60% (components, hooks, pages)

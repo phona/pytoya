@@ -70,13 +70,13 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
-      NEXT_PUBLIC_API_URL: http://localhost:3000
+      VITE_API_URL: http://localhost:3000
     ports:
       - "3001:3000"
     volumes:
       - ./src/apps/web:/app
       - /app/node_modules
-      - /app/.next
+      - /app/dist
     depends_on:
       - api
     command: npm run dev

@@ -1,10 +1,8 @@
-'use client';
-
 import { useState, useEffect } from 'react';
-import { promptsApi, Prompt, CreatePromptDto, UpdatePromptDto } from '@/lib/api/prompts';
-import { PromptEditor } from '@/components/PromptEditor';
+import { promptsApi, Prompt, CreatePromptDto, UpdatePromptDto } from '@/api/prompts';
+import { PromptEditor } from '@/shared/components/PromptEditor';
 
-export default function PromptsPage() {
+export function PromptsPage() {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);

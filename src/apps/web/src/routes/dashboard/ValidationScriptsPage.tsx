@@ -1,16 +1,13 @@
-'use client';
-
 import { useState } from 'react';
-import { useValidationScripts } from '@/hooks/use-validation-scripts';
+import { useValidationScripts } from '@/shared/hooks/use-validation-scripts';
 import {
   CreateValidationScriptDto,
   UpdateValidationScriptDto,
   ValidationScript,
-} from '@/lib/api/validation';
-import { ValidationScriptForm } from '@/components/ValidationScriptForm';
+} from '@/api/validation';
+import { ValidationScriptForm } from '@/shared/components/ValidationScriptForm';
 
-export default function ValidationScriptsPage() {
-  const router = useRouter();
+export function ValidationScriptsPage() {
   const {
     scripts,
     isLoading,

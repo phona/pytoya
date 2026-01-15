@@ -8,53 +8,79 @@ import {
   validateSync,
 } from 'class-validator';
 
-class EnvironmentVariables {
+class DatabaseConfig {
   @IsString()
-  DB_HOST!: string;
+  host!: string;
 
   @IsInt()
   @Min(1)
   @Max(65535)
-  DB_PORT!: number;
+  port!: number;
 
   @IsString()
-  DB_USERNAME!: string;
+  username!: string;
 
   @IsString()
-  DB_PASSWORD!: string;
+  password!: string;
 
   @IsString()
-  DB_DATABASE!: string;
+  database!: string;
+}
 
+class RedisConfig {
   @IsString()
-  REDIS_HOST!: string;
+  host!: string;
 
   @IsInt()
   @Min(1)
   @Max(65535)
-  REDIS_PORT!: number;
+  port!: number;
+}
 
+class JwtConfig {
   @IsString()
-  JWT_SECRET!: string;
-
-  @IsString()
-  PADDLEOCR_BASE_URL!: string;
-
-  @IsOptional()
-  @IsString()
-  OPENAI_API_KEY?: string;
+  secret!: string;
 
   @IsOptional()
   @IsString()
-  LLM_API_KEY?: string;
+  expiration?: string;
+}
+
+class PaddleocrConfig {
+  @IsString()
+  baseUrl!: string;
+}
+
+class LlmConfig {
+  @IsOptional()
+  @IsString()
+  apiKey?: string;
+}
+
+class ServerConfig {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(65535)
+  port?: number;
+}
+
+export class AppConfig {
+  database!: DatabaseConfig;
+
+  redis!: RedisConfig;
+
+  jwt!: JwtConfig;
+
+  paddleocr!: PaddleocrConfig;
+
+  llm!: LlmConfig;
+
+  server?: ServerConfig;
 
   @IsOptional()
   @IsString()
-  ADMIN_USERNAME?: string;
-
-  @IsOptional()
-  @IsString()
-  ADMIN_PASSWORD?: string;
+  logLevel?: string;
 }
 
 const formatErrors = (errors: Array<{ property: string }>): string =>
@@ -63,7 +89,7 @@ const formatErrors = (errors: Array<{ property: string }>): string =>
 export const validateEnv = (
   config: Record<string, unknown>,
 ): Record<string, unknown> => {
-  const validated = plainToInstance(EnvironmentVariables, config, {
+  const validated = plainToInstance(AppConfig, config, {
     enableImplicitConversion: true,
   });
   const errors = validateSync(validated, {
@@ -72,13 +98,13 @@ export const validateEnv = (
 
   if (errors.length > 0) {
     throw new Error(
-      `Environment validation failed: ${formatErrors(errors)}`,
+      `Configuration validation failed: ${formatErrors(errors)}`,
     );
   }
 
-  if (!validated.OPENAI_API_KEY && !validated.LLM_API_KEY) {
+  if (!validated.llm?.apiKey) {
     throw new Error(
-      'Environment validation failed: OPENAI_API_KEY or LLM_API_KEY is required',
+      'Configuration validation failed: llm.apiKey is required',
     );
   }
 

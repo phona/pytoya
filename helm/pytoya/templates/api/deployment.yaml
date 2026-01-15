@@ -46,12 +46,17 @@ spec:
           ports:
             - name: http
               containerPort: {{ .Values.api.service.port }}
-          envFrom:
-            - configMapRef:
-                name: {{ include "pytoya.fullname" . }}-config
-            - secretRef:
-                name: {{ include "pytoya.fullname" . }}-secrets
+          env:
+            - name: VITE_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "pytoya.fullname" . }}-config
+                  key: VITE_API_URL
           volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+              readOnly: true
             - name: uploads
               mountPath: /app/uploads
           livenessProbe:
@@ -69,6 +74,9 @@ spec:
           resources:
             {{- toYaml .Values.api.resources | nindent 12 }}
       volumes:
+        - name: config
+          configMap:
+            name: {{ include "pytoya.fullname" . }}-config
         - name: uploads
           {{- if .Values.api.persistence.enabled }}
           persistentVolumeClaim:

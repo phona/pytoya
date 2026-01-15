@@ -9,7 +9,7 @@ The system SHALL provide PostgreSQL database with TypeORM entities.
 #### Scenario: Database connection
 - **WHEN** application starts
 - **THEN** PostgreSQL connection is established using configured credentials
-- **AND** database migrations are automatically applied
+- **AND** database migrations are applied via a Helm-managed migration Job before API pods start
 
 #### Scenario: User entity persistence
 - **WHEN** user creates account via registration API

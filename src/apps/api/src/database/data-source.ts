@@ -1,24 +1,32 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import dotenv from 'dotenv';
+import { join } from 'node:path';
 import { DataSource } from 'typeorm';
+import appConfig from '../config/app.config';
+import { validateEnv } from '../config/env.validation';
 
-const envPath = path.join(process.cwd(), '.env');
-const fileEnv = fs.existsSync(envPath) ? dotenv.parse(fs.readFileSync(envPath)) : {};
-const env = { ...process.env, ...fileEnv };
+let config = appConfig();
+config = validateEnv(config);
 
-const dbPort = Number(env.DB_PORT ?? 5432);
-const isDevelopment = (env.NODE_ENV ?? 'development') === 'development';
+const dbConfig = config.database as {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  database: string;
+};
+
+const serverConfig = config.server as { nodeEnv?: string } | undefined;
+
+const isDevelopment = serverConfig?.nodeEnv === 'development';
 
 const AppDataSource = new DataSource({
   type: 'postgres',
-  host: env.DB_HOST ?? 'localhost',
-  port: Number.isNaN(dbPort) ? 5432 : dbPort,
-  username: env.DB_USERNAME ?? 'pytoya_user',
-  password: env.DB_PASSWORD ?? 'pytoya_pass',
-  database: env.DB_DATABASE ?? 'pytoya',
-  entities: [path.join(__dirname, '..', 'entities', '**', '*.entity.{ts,js}')],
-  migrations: [path.join(__dirname, 'migrations', '*.{ts,js}')],
+  host: dbConfig.host,
+  port: dbConfig.port,
+  username: dbConfig.username,
+  password: dbConfig.password,
+  database: dbConfig.database,
+  entities: [join(__dirname, '..', 'entities', '**', '*.entity.{ts,js}')],
+  migrations: [join(__dirname, 'migrations', '*.{ts,js}')],
   synchronize: false,
   logging: isDevelopment,
 });

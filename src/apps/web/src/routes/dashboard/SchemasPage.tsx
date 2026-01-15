@@ -1,13 +1,11 @@
-'use client';
-
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSchemas, useSchemaTemplates } from '@/hooks/use-schemas';
-import { CreateSchemaDto, UpdateSchemaDto, Schema } from '@/lib/api/schemas';
-import { SchemaForm } from '@/components/SchemaForm';
+import { useNavigate } from 'react-router-dom';
+import { useSchemas, useSchemaTemplates } from '@/shared/hooks/use-schemas';
+import { CreateSchemaDto, UpdateSchemaDto, Schema } from '@/api/schemas';
+import { SchemaForm } from '@/shared/components/SchemaForm';
 
-export default function SchemasPage() {
-  const router = useRouter();
+export function SchemasPage() {
+  const navigate = useNavigate();
   const { schemas, isLoading, createSchema, updateSchema, deleteSchema, isCreating, isUpdating, isDeleting } =
     useSchemas();
   const { templates: templateSchemas } = useSchemaTemplates();
@@ -176,7 +174,7 @@ export default function SchemasPage() {
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => router.push(`/schemas/${schema.id}`)}
+                      onClick={() => navigate(`/schemas/${schema.id}`)}
                       className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
                     >
                       View

@@ -3,15 +3,12 @@
   "compilerOptions": {
     "module": "esnext",
     "moduleResolution": "bundler",
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
+    "noEmit": true,
     "types": [
-      "node"
-    ],
-    "plugins": [
-      {
-        "name": "next"
-      }
+      "node",
+      "vite/client"
     ],
     "paths": {
       "@pytoya/api/*": [
@@ -24,10 +21,7 @@
         "src/apps/common/src/*"
       ],
       "@/*": [
-        "src/apps/web/*"
-      ],
-      "components/*": [
-        "src/apps/web/components/*"
+        "src/apps/web/src/*"
       ]
     },
     "lib": [
@@ -36,15 +30,13 @@
       "esnext"
     ],
     "allowJs": true,
-    "noEmit": true,
     "resolveJsonModule": true,
     "isolatedModules": true
   },
   "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts"
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "vite.config.ts"
   ],
   "exclude": [
     "node_modules"

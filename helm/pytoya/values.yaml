@@ -112,7 +112,8 @@ web:
       cpu: "1"
       memory: "1Gi"
   env:
-    NEXT_PUBLIC_API_URL: ""
+    VITE_API_URL: ""
+    VITE_WS_URL: ""
   healthCheck:
     path: /
     initialDelay: 30

@@ -1,15 +1,13 @@
-'use client';
-
 import { useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { useManifests } from '@/hooks/use-manifests';
-import { useExportSelectedToCsv } from '@/hooks/use-manifests';
-import { ManifestList } from '@/components/manifests/ManifestList';
-import { ManifestFilters, ManifestFilterValues } from '@/components/manifests/ManifestFilters';
-import { AuditPanel } from '@/components/manifests/AuditPanel';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useManifests } from '@/shared/hooks/use-manifests';
+import { useExportSelectedToCsv } from '@/shared/hooks/use-manifests';
+import { ManifestList } from '@/shared/components/manifests/ManifestList';
+import { ManifestFilters, ManifestFilterValues } from '@/shared/components/manifests/ManifestFilters';
+import { AuditPanel } from '@/shared/components/manifests/AuditPanel';
 
-export default function ManifestsPage() {
-  const router = useRouter();
+export function ManifestsPage() {
+  const navigate = useNavigate();
   const params = useParams();
   const projectId = Number(params.id);
   const groupId = Number(params.groupId);
@@ -26,7 +24,7 @@ export default function ManifestsPage() {
   });
 
   const handleBackToGroups = () => {
-    router.push(`/projects/${projectId}`);
+    navigate(`/projects/${projectId}`);
   };
 
   const handleSelectManifest = (manifestId: number) => {

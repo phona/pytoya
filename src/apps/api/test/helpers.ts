@@ -1,6 +1,8 @@
-import { TestingModule } from '@nestjs/testing';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { join } from 'node:path';
+import { Test } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
+import appConfig from '../src/config/app.config';
+import { validateEnv } from '../src/config/env.validation';
 
 /**
  * Create a test module with database mocked
@@ -9,14 +11,16 @@ export async function createTestModule(options: {
   imports?: any[];
   providers?: any[];
 }) {
-  const { Test } = await import('@nestjs/testing');
-  const { AppModule } = await import('../src/app.module');
+
+  // Set test config path before loading configuration
+  process.env.CONFIG_PATH = join(__dirname, 'config.yaml');
 
   return Test.createTestingModule({
     imports: [
       ConfigModule.forRoot({
         isGlobal: true,
-        envFilePath: '.env.test',
+        load: [appConfig],
+        validate: validateEnv,
       }),
         ...(options.imports || []),
       ],

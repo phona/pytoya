@@ -1,14 +1,12 @@
-'use client';
-
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useProjects } from '@/hooks/use-projects';
-import { ProjectCard } from '@/components/ProjectCard';
-import { ProjectForm } from '@/components/ProjectForm';
-import { Project, UpdateProjectDto, CreateProjectDto } from '@/lib/api/projects';
+import { useNavigate } from 'react-router-dom';
+import { useProjects } from '@/shared/hooks/use-projects';
+import { ProjectCard } from '@/shared/components/ProjectCard';
+import { ProjectForm } from '@/shared/components/ProjectForm';
+import { Project, UpdateProjectDto, CreateProjectDto } from '@/api/projects';
 
-export default function ProjectsPage() {
-  const router = useRouter();
+export function ProjectsPage() {
+  const navigate = useNavigate();
   const { projects, isLoading, createProject, updateProject, deleteProject, isCreating, isUpdating, isDeleting } =
     useProjects();
 
@@ -120,7 +118,7 @@ export default function ProjectsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects.map((project) => (
-              <div key={project.id} onClick={() => router.push(`/projects/${project.id}`)}>
+              <div key={project.id} onClick={() => navigate(`/projects/${project.id}`)}>
                 <ProjectCard
                   project={project}
                   onEdit={handleEdit}

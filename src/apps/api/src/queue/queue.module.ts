@@ -18,14 +18,14 @@ import { QueueService } from './queue.service';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         const redisHost =
-          configService.get<string>('REDIS_HOST') ?? 'localhost';
-        const portValue = configService.get<string>('REDIS_PORT');
-        const redisPort = portValue ? Number(portValue) : 6379;
+          configService.get<string>('redis.host') ?? 'localhost';
+        const redisPort =
+          configService.get<number>('redis.port') ?? 6379;
 
         return {
           connection: {
             host: redisHost,
-            port: Number.isNaN(redisPort) ? 6379 : redisPort,
+            port: redisPort,
           },
         };
       },

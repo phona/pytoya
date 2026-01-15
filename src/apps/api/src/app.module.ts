@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
 import { AuthModule } from './auth/auth.module';
+import appConfig from './config/app.config';
 import { validateEnv } from './config/env.validation';
 import { DatabaseModule } from './database/database.module';
 import { UsersModule } from './users/users.module';
@@ -26,7 +27,7 @@ import { WebSocketModule } from './websocket/websocket.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      load: [appConfig],
       validate: validateEnv,
     }),
     AuthModule,

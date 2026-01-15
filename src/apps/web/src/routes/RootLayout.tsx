@@ -1,22 +1,16 @@
-import type { ReactNode } from 'react';
-import { Providers } from './providers';
-import './globals.css';
-
-export const metadata = {
-  title: 'PyToYa',
-  description: 'PyToYa web application'
-};
+import { ReactNode, useEffect } from 'react';
+import { Outlet } from 'react-router-dom';
+import { Providers } from '../app/providers';
+import '../shared/styles/globals.css';
 
 type RootLayoutProps = {
-  children: ReactNode;
+  children?: ReactNode;
 };
 
-export default function RootLayout({ children }: RootLayoutProps) {
-  return (
-    <html lang="en">
-      <body>
-        <Providers>{children}</Providers>
-      </body>
-    </html>
-  );
+export function RootLayout({ children }: RootLayoutProps) {
+  useEffect(() => {
+    document.title = 'PyToYa';
+  }, []);
+
+  return <Providers>{children ?? <Outlet />}</Providers>;
 }

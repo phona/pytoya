@@ -17,7 +17,7 @@ const DEFAULT_TIMEOUT_MS = 120000;
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         const baseUrl =
-          configService.get<string>('PADDLEOCR_BASE_URL') ??
+          configService.get<string>('paddleocr.baseUrl') ??
           DEFAULT_BASE_URL;
         const timeout = getNumberConfig(
           configService,

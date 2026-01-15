@@ -25,9 +25,9 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 PyToYa is a hybrid invoice processing system combining a Python CLI tool (legacy) with a modern TypeScript web application. The system uses PaddleOCR-VL for OCR and LLM providers (OpenAI-compatible) for structured data extraction from PDF invoices.
 
-**Architecture**: Monorepo with npm workspaces (`src/apps/api` for NestJS backend, `src/apps/web` for Next.js frontend).
+**Architecture**: Monorepo with npm workspaces (`src/apps/api` for NestJS backend, `src/apps/web` for Vite frontend).
 
-**Key Technologies**: NestJS, Next.js 14 (App Router), PostgreSQL + TypeORM, BullMQ + Redis, WebSocket Gateway, PaddleOCR-VL, OpenAI-compatible LLMs.
+**Key Technologies**: NestJS, Vite + React Router, PostgreSQL + TypeORM, BullMQ + Redis, WebSocket Gateway, PaddleOCR-VL, OpenAI-compatible LLMs.
 
 ## Common Commands
 
@@ -62,11 +62,11 @@ npm run docker:ps          # Check status
 # Deploy deps (PowerShell)
 pwsh -File scripts/deploy-deps-nodeport.ps1 -PostgresPassword 123456
 
-# Update src/apps/api/.env from NodePorts
+# Update src/apps/api/config.yaml from NodePorts
 pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -Namespace pytoya-dev -ReleaseName pytoya-dev
 
-# Override the env file path if needed
-pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -EnvPath "src/apps/api/.env.local"
+# Override the config file path if needed
+pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -ConfigPath "src/apps/api/config.yaml"
 
 # Skip DB user setup if you only need NodePorts
 pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -SkipDbUserSetup
@@ -81,15 +81,19 @@ npm run test:cov           # Coverage report
 npm run migration:generate  # Generate TypeORM migration (ts-node/register)
 npm run migration:run      # Run migrations (ts-node/register)
 npm run migration:revert   # Revert last migration (ts-node/register)
+
+npm run cli -- serve       # Start API via CLI entrypoint
+npm run cli -- newadmin    # Seed default admin (create-only)
+npm run cli:dev -- serve   # Dev CLI (ts-node)
 ```
 
 ### Frontend-Specific (`src/apps/web/`)
 ```bash
-npm run dev                # Next.js dev server
+npm run dev                # Vite dev server
 npm run build              # Production build
 npm run lint               # ESLint
 npm run type-check         # TypeScript check
-npm run test               # Jest tests
+npm run test               # Vitest tests
 npm run test:coverage      # Coverage report
 ```
 
@@ -99,7 +103,7 @@ npm run test:coverage      # Coverage report
 ```
 src/apps/
 ├── api/                   # NestJS backend (port 3000)
-└── web/                   # Next.js frontend (port 3001)
+└── web/                   # Vite frontend (port 3001)
 src/                       # Python CLI (legacy)
 openspec/                  # Spec-driven development
 ```
@@ -114,11 +118,11 @@ openspec/                  # Spec-driven development
 ### Backend Guardrails (NestJS)
 - See `docs/nestjs-coding-agent-guardrails.md` for required patterns (validation, config, errors, DTOs)
 
-### Frontend (Next.js Web)
-- **Framework**: App Router (`src/apps/web/app/`)
-- **API Client**: Axios with centralized config in `lib/api-client.ts`
-- **State Management**: Zustand stores in `hooks/` (e.g., `auth-store.ts`)
-- **Components**: Co-located with pages, shared components in `components/`
+### Frontend (Vite Web)
+- **Framework**: Vite + React Router (`src/apps/web/src/routes`)
+- **API Client**: Axios with centralized config in `src/apps/web/src/api/client.ts`
+- **State Management**: Zustand stores in `src/apps/web/src/shared/hooks` (e.g., `use-auth.ts`)
+- **Components**: Shared components in `src/apps/web/src/shared/components`
 
 ### Database Schema (11 Entities)
 ```
@@ -173,20 +177,26 @@ Critical for mechanical industry invoices (Chinese):
 - **API Format**: chat.completions
 - **Retry Logic**: Automatic retry with enhanced OCR on validation failure
 
-## Environment Variables
+## Configuration
 
-### Required for API (.env)
-```
-DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE
-REDIS_HOST, REDIS_PORT
-JWT_SECRET
-OPENAI_API_KEY (or equivalent for configured provider)
-PADDLEOCR_BASE_URL
-```
+### API Configuration
+The API uses `src/apps/api/config.yaml` as its single source of truth for runtime configuration. The file is read at startup and validated against the schema defined in `src/apps/api/src/config/env.validation.ts`.
+
+**Override config path**: Set the `CONFIG_PATH` environment variable to use a different config file location.
+
+Key configuration sections:
+- `server`: nodeEnv, port
+- `database`: host, port, username, password, database
+- `redis`: host, port
+- `jwt`: secret
+- `paddleocr`: baseUrl
+- `llm`: apiKey, openaiApiKey
+- `admin`: username, password (optional)
 
 ### Required for Web (.env.local)
 ```
-NEXT_PUBLIC_API_URL
+VITE_API_URL
+VITE_WS_URL
 ```
 
 ## Important Patterns
@@ -203,10 +213,10 @@ Test.createTestingModule({
 // Avoid: jest.mock() or manual patching
 ```
 
-### Next.js Data Fetching
+### Web Data Fetching
 - Use React Query (`@tanstack/react-query`) for server state
 - Use Zustand for client state (auth, UI state)
-- API client modules in `lib/api/` (e.g., `projects.ts`, `schemas.ts`)
+- API client modules in `src/apps/web/src/api` (e.g., `projects.ts`, `schemas.ts`)
 
 ### File Naming
 - Backend: kebab-case for files (e.g., `extraction.service.ts`), PascalCase for classes

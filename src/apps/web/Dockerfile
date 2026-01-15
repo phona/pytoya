@@ -5,15 +5,15 @@ WORKDIR /repo
 
 # Install deps with the root lockfile, but only invalidate on dependency changes
 COPY .npmrc package.json package-lock.json tsconfig.base.json ./
-COPY src/apps/web/package.json src/apps/web/next.config.js src/apps/web/tsconfig*.json ./src/apps/web/
+COPY src/apps/web/package.json src/apps/web/tsconfig*.json ./src/apps/web/
 COPY src/apps/api/package.json ./src/apps/api/package.json
 RUN npm ci
 
 FROM deps AS builder
-ARG NEXT_PUBLIC_API_URL=/api
-ARG NEXT_PUBLIC_WS_URL=
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+ARG VITE_API_URL=/api
+ARG VITE_WS_URL=
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_WS_URL=$VITE_WS_URL
 
 COPY src/apps/web ./src/apps/web
 RUN npm run build --workspace=@pytoya/web
@@ -23,13 +23,13 @@ FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+RUN addgroup -g 1001 -S nodejs && adduser -S web -u 1001
 
-# Next.js standalone output bundles its own node_modules
-COPY --from=builder /repo/src/apps/web/.next/standalone ./
-COPY --from=builder /repo/src/apps/web/.next/static ./.next/static
+# Serve static assets with a minimal server
+COPY --from=builder /repo/src/apps/web/dist ./dist
+RUN npm install -g serve
 
-USER nextjs
+USER web
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+CMD ["serve", "-s", "dist", "-l", "3000"]

@@ -24,7 +24,6 @@ export class OcrService {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
-  private readonly logVerbose: boolean;
 
   constructor(
     private readonly configService: ConfigService,
@@ -32,7 +31,7 @@ export class OcrService {
     private readonly axiosInstance: AxiosInstance,
   ) {
     const baseUrl =
-      this.configService.get<string>('PADDLEOCR_BASE_URL') ??
+      this.configService.get<string>('paddleocr.baseUrl') ??
       DEFAULT_BASE_URL;
     this.baseUrl = this.normalizeBaseUrl(baseUrl);
     this.timeoutMs = this.getNumberConfig(
@@ -43,10 +42,6 @@ export class OcrService {
       1,
       this.getNumberConfig('OCR_MAX_RETRIES', DEFAULT_MAX_RETRIES),
     );
-
-    const nodeEnv =
-      this.configService.get<string>('NODE_ENV') ?? 'development';
-    this.logVerbose = nodeEnv !== 'production';
   }
 
   async processPdf(fileBuffer: Buffer): Promise<OcrResponse> {
@@ -69,11 +64,9 @@ export class OcrService {
       showFormulaNumber: true,
     };
 
-    if (this.logVerbose) {
-      this.logger.debug(
-        `OCR request prepared (endpoint=${OCR_ENDPOINT}, bytes=${fileBuffer.length})`,
-      );
-    }
+    this.logger.debug(
+      `OCR request prepared (endpoint=${OCR_ENDPOINT}, bytes=${fileBuffer.length})`,
+    );
 
     const result = await this.sendRequest(payload);
     return this.parseResponse(result);
@@ -88,11 +81,9 @@ export class OcrService {
     for (let attempt = 0; attempt < this.maxRetries; attempt += 1) {
       attempts = attempt + 1;
       try {
-        if (this.logVerbose) {
-          this.logger.debug(
-            `Sending OCR request (attempt ${attempts}/${this.maxRetries})`,
-          );
-        }
+        this.logger.debug(
+          `Sending OCR request (attempt ${attempts}/${this.maxRetries})`,
+        );
 
         const response = await this.axiosInstance.post<ApiResponse>(
           OCR_ENDPOINT,
@@ -121,13 +112,11 @@ export class OcrService {
           );
         }
 
-        if (this.logVerbose) {
-          const pages = data.result.layoutParsingResults?.length ?? 0;
-          this.logger.debug(
-            `OCR response received (attempt ${attempts}/${this.maxRetries}, ` +
-              `logId=${data.logId ?? 'unknown'}, pages=${pages})`,
-          );
-        }
+        const pages = data.result.layoutParsingResults?.length ?? 0;
+        this.logger.debug(
+          `OCR response received (attempt ${attempts}/${this.maxRetries}, ` +
+            `logId=${data.logId ?? 'unknown'}, pages=${pages})`,
+        );
 
         return data.result;
       } catch (error) {
@@ -154,9 +143,7 @@ export class OcrService {
         }
 
         const delayMs = BASE_BACKOFF_MS * 2 ** attempt;
-        if (this.logVerbose) {
-          this.logger.debug(`Retrying OCR request in ${delayMs}ms`);
-        }
+        this.logger.debug(`Retrying OCR request in ${delayMs}ms`);
         await this.sleep(delayMs);
       }
     }
