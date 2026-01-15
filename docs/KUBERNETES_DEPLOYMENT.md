@@ -69,7 +69,8 @@ pwsh -File scripts/deploy-helm.ps1 `
 
 Notes:
 - Values files live under `helm/pytoya/` (e.g., `values-prod.yaml`).
-- Run migrations as a separate, explicit step in CI/CD or a one-off job.
+- The chart can optionally run a pre-install/pre-upgrade migration Job when `migrations.enabled=true`.
+- The chart can optionally run a post-install/post-upgrade admin seed Job when `admin.username` and `admin.password` are provided.
 
 ## NodePort (No Ingress)
 

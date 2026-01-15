@@ -142,3 +142,12 @@ hpa:
 secrets:
   jwtSecret: ""
   llmApiKey: ""
+
+admin:
+  username: ""
+  password: ""
+
+migrations:
+  enabled: false
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 300

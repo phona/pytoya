@@ -1,0 +1,42 @@
+{{- if and .Values.api.enabled .Values.admin.username .Values.admin.password }}
+{{- $ns := default .Release.Namespace .Values.global.namespace -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "pytoya.fullname" . }}-admin-seed
+  namespace: {{ $ns }}
+  labels:
+    {{- include "pytoya.labels" . | nindent 4 }}
+    app.kubernetes.io/component: admin-seed
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "pytoya.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: admin-seed
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "pytoya.fullname" . }}-api
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: admin-seed
+          image: {{ include "pytoya.image" (dict "registry" .Values.global.imageRegistry "image" .Values.api.image) }}:{{ .Values.api.tag }}
+          imagePullPolicy: {{ .Values.api.pullPolicy }}
+          command:
+            - node
+            - dist/cli
+            - newadmin
+          envFrom:
+            - configMapRef:
+                name: {{ include "pytoya.fullname" . }}-config
+            - secretRef:
+                name: {{ include "pytoya.fullname" . }}-secrets
+{{- end }}

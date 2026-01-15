@@ -61,3 +61,12 @@ hpa:
     enabled: false
   web:
     enabled: false
+
+admin:
+  username: ""
+  password: ""
+
+migrations:
+  enabled: false
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 300

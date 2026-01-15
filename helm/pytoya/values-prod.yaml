@@ -59,6 +59,15 @@ hpa:
     maxReplicas: 6
     targetCPUUtilizationPercentage: 80
 
+admin:
+  username: ""
+  password: ""
+
+migrations:
+  enabled: false
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 300
+
 ingress:
   enabled: true
   className: nginx
