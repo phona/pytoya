@@ -14,10 +14,6 @@ const dbConfig = config.database as {
   database: string;
 };
 
-const serverConfig = config.server as { nodeEnv?: string } | undefined;
-
-const isDevelopment = serverConfig?.nodeEnv === 'development';
-
 const AppDataSource = new DataSource({
   type: 'postgres',
   host: dbConfig.host,
@@ -28,7 +24,7 @@ const AppDataSource = new DataSource({
   entities: [join(__dirname, '..', 'entities', '**', '*.entity.{ts,js}')],
   migrations: [join(__dirname, 'migrations', '*.{ts,js}')],
   synchronize: false,
-  logging: isDevelopment,
+  logging: false,
 });
 
 export default AppDataSource;

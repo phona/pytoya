@@ -26,11 +26,10 @@ function getLogLevels(level: string): LogLevel[] {
 }
 
 export async function createApp(): Promise<NestExpressApplication> {
-  // Load config to get log level before creating app
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(ConfigService);
-  const logLevel = config.get<string>('logging.levels') ?? "info";
-  const logLevels = getLogLevels(logLevel)
+  const logLevel = config.get<string>('server.logLevel') ?? "info";
+  const logLevels = getLogLevels(logLevel);
   app.useLogger(logLevels);
   Logger.overrideLogger(logLevels);
 
@@ -69,7 +68,9 @@ export async function createApp(): Promise<NestExpressApplication> {
 
 async function bootstrap() {
   const app = await createApp();
-  await app.listen(3000);
+  const configService = app.get(ConfigService);
+  const port = configService.get<number>('server.port') ?? 3000;
+  await app.listen(port);
 }
 
 if (require.main === module) {

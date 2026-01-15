@@ -5,8 +5,10 @@ import {
   IsString,
   Max,
   Min,
+  ValidateNested,
   validateSync,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 class DatabaseConfig {
   @IsString()
@@ -52,9 +54,8 @@ class PaddleocrConfig {
 }
 
 class LlmConfig {
-  @IsOptional()
   @IsString()
-  apiKey?: string;
+  apiKey!: string;
 }
 
 class ServerConfig {
@@ -63,28 +64,41 @@ class ServerConfig {
   @Min(1)
   @Max(65535)
   port?: number;
-}
-
-export class AppConfig {
-  database!: DatabaseConfig;
-
-  redis!: RedisConfig;
-
-  jwt!: JwtConfig;
-
-  paddleocr!: PaddleocrConfig;
-
-  llm!: LlmConfig;
-
-  server?: ServerConfig;
 
   @IsOptional()
   @IsString()
   logLevel?: string;
 }
 
-const formatErrors = (errors: Array<{ property: string }>): string =>
-  errors.map((error) => error.property).join(', ');
+export class AppConfig {
+  @ValidateNested()
+  @Type(() => DatabaseConfig)
+  database!: DatabaseConfig;
+
+  @ValidateNested()
+  @Type(() => RedisConfig)
+  redis!: RedisConfig;
+
+  @ValidateNested()
+  @Type(() => JwtConfig)
+  jwt!: JwtConfig;
+
+  @ValidateNested()
+  @Type(() => PaddleocrConfig)
+  paddleocr!: PaddleocrConfig;
+
+  @ValidateNested()
+  @Type(() => LlmConfig)
+  llm!: LlmConfig;
+
+  @ValidateNested()
+  @Type(() => ServerConfig)
+  @IsOptional()
+  server?: ServerConfig;
+}
+
+const formatErrors = (errors: Array<{ property: string; constraints?: Record<string, string> }>): string =>
+  errors.map((error) => `${error.property} (${JSON.stringify(error.constraints)})`).join(', ');
 
 export const validateEnv = (
   config: Record<string, unknown>,
@@ -99,12 +113,6 @@ export const validateEnv = (
   if (errors.length > 0) {
     throw new Error(
       `Configuration validation failed: ${formatErrors(errors)}`,
-    );
-  }
-
-  if (!validated.llm?.apiKey) {
-    throw new Error(
-      'Configuration validation failed: llm.apiKey is required',
     );
   }
 

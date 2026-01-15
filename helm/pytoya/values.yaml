@@ -76,14 +76,20 @@ api:
     enabled: true
     size: 50Gi
     storageClass: ""
-  env:
-    NODE_ENV: production
-    PORT: "3000"
-    DB_HOST: ""
-    DB_PORT: ""
-    REDIS_HOST: ""
-    REDIS_PORT: ""
-    PADDLEOCR_BASE_URL: ""
+  config:
+    server:
+      port: 3000
+      logLevel: info
+    database:
+      host: ""
+      port: 5432
+      username: ""
+      database: ""
+    redis:
+      host: ""
+      port: 6379
+    paddleocr:
+      baseUrl: ""
   healthCheck:
     path: /health
     initialDelay: 30

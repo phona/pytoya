@@ -1,39 +1,33 @@
 {{- $ns := default .Release.Namespace .Values.global.namespace -}}
-{{- $dbHost := default (printf "%s-postgres" (include "pytoya.fullname" .)) .Values.api.env.DB_HOST -}}
-{{- $dbPort := default (printf "%v" .Values.postgres.service.port) .Values.api.env.DB_PORT -}}
-{{- $dbUsername := default .Values.postgres.auth.username .Values.api.env.DB_USERNAME -}}
-{{- $dbDatabase := default .Values.postgres.auth.database .Values.api.env.DB_DATABASE -}}
-{{- $redisHost := default (printf "%s-redis" (include "pytoya.fullname" .)) .Values.api.env.REDIS_HOST -}}
-{{- $redisPort := default (printf "%v" .Values.redis.service.port) .Values.api.env.REDIS_PORT -}}
-{{- $apiPort := default "3000" .Values.api.env.PORT -}}
-{{- $webApiBaseUrl := default "/api" .Values.web.env.VITE_API_URL -}}
+{{- $fullname := include "pytoya.fullname" . -}}
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "pytoya.fullname" . }}-config
+  name: {{ $fullname }}-config
   namespace: {{ $ns }}
   labels:
     {{- include "pytoya.labels" . | nindent 4 }}
 data:
   config.yaml: |
     server:
-      nodeEnv: {{ .Values.api.env.NODE_ENV | quote }}
-      port: {{ $apiPort }}
+      port: {{ .Values.api.config.server.port }}
+      logLevel: {{ .Values.api.config.server.logLevel }}
     database:
-      host: {{ $dbHost | quote }}
-      port: {{ $dbPort }}
-      username: {{ $dbUsername | quote }}
+      host: {{ .Values.api.config.database.host | quote }}
+      port: {{ .Values.api.config.database.port }}
+      username: {{ .Values.api.config.database.username | quote }}
       password: {{ .Values.postgres.auth.password | quote }}
-      database: {{ $dbDatabase | quote }}
+      database: {{ .Values.api.config.database.database | quote }}
     redis:
-      host: {{ $redisHost | quote }}
-      port: {{ $redisPort }}
+      host: {{ .Values.api.config.redis.host | quote }}
+      port: {{ .Values.api.config.redis.port }}
     jwt:
       secret: {{ .Values.secrets.jwtSecret | quote }}
       expiration: 7d
     paddleocr:
-      baseUrl: {{ .Values.api.env.PADDLEOCR_BASE_URL | quote }}
+      baseUrl: {{ .Values.api.config.paddleocr.baseUrl | quote }}
     llm:
       apiKey: {{ .Values.secrets.llmApiKey | quote }}
   # Web env vars (remain as-is for frontend build)
-  VITE_API_URL: {{ $webApiBaseUrl | quote }}
+  VITE_API_URL: {{ .Values.web.env.VITE_API_URL | quote }}

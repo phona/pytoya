@@ -7,8 +7,8 @@ const YAML_CONFIG_FILENAME = 'config.yaml';
 
 const DEFAULT_CONFIG = {
   server: {
-    nodeEnv: 'development',
     port: 3000,
+    logLevel: 'info',
   },
   database: {
     host: 'localhost',
@@ -30,9 +30,6 @@ const DEFAULT_CONFIG = {
   },
   llm: {
     apiKey: '',
-  },
-  logging: {
-    levels: 'info',
   },
 } as const;
 
