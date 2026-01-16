@@ -1,5 +1,3 @@
-import { ProviderType } from '../entities/provider.entity';
-
 export type LlmRole = 'system' | 'user' | 'assistant' | 'tool';
 
 export interface LlmContentText {
@@ -50,7 +48,7 @@ export interface LlmChatOptions {
 }
 
 export interface LlmProviderConfig {
-  type?: ProviderType;
+  type?: string;
   baseUrl?: string | null;
   apiKey?: string | null;
   modelName?: string | null;

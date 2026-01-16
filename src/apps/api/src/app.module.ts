@@ -15,7 +15,7 @@ import { LlmModule } from './llm/llm.module';
 import { OcrModule } from './ocr/ocr.module';
 import { PdfToImageModule } from './pdf-to-image/pdf-to-image.module';
 import { PromptsModule } from './prompts/prompts.module';
-import { ProvidersModule } from './providers/providers.module';
+import { ModelsModule } from './models/models.module';
 import { ProjectsModule } from './projects/projects.module';
 import { QueueModule } from './queue/queue.module';
 import { SchemasModule } from './schemas/schemas.module';
@@ -42,7 +42,7 @@ import { WebSocketModule } from './websocket/websocket.module';
     OcrModule,
     PdfToImageModule,
     PromptsModule,
-    ProvidersModule,
+    ModelsModule,
     ProjectsModule,
     QueueModule,
     SchemasModule,

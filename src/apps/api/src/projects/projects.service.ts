@@ -1,25 +1,25 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import { ModelEntity } from '../entities/model.entity';
 import { ProjectEntity } from '../entities/project.entity';
 import { PromptEntity } from '../entities/prompt.entity';
-import { ProviderEntity } from '../entities/provider.entity';
 import { UserEntity } from '../entities/user.entity';
 import { PromptNotFoundException } from '../prompts/exceptions/prompt-not-found.exception';
+import { adapterRegistry } from '../models/adapters/adapter-registry';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectNotFoundException } from './exceptions/project-not-found.exception';
 import { ProjectOwnershipException } from './exceptions/project-ownership.exception';
-import { ProviderNotFoundException } from '../providers/exceptions/provider-not-found.exception';
 
 @Injectable()
 export class ProjectsService {
   constructor(
     @InjectRepository(ProjectEntity)
     private readonly projectRepository: Repository<ProjectEntity>,
-    @InjectRepository(ProviderEntity)
-    private readonly providerRepository: Repository<ProviderEntity>,
+    @InjectRepository(ModelEntity)
+    private readonly modelRepository: Repository<ModelEntity>,
     @InjectRepository(PromptEntity)
     private readonly promptRepository: Repository<PromptEntity>,
   ) {}
@@ -81,30 +81,39 @@ export class ProjectsService {
   private async ensureDefaultsExist(
     input: Pick<
       UpdateProjectDto,
-      'defaultProviderId' | 'defaultPromptId'
+      'ocrModelId' | 'llmModelId' | 'defaultPromptId'
     >,
   ): Promise<void> {
     await Promise.all([
-      this.ensureProviderExists(input.defaultProviderId),
+      this.ensureModelExists(input.ocrModelId, 'ocr'),
+      this.ensureModelExists(input.llmModelId, 'llm'),
       this.ensurePromptExists(input.defaultPromptId),
     ]);
   }
 
-  private async ensureProviderExists(
-    defaultProviderId?: string | null,
+  private async ensureModelExists(
+    modelId: string | null | undefined,
+    expectedCategory: 'ocr' | 'llm',
   ): Promise<void> {
-    if (defaultProviderId === undefined || defaultProviderId === null) {
+    if (modelId === undefined || modelId === null) {
       return;
     }
-    const providerId = Number(defaultProviderId);
-    if (!Number.isFinite(providerId)) {
-      throw new ProviderNotFoundException(defaultProviderId);
-    }
-    const provider = await this.providerRepository.findOne({
-      where: { id: providerId },
+    const model = await this.modelRepository.findOne({
+      where: { id: modelId },
     });
-    if (!provider) {
-      throw new ProviderNotFoundException(defaultProviderId);
+    if (!model) {
+      throw new NotFoundException(`Model ${modelId} not found`);
+    }
+    const schema = adapterRegistry.getSchema(model.adapterType);
+    if (!schema) {
+      throw new BadRequestException(
+        `Model ${modelId} has unknown adapter type`,
+      );
+    }
+    if (schema.category !== expectedCategory) {
+      throw new BadRequestException(
+        `Model ${modelId} is not a valid ${expectedCategory} model`,
+      );
     }
   }
 

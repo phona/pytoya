@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 // test/utils.tsx
 import { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
@@ -30,7 +31,10 @@ export function renderWithProviders(
 ) {
   function Wrapper({ children }: { children: React.ReactNode }) {
     return (
-      <MemoryRouter initialEntries={[route]}>
+      <MemoryRouter
+        initialEntries={[route]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
         <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
       </MemoryRouter>
     );

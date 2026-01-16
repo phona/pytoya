@@ -37,6 +37,14 @@ export function ManifestCard({ manifest, onClick }: ManifestCardProps) {
   return (
     <div
       onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      }}
       className={`bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-pointer border-l-4 ${getConfidenceColor(manifest.confidence)}`}
     >
       <div className="p-4">
@@ -60,7 +68,9 @@ export function ManifestCard({ manifest, onClick }: ManifestCardProps) {
           {manifest.invoiceDate && (
             <div className="flex justify-between">
               <span className="text-gray-500">Date:</span>
-              <span className="text-gray-900">{manifest.invoiceDate}</span>
+              <span className="text-gray-900">
+                {new Date(manifest.invoiceDate).toLocaleDateString()}
+              </span>
             </div>
           )}
 

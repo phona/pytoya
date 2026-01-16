@@ -14,7 +14,7 @@ import { JobResponseDto } from './dto/job-response.dto';
 
 type ExtractionJobData = {
   manifestId: number;
-  providerId?: number;
+  llmModelId?: string;
   promptId?: number;
   fieldName?: string;
 };
@@ -33,14 +33,14 @@ export class QueueService {
 
   async addExtractionJob(
     manifestId: number,
-    providerId?: number,
+    llmModelId?: string,
     promptId?: number,
     fieldName?: string,
   ): Promise<string> {
     try {
       const job = await this.extractionQueue.add(
         PROCESS_MANIFEST_JOB,
-        { manifestId, providerId, promptId, fieldName },
+        { manifestId, llmModelId, promptId, fieldName },
         {
           attempts: 3,
           backoff: {
@@ -55,7 +55,7 @@ export class QueueService {
       await this.manifestsService.createJob(
         manifestId,
         String(job.id),
-        providerId,
+        llmModelId,
         promptId,
       );
       this.logger.log(
@@ -162,7 +162,7 @@ export class QueueService {
       id: job.id,
       manifestId: job.manifestId,
       status: job.status,
-      providerId: job.providerId,
+      llmModelId: job.llmModelId,
       promptId: job.promptId,
       queueJobId: job.queueJobId,
       progress: job.progress,

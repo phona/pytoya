@@ -4,7 +4,7 @@ export class JobHistoryDto {
   id!: number;
   manifestId!: number;
   status!: JobStatus;
-  providerId!: number | null;
+  llmModelId!: string | null;
   promptId!: number | null;
   queueJobId!: string | null;
   progress!: number;

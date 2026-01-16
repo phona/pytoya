@@ -95,7 +95,6 @@ describe('JSONSchemaEditor', () => {
     it('should format/prettify JSON', async () => {
       const user = userEvent.setup();
       const minifiedJson = '{"type":"object","properties":{"field":{"type":"string"}}}';
-      const formattedJson = '{\n  "type": "object",\n  "properties": {\n    "field": {\n      "type": "string"\n    }\n  }\n}';
 
       render(
         <JSONSchemaEditor
@@ -236,7 +235,6 @@ describe('JSONSchemaEditor', () => {
 
   describe('Scroll synchronization', () => {
     it('should sync line numbers scroll with textarea', async () => {
-      const user = userEvent.setup();
       const longJson = '{\n'.repeat(50) + '}';
 
       const { container } = render(
@@ -249,12 +247,6 @@ describe('JSONSchemaEditor', () => {
 
       const textarea = container.querySelector('textarea');
       expect(textarea).toBeInTheDocument();
-      const scrollEvent = new Event('scroll', { bubbles: true });
-      Object.defineProperty(scrollEvent, 'target', {
-        writable: false,
-        value: { scrollTop: 100 },
-      });
-
       fireEvent.scroll(textarea!, { target: { scrollTop: 100 } });
     });
   });

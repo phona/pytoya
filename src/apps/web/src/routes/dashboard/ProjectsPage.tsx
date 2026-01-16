@@ -7,7 +7,7 @@ import { Project, UpdateProjectDto, CreateProjectDto } from '@/api/projects';
 
 export function ProjectsPage() {
   const navigate = useNavigate();
-  const { projects, isLoading, createProject, updateProject, deleteProject, isCreating, isUpdating, isDeleting } =
+  const { projects, isLoading, createProject, updateProject, deleteProject, isCreating, isUpdating } =
     useProjects();
 
   const [showForm, setShowForm] = useState(false);
@@ -118,7 +118,18 @@ export function ProjectsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects.map((project) => (
-              <div key={project.id} onClick={() => navigate(`/projects/${project.id}`)}>
+              <div
+                key={project.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/projects/${project.id}`)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    navigate(`/projects/${project.id}`);
+                  }
+                }}
+              >
                 <ProjectCard
                   project={project}
                   onEdit={handleEdit}

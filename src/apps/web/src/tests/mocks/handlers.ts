@@ -1,5 +1,13 @@
 import { http, HttpResponse } from 'msw';
 
+interface ModelRequestBody {
+  name?: string;
+  adapterType?: string;
+  description?: string | null;
+  parameters?: Record<string, unknown>;
+  isActive?: boolean;
+}
+
 export const handlers = [
   // Auth endpoints
   http.post('/api/auth/register', () => {
@@ -40,7 +48,8 @@ export const handlers = [
         name: 'Test Project',
         description: 'Test project description',
         userId: 1,
-        defaultProviderId: null,
+        ocrModelId: null,
+        llmModelId: null,
         defaultPromptId: null,
         createdAt: '2025-01-13T00:00:00.000Z',
         updatedAt: '2025-01-13T00:00:00.000Z',
@@ -61,7 +70,8 @@ export const handlers = [
       name: 'Test Project',
       description: 'Test project description',
       userId: 1,
-      defaultProviderId: null,
+      ocrModelId: null,
+      llmModelId: null,
       defaultPromptId: null,
       createdAt: '2025-01-13T00:00:00.000Z',
       updatedAt: '2025-01-13T00:00:00.000Z',
@@ -117,23 +127,85 @@ export const handlers = [
     ]);
   }),
 
-  // Providers endpoints
-  http.get('/api/providers', () => {
+  // Models endpoints
+  http.get('/api/models', () => {
     return HttpResponse.json([
       {
-        id: 1,
-        name: 'Test Provider',
-        type: 'OPENAI',
-        baseUrl: 'https://api.openai.com/v1',
-        apiKey: 'sk-***',
-        modelName: 'gpt-4',
-        temperature: 0.7,
-        maxTokens: 4096,
+        id: '11111111-1111-1111-1111-111111111111',
+        name: 'Test LLM Model',
+        adapterType: 'openai',
+        description: null,
+        category: 'llm',
+        parameters: {
+          baseUrl: 'https://api.openai.com/v1',
+          apiKey: '********',
+          modelName: 'gpt-4o',
+          temperature: 0.7,
+          maxTokens: 4096,
+        },
         isActive: true,
         createdAt: '2025-01-13T00:00:00.000Z',
         updatedAt: '2025-01-13T00:00:00.000Z',
       },
     ]);
+  }),
+  http.get('/api/models/adapters', () => {
+    return HttpResponse.json([
+      {
+        type: 'openai',
+        name: 'OpenAI-Compatible',
+        description: 'OpenAI API compatible LLMs',
+        category: 'llm',
+        parameters: {
+          baseUrl: { type: 'string', required: true, label: 'Base URL' },
+          apiKey: { type: 'string', required: true, label: 'API Key', secret: true },
+          modelName: { type: 'string', required: true, label: 'Model Name' },
+        },
+        capabilities: ['llm'],
+      },
+      {
+        type: 'paddlex',
+        name: 'PaddleX OCR',
+        description: 'PaddleOCR-VL adapter',
+        category: 'ocr',
+        parameters: {
+          baseUrl: { type: 'string', required: true, label: 'Base URL' },
+        },
+        capabilities: ['ocr'],
+      },
+    ]);
+  }),
+  http.post('/api/models', async ({ request }) => {
+    const body = (await request.json()) as ModelRequestBody;
+    return HttpResponse.json({
+      id: '22222222-2222-2222-2222-222222222222',
+      ...body,
+      description: body.description ?? null,
+      category: body.adapterType === 'paddlex' ? 'ocr' : 'llm',
+      isActive: body.isActive ?? true,
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+  http.patch('/api/models/:id', async ({ request, params }) => {
+    const body = (await request.json()) as ModelRequestBody;
+    return HttpResponse.json({
+      id: params.id,
+      name: body.name ?? 'Updated Model',
+      adapterType: body.adapterType ?? 'openai',
+      description: body.description ?? null,
+      category: (body.adapterType ?? 'openai') === 'paddlex' ? 'ocr' : 'llm',
+      parameters: body.parameters ?? {},
+      isActive: body.isActive ?? true,
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+  http.delete('/api/models/:id', () => {
+    return new HttpResponse(null, { status: 204 });
+  }),
+  http.post('/api/models/:id/test', () => {
+    return HttpResponse.json({ ok: true, message: 'ok' });
   }),
 
   // Prompts endpoints

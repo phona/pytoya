@@ -78,7 +78,7 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
 
       {/* Status */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+        <p className="block text-sm font-medium text-gray-700 mb-2">Status</p>
         <div className="space-y-1">
           {['pending', 'processing', 'completed', 'failed'].map((status) => (
             <label key={status} className="flex items-center">
@@ -96,8 +96,11 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
 
       {/* PO Number */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">PO Number</label>
+        <label htmlFor="filterPoNo" className="block text-sm font-medium text-gray-700 mb-1">
+          PO Number
+        </label>
         <input
+          id="filterPoNo"
           type="text"
           value={values.poNo ?? ''}
           onChange={(e) => handleInputChange('poNo', e.target.value)}
@@ -108,16 +111,18 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
 
       {/* Date Range */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Date</label>
+        <p className="block text-sm font-medium text-gray-700 mb-1">Invoice Date</p>
         <div className="space-y-2">
           <input
             type="date"
+            aria-label="Invoice date from"
             value={values.dateFrom ?? ''}
             onChange={(e) => handleInputChange('dateFrom', e.target.value)}
             className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
           />
           <input
             type="date"
+            aria-label="Invoice date to"
             value={values.dateTo ?? ''}
             onChange={(e) => handleInputChange('dateTo', e.target.value)}
             className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -127,8 +132,11 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
 
       {/* Department */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+        <label htmlFor="filterDepartment" className="block text-sm font-medium text-gray-700 mb-1">
+          Department
+        </label>
         <input
+          id="filterDepartment"
           type="text"
           value={values.department ?? ''}
           onChange={(e) => handleInputChange('department', e.target.value)}
@@ -139,14 +147,15 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
 
       {/* Confidence Range */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <p className="block text-sm font-medium text-gray-700 mb-1">
           Confidence: {confidenceRange.min}% - {confidenceRange.max}%
-        </label>
+        </p>
         <div className="space-y-2">
           <input
             type="range"
             min="0"
             max="100"
+            aria-label="Confidence minimum"
             value={confidenceRange.min}
             onChange={(e) => handleConfidenceChange(Number(e.target.value), confidenceRange.max)}
             className="w-full"
@@ -155,6 +164,7 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
             type="range"
             min="0"
             max="100"
+            aria-label="Confidence maximum"
             value={confidenceRange.max}
             onChange={(e) => handleConfidenceChange(confidenceRange.min, Number(e.target.value))}
             className="w-full"

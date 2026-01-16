@@ -7,8 +7,8 @@ import { ScriptExecutorService } from './script-executor.service';
 import { ValidationService } from './validation.service';
 import { ValidationScriptEntity, ValidationSeverity } from '../entities/validation-script.entity';
 import { ManifestEntity, ManifestStatus } from '../entities/manifest.entity';
+import { ModelEntity } from '../entities/model.entity';
 import { ProjectEntity } from '../entities/project.entity';
-import { ProviderEntity } from '../entities/provider.entity';
 import { UserEntity, UserRole } from '../entities/user.entity';
 import { GroupEntity } from '../entities/group.entity';
 import { LlmService } from '../llm/llm.service';
@@ -203,7 +203,7 @@ describe('ValidationService', () => {
   let validationScriptRepository: jest.Mocked<Repository<ValidationScriptEntity>>;
   let manifestRepository: jest.Mocked<Repository<ManifestEntity>>;
   let projectRepository: jest.Mocked<Repository<ProjectEntity>>;
-  let providerRepository: jest.Mocked<Repository<ProviderEntity>>;
+  let modelRepository: jest.Mocked<Repository<ModelEntity>>;
   let llmService: jest.Mocked<LlmService>;
 
   const mockUser: UserEntity = {
@@ -228,7 +228,10 @@ describe('ValidationService', () => {
     name: 'Test Project',
     description: null,
     ownerId: 1,
-    defaultProviderId: null,
+    ocrModelId: null,
+    llmModelId: null,
+    ocrModel: null,
+    llmModel: null,
     defaultPromptId: null,
     defaultSchemaId: null,
     owner: mockUser,
@@ -289,9 +292,9 @@ describe('ValidationService', () => {
       findOne: jest.fn(),
     } as unknown as jest.Mocked<Repository<ProjectEntity>>;
 
-    providerRepository = {
+    modelRepository = {
       findOne: jest.fn(),
-    } as unknown as jest.Mocked<Repository<ProviderEntity>>;
+    } as unknown as jest.Mocked<Repository<ModelEntity>>;
 
     llmService = {
       createChatCompletion: jest.fn(),
@@ -314,8 +317,8 @@ describe('ValidationService', () => {
           useValue: projectRepository,
         },
         {
-          provide: getRepositoryToken(ProviderEntity),
-          useValue: providerRepository,
+          provide: getRepositoryToken(ModelEntity),
+          useValue: modelRepository,
         },
         {
           provide: LlmService,

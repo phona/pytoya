@@ -20,6 +20,11 @@ interface ManifestListProps {
   projectId?: number;
 }
 
+interface BatchValidationSummary {
+  errorCount?: number;
+  warningCount?: number;
+}
+
 export function ManifestList({
   manifests,
   filters,
@@ -30,14 +35,17 @@ export function ManifestList({
   onSelectManifest,
   onBatchExport,
   onBatchReExtract,
-  projectId,
 }: ManifestListProps) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [manifestProgress, setManifestProgress] = useState<Record<number, { progress: number; status: string; error?: string }>>({});
-  const [validationProgress, setValidationProgress] = useState<{ completed: number; total: number; results: Record<number, any> }>({ completed: 0, total: 0, results: {} });
+  const [validationProgress, setValidationProgress] = useState<{
+    completed: number;
+    total: number;
+    results: Record<number, BatchValidationSummary>;
+  }>({ completed: 0, total: 0, results: {} });
 
   const runBatchValidation = useRunBatchValidation();
 
@@ -113,8 +121,8 @@ export function ManifestList({
       const results = await runBatchValidation.mutateAsync({ manifestIds: manifestIdsToValidate });
 
       // Process results
-      const totalErrors = Object.values(results).reduce((sum, r: any) => sum + (r.errorCount || 0), 0);
-      const totalWarnings = Object.values(results).reduce((sum, r: any) => sum + (r.warningCount || 0), 0);
+      const totalErrors = Object.values(results).reduce((sum, r) => sum + (r.errorCount ?? 0), 0);
+      const totalWarnings = Object.values(results).reduce((sum, r) => sum + (r.warningCount ?? 0), 0);
 
       setValidationProgress({
         completed: manifestIdsToValidate.length,
@@ -165,16 +173,22 @@ export function ManifestList({
       result = result.filter((m) => (m.confidence ?? 0) <= filters.confidenceMax!);
     }
     if (filters.dateFrom) {
-      result = result.filter((m) => m.invoiceDate && m.invoiceDate >= filters.dateFrom!);
+      const from = new Date(filters.dateFrom).getTime();
+      result = result.filter(
+        (m) => m.invoiceDate && new Date(m.invoiceDate).getTime() >= from,
+      );
     }
     if (filters.dateTo) {
-      result = result.filter((m) => m.invoiceDate && m.invoiceDate <= filters.dateTo!);
+      const to = new Date(filters.dateTo).getTime();
+      result = result.filter(
+        (m) => m.invoiceDate && new Date(m.invoiceDate).getTime() <= to,
+      );
     }
 
     // Apply sort
     result.sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
+      let aValue: string | number = '';
+      let bValue: string | number = '';
 
       switch (sort.field) {
         case 'filename':
@@ -186,8 +200,8 @@ export function ManifestList({
           bValue = b.purchaseOrder ?? '';
           break;
         case 'invoiceDate':
-          aValue = a.invoiceDate ?? '';
-          bValue = b.invoiceDate ?? '';
+          aValue = a.invoiceDate ? new Date(a.invoiceDate).getTime() : 0;
+          bValue = b.invoiceDate ? new Date(b.invoiceDate).getTime() : 0;
           break;
         case 'confidence':
           aValue = a.confidence ?? 0;
@@ -201,12 +215,14 @@ export function ManifestList({
           return 0;
       }
 
-      if (typeof aValue === 'string') {
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
         return sort.order === 'asc'
           ? aValue.localeCompare(bValue)
           : bValue.localeCompare(aValue);
       }
-      return sort.order === 'asc' ? aValue - bValue : bValue - aValue;
+      return sort.order === 'asc'
+        ? Number(aValue) - Number(bValue)
+        : Number(bValue) - Number(aValue);
     });
 
     return result;

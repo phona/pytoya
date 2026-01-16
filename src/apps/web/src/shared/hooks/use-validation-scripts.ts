@@ -1,14 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   validationApi,
-  ValidationScript,
   CreateValidationScriptDto,
   UpdateValidationScriptDto,
   ValidateScriptSyntaxDto,
   GenerateValidationScriptDto,
   RunValidationDto,
   BatchValidationDto,
-  ValidationResult,
 } from '@/api/validation';
 
 export function useValidationScripts() {

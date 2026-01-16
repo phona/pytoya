@@ -21,7 +21,6 @@ export function ProjectDetailPage() {
     deleteGroup,
     isCreating,
     isUpdating,
-    isDeleting,
   } = useGroups(projectId);
   const { schemas: projectSchemas } = useProjectSchemas(projectId);
   const { updateProject, isUpdating: isProjectUpdating } = useProjects();
@@ -63,7 +62,7 @@ export function ProjectDetailPage() {
   const handleUpdateDefaultSchema = async () => {
     await updateProject({
       id: projectId,
-      data: { defaultSchemaId: selectedSchemaId },
+      data: { defaultSchemaId: selectedSchemaId ?? undefined },
     });
   };
 
@@ -153,6 +152,7 @@ export function ProjectDetailPage() {
               </h3>
               <GroupForm
                 group={editingGroup ?? undefined}
+                projectId={projectId}
                 onSubmit={handleFormSubmit}
                 onCancel={() => {
                   setShowForm(false);

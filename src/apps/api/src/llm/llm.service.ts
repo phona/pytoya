@@ -9,7 +9,6 @@ import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
 import * as fs from 'fs';
 
-import { ProviderType } from '../entities/provider.entity';
 import {
   LLM_AXIOS_INSTANCE,
   LLM_CHAT_COMPLETIONS_ENDPOINT,
@@ -169,11 +168,12 @@ export class LlmService {
    * OpenAI and compatible APIs support structured output for gpt-4o and later models.
    */
   providerSupportsStructuredOutput(
-    providerType?: ProviderType,
+    providerType?: string,
     model?: string,
   ): boolean {
-    // OPENAI provider supports structured output for gpt-4o and later
-    if (providerType === ProviderType.OPENAI) {
+    const normalizedType = providerType?.toLowerCase();
+    // OpenAI-compatible providers support structured output for gpt-4o and later
+    if (normalizedType === 'openai') {
       const modelName = model?.toLowerCase() ?? this.model.toLowerCase();
       return (
         modelName.startsWith('gpt-4o') ||
@@ -192,13 +192,13 @@ export class LlmService {
    * OpenAI GPT-4o, GPT-4o-mini, GPT-4 Turbo, and Claude 3.5+ support vision.
    */
   providerSupportsVision(
-    providerType?: ProviderType,
+    providerType?: string,
     model?: string,
   ): boolean {
     const modelName = model?.toLowerCase() ?? this.model.toLowerCase();
 
     // OPENAI provider: GPT-4o, GPT-4o-mini, GPT-4 Turbo with vision support
-    if (providerType === ProviderType.OPENAI) {
+    if (providerType?.toLowerCase() === 'openai') {
       return (
         modelName.startsWith('gpt-4o') ||
         modelName.startsWith('gpt-4-turbo') ||

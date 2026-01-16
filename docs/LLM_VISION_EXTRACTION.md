@@ -1,6 +1,6 @@
 # LLM Vision Support - Extraction Strategies
 
-This document describes the extraction strategies available for processing PDF and image files using vision-enabled LLM providers.
+This document describes the extraction strategies available for processing PDF and image files using vision-enabled LLM models.
 
 ## Overview
 
@@ -21,14 +21,14 @@ The system supports multiple extraction strategies to handle different document 
 **Use Cases**:
 - Documents with clear, machine-printed text
 - Low-cost extraction (vision APIs are more expensive)
-- Providers without vision capabilities
+- Models without vision capabilities
 
-**Provider Requirements**:
-- Any LLM provider (no special requirements)
+**Model Requirements**:
+- Any LLM model (no special requirements)
 
 **Pros**:
 - Lowest cost (text-only API calls)
-- Works with any LLM provider
+- Works with any LLM model
 - Fast processing (no image conversion)
 - Proven reliability
 
@@ -54,8 +54,8 @@ The system supports multiple extraction strategies to handle different document 
 - Documents where OCR accuracy is poor
 - High-accuracy requirements
 
-**Provider Requirements**:
-- Provider must support vision (`supportsVision: true`)
+**Model Requirements**:
+- Model must enable vision in adapter parameters (`parameters.supportsVision: true`)
 - Examples: OpenAI GPT-4o, GPT-4o-mini, Claude 3.5+ Sonnet
 
 **Pros**:
@@ -67,7 +67,7 @@ The system supports multiple extraction strategies to handle different document 
 **Cons**:
 - Higher cost (vision APIs are more expensive)
 - Slower processing (PDF-to-image conversion)
-- Requires vision-capable provider
+- Requires vision-capable model
 - Larger token usage (images as base64)
 
 ### 3. VISION_FIRST
@@ -86,8 +86,8 @@ The system supports multiple extraction strategies to handle different document 
 - Need maximum accuracy with redundancy
 - Complex documents with mixed content types
 
-**Provider Requirements**:
-- Provider must support vision (`supportsVision: true`)
+**Model Requirements**:
+- Model must enable vision in adapter parameters (`parameters.supportsVision: true`)
 
 **Pros**:
 - OCR provides fallback for unclear text
@@ -117,8 +117,8 @@ The system supports multiple extraction strategies to handle different document 
 - Need verification from multiple sources
 - Critical documents where errors are unacceptable
 
-**Provider Requirements**:
-- Provider must support vision (`supportsVision: true`)
+**Model Requirements**:
+- Model must enable vision in adapter parameters (`parameters.supportsVision: true`)
 
 **Pros**:
 - Highest accuracy (multiple extraction passes)
@@ -138,7 +138,7 @@ The system supports multiple extraction strategies to handle different document 
 
 When no strategy is specified in the schema, the system auto-selects based on:
 
-1. **Image files** → `VISION_ONLY` (if provider supports vision)
+1. **Image files** → `VISION_ONLY` (if model supports vision)
 2. **PDF files** → `OCR_FIRST` (default)
 
 ### Manual Selection
@@ -185,14 +185,17 @@ enum ExtractionStrategy {
 }
 ```
 
-### Provider Configuration
+### Model Configuration
 
-Providers must have `supportsVision: true` for vision-based strategies:
+Models must set `parameters.supportsVision: true` for vision-based strategies:
 
 ```typescript
-interface ProviderEntity {
-  supportsVision: boolean;
-  modelName: string;  // e.g., 'gpt-4o', 'claude-3-5-sonnet-20241022'
+interface ModelEntity {
+  adapterType: 'openai';
+  parameters: {
+    supportsVision: boolean;
+    modelName: string;  // e.g., 'gpt-4o', 'claude-3-5-sonnet-20241022'
+  };
 }
 ```
 
@@ -227,14 +230,14 @@ Approximate processing time per 10-page document:
 **Use OCR_FIRST when**:
 - Processing simple invoices/receipts
 - Cost is a primary concern
-- Using non-vision providers
+- Using non-vision models
 - High-volume processing
 
 **Use VISION_ONLY when**:
 - Processing complex layouts (tables, forms, charts)
 - Document has handwriting or poor print quality
 - Accuracy is more important than cost
-- Using vision-capable provider
+- Using vision-capable model
 
 **Use VISION_FIRST when**:
 - Document has mixed text/visual content
@@ -247,9 +250,9 @@ Approximate processing time per 10-page document:
 - Can tolerate longer processing time
 - Need cross-verification
 
-### Provider Recommendations
+### Model Recommendations
 
-| Provider | Vision Support | Recommended For |
+| Model | Vision Support | Recommended For |
 |----------|----------------|----------------|
 | OpenAI GPT-4o | ✅ Excellent | All vision strategies |
 | OpenAI GPT-4o-mini | ✅ Good | VISION_ONLY (cost-effective) |
@@ -262,12 +265,12 @@ Approximate processing time per 10-page document:
 
 ### Automatic Fallback
 
-If a vision strategy is selected but the provider doesn't support vision, the system automatically falls back to `OCR_FIRST`:
+If a vision strategy is selected but the model doesn't support vision, the system automatically falls back to `OCR_FIRST`:
 
 ```typescript
 // System behavior
-if (strategy === VISION_ONLY && !provider.supportsVision) {
-  logger.warn('Provider does not support vision, falling back to OCR_FIRST');
+if (strategy === VISION_ONLY && !model.parameters.supportsVision) {
+  logger.warn('Model does not support vision, falling back to OCR_FIRST');
   return ExtractionStrategy.OCR_FIRST;
 }
 ```
@@ -278,9 +281,9 @@ if (strategy === VISION_ONLY && !provider.supportsVision) {
 - Cause: Image file processed but no pages available
 - Solution: Ensure image file is valid and readable
 
-**"Provider does not support vision"**
-- Cause: Provider's `supportsVision` field is false
-- Solution: Use `OCR_FIRST` or switch to vision-capable provider
+**"Model does not support vision"**
+- Cause: Model's `parameters.supportsVision` is false
+- Solution: Use `OCR_FIRST` or switch to vision-capable model
 
 **"PDF conversion failed"**
 - Cause: PDF is corrupted, password-protected, or invalid
@@ -290,10 +293,10 @@ if (strategy === VISION_ONLY && !provider.supportsVision) {
 
 ### Migrating from OCR_FIRST to VISION_ONLY
 
-1. **Verify Provider Support**:
+1. **Verify Model Support**:
    ```bash
-   curl -X GET http://localhost:3000/api/providers
-   # Check supportsVision field
+   curl -X GET http://localhost:3000/api/models
+   # Check parameters.supportsVision
    ```
 
 2. **Update Schema Strategy**:
@@ -328,7 +331,7 @@ curl -X PATCH http://localhost:3000/api/schemas/:id \
 
 **Solutions**:
 1. Increase PDF conversion DPI (default is 144 DPI / scale 2)
-2. Try different provider (GPT-4o vs Claude)
+2. Try different model (GPT-4o vs Claude)
 3. Switch to VISION_FIRST for OCR fallback
 4. Use TWO_STAGE for highest accuracy
 
@@ -363,18 +366,21 @@ Content-Type: application/json
 }
 ```
 
-### Get Provider Capabilities
+### Get Model Capabilities
 
 ```http
-GET /api/providers HTTP/1.1
+GET /api/models HTTP/1.1
 Host: localhost:3000
 
 Response:
 {
-  "id": 1,
+  "id": "550e8400-e29b-41d4-a716-446655440000",
   "name": "OpenAI GPT-4o",
-  "supportsVision": true,
-  "supportsStructuredOutput": true,
+  "adapterType": "openai",
+  "parameters": {
+    "supportsVision": true,
+    "supportsStructuredOutput": true
+  },
   ...
 }
 ```
@@ -387,7 +393,7 @@ Host: localhost:3000
 Content-Type: application/json
 
 {
-  "providerId": 1,
+  "llmModelId": "550e8400-e29b-41d4-a716-446655440000",
   "schemaId": 1
 }
 ```

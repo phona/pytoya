@@ -44,10 +44,25 @@ export class OcrService {
     );
   }
 
-  async processPdf(fileBuffer: Buffer): Promise<OcrResponse> {
+  async processPdf(
+    fileBuffer: Buffer,
+    overrides?: {
+      baseUrl?: string;
+      apiKey?: string;
+      timeoutMs?: number;
+      maxRetries?: number;
+    },
+  ): Promise<OcrResponse> {
     if (!fileBuffer || fileBuffer.length === 0) {
       throw new OcrServiceException('Empty PDF buffer provided');
     }
+
+    const baseUrl = this.normalizeBaseUrl(
+      overrides?.baseUrl ?? this.baseUrl,
+    );
+    const timeoutMs = overrides?.timeoutMs ?? this.timeoutMs;
+    const maxRetries = overrides?.maxRetries ?? this.maxRetries;
+    const apiKey = overrides?.apiKey;
 
     const base64 = fileBuffer.toString('base64');
     if (!base64) {
@@ -68,29 +83,41 @@ export class OcrService {
       `OCR request prepared (endpoint=${OCR_ENDPOINT}, bytes=${fileBuffer.length})`,
     );
 
-    const result = await this.sendRequest(payload);
+    const result = await this.sendRequest(payload, {
+      baseUrl,
+      timeoutMs,
+      maxRetries,
+      apiKey,
+    });
     return this.parseResponse(result);
   }
 
   private async sendRequest(
     payload: LayoutParsingRequest,
+    options: {
+      baseUrl: string;
+      timeoutMs: number;
+      maxRetries: number;
+      apiKey?: string;
+    },
   ): Promise<LayoutParsingResponseData> {
     let lastError: unknown;
     let attempts = 0;
 
-    for (let attempt = 0; attempt < this.maxRetries; attempt += 1) {
+    for (let attempt = 0; attempt < options.maxRetries; attempt += 1) {
       attempts = attempt + 1;
       try {
         this.logger.debug(
-          `Sending OCR request (attempt ${attempts}/${this.maxRetries})`,
+          `Sending OCR request (attempt ${attempts}/${options.maxRetries})`,
         );
 
         const response = await this.axiosInstance.post<ApiResponse>(
           OCR_ENDPOINT,
           payload,
           {
-            baseURL: this.baseUrl,
-            timeout: this.timeoutMs,
+            baseURL: options.baseUrl,
+            timeout: options.timeoutMs,
+            headers: this.buildHeaders(options.apiKey),
           },
         );
 
@@ -125,18 +152,18 @@ export class OcrService {
         const isTimeout = this.isTimeoutError(error);
 
         if (isTimeout) {
-          this.logger.warn(
-            `OCR request timed out (attempt ${attempts}/${this.maxRetries})`,
-          );
-        } else {
-          this.logger.warn(
-            `OCR request failed (attempt ${attempts}/${this.maxRetries}): ` +
+        this.logger.warn(
+          `OCR request timed out (attempt ${attempts}/${options.maxRetries})`,
+        );
+      } else {
+        this.logger.warn(
+          `OCR request failed (attempt ${attempts}/${options.maxRetries}): ` +
               `${errorMessage}`,
-          );
-        }
+        );
+      }
 
-        if (
-          attempt >= this.maxRetries - 1 ||
+      if (
+          attempt >= options.maxRetries - 1 ||
           !this.shouldRetry(error)
         ) {
           break;
@@ -160,6 +187,38 @@ export class OcrService {
         `${this.formatError(lastError)}`,
       lastError,
     );
+  }
+
+  async testConnection(options?: {
+    baseUrl?: string;
+    apiKey?: string;
+    timeoutMs?: number;
+  }): Promise<{ ok: boolean; status?: number; error?: string }> {
+    const baseUrl = this.normalizeBaseUrl(
+      options?.baseUrl ?? this.baseUrl,
+    );
+    const timeoutMs = options?.timeoutMs ?? this.timeoutMs;
+    try {
+      const response = await this.axiosInstance.get('/', {
+        baseURL: baseUrl,
+        timeout: timeoutMs,
+        headers: this.buildHeaders(options?.apiKey),
+        validateStatus: () => true,
+      });
+      const ok = response.status < 500;
+      return { ok, status: response.status };
+    } catch (error) {
+      return { ok: false, error: this.formatError(error) };
+    }
+  }
+
+  private buildHeaders(apiKey?: string): Record<string, string> | undefined {
+    if (!apiKey) {
+      return undefined;
+    }
+    return {
+      Authorization: `Bearer ${apiKey}`,
+    };
   }
 
   private parseResponse(result: LayoutParsingResponseData): OcrResponse {

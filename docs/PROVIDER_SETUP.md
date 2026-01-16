@@ -1,12 +1,14 @@
-# Vision-Enabled Provider Setup Guide
+# Vision-Enabled Model Setup Guide
 
-This guide explains how to configure LLM providers for vision-based extraction in PyToYa.
+This guide explains how to configure LLM models for vision-based extraction in PyToYa.
 
 ## Overview
 
-Vision-enabled providers can process images directly, enabling the VISION_ONLY, VISION_FIRST, and TWO_STAGE extraction strategies.
+Vision-enabled models can process images directly, enabling the VISION_ONLY, VISION_FIRST, and TWO_STAGE extraction strategies.
 
-## Supported Providers
+## Supported Models
+
+Note: PyToYa ships adapters for PaddleX OCR and OpenAI-compatible LLMs. Providers such as Anthropic, Baidu, or SiliconFlow require a custom adapter schema/service before they can be used as models.
 
 ### OpenAI
 
@@ -19,18 +21,20 @@ Vision-enabled providers can process images directly, enabling the VISION_ONLY, 
 
 ```typescript
 // Via API
-POST /api/providers
+POST /api/models
 {
   "name": "OpenAI GPT-4o",
-  "type": "openai",
-  "baseUrl": "https://api.openai.com/v1",
-  "apiKey": "sk-...",
-  "modelName": "gpt-4o",
-  "temperature": 0.1,
-  "maxTokens": 4000,
-  "supportsVision": true,
-  "supportsStructuredOutput": true,
-  "isDefault": true
+  "adapterType": "openai",
+  "parameters": {
+    "baseUrl": "https://api.openai.com/v1",
+    "apiKey": "sk-...",
+    "modelName": "gpt-4o",
+    "temperature": 0.1,
+    "maxTokens": 4000,
+    "supportsVision": true,
+    "supportsStructuredOutput": true
+  },
+  "isActive": true
 }
 ```
 
@@ -53,23 +57,7 @@ OPENAI_API_KEY=sk-...
 - `claude-3-opus-20240229` - Older but excellent
 
 **Configuration**:
-
-```typescript
-// Via API
-POST /api/providers
-{
-  "name": "Claude 3.5 Sonnet",
-  "type": "anthropic",
-  "baseUrl": "https://api.anthropic.com/v1",
-  "apiKey": "sk-ant-...",
-  "modelName": "claude-3-5-sonnet-20241022",
-  "temperature": 0.1,
-  "maxTokens": 4000,
-  "supportsVision": true,
-  "supportsStructuredOutput": true,
-  "isDefault": false
-}
-```
+Requires a custom adapter (not built-in). Once added, create a model via `POST /api/models` using your adapter's schema.
 
 **Environment Variables**:
 ```bash
@@ -89,24 +77,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 - `ERNIE-Vision` - Specialized for visual tasks
 
 **Configuration**:
-
-```typescript
-// Via API
-POST /api/providers
-{
-  "name": "Baidu ERNIE 4.0",
-  "type": "baidu",
-  "baseUrl": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat",
-  "apiKey": "your-api-key",
-  "secretKey": "your-secret-key",
-  "modelName": "ERNIE-4.0-8K",
-  "temperature": 0.1,
-  "maxTokens": 4000,
-  "supportsVision": true,
-  "supportsStructuredOutput": true,
-  "isDefault": false
-}
-```
+Requires a custom adapter (not built-in). Once added, create a model via `POST /api/models` using your adapter's schema.
 
 **Environment Variables**:
 ```bash
@@ -122,23 +93,7 @@ BAIDU_SECRET_KEY=your-secret-key
 - `Qwen-VL-Plus` - Cost-effective option
 
 **Configuration**:
-
-```typescript
-// Via API
-POST /api/providers
-{
-  "name": "SiliconFlow Qwen VL",
-  "type": "siliconflow",
-  "baseUrl": "https://api.siliconflow.cn/v1",
-  "apiKey": "sk-...",
-  "modelName": "Qwen/Qwen2-VL-72B-Instruct",
-  "temperature": 0.1,
-  "maxTokens": 4000,
-  "supportsVision": true,
-  "supportsStructuredOutput": true,
-  "isDefault": false
-}
-```
+Requires a custom adapter (not built-in). Once added, create a model via `POST /api/models` using your adapter's schema.
 
 **Environment Variables**:
 ```bash
@@ -146,32 +101,34 @@ POST /api/providers
 SILICONFLOW_API_KEY=sk-...
 ```
 
-### Custom OpenAI-Compatible Providers
+### Custom OpenAI-Compatible Models
 
 Any OpenAI-compatible API can be configured:
 
 ```typescript
 // Example: Local Ollama with vision
-POST /api/providers
+POST /api/models
 {
   "name": "Ollama LLaVA",
-  "type": "openai",
-  "baseUrl": "http://localhost:11434/v1",
-  "apiKey": "ollama",  // Required but not used
-  "modelName": "llava:34b",
-  "temperature": 0.1,
-  "maxTokens": 4000,
-  "supportsVision": true,
-  "supportsStructuredOutput": false,
-  "isDefault": false
+  "adapterType": "openai",
+  "parameters": {
+    "baseUrl": "http://localhost:11434/v1",
+    "apiKey": "ollama",  // Required but not used
+    "modelName": "llava:34b",
+    "temperature": 0.1,
+    "maxTokens": 4000,
+    "supportsVision": true,
+    "supportsStructuredOutput": false
+  },
+  "isActive": true
 }
 ```
 
 ## Setup Steps
 
-### 1. Verify Provider Capabilities
+### 1. Verify Model Capabilities
 
-Before configuring, verify the provider supports vision:
+Before configuring, verify the model supports vision:
 
 ```bash
 # For OpenAI
@@ -181,22 +138,24 @@ curl https://api.openai.com/v1/models \
 # Look for models with "vision" or "omni" in the name
 ```
 
-### 2. Add Provider via API
+### 2. Add Model via API
 
 ```bash
-curl -X POST http://localhost:3000/api/providers \
+curl -X POST http://localhost:3000/api/models \
   -H "Content-Type: application/json" \
   -d '{
     "name": "OpenAI GPT-4o",
-    "type": "openai",
-    "baseUrl": "https://api.openai.com/v1",
-    "apiKey": "sk-...",
-    "modelName": "gpt-4o",
-    "temperature": 0.1,
-    "maxTokens": 4000,
-    "supportsVision": true,
-    "supportsStructuredOutput": true,
-    "isDefault": false
+    "adapterType": "openai",
+    "parameters": {
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKey": "sk-...",
+      "modelName": "gpt-4o",
+      "temperature": 0.1,
+      "maxTokens": 4000,
+      "supportsVision": true,
+      "supportsStructuredOutput": true
+    },
+    "isActive": true
   }'
 ```
 
@@ -222,12 +181,12 @@ curl -X POST http://localhost:3000/api/manifests \
 curl -X POST http://localhost:3000/api/manifests/1/extract \
   -H "Content-Type: application/json" \
   -d '{
-    "providerId": 1,
+    "llmModelId": "550e8400-e29b-41d4-a716-446655440000",
     "schemaId": 1
   }'
 ```
 
-## Provider-Specific Notes
+## Model-Specific Notes
 
 ### OpenAI GPT-4o
 
@@ -277,7 +236,7 @@ curl -X POST http://localhost:3000/api/manifests/1/extract \
 
 **Advantages**:
 - Optimized for Chinese documents
-- Lower cost than Western providers
+- Lower cost than Western models
 - Good regional availability
 
 **Limitations**:
@@ -299,37 +258,24 @@ curl -X POST http://localhost:3000/api/manifests/1/extract \
 ### Verify Vision Support
 
 ```bash
-# Test provider endpoint
-curl -X POST http://localhost:3000/api/providers/test \
-  -H "Content-Type: application/json" \
-  -d '{
-    "providerId": 1,
-    "content": [
-      {
-        "type": "text",
-        "text": "What is in this image?"
-      },
-      {
-        "type": "image_url",
-        "image_url": {
-          "url": "data:image/png;base64,iVBORw0KG..."
-        }
-      }
-    ]
-  }'
+# Test model endpoint
+curl -X POST http://localhost:3000/api/models/550e8400-e29b-41d4-a716-446655440000/test
 ```
 
-### Check Provider Status
+### Check Model Status
 
 ```bash
-curl http://localhost:3000/api/providers
+curl http://localhost:3000/api/models
 
 # Response should include:
 {
-  "id": 1,
+  "id": "550e8400-e29b-41d4-a716-446655440000",
   "name": "OpenAI GPT-4o",
-  "supportsVision": true,
-  "supportsStructuredOutput": true,
+  "adapterType": "openai",
+  "parameters": {
+    "supportsVision": true,
+    "supportsStructuredOutput": true
+  },
   ...
 }
 ```
@@ -338,26 +284,26 @@ curl http://localhost:3000/api/providers
 
 ### Common Issues
 
-**"Provider does not support vision"**
+**"Model does not support vision"**
 
-**Cause**: `supportsVision` field is `false` or `null`
+**Cause**: `parameters.supportsVision` is `false` or `null`
 
 **Solution**:
 ```bash
-curl -X PATCH http://localhost:3000/api/providers/:id \
+curl -X PATCH http://localhost:3000/api/models/:id \
   -H "Content-Type: application/json" \
-  -d '{"supportsVision": true}'
+  -d '{"parameters": { "supportsVision": true }}'
 ```
 
 **"Invalid image format"**
 
-**Cause**: Image format not supported by provider
+**Cause**: Image format not supported by model
 
 **Solution**: Ensure images are PNG, JPEG, GIF, or WebP format
 
 **"Image too large"**
 
-**Cause**: Image exceeds provider's size limit
+**Cause**: Image exceeds model's size limit
 
 **Solution**:
 - Resize image before upload
@@ -366,32 +312,34 @@ curl -X PATCH http://localhost:3000/api/providers/:id \
 
 **"Rate limit exceeded"**
 
-**Cause**: Too many requests to provider API
+**Cause**: Too many requests to model API
 
 **Solution**:
 - Implement request queueing
-- Use multiple provider API keys
-- Switch to provider with higher rate limits
+- Use multiple model API keys
+- Switch to model with higher rate limits
 
 ## Best Practices
 
-### 1. Use Multiple Providers
+### 1. Use Multiple Models
 
-Configure multiple vision providers for load balancing:
+Configure multiple vision models for load balancing:
 
 ```typescript
 // Primary: GPT-4o for most documents
 {
   "name": "OpenAI GPT-4o",
-  "isDefault": true,
-  ...
+  "adapterType": "openai",
+  "isActive": true,
+  "parameters": { ... }
 }
 
-// Fallback: Claude for complex documents
+// Fallback: GPT-4o-mini for cost-sensitive runs
 {
-  "name": "Claude 3.5 Sonnet",
-  "isDefault": false,
-  ...
+  "name": "OpenAI GPT-4o-mini",
+  "adapterType": "openai",
+  "isActive": true,
+  "parameters": { ... }
 }
 ```
 
@@ -431,7 +379,7 @@ Always test with sample documents before production use:
 # Test with single document
 curl -X POST http://localhost:3000/api/test-extraction \
   -F "file=@sample.pdf" \
-  -F "providerId=1" \
+  -F "llmModelId=550e8400-e29b-41d4-a716-446655440000" \
   -F "strategy=vision-only"
 ```
 
@@ -454,23 +402,26 @@ BAIDU_API_KEY=prod-key
 BAIDU_SECRET_KEY=prod-secret
 ```
 
-### Provider Configuration
+### Model Configuration
 
 ```typescript
 // Production settings
 {
-  "temperature": 0.1,        // Deterministic for consistency
-  "maxTokens": 4000,         // Limit token usage
-  "supportsVision": true,    // Required for vision strategies
-  "isDefault": true          // Mark as primary provider
+  "adapterType": "openai",
+  "parameters": {
+    "temperature": 0.1,        // Deterministic for consistency
+    "maxTokens": 4000,         // Limit token usage
+    "supportsVision": true     // Required for vision strategies
+  },
+  "isActive": true
 }
 ```
 
 ## Migration Guide
 
-### From Non-Vision to Vision Provider
+### From Non-Vision to Vision Model
 
-1. **Add new vision provider** (keep old provider as fallback)
+1. **Add new vision model** (keep old model as fallback)
 2. **Test with sample documents**
 3. **Update schemas to use vision strategies**
 4. **Monitor extraction quality and costs**
@@ -486,86 +437,76 @@ curl -X PATCH http://localhost:3000/api/schemas \
   -H "Content-Type: application/json" \
   -d '[{"op": "replace", "path": "/0/extractionStrategy", "value": "ocr-first"}]'
 
-# Or disable vision provider temporarily
-curl -X PATCH http://localhost:3000/api/providers/:id \
+# Or disable vision model temporarily
+curl -X PATCH http://localhost:3000/api/models/:id \
   -H "Content-Type: application/json" \
-  -d '{"supportsVision": false}'
+  -d '{"parameters": { "supportsVision": false }}'
 ```
 
 ## API Reference
 
-### Create Provider
+### Create Model
 
 ```http
-POST /api/providers HTTP/1.1
+POST /api/models HTTP/1.1
 Host: localhost:3000
 Content-Type: application/json
 
 {
   "name": "string",
-  "type": "openai | anthropic | baidu | siliconflow",
-  "baseUrl": "string",
-  "apiKey": "string",
-  "modelName": "string",
-  "temperature": 0.1,
-  "maxTokens": 4000,
-  "supportsVision": true,
-  "supportsStructuredOutput": true,
-  "isDefault": false
+  "adapterType": "openai",
+  "parameters": {
+    "baseUrl": "string",
+    "apiKey": "string",
+    "modelName": "string",
+    "temperature": 0.1,
+    "maxTokens": 4000,
+    "supportsVision": true,
+    "supportsStructuredOutput": true
+  },
+  "description": "string",
+  "isActive": true
 }
 ```
 
-### Update Provider
+### Update Model
 
 ```http
-PATCH /api/providers/:id HTTP/1.1
+PATCH /api/models/:id HTTP/1.1
 Host: localhost:3000
 Content-Type: application/json
 
 {
-  "supportsVision": true
+  "parameters": {
+    "supportsVision": true
+  }
 }
 ```
 
-### List Providers
+### List Models
 
 ```http
-GET /api/providers HTTP/1.1
+GET /api/models HTTP/1.1
 Host: localhost:3000
 
 Response:
 [
   {
-    "id": 1,
+    "id": "550e8400-e29b-41d4-a716-446655440000",
     "name": "OpenAI GPT-4o",
-    "type": "openai",
-    "supportsVision": true,
-    "supportsStructuredOutput": true,
-    "isDefault": true
+    "adapterType": "openai",
+    "parameters": {
+      "supportsVision": true,
+      "supportsStructuredOutput": true
+    },
+    "isActive": true
   }
 ]
 ```
 
-### Test Provider
+### Test Model
 
 ```http
-POST /api/providers/test HTTP/1.1
+POST /api/models/:id/test HTTP/1.1
 Host: localhost:3000
-Content-Type: application/json
-
-{
-  "providerId": 1,
-  "content": [
-    {
-      "type": "text",
-      "text": "Extract data from this invoice"
-    },
-    {
-      "type": "image_url",
-      "image_url": {
-        "url": "data:image/png;base64,..."
-      }
-    }
-  ]
-}
 ```

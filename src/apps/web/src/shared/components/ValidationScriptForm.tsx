@@ -7,7 +7,7 @@ import {
 } from '@/api/validation';
 import { useProjects } from '@/shared/hooks/use-projects';
 import { useValidateScriptSyntax, useGenerateValidationScript } from '@/shared/hooks/use-validation-scripts';
-import { useProviders } from '@/shared/hooks/use-providers';
+import { useModels } from '@/shared/hooks/use-models';
 
 interface ValidationScriptFormProps {
   script?: ValidationScript;
@@ -39,7 +39,7 @@ export function ValidationScriptForm({
   isLoading,
 }: ValidationScriptFormProps) {
   const { projects } = useProjects();
-  const { providers } = useProviders();
+  const { models } = useModels({ category: 'llm' });
   const validateSyntax = useValidateScriptSyntax();
   const generateScript = useGenerateValidationScript();
 
@@ -47,11 +47,13 @@ export function ValidationScriptForm({
   const [description, setDescription] = useState(script?.description ?? '');
   const [projectId, setProjectId] = useState(script?.projectId?.toString() ?? '');
   const [scriptCode, setScriptCode] = useState(script?.script ?? DEFAULT_SCRIPT);
-  const [severity, setSeverity] = useState<ValidationSeverity>(script?.severity ?? 'warning');
+  const [severity, setSeverity] = useState<ValidationSeverity>(
+    script?.severity ?? ('warning' as ValidationSeverity),
+  );
   const [enabled, setEnabled] = useState(script?.enabled ?? true);
   const [syntaxError, setSyntaxError] = useState<string | null>(null);
   const [isCheckingSyntax, setIsCheckingSyntax] = useState(false);
-  const [providerId, setProviderId] = useState('');
+  const [llmModelId, setLlmModelId] = useState('');
   const [promptText, setPromptText] = useState('');
   const [structuredInput, setStructuredInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -63,11 +65,11 @@ export function ValidationScriptForm({
   }, [script?.projectId]);
 
   useEffect(() => {
-    const defaultProvider = providers.find((provider) => provider.isDefault);
-    if (defaultProvider && !providerId) {
-      setProviderId(defaultProvider.id.toString());
+    const defaultModel = models.find((model) => model.isActive);
+    if (defaultModel && !llmModelId) {
+      setLlmModelId(defaultModel.id);
     }
-  }, [providers, providerId]);
+  }, [models, llmModelId]);
 
   const handleScriptChange = (value: string) => {
     setScriptCode(value);
@@ -75,8 +77,8 @@ export function ValidationScriptForm({
   };
 
   const handleGenerate = async () => {
-    if (!providerId) {
-      alert('Please select a provider');
+    if (!llmModelId) {
+      alert('Please select an LLM model');
       return;
     }
 
@@ -108,13 +110,13 @@ export function ValidationScriptForm({
     setIsGenerating(true);
     try {
       const result = await generateScript.mutateAsync({
-        providerId: Number(providerId),
+        llmModelId,
         prompt: promptText.trim(),
         structured,
       });
       setName(result.name);
       setDescription(result.description ?? '');
-      setSeverity(result.severity);
+      setSeverity(result.severity as ValidationSeverity);
       setScriptCode(result.script);
       setSyntaxError(null);
     } catch (error) {
@@ -163,7 +165,7 @@ export function ValidationScriptForm({
       const data: CreateValidationScriptDto = {
         name,
         script: scriptCode,
-        projectId: parseInt(projectId, 10),
+        projectId,
         severity: severity,
         enabled: enabled,
         description: description || undefined,
@@ -181,19 +183,19 @@ export function ValidationScriptForm({
         </p>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label htmlFor="providerId" className="block text-sm font-medium text-gray-700">
-              Provider *
+            <label htmlFor="llmModelId" className="block text-sm font-medium text-gray-700">
+              LLM Model *
             </label>
             <select
-              id="providerId"
-              value={providerId}
-              onChange={(e) => setProviderId(e.target.value)}
+              id="llmModelId"
+              value={llmModelId}
+              onChange={(e) => setLlmModelId(e.target.value)}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             >
-              <option value="">Select a provider...</option>
-              {providers.map((provider) => (
-                <option key={provider.id} value={provider.id.toString()}>
-                  {provider.name}
+              <option value="">Select a model...</option>
+              {models.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name}
                 </option>
               ))}
             </select>

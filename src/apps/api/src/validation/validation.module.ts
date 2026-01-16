@@ -2,12 +2,12 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { ManifestEntity } from '../entities/manifest.entity';
+import { ModelEntity } from '../entities/model.entity';
 import { ProjectEntity } from '../entities/project.entity';
 import { ValidationScriptEntity } from '../entities/validation-script.entity';
 import { ValidationController } from './validation.controller';
 import { ValidationService } from './validation.service';
 import { ScriptExecutorService } from './script-executor.service';
-import { ProviderEntity } from '../entities/provider.entity';
 import { LlmModule } from '../llm/llm.module';
 
 @Module({
@@ -16,7 +16,7 @@ import { LlmModule } from '../llm/llm.module';
       ValidationScriptEntity,
       ManifestEntity,
       ProjectEntity,
-      ProviderEntity,
+      ModelEntity,
     ]),
     LlmModule,
   ],

@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, type Mock } from 'vitest';
-import { schemasApi } from '@/api/schemas';
+import { schemasApi, type CreateSchemaDto } from '@/api/schemas';
 import { useSchemas, useSchema, useProjectSchemas, useSchemaTemplates, useValidateSchema } from './use-schemas';
 
 vi.mock('@/api/schemas', () => ({
@@ -78,7 +78,7 @@ describe('useSchemas', () => {
 
   describe('createSchema mutation', () => {
     it('should create schema successfully', async () => {
-      const newSchema = {
+      const newSchema: CreateSchemaDto = {
         name: 'Receipt Schema',
         projectId: 1,
         jsonSchema: { type: 'object', properties: {} },
@@ -99,7 +99,7 @@ describe('useSchemas', () => {
 
       const { result } = renderHook(() => useSchemas(), { wrapper: createWrapper() });
 
-      await result.current.createSchema(newSchema as any);
+      await result.current.createSchema(newSchema);
 
       expect(schemasApi.createSchema).toHaveBeenCalledWith(newSchema);
     });

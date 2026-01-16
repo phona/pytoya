@@ -1,82 +1,36 @@
 import apiClient from '@/api/client';
+import type {
+  BatchValidationDto,
+  CreateValidationScriptDto,
+  GenerateValidationScriptDto,
+  GeneratedValidationScriptResponseDto,
+  RunValidationDto,
+  UpdateValidationScriptDto,
+  ValidateScriptSyntaxDto,
+  ValidationSeverity,
+  ValidationScriptResponseDto,
+} from '@pytoya/shared/types/validation';
+import type { ValidationIssue, ValidationResult } from '@/api/manifests';
+import type { Jsonify } from '@/api/types';
 
-export type ValidationSeverity = 'warning' | 'error';
-
-export interface ValidationIssue {
-  field: string;
-  message: string;
-  severity: ValidationSeverity;
-  actual?: unknown;
-  expected?: unknown;
-}
-
-export interface ValidationResult {
-  issues: ValidationIssue[];
-  errorCount: number;
-  warningCount: number;
-  validatedAt: string;
-}
-
-export interface ValidationScript {
-  id: number;
-  name: string;
-  description: string | null;
-  projectId: number;
-  script: string;
-  severity: ValidationSeverity;
-  enabled: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateValidationScriptDto {
-  name: string;
-  description?: string;
-  projectId: number;
-  script: string;
-  severity?: ValidationSeverity;
-  enabled?: boolean;
-}
-
-export interface UpdateValidationScriptDto {
-  name?: string;
-  description?: string;
-  script?: string;
-  severity?: ValidationSeverity;
-  enabled?: boolean;
-}
-
-export interface ValidateScriptSyntaxDto {
-  script: string;
-}
+export type ValidationScript = Jsonify<ValidationScriptResponseDto>;
+export type { ValidationIssue, ValidationResult };
+export type { ValidationSeverity };
+export type {
+  CreateValidationScriptDto,
+  UpdateValidationScriptDto,
+  ValidateScriptSyntaxDto,
+  GenerateValidationScriptDto,
+  RunValidationDto,
+  BatchValidationDto,
+};
 
 export interface ValidateScriptSyntaxResult {
   valid: boolean;
   error?: string;
 }
 
-export interface GenerateValidationScriptDto {
-  providerId: number;
-  prompt: string;
-  structured: Record<string, unknown>;
-}
-
-export interface GeneratedValidationScript {
-  name: string;
-  description: string;
-  severity: ValidationSeverity;
-  script: string;
-}
-
-export interface RunValidationDto {
-  manifestId: number;
-  scriptIds?: number[];
-}
-
-export interface BatchValidationDto {
-  manifestIds: number[];
-  scriptIds?: number[];
-}
+export type GeneratedValidationScript = GeneratedValidationScriptResponseDto;
 
 export const validationApi = {
   // Scripts CRUD

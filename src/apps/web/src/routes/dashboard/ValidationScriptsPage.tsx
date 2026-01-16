@@ -61,7 +61,7 @@ export function ValidationScriptsPage() {
     const duplicateData: CreateValidationScriptDto = {
       name: `${script.name} (Copy)`,
       script: script.script,
-      projectId: script.projectId,
+      projectId: script.projectId.toString(),
       severity: script.severity,
       enabled: script.enabled,
       description: script.description ?? undefined,

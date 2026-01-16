@@ -1,11 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { SchemaPreview } from './SchemaPreview';
 
-const createMockSchema = (properties: Record<string, unknown>): Record<string, unknown> => ({
-  type: 'object' as const,
-  properties,
-}) as Record<string, unknown>;
-
 describe('SchemaPreview', () => {
   describe('Basic rendering', () => {
     it('should render with title', () => {
@@ -227,7 +222,7 @@ describe('SchemaPreview', () => {
     });
 
     it('should indent nested properties', () => {
-      const { container } = render(
+      render(
         <SchemaPreview
           schema={{
             type: 'object',

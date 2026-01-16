@@ -1,9 +1,8 @@
-import { IsInt, IsNotEmpty, IsObject, IsString, Min } from 'class-validator';
+import { IsNotEmpty, IsObject, IsString } from 'class-validator';
 
 export class GenerateValidationScriptDto {
-  @IsInt()
-  @Min(1)
-  providerId!: number;
+  @IsString()
+  llmModelId!: string;
 
   @IsString()
   @IsNotEmpty()

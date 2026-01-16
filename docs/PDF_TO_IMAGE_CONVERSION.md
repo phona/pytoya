@@ -435,7 +435,7 @@ describe('Extraction with PDF-to-Image', () => {
   it('should convert PDF and extract with vision', async () => {
     const manifest = await uploadTestDocument('invoice.pdf');
     const result = await extractionService.runExtraction(manifest.id, {
-      provider: visionProvider,
+      llmModel: visionModel,
     });
 
     expect(result.convertedPages).toBeDefined();

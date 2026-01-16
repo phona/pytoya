@@ -7,9 +7,8 @@ export class ReExtractFieldDto {
   fieldName!: string;
 
   @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  providerId?: number;
+  @IsString()
+  llmModelId?: string;
 
   @IsOptional()
   @IsInt()

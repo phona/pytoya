@@ -9,7 +9,7 @@ import { Repository } from 'typeorm';
 import { ValidationScriptEntity, ValidationSeverity } from '../entities/validation-script.entity';
 import { LlmChatMessage } from '../llm/llm.types';
 import { LlmService } from '../llm/llm.service';
-import { ProviderEntity } from '../entities/provider.entity';
+import { ModelEntity } from '../entities/model.entity';
 import { ManifestEntity, ManifestStatus, ValidationResult, ValidationIssue } from '../entities/manifest.entity';
 import { ProjectEntity } from '../entities/project.entity';
 import { UserEntity } from '../entities/user.entity';
@@ -21,6 +21,7 @@ import { ValidationScriptNotFoundException } from './exceptions/validation-scrip
 import { ScriptExecutorService } from './script-executor.service';
 import { ProjectOwnershipException } from '../projects/exceptions/project-ownership.exception';
 import { ManifestNotFoundException } from '../manifests/exceptions/manifest-not-found.exception';
+import { adapterRegistry } from '../models/adapters/adapter-registry';
 
 @Injectable()
 export class ValidationService {
@@ -33,8 +34,8 @@ export class ValidationService {
     private readonly manifestRepository: Repository<ManifestEntity>,
     @InjectRepository(ProjectEntity)
     private readonly projectRepository: Repository<ProjectEntity>,
-    @InjectRepository(ProviderEntity)
-    private readonly providerRepository: Repository<ProviderEntity>,
+    @InjectRepository(ModelEntity)
+    private readonly modelRepository: Repository<ModelEntity>,
     private readonly scriptExecutor: ScriptExecutorService,
     private readonly llmService: LlmService,
   ) {}
@@ -269,16 +270,21 @@ export class ValidationService {
   // ========== LLM Generation ==========
 
   async generateScriptTemplate(input: {
-    providerId: number;
+    llmModelId: string;
     prompt: string;
     structured: Record<string, unknown>;
   }): Promise<{ name: string; description: string; severity: ValidationSeverity; script: string }> {
-    const provider = await this.providerRepository.findOne({
-      where: { id: input.providerId },
+    const model = await this.modelRepository.findOne({
+      where: { id: input.llmModelId },
     });
 
-    if (!provider) {
-      throw new BadRequestException(`Provider ${input.providerId} not found`);
+    if (!model) {
+      throw new BadRequestException(`Model ${input.llmModelId} not found`);
+    }
+
+    const schema = adapterRegistry.getSchema(model.adapterType);
+    if (!schema || schema.category !== 'llm') {
+      throw new BadRequestException(`Model ${input.llmModelId} is not a valid LLM model`);
     }
 
     const messages: LlmChatMessage[] = [
@@ -304,15 +310,7 @@ export class ValidationService {
         temperature: 0.2,
         maxTokens: 1200,
       },
-      {
-        type: provider.type,
-        baseUrl: provider.baseUrl,
-        apiKey: provider.apiKey,
-        modelName: provider.modelName,
-        temperature: provider.temperature,
-        maxTokens: provider.maxTokens,
-        supportsStructuredOutput: provider.supportsStructuredOutput,
-      },
+      this.buildLlmProviderConfig(model),
     );
 
     const parsed = this.parseJsonObject(completion.content);
@@ -343,5 +341,45 @@ export class ValidationService {
       throw new BadRequestException('Invalid LLM response: expected JSON object');
     }
     return parsed as Record<string, unknown>;
+  }
+
+  private buildLlmProviderConfig(model: ModelEntity) {
+    const parameters = model.parameters ?? {};
+    return {
+      type: model.adapterType,
+      baseUrl: this.getStringParam(parameters, 'baseUrl'),
+      apiKey: this.getStringParam(parameters, 'apiKey'),
+      modelName: this.getStringParam(parameters, 'modelName'),
+      temperature: this.getNumberParam(parameters, 'temperature'),
+      maxTokens: this.getNumberParam(parameters, 'maxTokens'),
+      supportsStructuredOutput: this.getBooleanParam(parameters, 'supportsStructuredOutput'),
+      supportsVision: this.getBooleanParam(parameters, 'supportsVision'),
+    };
+  }
+
+  private getStringParam(
+    parameters: Record<string, unknown>,
+    key: string,
+  ): string | undefined {
+    const value = parameters[key];
+    return typeof value === 'string' ? value : undefined;
+  }
+
+  private getNumberParam(
+    parameters: Record<string, unknown>,
+    key: string,
+  ): number | undefined {
+    const value = parameters[key];
+    return typeof value === 'number' && Number.isFinite(value)
+      ? value
+      : undefined;
+  }
+
+  private getBooleanParam(
+    parameters: Record<string, unknown>,
+    key: string,
+  ): boolean | undefined {
+    const value = parameters[key];
+    return typeof value === 'boolean' ? value : undefined;
   }
 }

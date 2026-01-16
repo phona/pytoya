@@ -11,7 +11,7 @@ import { PromptsService } from '../prompts/prompts.service';
 import { SchemasService } from '../schemas/schemas.service';
 import { IFileAccessService } from '../file-access/file-access.service';
 import { ManifestEntity, FileType } from '../entities/manifest.entity';
-import { ProviderEntity, ProviderType } from '../entities/provider.entity';
+import { ModelEntity } from '../entities/model.entity';
 import { SchemaEntity } from '../entities/schema.entity';
 import { PromptEntity, PromptType } from '../entities/prompt.entity';
 import { ExtractionStrategy, ExtractionStatus } from './extraction.types';
@@ -36,25 +36,28 @@ describe('ExtractionService - Vision Strategies Integration', () => {
   let schemasService: jest.Mocked<SchemasService>;
   let fileSystem: jest.Mocked<IFileAccessService>;
   let manifestRepository: jest.Mocked<Repository<ManifestEntity>>;
-  let providerRepository: jest.Mocked<Repository<ProviderEntity>>;
+  let modelRepository: jest.Mocked<Repository<ModelEntity>>;
   let schemaRepository: jest.Mocked<Repository<SchemaEntity>>;
 
   // Mock data
-  const mockProvider: ProviderEntity = {
-    id: 1,
+  const mockLlmModel: ModelEntity = {
+    id: '11111111-1111-1111-1111-111111111111',
     name: 'OpenAI GPT-4o',
-    type: ProviderType.OPENAI,
-    baseUrl: 'https://api.openai.com/v1',
-    apiKey: 'test-key',
-    modelName: 'gpt-4o',
-    temperature: 0.1,
-    maxTokens: 2000,
-    isDefault: true,
-    supportsVision: true,
-    supportsStructuredOutput: true,
+    adapterType: 'openai',
+    parameters: {
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: 'test-key',
+      modelName: 'gpt-4o',
+      temperature: 0.1,
+      maxTokens: 2000,
+      supportsVision: true,
+      supportsStructuredOutput: true,
+    },
+    description: null,
+    isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
-  } as ProviderEntity;
+  } as ModelEntity;
 
   const mockSchema: SchemaEntity = {
     id: 1,
@@ -124,7 +127,8 @@ describe('ExtractionService - Vision Strategies Integration', () => {
         id: 1,
         name: 'Test Project',
         defaultSchemaId: 1,
-        defaultProviderId: null,
+        ocrModelId: null,
+        llmModelId: null,
         defaultPromptId: null,
       } as any,
     } as any,
@@ -226,9 +230,9 @@ describe('ExtractionService - Vision Strategies Integration', () => {
       save: jest.fn(),
     } as unknown as jest.Mocked<Repository<ManifestEntity>>;
 
-    providerRepository = {
-      findOne: jest.fn().mockResolvedValue(mockProvider),
-    } as unknown as jest.Mocked<Repository<ProviderEntity>>;
+    modelRepository = {
+      findOne: jest.fn().mockResolvedValue(mockLlmModel),
+    } as unknown as jest.Mocked<Repository<ModelEntity>>;
 
     schemaRepository = {
       findOne: jest.fn().mockResolvedValue(mockSchema),
@@ -238,7 +242,7 @@ describe('ExtractionService - Vision Strategies Integration', () => {
       providers: [
         ExtractionService,
         { provide: getRepositoryToken(ManifestEntity), useValue: manifestRepository },
-        { provide: getRepositoryToken(ProviderEntity), useValue: providerRepository },
+        { provide: getRepositoryToken(ModelEntity), useValue: modelRepository },
         { provide: getRepositoryToken(PromptEntity), useValue: {} },
         { provide: PdfToImageService, useValue: pdfToImageService },
         { provide: LlmService, useValue: llmService },
@@ -275,7 +279,7 @@ describe('ExtractionService - Vision Strategies Integration', () => {
 
       // Act: Run extraction
       const result = await service.runExtraction(1, {
-        provider: mockProvider,
+        llmModel: mockLlmModel,
       });
 
       // Assert: Verify PDF was converted to images
@@ -304,7 +308,7 @@ describe('ExtractionService - Vision Strategies Integration', () => {
 
       // Act: Run extraction
       const result = await service.runExtraction(1, {
-        provider: mockProvider,
+        llmModel: mockLlmModel,
       });
 
       // Assert: Verify no PDF conversion was attempted (it's already an image)
@@ -320,7 +324,13 @@ describe('ExtractionService - Vision Strategies Integration', () => {
 
     it('should fallback to OCR_FIRST when provider does not support vision', async () => {
       // Arrange: Mock provider without vision support
-      const nonVisionProvider = { ...mockProvider, supportsVision: false };
+      const nonVisionProvider = {
+        ...mockLlmModel,
+        parameters: {
+          ...mockLlmModel.parameters,
+          supportsVision: false,
+        },
+      };
       (llmService.providerSupportsVision as jest.Mock).mockReturnValue(false);
 
       // Set schema to VISION_ONLY strategy
@@ -329,7 +339,7 @@ describe('ExtractionService - Vision Strategies Integration', () => {
 
       // Act: Run extraction
       const result = await service.runExtraction(1, {
-        provider: nonVisionProvider,
+        llmModel: nonVisionProvider,
       });
 
       // Assert: Verify strategy was changed to OCR_FIRST due to provider limitations
@@ -358,7 +368,7 @@ describe('ExtractionService - Vision Strategies Integration', () => {
 
       // Act: Run extraction
       const result = await service.runExtraction(1, {
-        provider: mockProvider,
+        llmModel: mockLlmModel,
       });
 
       // Assert: Verify both OCR and vision were used
@@ -389,7 +399,7 @@ describe('ExtractionService - Vision Strategies Integration', () => {
 
       // Act: Run extraction
       const result = await service.runExtraction(1, {
-        provider: mockProvider,
+        llmModel: mockLlmModel,
       });
 
       // Assert: Verify both OCR and vision were used
@@ -410,7 +420,7 @@ describe('ExtractionService - Vision Strategies Integration', () => {
 
       // Act: Run extraction
       const result = await service.runExtraction(1, {
-        provider: mockProvider,
+        llmModel: mockLlmModel,
       });
 
       // Assert: Verify only OCR was used
@@ -420,6 +430,35 @@ describe('ExtractionService - Vision Strategies Integration', () => {
       // Assert: Verify extraction succeeded
       expect(result.status).toBe(ExtractionStatus.COMPLETED);
       expect(result.strategy).toBe(ExtractionStrategy.OCR_FIRST);
+    });
+
+    it('falls back to config defaults when project OCR model is missing', async () => {
+      const schemaWithOcrFirst = { ...mockSchema, extractionStrategy: ExtractionStrategy.OCR_FIRST };
+      (schemasService.findOne as jest.Mock).mockResolvedValue(schemaWithOcrFirst);
+
+      const manifestWithMissingModel = {
+        ...mockManifest,
+        group: {
+          ...mockManifest.group,
+          project: {
+            ...(mockManifest.group as any).project,
+            ocrModelId: 'missing-ocr-model',
+            llmModelId: null,
+          },
+        },
+      };
+      (manifestRepository.findOne as jest.Mock).mockResolvedValue(manifestWithMissingModel);
+      (modelRepository.findOne as jest.Mock).mockResolvedValue(null);
+
+      const result = await service.runExtraction(1, {
+        llmModel: mockLlmModel,
+      });
+
+      expect(result.status).toBe(ExtractionStatus.COMPLETED);
+      expect(ocrService.processPdf).toHaveBeenCalledWith(
+        expect.any(Buffer),
+        undefined,
+      );
     });
   });
 
@@ -434,7 +473,7 @@ describe('ExtractionService - Vision Strategies Integration', () => {
 
       // Act: Run extraction
       const result = await service.runExtraction(1, {
-        provider: mockProvider,
+        llmModel: mockLlmModel,
       });
 
       // Assert: Verify strategy was auto-selected to VISION_ONLY for image files
@@ -448,7 +487,7 @@ describe('ExtractionService - Vision Strategies Integration', () => {
 
       // Act: Run extraction
       const result = await service.runExtraction(1, {
-        provider: mockProvider,
+        llmModel: mockLlmModel,
       });
 
       // Assert: Verify default strategy is OCR_FIRST for PDFs
@@ -466,7 +505,7 @@ describe('ExtractionService - Vision Strategies Integration', () => {
 
       // Act & Assert: Run extraction should fail
       await expect(
-        service.runExtraction(1, { provider: mockProvider }),
+        service.runExtraction(1, { llmModel: mockLlmModel }),
       ).rejects.toThrow('Conversion failed');
     });
 
@@ -491,7 +530,7 @@ describe('ExtractionService - Vision Strategies Integration', () => {
 
       // Act & Assert: Run extraction should fail
       await expect(
-        service.runExtraction(1, { provider: mockProvider }),
+        service.runExtraction(1, { llmModel: mockLlmModel }),
       ).rejects.toThrow();
     });
 
@@ -516,7 +555,7 @@ describe('ExtractionService - Vision Strategies Integration', () => {
 
       // Act & Assert: Run extraction should fail explicitly
       await expect(
-        service.runExtraction(1, { provider: mockProvider }),
+        service.runExtraction(1, { llmModel: mockLlmModel }),
       ).rejects.toThrow('Vision model failed to extract data');
 
       // Assert: OCR should NOT have been called (no silent fallback)
@@ -565,7 +604,7 @@ describe('ExtractionService - Vision Strategies Integration', () => {
 
       // Act: Run extraction
       const result = await service.runExtraction(1, {
-        provider: mockProvider,
+        llmModel: mockLlmModel,
       });
 
       // Assert: Verify both OCR and vision were used

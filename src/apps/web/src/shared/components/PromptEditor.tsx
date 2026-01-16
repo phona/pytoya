@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Prompt, CreatePromptDto, UpdatePromptDto, promptsApi, PromptType } from '@/api/prompts';
+import { useState } from 'react';
+import { Prompt, CreatePromptDto, UpdatePromptDto, PromptType } from '@/api/prompts';
 
 interface PromptEditorProps {
   prompt?: Prompt;
@@ -19,7 +19,9 @@ const AVAILABLE_VARIABLES = [
 
 export function PromptEditor({ prompt, onSubmit, onCancel, isLoading }: PromptEditorProps) {
   const [name, setName] = useState(prompt?.name ?? '');
-  const [type, setType] = useState<PromptType>(prompt?.type ?? 'system');
+  const [type, setType] = useState<PromptType>(
+    prompt?.type ?? ('system' as PromptType),
+  );
   const [content, setContent] = useState(prompt?.content ?? '');
 
   const insertVariable = (variable: string) => {
@@ -58,8 +60,11 @@ export function PromptEditor({ prompt, onSubmit, onCancel, isLoading }: PromptEd
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Name *</label>
+          <label htmlFor="promptName" className="block text-sm font-medium text-gray-700">
+            Name *
+          </label>
           <input
+            id="promptName"
             type="text"
             required
             value={name}
@@ -68,8 +73,11 @@ export function PromptEditor({ prompt, onSubmit, onCancel, isLoading }: PromptEd
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Type *</label>
+          <label htmlFor="promptType" className="block text-sm font-medium text-gray-700">
+            Type *
+          </label>
           <select
+            id="promptType"
             required
             value={type}
             onChange={(e) => setType(e.target.value as PromptType)}
@@ -82,10 +90,11 @@ export function PromptEditor({ prompt, onSubmit, onCancel, isLoading }: PromptEd
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label htmlFor="promptContent" className="block text-sm font-medium text-gray-700 mb-2">
           Content *
         </label>
         <textarea
+          id="promptContent"
           required
           value={content}
           onChange={(e) => setContent(e.target.value)}
@@ -96,9 +105,9 @@ export function PromptEditor({ prompt, onSubmit, onCancel, isLoading }: PromptEd
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <p className="block text-sm font-medium text-gray-700 mb-2">
           Available Variables (click to insert)
-        </label>
+        </p>
         <div className="flex flex-wrap gap-2">
           {AVAILABLE_VARIABLES.map((variable) => (
             <button

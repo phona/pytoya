@@ -9,7 +9,7 @@ import { ProjectDetailPage } from '../routes/dashboard/ProjectDetailPage';
 import { ManifestsPage } from '../routes/dashboard/ManifestsPage';
 import { SchemasPage } from '../routes/dashboard/SchemasPage';
 import { SchemaDetailPage } from '../routes/dashboard/SchemaDetailPage';
-import { ProvidersPage } from '../routes/dashboard/ProvidersPage';
+import { ModelsPage } from '../routes/dashboard/ModelsPage';
 import { PromptsPage } from '../routes/dashboard/PromptsPage';
 import { ValidationScriptsPage } from '../routes/dashboard/ValidationScriptsPage';
 import { RootLayout } from '../routes/RootLayout';
@@ -35,7 +35,7 @@ export const router = createBrowserRouter([
           { path: 'projects/:id/groups/:groupId/manifests', element: <ManifestsPage /> },
           { path: 'schemas', element: <SchemasPage /> },
           { path: 'schemas/:id', element: <SchemaDetailPage /> },
-          { path: 'providers', element: <ProvidersPage /> },
+          { path: 'models', element: <ModelsPage /> },
           { path: 'prompts', element: <PromptsPage /> },
           { path: 'validation-scripts', element: <ValidationScriptsPage /> },
         ],

@@ -2,28 +2,35 @@
 
 This guide explains how to integrate and use Baidu Qianfan's vision capabilities for document extraction in PyToYa.
 
+**Update (Jan 2026)**: PyToYa now uses adapter-based models instead of providers. To follow this guide:
+- Implement a Baidu adapter and register it in the adapter registry.
+- Use `POST /api/models` with `adapterType` set to your adapter name and move configuration fields under `parameters`.
+- Replace `providerId` with `llmModelId` and `/api/providers` with `/api/models`.
+
 ## Overview
 
 Baidu Qianfan (Wenxin Workshop) provides Chinese-optimized LLM models with vision capabilities, ideal for processing Chinese invoices, receipts, and business documents.
 
-## Provider Configuration
+## Model Configuration
 
 ### Basic Setup
 
 ```typescript
-// POST /api/providers
+// POST /api/models
 {
   "name": "Baidu ERNIE 4.0",
-  "type": "baidu",
-  "baseUrl": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat",
-  "apiKey": "your-api-key",
-  "secretKey": "your-secret-key",
-  "modelName": "ERNIE-4.0-8K",
-  "temperature": 0.1,
-  "maxTokens": 2000,
-  "supportsVision": true,
-  "supportsStructuredOutput": true,
-  "isDefault": false
+  "adapterType": "baidu",
+  "parameters": {
+    "baseUrl": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat",
+    "apiKey": "your-api-key",
+    "secretKey": "your-secret-key",
+    "modelName": "ERNIE-4.0-8K",
+    "temperature": 0.1,
+    "maxTokens": 2000,
+    "supportsVision": true,
+    "supportsStructuredOutput": true
+  },
+  "isActive": true
 }
 ```
 
@@ -59,7 +66,7 @@ await schemasService.update(schemaId, schema);
 
 // Run extraction
 const result = await extractionService.runExtraction(manifest.id, {
-  providerId: baiduProviderId,
+  llmModelId: baiduModelId,
 });
 ```
 
@@ -91,7 +98,7 @@ const schema: SchemaEntity = {
 };
 
 const result = await extractionService.runExtraction(manifestId, {
-  provider: baiduProvider,
+  model: baiduModel,
   schema,
 });
 ```
@@ -160,7 +167,7 @@ class BaiduExtractionService {
       { role: 'system', content: 'You are a helpful assistant.' },
       message,
       {
-        providerId: baiduProviderId,
+        llmModelId: baiduModelId,
         temperature: 0.1,
         maxTokens: 2000,
       }
@@ -238,7 +245,7 @@ async function extractWithRetry(pdfPath: string, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await extractionService.runExtraction(manifestId, {
-        provider: baiduProvider,
+        model: baiduModel,
       });
     } catch (error) {
       if (attempt === maxRetries) {
@@ -300,15 +307,15 @@ async function extractWithRetry(pdfPath: string, maxRetries = 3) {
 
 ```typescript
 describe('Baidu Qianfan Extraction', () => {
-  let baiduProvider: ProviderEntity;
+  let baiduModel: ModelEntity;
   let service: ExtractionService;
 
   beforeEach(async () => {
-    // Setup Baidu provider
-    baiduProvider = {
+    // Setup Baidu model
+    baiduModel = {
       id: 1,
       name: 'Baidu ERNIE 4.0',
-      type: ProviderType.BAIDU,
+      type: ModelType.BAIDU,
       baseUrl: 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat',
       apiKey: 'test-key',
       secretKey: 'test-secret',
@@ -317,12 +324,12 @@ describe('Baidu Qianfan Extraction', () => {
       maxTokens: 2000,
       supportsVision: true,
       supportsStructuredOutput: true,
-      isDefault: false,
-    } as ProviderEntity;
+      isActive: false,
+    } as ModelEntity;
 
     // Mock HTTP calls
     module = await Test.createTestingModule({
-      providers: [
+      models: [
         ExtractionService,
         { provide: 'LLM_AXIOS_INSTANCE', useValue: mockAxios },
       ],
@@ -347,7 +354,7 @@ describe('Baidu Qianfan Extraction', () => {
     });
 
     const result = await service.runExtraction(manifestId, {
-      provider: baiduProvider,
+      model: baiduModel,
     });
 
     expect(result.status).toBe(ExtractionStatus.COMPLETED);
@@ -374,7 +381,7 @@ describe('Baidu MultiPicOCR Integration', () => {
 
     // Extract with Baidu
     const result = await extractionService.runExtraction(manifest.id, {
-      provider: baiduProvider,
+      model: baiduModel,
     });
 
     // Verify extraction
@@ -491,7 +498,7 @@ async function batchExtract(manifestIds: number[]) {
   for (let i = 0; i < manifestIds.length; i += batchSize) {
     const batch = manifestIds.slice(i, i + batchSize);
     const batchResults = await Promise.all(
-      batch.map(id => extractionService.runExtraction(id, { provider: baiduProvider }))
+      batch.map(id => extractionService.runExtraction(id, { model: baiduModel }))
     );
     results.push(...batchResults);
 
@@ -550,7 +557,7 @@ async function extractWithBackoff(manifestId: number) {
   for (let attempt = 1; attempt <= 5; attempt++) {
     try {
       return await extractionService.runExtraction(manifestId, {
-        provider: baiduProvider,
+        model: baiduModel,
       });
     } catch (error) {
       if (error.message.includes('rate limit')) {
@@ -566,11 +573,11 @@ async function extractWithBackoff(manifestId: number) {
 
 ## Migration Guide
 
-### From Other Providers to Baidu
+### From Other Models to Baidu
 
 ```typescript
-// Step 1: Add Baidu provider
-const baiduProvider = await createProvider({
+// Step 1: Add Baidu model
+const baiduModel = await createModel({
   type: 'baidu',
   modelName: 'ERNIE-4.0-8K',
   supportsVision: true,
@@ -583,7 +590,7 @@ await schemasService.update(schemaId, {
 
 // Step 3: Test with sample document
 const result = await extractionService.runExtraction(testManifestId, {
-  provider: baiduProvider,
+  model: baiduModel,
 });
 
 // Step 4: Validate results
@@ -600,7 +607,7 @@ if (!validation.valid) {
 }
 ```
 
-## Comparison with Other Providers
+## Comparison with Other Models
 
 | Feature | Baidu ERNIE | OpenAI GPT-4o | Claude 3.5 |
 |---------|-------------|---------------|-------------|
@@ -613,16 +620,16 @@ if (!validation.valid) {
 
 ## API Reference
 
-### Create Baidu Provider
+### Create Baidu Model
 
 ```http
-POST /api/providers HTTP/1.1
+POST /api/models HTTP/1.1
 Host: localhost:3000
 Content-Type: application/json
 
 {
   "name": "Baidu ERNIE 4.0",
-  "type": "baidu",
+  "adapterType": "baidu",
   "baseUrl": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat",
   "apiKey": "your-api-key",
   "secretKey": "your-secret-key",
@@ -631,7 +638,7 @@ Content-Type: application/json
   "maxTokens": 2000,
   "supportsVision": true,
   "supportsStructuredOutput": true,
-  "isDefault": false
+  "isActive": false
 }
 ```
 
@@ -643,7 +650,7 @@ Host: localhost:3000
 Content-Type: application/json
 
 {
-  "providerId": 1,
+  "llmModelId": 1,
   "schemaId": 1
 }
 ```
@@ -651,12 +658,12 @@ Content-Type: application/json
 ### Check Baidu Quota
 
 ```http
-GET /api/providers/:id/quota HTTP/1.1
+GET /api/models/:id/quota HTTP/1.1
 Host: localhost:3000
 
 Response:
 {
-  "providerId": 1,
+  "llmModelId": 1,
   "remainingTokens": 95000,
   "resetDate": "2024-01-16T00:00:00Z"
 }

@@ -44,18 +44,6 @@ export function SchemasPage() {
     setShowForm(false);
   };
 
-  const handleDuplicate = async (schema: Schema) => {
-    const duplicateData: CreateSchemaDto = {
-      name: `${schema.name} (Copy)`,
-      jsonSchema: schema.jsonSchema,
-      requiredFields: schema.requiredFields,
-      projectId: schema.projectId,
-      description: schema.description ?? undefined,
-      isTemplate: false,
-    };
-    await createSchema(duplicateData);
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -85,6 +73,8 @@ export function SchemasPage() {
                 <div
                   key={template.id}
                   className="p-4 border border-gray-200 rounded-lg hover:border-indigo-300 cursor-pointer transition"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => {
                     setShowForm(true);
                     setEditingSchema({
@@ -96,6 +86,21 @@ export function SchemasPage() {
                       createdAt: '',
                       updatedAt: '',
                     } as Schema);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setShowForm(true);
+                      setEditingSchema({
+                        ...template,
+                        name: '',
+                        id: 0,
+                        projectId: 0,
+                        isTemplate: false,
+                        createdAt: '',
+                        updatedAt: '',
+                      } as Schema);
+                    }
                   }}
                 >
                   <h3 className="font-medium text-gray-900">{template.name}</h3>

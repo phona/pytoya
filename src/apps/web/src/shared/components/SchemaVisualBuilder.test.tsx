@@ -1,7 +1,35 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { SchemaVisualBuilder } from './SchemaVisualBuilder';
+
+const click = async (user: ReturnType<typeof userEvent.setup>, element: HTMLElement) => {
+  await act(async () => {
+    await user.click(element);
+  });
+};
+
+const type = async (user: ReturnType<typeof userEvent.setup>, element: HTMLElement, text: string) => {
+  await act(async () => {
+    await user.type(element, text);
+  });
+};
+
+const clear = async (user: ReturnType<typeof userEvent.setup>, element: HTMLElement) => {
+  await act(async () => {
+    await user.clear(element);
+  });
+};
+
+const select = async (
+  user: ReturnType<typeof userEvent.setup>,
+  element: HTMLElement,
+  value: string,
+) => {
+  await act(async () => {
+    await user.selectOptions(element, value);
+  });
+};
 
 describe('SchemaVisualBuilder', () => {
   const mockOnChange = vi.fn();
@@ -65,7 +93,7 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /Add Property/i }));
+      await click(user, screen.getByRole('button', { name: /Add Property/i }));
 
       await waitFor(() => {
         expect(screen.getByText(/Add New Property/i)).toBeInTheDocument();
@@ -84,9 +112,9 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /Add Property/i }));
-      await user.type(screen.getByLabelText(/Name/i), 'testField');
-      await user.click(screen.getByRole('button', { name: /^Add$/i }));
+      await click(user, screen.getByRole('button', { name: /Add Property/i }));
+      await type(user, screen.getByLabelText(/Name/i), 'testField');
+      await click(user, screen.getByRole('button', { name: /^Add$/i }));
 
       await waitFor(() => {
         expect(mockOnChange).toHaveBeenCalled();
@@ -103,8 +131,8 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /Add Property/i }));
-      await user.click(screen.getByRole('button', { name: /Cancel/i }));
+      await click(user, screen.getByRole('button', { name: /Add Property/i }));
+      await click(user, screen.getByRole('button', { name: /Cancel/i }));
 
       expect(screen.queryByLabelText(/Name/i)).not.toBeInTheDocument();
     });
@@ -121,10 +149,10 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /Add Property/i }));
+      await click(user, screen.getByRole('button', { name: /Add Property/i }));
 
       const typeSelect = screen.getByLabelText(/Type/i);
-      await user.click(typeSelect);
+      await click(user, typeSelect);
 
       await waitFor(() => {
         expect(screen.getByText('String')).toBeInTheDocument();
@@ -148,8 +176,8 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /Add Property/i }));
-      await user.selectOptions(screen.getByLabelText(/Type/i), 'string');
+      await click(user, screen.getByRole('button', { name: /Add Property/i }));
+      await select(user, screen.getByLabelText(/Type/i), 'string');
 
       expect(screen.getByLabelText(/Format/i)).toBeInTheDocument();
     });
@@ -164,9 +192,9 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /Add Property/i }));
-      await user.selectOptions(screen.getByLabelText(/Type/i), 'string');
-      await user.click(screen.getByLabelText(/Format/i));
+      await click(user, screen.getByRole('button', { name: /Add Property/i }));
+      await select(user, screen.getByLabelText(/Type/i), 'string');
+      await click(user, screen.getByLabelText(/Format/i));
 
       expect(screen.getByText(/Date \(YYYY-MM-DD\)/i)).toBeInTheDocument();
       expect(screen.getByText(/Email/i)).toBeInTheDocument();
@@ -184,8 +212,8 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /Add Property/i }));
-      await user.selectOptions(screen.getByLabelText(/Type/i), 'string');
+      await click(user, screen.getByRole('button', { name: /Add Property/i }));
+      await select(user, screen.getByLabelText(/Type/i), 'string');
 
       expect(screen.getByLabelText(/Pattern/i)).toBeInTheDocument();
     });
@@ -202,8 +230,8 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /Add Property/i }));
-      await user.selectOptions(screen.getByLabelText(/Type/i), 'number');
+      await click(user, screen.getByRole('button', { name: /Add Property/i }));
+      await select(user, screen.getByLabelText(/Type/i), 'number');
 
       expect(screen.getByLabelText(/Minimum/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Maximum/i)).toBeInTheDocument();
@@ -219,8 +247,8 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /Add Property/i }));
-      await user.selectOptions(screen.getByLabelText(/Type/i), 'integer');
+      await click(user, screen.getByRole('button', { name: /Add Property/i }));
+      await select(user, screen.getByLabelText(/Type/i), 'integer');
 
       expect(screen.getByLabelText(/Minimum/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Maximum/i)).toBeInTheDocument();
@@ -238,7 +266,7 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /Add Property/i }));
+      await click(user, screen.getByRole('button', { name: /Add Property/i }));
 
       expect(screen.getByLabelText(/Required field/i)).toBeInTheDocument();
     });
@@ -253,10 +281,10 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /Add Property/i }));
-      await user.type(screen.getByLabelText(/Name/i), 'requiredField');
-      await user.click(screen.getByLabelText(/Required field/i));
-      await user.click(screen.getByRole('button', { name: /^Add$/i }));
+      await click(user, screen.getByRole('button', { name: /Add Property/i }));
+      await type(user, screen.getByLabelText(/Name/i), 'requiredField');
+      await click(user, screen.getByLabelText(/Required field/i));
+      await click(user, screen.getByRole('button', { name: /^Add$/i }));
 
       await waitFor(() => {
         expect(mockOnChange).toHaveBeenCalledWith(
@@ -285,7 +313,7 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByTitle(/Edit/i));
+      await click(user, screen.getByTitle(/Edit/i));
 
       expect(screen.getByText(/Edit Property/i)).toBeInTheDocument();
       expect(screen.getByDisplayValue('existingField')).toBeInTheDocument();
@@ -307,10 +335,10 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByTitle(/Edit/i));
-      await user.clear(screen.getByLabelText(/Name/i));
-      await user.type(screen.getByLabelText(/Name/i), 'updatedField');
-      await user.click(screen.getByRole('button', { name: /Update/i }));
+      await click(user, screen.getByTitle(/Edit/i));
+      await clear(user, screen.getByLabelText(/Name/i));
+      await type(user, screen.getByLabelText(/Name/i), 'updatedField');
+      await click(user, screen.getByRole('button', { name: /Update/i }));
 
       await waitFor(() => {
         expect(mockOnChange).toHaveBeenCalled();
@@ -333,8 +361,8 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByTitle(/Edit/i));
-      await user.click(screen.getByRole('button', { name: /Cancel/i }));
+      await click(user, screen.getByTitle(/Edit/i));
+      await click(user, screen.getByRole('button', { name: /Cancel/i }));
 
       expect(screen.queryByLabelText(/Name/i)).not.toBeInTheDocument();
     });
@@ -358,7 +386,7 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getAllByTitle(/Delete/i)[0]);
+      await click(user, screen.getAllByTitle(/Delete/i)[0]);
 
       await waitFor(() => {
         expect(mockOnChange).toHaveBeenCalled();
@@ -457,8 +485,8 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /Add Property/i }));
-      await user.selectOptions(screen.getByLabelText(/Type/i), 'string');
+      await click(user, screen.getByRole('button', { name: /Add Property/i }));
+      await select(user, screen.getByLabelText(/Type/i), 'string');
 
       expect(screen.getByLabelText(/Enum/)).toBeInTheDocument();
     });
@@ -473,10 +501,10 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /Add Property/i }));
-      await user.type(screen.getByLabelText(/Name/i), 'status');
-      await user.type(screen.getByLabelText(/Enum/i), 'active, inactive, pending');
-      await user.click(screen.getByRole('button', { name: /^Add$/i }));
+      await click(user, screen.getByRole('button', { name: /Add Property/i }));
+      await type(user, screen.getByLabelText(/Name/i), 'status');
+      await type(user, screen.getByLabelText(/Enum/i), 'active, inactive, pending');
+      await click(user, screen.getByRole('button', { name: /^Add$/i }));
 
       await waitFor(() => {
         const call = mockOnChange.mock.calls[0][0];
@@ -496,8 +524,8 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /Add Property/i }));
-      await user.click(screen.getByLabelText(/Type/i));
+      await click(user, screen.getByRole('button', { name: /Add Property/i }));
+      await click(user, screen.getByLabelText(/Type/i));
 
       expect(screen.getByText('Array')).toBeInTheDocument();
     });

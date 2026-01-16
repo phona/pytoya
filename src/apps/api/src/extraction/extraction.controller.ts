@@ -31,7 +31,7 @@ export class ExtractionController {
     await this.manifestsService.findOne(user, manifestId);
     const jobId = await this.queueService.addExtractionJob(
       manifestId,
-      body.providerId,
+      body.llmModelId,
       body.promptId,
     );
 

@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, Outlet } from 'react-router-dom';
 
-export function DashboardLayout({ children }: { children: ReactNode }) {
+export function DashboardLayout({ children }: { children?: ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-200">
@@ -27,7 +27,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                   Projects
                 </NavLink>
                 <NavLink
-                  to="/providers"
+                  to="/models"
                   className={({ isActive }) =>
                     `inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
                       isActive
@@ -36,7 +36,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                     }`
                   }
                 >
-                  Providers
+                  Models
                 </NavLink>
                 <NavLink
                   to="/prompts"
@@ -63,7 +63,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </nav>
-      {children}
+      {children ?? <Outlet />}
     </div>
   );
 }

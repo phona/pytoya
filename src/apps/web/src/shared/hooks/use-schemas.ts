@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   schemasApi,
-  Schema,
   CreateSchemaDto,
   UpdateSchemaDto,
   ValidateSchemaDto,

@@ -11,7 +11,7 @@ import { JobsFilterDto } from './dto/jobs-filter.dto';
 
 type ExtractionJobData = {
   manifestId: number;
-  providerId?: number;
+  llmModelId?: string;
   promptId?: number;
 };
 

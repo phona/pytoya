@@ -41,6 +41,22 @@ export function ProjectCard({ project, onDelete, onEdit }: ProjectCardProps) {
         </div>
       </div>
 
+      <div className="mt-4 grid gap-2 text-xs text-gray-600">
+        <div className="flex items-center justify-between">
+          <span className="font-medium text-gray-700">OCR Model</span>
+          <span>{project.ocrModelId ? project.ocrModelId : 'Not set'}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="font-medium text-gray-700">LLM Model</span>
+          <span>{project.llmModelId ? project.llmModelId : 'Not set'}</span>
+        </div>
+        {(!project.ocrModelId || !project.llmModelId) && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">
+            Models not fully configured
+          </div>
+        )}
+      </div>
+
       <div className="mt-4 flex items-center justify-between">
         <span className="text-xs text-gray-400">
           Created {new Date(project.createdAt).toLocaleDateString()}

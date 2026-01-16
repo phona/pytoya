@@ -65,7 +65,7 @@ export function LoginPage() {
               </h1>
               <p className="max-w-md text-base leading-relaxed text-gray-600">
                 Sign in to continue managing invoice extraction, validation scripts,
-                and provider configurations.
+                and model configurations.
               </p>
             </div>
             <div className="grid max-w-md gap-4 text-sm text-gray-600">
@@ -78,7 +78,7 @@ export function LoginPage() {
               <div className="rounded-lg border border-gray-200 bg-white/70 px-4 py-3 shadow-sm">
                 <div className="font-medium text-gray-900">Audit ready</div>
                 <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                  Track provider configurations and maintain verification logs.
+                  Track model configurations and maintain verification logs.
                 </p>
               </div>
             </div>

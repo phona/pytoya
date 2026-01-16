@@ -99,10 +99,11 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
           </div>
 
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="uploadFiles" className="block text-sm font-medium text-gray-700 mb-2">
               Select PDF files
             </label>
             <input
+              id="uploadFiles"
               type="file"
               multiple
               accept=".pdf,application/pdf"

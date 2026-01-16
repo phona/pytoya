@@ -12,7 +12,7 @@ import * as path from 'path';
 import { Repository } from 'typeorm';
 
 import { ManifestEntity, ManifestStatus, FileType } from '../entities/manifest.entity';
-import { ProviderEntity } from '../entities/provider.entity';
+import { ModelEntity } from '../entities/model.entity';
 import { PromptEntity, PromptType } from '../entities/prompt.entity';
 import { SchemaEntity } from '../entities/schema.entity';
 import { LlmResponseFormat } from '../llm/llm.types';
@@ -24,6 +24,7 @@ import { PromptsService } from '../prompts/prompts.service';
 import { SchemasService } from '../schemas/schemas.service';
 import { IFileAccessService, FileStats } from '../file-access/file-access.service';
 import { ExtractedData } from '../prompts/types/prompts.types';
+import { adapterRegistry } from '../models/adapters/adapter-registry';
 import {
   ExtractionStateResult,
   ExtractionStatus,
@@ -34,10 +35,12 @@ import {
 } from './extraction.types';
 
 type ExtractionOptions = {
-  provider?: ProviderEntity;
+  ocrModel?: ModelEntity;
+  llmModel?: ModelEntity;
   prompt?: PromptEntity;
   reExtractPrompt?: PromptEntity;
-  providerId?: number;
+  ocrModelId?: string;
+  llmModelId?: string;
   promptId?: number;
   fieldName?: string;
 };
@@ -57,8 +60,8 @@ export class ExtractionService {
   constructor(
     @InjectRepository(ManifestEntity)
     private readonly manifestRepository: Repository<ManifestEntity>,
-    @InjectRepository(ProviderEntity)
-    private readonly providerRepository: Repository<ProviderEntity>,
+    @InjectRepository(ModelEntity)
+    private readonly modelRepository: Repository<ModelEntity>,
     @InjectRepository(PromptEntity)
     private readonly promptRepository: Repository<PromptEntity>,
     private readonly ocrService: OcrService,
@@ -72,22 +75,21 @@ export class ExtractionService {
   ) {}
 
   /**
-   * Determine the extraction strategy based on schema, file type, and provider capabilities.
+   * Determine the extraction strategy based on schema, file type, and model capabilities.
    */
   private determineExtractionStrategy(
     schema: SchemaEntity | null,
     fileType: FileType,
-    provider?: ProviderEntity,
+    llmModel?: ModelEntity,
   ): ExtractionStrategy {
     // If schema explicitly specifies a strategy, use it
     if (schema?.extractionStrategy) {
-      // Validate that the strategy is compatible with the provider
-      if (provider && schema.extractionStrategy !== ExtractionStrategy.OCR_FIRST) {
-        const supportsVision = provider.supportsVision ??
-          this.llmService.providerSupportsVision(provider.type, provider.modelName ?? undefined);
+      // Validate that the strategy is compatible with the model
+      if (llmModel && schema.extractionStrategy !== ExtractionStrategy.OCR_FIRST) {
+        const supportsVision = this.getLlmSupportsVision(llmModel);
         if (!supportsVision) {
           this.logger.warn(
-            `Schema specifies ${schema.extractionStrategy} but provider doesn't support vision, falling back to OCR_FIRST`,
+            `Schema specifies ${schema.extractionStrategy} but model doesn't support vision, falling back to OCR_FIRST`,
           );
           return ExtractionStrategy.OCR_FIRST;
         }
@@ -95,15 +97,14 @@ export class ExtractionService {
       return schema.extractionStrategy;
     }
 
-    // For image files, use VISION_ONLY if provider supports it
+    // For image files, use VISION_ONLY if model supports it
     if (fileType === FileType.IMAGE) {
-      const supportsVision = provider ? (provider.supportsVision ??
-        this.llmService.providerSupportsVision(provider.type, provider.modelName ?? undefined)) : false;
+      const supportsVision = llmModel ? this.getLlmSupportsVision(llmModel) : false;
       if (supportsVision) {
         return ExtractionStrategy.VISION_ONLY;
       }
-      // Image files require vision - if provider doesn't support it, we'll fail later
-      this.logger.warn('Image file uploaded but provider does not support vision');
+      // Image files require vision - if model doesn't support it, we'll fail later
+      this.logger.warn('Image file uploaded but model does not support vision');
     }
 
     // Default to OCR_FIRST for backward compatibility
@@ -177,29 +178,67 @@ export class ExtractionService {
       }
     }
 
-    const defaultProviderId = this.parseOptionalNumber(
-      project?.defaultProviderId ?? null,
-    );
-    const providerFromProject = defaultProviderId
-      ? await this.providerRepository.findOne({
-          where: { id: defaultProviderId },
+    const ocrModelFromProject = project?.ocrModelId
+      ? await this.modelRepository.findOne({
+          where: { id: project.ocrModelId },
         })
       : null;
-    const providerFromId = options.providerId
-      ? await this.providerRepository.findOne({
-          where: { id: options.providerId },
-        })
-      : null;
-    if (options.providerId && !providerFromId) {
-      throw new NotFoundException(
-        `Provider ${options.providerId} not found`,
+    if (project?.ocrModelId && !ocrModelFromProject) {
+      this.logger.warn(
+        `OCR model ${project.ocrModelId} not found, using config defaults`,
       );
     }
-    const provider =
-      options.provider ??
-      providerFromId ??
-      providerFromProject ??
+
+    const llmModelFromProject = project?.llmModelId
+      ? await this.modelRepository.findOne({
+          where: { id: project.llmModelId },
+        })
+      : null;
+    if (project?.llmModelId && !llmModelFromProject) {
+      this.logger.warn(
+        `LLM model ${project.llmModelId} not found, using config defaults`,
+      );
+    }
+
+    const ocrModelFromId = options.ocrModelId
+      ? await this.modelRepository.findOne({
+          where: { id: options.ocrModelId },
+        })
+      : null;
+    if (options.ocrModelId && !ocrModelFromId) {
+      throw new NotFoundException(
+        `Model ${options.ocrModelId} not found`,
+      );
+    }
+
+    const llmModelFromId = options.llmModelId
+      ? await this.modelRepository.findOne({
+          where: { id: options.llmModelId },
+        })
+      : null;
+    if (options.llmModelId && !llmModelFromId) {
+      throw new NotFoundException(
+        `Model ${options.llmModelId} not found`,
+      );
+    }
+
+    const ocrModel =
+      options.ocrModel ??
+      ocrModelFromId ??
+      ocrModelFromProject ??
       undefined;
+    const llmModel =
+      options.llmModel ??
+      llmModelFromId ??
+      llmModelFromProject ??
+      undefined;
+
+    if (ocrModel) {
+      this.ensureModelCategory(ocrModel, 'ocr');
+    }
+    if (llmModel) {
+      this.ensureModelCategory(llmModel, 'llm');
+    }
 
     const defaultPromptId = this.parseOptionalNumber(
       project?.defaultPromptId ?? null,
@@ -241,7 +280,7 @@ export class ExtractionService {
       ),
       ocrRetryCount: 0,
       extractionRetryCount: 0,
-      strategy: this.determineExtractionStrategy(schema, manifest.fileType, provider),
+      strategy: this.determineExtractionStrategy(schema, manifest.fileType, llmModel),
     };
 
     if (isFieldReExtract && previousExtractedData && targetFieldName) {
@@ -296,9 +335,9 @@ export class ExtractionService {
         state.strategy === ExtractionStrategy.VISION_FIRST ||
         state.strategy === ExtractionStrategy.TWO_STAGE
       ) {
-        state.ocrResult = await this.executeOcr(fileBuffer, state);
+        state.ocrResult = await this.executeOcr(fileBuffer, state, ocrModel);
         reportProgress(40);
-        await this.retryOcrIfNeeded(fileBuffer, state);
+        await this.retryOcrIfNeeded(fileBuffer, state, ocrModel);
       } else if (manifest.fileType === FileType.IMAGE) {
         // For images with VISION_ONLY, we don't need OCR
         this.logger.log('Skipping OCR for image file with VISION_ONLY strategy');
@@ -310,7 +349,8 @@ export class ExtractionService {
         state,
         {
           ...options,
-          provider,
+          ocrModel,
+          llmModel,
           prompt: systemPrompt,
           reExtractPrompt,
         },
@@ -361,7 +401,7 @@ export class ExtractionService {
     schema: SchemaEntity | null,
     requiredFields: string[],
   ): Promise<void> {
-    const providerConfig = this.buildProviderConfig(options.provider);
+    const providerConfig = this.buildLlmProviderConfig(options.llmModel);
     const systemPrompt = this.getSystemPrompt(options.prompt);
     const reExtractSystemPrompt = this.getReExtractPrompt(
       options.reExtractPrompt ?? options.prompt,
@@ -395,8 +435,8 @@ export class ExtractionService {
       if (shouldRetryOcr) {
         state.extractionResult = undefined;
         await this.delayWithBackoff(state.ocrRetryCount);
-        state.ocrResult = await this.executeOcr(fileBuffer, state);
-        await this.retryOcrIfNeeded(fileBuffer, state);
+        state.ocrResult = await this.executeOcr(fileBuffer, state, options.ocrModel);
+        await this.retryOcrIfNeeded(fileBuffer, state, options.ocrModel);
       } else if (this.canRetryExtraction(state)) {
         await this.delayWithBackoff(state.extractionRetryCount);
       } else {
@@ -449,6 +489,7 @@ export class ExtractionService {
   private async executeOcr(
     fileBuffer: Buffer,
     state: ExtractionWorkflowState,
+    ocrModel?: ModelEntity,
   ): Promise<OcrState> {
     this.logger.log(
       `Starting OCR (attempt ${state.ocrRetryCount + 1})`,
@@ -459,8 +500,10 @@ export class ExtractionService {
         : ExtractionStatus.OCR_PROCESSING;
 
     try {
+      const overrides = this.buildOcrOverrides(ocrModel);
       const ocrResult = await this.ocrService.processPdf(
         fileBuffer,
+        overrides,
       );
 
       return {
@@ -488,6 +531,7 @@ export class ExtractionService {
   private async retryOcrIfNeeded(
     fileBuffer: Buffer,
     state: ExtractionWorkflowState,
+    ocrModel?: ModelEntity,
   ): Promise<void> {
     while (state.ocrResult && !state.ocrResult.success) {
       if (!this.canRetryOcr(state)) {
@@ -499,7 +543,7 @@ export class ExtractionService {
 
       state.ocrRetryCount += 1;
       await this.delayWithBackoff(state.ocrRetryCount);
-      state.ocrResult = await this.executeOcr(fileBuffer, state);
+      state.ocrResult = await this.executeOcr(fileBuffer, state, ocrModel);
     }
   }
 
@@ -522,7 +566,7 @@ export class ExtractionService {
       return {
         data: {},
         success: false,
-        error: `Extraction strategy ${state.strategy} requires vision support, but provider does not support it`,
+        error: `Extraction strategy ${state.strategy} requires vision support, but model does not support it`,
         retryCount: state.extractionRetryCount,
       };
     }
@@ -588,10 +632,12 @@ export class ExtractionService {
     } = {};
 
     if (schema && providerConfig) {
-      const supportsStructuredOutput = this.llmService.providerSupportsStructuredOutput(
-        providerConfig.type,
-        providerConfig.modelName ?? undefined,
-      );
+      const supportsStructuredOutput =
+        providerConfig.supportsStructuredOutput ??
+        this.llmService.providerSupportsStructuredOutput(
+          providerConfig.type,
+          providerConfig.modelName ?? undefined,
+        );
       if (supportsStructuredOutput) {
         // Use native structured output with JSON Schema
         llmOptions.responseFormat = {
@@ -830,21 +876,100 @@ export class ExtractionService {
     await this.manifestRepository.save(manifest);
   }
 
-  private buildProviderConfig(
-    provider?: ProviderEntity,
+  private buildLlmProviderConfig(
+    llmModel?: ModelEntity,
   ): LlmProviderConfig | undefined {
-    if (!provider) {
+    if (!llmModel) {
       return undefined;
     }
 
+    const parameters = llmModel.parameters ?? {};
     return {
-      type: provider.type,
-      baseUrl: provider.baseUrl,
-      apiKey: provider.apiKey,
-      modelName: provider.modelName,
-      temperature: provider.temperature,
-      maxTokens: provider.maxTokens,
+      type: llmModel.adapterType,
+      baseUrl: this.getStringParam(parameters, 'baseUrl'),
+      apiKey: this.getStringParam(parameters, 'apiKey'),
+      modelName: this.getStringParam(parameters, 'modelName'),
+      temperature: this.getNumberParam(parameters, 'temperature'),
+      maxTokens: this.getNumberParam(parameters, 'maxTokens'),
+      supportsVision: this.getBooleanParam(parameters, 'supportsVision'),
+      supportsStructuredOutput: this.getBooleanParam(parameters, 'supportsStructuredOutput'),
     };
+  }
+
+  private buildOcrOverrides(
+    ocrModel?: ModelEntity,
+  ): {
+    baseUrl?: string;
+    apiKey?: string;
+    timeoutMs?: number;
+    maxRetries?: number;
+  } | undefined {
+    if (!ocrModel) {
+      return undefined;
+    }
+
+    const parameters = ocrModel.parameters ?? {};
+    return {
+      baseUrl: this.getStringParam(parameters, 'baseUrl'),
+      apiKey: this.getStringParam(parameters, 'apiKey'),
+      timeoutMs: this.getNumberParam(parameters, 'timeout'),
+      maxRetries: this.getNumberParam(parameters, 'maxRetries'),
+    };
+  }
+
+  private ensureModelCategory(
+    model: ModelEntity,
+    expectedCategory: 'ocr' | 'llm',
+  ): void {
+    const schema = adapterRegistry.getSchema(model.adapterType);
+    if (!schema) {
+      throw new BadRequestException(
+        `Model ${model.id} has unknown adapter type`,
+      );
+    }
+    if (schema.category !== expectedCategory) {
+      throw new BadRequestException(
+        `Model ${model.id} is not a valid ${expectedCategory} model`,
+      );
+    }
+  }
+
+  private getLlmSupportsVision(model: ModelEntity): boolean {
+    const parameters = model.parameters ?? {};
+    const explicit = this.getBooleanParam(parameters, 'supportsVision');
+    if (explicit !== undefined) {
+      return explicit;
+    }
+    return this.llmService.providerSupportsVision(
+      model.adapterType,
+      this.getStringParam(parameters, 'modelName'),
+    );
+  }
+
+  private getStringParam(
+    parameters: Record<string, unknown>,
+    key: string,
+  ): string | undefined {
+    const value = parameters[key];
+    return typeof value === 'string' ? value : undefined;
+  }
+
+  private getNumberParam(
+    parameters: Record<string, unknown>,
+    key: string,
+  ): number | undefined {
+    const value = parameters[key];
+    return typeof value === 'number' && Number.isFinite(value)
+      ? value
+      : undefined;
+  }
+
+  private getBooleanParam(
+    parameters: Record<string, unknown>,
+    key: string,
+  ): boolean | undefined {
+    const value = parameters[key];
+    return typeof value === 'boolean' ? value : undefined;
   }
 
   private normalizeFieldPath(fieldName: string | undefined): string | undefined {

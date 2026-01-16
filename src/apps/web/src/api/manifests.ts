@@ -1,4 +1,21 @@
 import apiClient from '@/api/client';
+import type { Jsonify } from '@/api/types';
+import type {
+  ManifestResponseDto,
+  UpdateManifestDto,
+} from '@pytoya/shared/types/manifests';
+
+export type Manifest = Jsonify<ManifestResponseDto>;
+export type { UpdateManifestDto };
+
+export interface ManifestItem {
+  id: number;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  manifestId: number;
+}
 
 export interface ValidationIssue {
   field: string;
@@ -15,46 +32,9 @@ export interface ValidationResult {
   validatedAt: string;
 }
 
-export interface Manifest {
-  id: number;
-  filename: string;
-  originalFilename: string;
-  storagePath: string;
-  fileSize: number;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  groupId: number;
-  extractedData: Record<string, unknown> | null;
-  confidence: number | null;
-  purchaseOrder: string | null;
-  invoiceDate: string | null;
-  department: string | null;
-  humanVerified: boolean;
-  validationResults: ValidationResult | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ManifestItem {
-  id: number;
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  totalPrice: number;
-  manifestId: number;
-}
-
 export interface UploadManifestDto {
   groupId: number;
   file: File;
-}
-
-export interface UpdateManifestDto {
-  extractedData?: Record<string, unknown>;
-  confidence?: number;
-  purchaseOrder?: string;
-  invoiceDate?: string;
-  department?: string;
-  humanVerified?: boolean;
 }
 
 export const manifestsApi = {
@@ -128,18 +108,20 @@ export const manifestsApi = {
   },
 
   // Trigger extraction
-  triggerExtraction: async (manifestId: number, providerId?: number, promptId?: number) => {
+  triggerExtraction: async (manifestId: number, llmModelId?: string, promptId?: number) => {
     const response = await apiClient.post<{ jobId: string }>(`/manifests/${manifestId}/extract`, {
-      providerId,
+      llmModelId,
       promptId,
     });
     return response.data;
   },
 
   // Re-extract specific field
-  reExtractField: async (manifestId: number, fieldName: string) => {
+  reExtractField: async (manifestId: number, fieldName: string, llmModelId?: string, promptId?: number) => {
     const response = await apiClient.post<{ jobId: string }>(`/manifests/${manifestId}/re-extract`, {
       fieldName,
+      llmModelId,
+      promptId,
     });
     return response.data;
   },

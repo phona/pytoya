@@ -55,17 +55,6 @@ export function ValidationResultsPanel({ result, isLoading }: ValidationResultsP
 
   const { issues, errorCount, warningCount, validatedAt } = result;
 
-  const groupedIssues = issues.reduce(
-    (acc, issue) => {
-      if (!acc[issue.severity]) {
-        acc[issue.severity] = [];
-      }
-      acc[issue.severity].push(issue);
-      return acc;
-    },
-    {} as Record<ValidationSeverity, ValidationIssue[]>,
-  );
-
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       {/* Summary Header */}
@@ -119,7 +108,7 @@ export function ValidationResultsPanel({ result, isLoading }: ValidationResultsP
         </div>
       ) : (
         <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-          {issues.map((issue, index) => (
+          {issues.map((issue: ValidationIssue, index: number) => (
             <ValidationIssueItem key={index} issue={issue} />
           ))}
         </div>

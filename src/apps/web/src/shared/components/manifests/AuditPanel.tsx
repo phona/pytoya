@@ -165,8 +165,6 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
     return null;
   }
 
-  const extractedData = (manifest.extractedData as any) || {};
-
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       {/* Header */}

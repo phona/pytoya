@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsNumber, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateProjectDto {
   @IsString()
@@ -11,9 +11,17 @@ export class CreateProjectDto {
 
   @IsOptional()
   @IsString()
-  defaultProviderId?: string;
+  ocrModelId?: string;
+
+  @IsOptional()
+  @IsString()
+  llmModelId?: string;
 
   @IsOptional()
   @IsString()
   defaultPromptId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  defaultSchemaId?: number;
 }

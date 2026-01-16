@@ -23,7 +23,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 ## Project Overview
 
-PyToYa is a hybrid invoice processing system combining a Python CLI tool (legacy) with a modern TypeScript web application. The system uses PaddleOCR-VL for OCR and LLM providers (OpenAI-compatible) for structured data extraction from PDF invoices.
+PyToYa is a hybrid invoice processing system combining a Python CLI tool (legacy) with a modern TypeScript web application. The system uses PaddleOCR-VL for OCR and adapter-based LLM models (OpenAI-compatible endpoints) for structured data extraction from PDF invoices.
 
 **Architecture**: Monorepo with npm workspaces (`src/apps/api` for NestJS backend, `src/apps/web` for Vite frontend).
 
@@ -102,15 +102,16 @@ npm run test:coverage      # Coverage report
 ### Monorepo Structure
 ```
 src/apps/
-├── api/                   # NestJS backend (port 3000)
-└── web/                   # Vite frontend (port 3001)
-src/                       # Python CLI (legacy)
-openspec/                  # Spec-driven development
+  api/                   # NestJS backend (port 3000)
+  web/                   # Vite frontend (port 3001)
+src/shared/              # Shared DTO types workspace (@pytoya/shared)
+src/                     # Python CLI (legacy)
+openspec/                # Spec-driven development
 ```
 
 ### Backend (NestJS API)
 - **Entry Point**: `src/apps/api/src/main.ts`
-- **Modules**: Feature-based organization (auth, projects, extraction, manifests, schemas, providers, prompts, etc.)
+- **Modules**: Feature-based organization (auth, projects, extraction, manifests, schemas, models, prompts, etc.)
 - **Database**: TypeORM with PostgreSQL, entities in `src/entities/`, migrations in `src/database/migrations/`
 - **Job Queue**: BullMQ with Redis for async extraction jobs
 - **WebSocket**: Gateway at `src/websocket/websocket.gateway.ts` for real-time progress updates
@@ -132,9 +133,9 @@ UserEntity → ProjectEntity → GroupEntity → ManifestEntity → ManifestItem
                                   ↓
                     ExtractionHistoryEntity (audit trail)
 
-LlmProviderEntity → ProviderEntity → PromptEntity
-                                  ↓
-                            JobEntity (BullMQ jobs)
+ModelEntity → ProjectEntity
+PromptEntity
+JobEntity (BullMQ jobs)
 ```
 
 ## Testing Philosophy
@@ -173,7 +174,7 @@ Critical for mechanical industry invoices (Chinese):
 - **Key Parameters**: useDocOrientationClassify, useLayoutDetection, prettifyMarkdown
 
 ### LLM Integration
-- **Providers**: OpenAI-compatible (OpenAI, SiliconFlow, custom endpoints)
+- **Models**: Adapter-based LLM models using OpenAI-compatible endpoints (OpenAI, SiliconFlow, custom endpoints)
 - **API Format**: chat.completions
 - **Retry Logic**: Automatic retry with enhanced OCR on validation failure
 

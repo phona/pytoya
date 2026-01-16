@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { manifestsApi, Manifest, UpdateManifestDto } from '@/api/manifests';
+import { manifestsApi, UpdateManifestDto } from '@/api/manifests';
 
 export function useManifests(groupId: number) {
   return useQuery({
@@ -50,8 +50,17 @@ export function useReExtractField() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ manifestId, fieldName }: { manifestId: number; fieldName: string }) =>
-      manifestsApi.reExtractField(manifestId, fieldName),
+    mutationFn: ({
+      manifestId,
+      fieldName,
+      llmModelId,
+      promptId,
+    }: {
+      manifestId: number;
+      fieldName: string;
+      llmModelId?: string;
+      promptId?: number;
+    }) => manifestsApi.reExtractField(manifestId, fieldName, llmModelId, promptId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId] });
     },
@@ -64,13 +73,13 @@ export function useTriggerExtraction() {
   return useMutation({
     mutationFn: ({
       manifestId,
-      providerId,
+      llmModelId,
       promptId,
     }: {
       manifestId: number;
-      providerId?: number;
+      llmModelId?: string;
       promptId?: number;
-    }) => manifestsApi.triggerExtraction(manifestId, providerId, promptId),
+    }) => manifestsApi.triggerExtraction(manifestId, llmModelId, promptId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId] });
     },

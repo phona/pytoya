@@ -1,11 +1,10 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional } from 'class-validator';
+import { IsInt, IsOptional, IsString } from 'class-validator';
 
 export class ExtractDto {
   @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  providerId?: number;
+  @IsString()
+  llmModelId?: string;
 
   @IsOptional()
   @IsInt()

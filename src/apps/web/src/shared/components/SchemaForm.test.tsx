@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 import { SchemaForm } from './SchemaForm';
-import { CreateSchemaDto, UpdateSchemaDto, Schema } from '@/api/schemas';
+import { Schema, ExtractionStrategy } from '@/api/schemas';
 
 // Mock the projects hook
 vi.mock('@/shared/hooks/use-projects', () => ({
@@ -29,6 +29,34 @@ const createWrapper = () => {
   );
   Wrapper.displayName = 'QueryClientWrapper';
   return Wrapper;
+};
+
+const click = async (user: ReturnType<typeof userEvent.setup>, element: HTMLElement) => {
+  await act(async () => {
+    await user.click(element);
+  });
+};
+
+const type = async (user: ReturnType<typeof userEvent.setup>, element: HTMLElement, text: string) => {
+  await act(async () => {
+    await user.type(element, text);
+  });
+};
+
+const select = async (
+  user: ReturnType<typeof userEvent.setup>,
+  element: HTMLElement,
+  value: string,
+) => {
+  await act(async () => {
+    await user.selectOptions(element, value);
+  });
+};
+
+const clear = async (user: ReturnType<typeof userEvent.setup>, element: HTMLElement) => {
+  await act(async () => {
+    await user.clear(element);
+  });
 };
 
 describe('SchemaForm', () => {
@@ -69,11 +97,11 @@ describe('SchemaForm', () => {
         { wrapper: createWrapper() }
       );
 
-      await user.type(screen.getByLabelText(/Schema Name/i), 'Test Schema');
-      await user.selectOptions(screen.getByLabelText(/Project/i), '1');
+      await type(user, screen.getByLabelText(/Schema Name/i), 'Test Schema');
+      await select(user, screen.getByLabelText(/Project/i), '1');
 
       // Submit form
-      await user.click(screen.getByRole('button', { name: /Create/i }));
+      await click(user, screen.getByRole('button', { name: /Create/i }));
 
       await waitFor(() => {
         expect(mockOnSubmit).toHaveBeenCalled();
@@ -92,7 +120,7 @@ describe('SchemaForm', () => {
         { wrapper: createWrapper() }
       );
 
-      await user.click(screen.getByRole('button', { name: /Cancel/i }));
+      await click(user, screen.getByRole('button', { name: /Cancel/i }));
 
       expect(mockOnCancel).toHaveBeenCalled();
     });
@@ -107,7 +135,7 @@ describe('SchemaForm', () => {
       requiredFields: ['field'],
       isTemplate: false,
       description: 'Test schema',
-      extractionStrategy: null,
+      extractionStrategy: ExtractionStrategy.OCR_FIRST,
       createdAt: '2025-01-13T00:00:00.000Z',
       updatedAt: '2025-01-13T00:00:00.000Z',
     };
@@ -171,7 +199,7 @@ describe('SchemaForm', () => {
         { wrapper: createWrapper() }
       );
 
-      await user.click(screen.getByRole('button', { name: /Visual Builder/i }));
+      await click(user, screen.getByRole('button', { name: /Visual Builder/i }));
 
       expect(screen.getByText(/Properties \(0\)/i)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Add Property/i })).toBeInTheDocument();
@@ -192,11 +220,11 @@ describe('SchemaForm', () => {
       );
 
       // Switch to code editor
-      await user.click(screen.getByRole('button', { name: /Code Editor/i }));
+      await click(user, screen.getByRole('button', { name: /Code Editor/i }));
 
       // Find the textarea and type invalid JSON
       const textarea = screen.getByPlaceholderText(/"type": "object"/i);
-      await user.clear(textarea);
+      await clear(user, textarea);
       await act(async () => {
         fireEvent.change(textarea, { target: { value: '{ invalid json }' } });
       });
@@ -223,7 +251,7 @@ describe('SchemaForm', () => {
 
       // Type invalid JSON
       const textarea = screen.getByPlaceholderText(/"type": "object"/i);
-      await user.clear(textarea);
+      await clear(user, textarea);
       await act(async () => {
         fireEvent.change(textarea, { target: { value: '{ invalid }' } });
       });
@@ -252,7 +280,7 @@ describe('SchemaForm', () => {
         requiredFields: ['invoice_number'],
         isTemplate: true,
         description: 'Invoice template',
-        extractionStrategy: null,
+        extractionStrategy: ExtractionStrategy.OCR_FIRST,
         createdAt: '2025-01-13T00:00:00.000Z',
         updatedAt: '2025-01-13T00:00:00.000Z',
       },
@@ -286,7 +314,7 @@ describe('SchemaForm', () => {
       );
 
       const templateSelect = screen.getByLabelText(/Start from Template/i);
-      await user.selectOptions(templateSelect, '1');
+      await select(user, templateSelect, '1');
 
       await waitFor(() => {
         // Verify template schema is loaded

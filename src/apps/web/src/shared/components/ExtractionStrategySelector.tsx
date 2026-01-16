@@ -15,28 +15,28 @@ const STRATEGIES: {
   useCase: string;
 }[] = [
   {
-    value: 'ocr-first',
+    value: ExtractionStrategy.OCR_FIRST,
     label: 'OCR First',
     description: 'Traditional OCR-based extraction',
     costEstimate: '$0.03 per 10 pages',
     useCase: 'Simple documents, low cost, high volume',
   },
   {
-    value: 'vision-only',
+    value: ExtractionStrategy.VISION_ONLY,
     label: 'Vision Only',
     description: 'Direct image processing by LLM',
     costEstimate: '$0.30 per 10 pages',
     useCase: 'Complex layouts, handwritten text',
   },
   {
-    value: 'vision-first',
+    value: ExtractionStrategy.VISION_FIRST,
     label: 'Vision First',
     description: 'Vision with OCR as context',
     costEstimate: '$0.35 per 10 pages',
     useCase: 'Mixed content, maximum accuracy',
   },
   {
-    value: 'two-stage',
+    value: ExtractionStrategy.TWO_STAGE,
     label: 'Two Stage',
     description: 'Vision + OCR refinement',
     costEstimate: '$0.60 per 10 pages',
@@ -89,7 +89,7 @@ export function ExtractionStrategySelector({
       )}
       {!value && (
         <p className="mt-1 text-xs text-gray-500">
-          The system will automatically select the best strategy based on file type. PDFs use OCR-first, images use vision-only (if provider supports it).
+          The system will automatically select the best strategy based on file type. PDFs use OCR-first, images use vision-only (if the LLM model supports it).
         </p>
       )}
     </div>

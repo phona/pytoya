@@ -144,7 +144,7 @@ export class ManifestsService {
   async createJob(
     manifestId: number,
     queueJobId: string,
-    providerId?: number,
+    llmModelId?: string,
     promptId?: number,
   ): Promise<JobEntity> {
     await this.findById(manifestId);
@@ -152,7 +152,7 @@ export class ManifestsService {
       manifestId,
       queueJobId,
       status: JobStatus.PENDING,
-      providerId: providerId ?? null,
+      llmModelId: llmModelId ?? null,
       promptId: promptId ?? null,
       progress: 0,
     });

@@ -1,44 +1,16 @@
 import apiClient from '@/api/client';
+import type { Jsonify } from '@/api/types';
+import type {
+  CreateSchemaDto,
+  SchemaResponseDto,
+  UpdateSchemaDto,
+  ValidateSchemaDto,
+} from '@pytoya/shared/types/schemas';
+import { ExtractionStrategy } from '@pytoya/shared/types/extraction';
 
-export type ExtractionStrategy = 'ocr-first' | 'vision-first' | 'vision-only' | 'two-stage';
-
-export interface Schema {
-  id: number;
-  name: string;
-  jsonSchema: Record<string, unknown>;
-  requiredFields: string[];
-  projectId: number;
-  isTemplate: boolean;
-  description: string | null;
-  extractionStrategy: ExtractionStrategy | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateSchemaDto {
-  name: string;
-  jsonSchema: Record<string, unknown>;
-  requiredFields: string[];
-  projectId: number;
-  description?: string;
-  isTemplate?: boolean;
-  extractionStrategy?: ExtractionStrategy;
-}
-
-export interface UpdateSchemaDto {
-  name?: string;
-  jsonSchema?: Record<string, unknown>;
-  requiredFields?: string[];
-  description?: string;
-  isTemplate?: boolean;
-  extractionStrategy?: ExtractionStrategy;
-}
-
-export interface ValidateSchemaDto {
-  jsonSchema: Record<string, unknown>;
-  data: Record<string, unknown>;
-  requiredFields?: string[];
-}
+export type Schema = Jsonify<SchemaResponseDto>;
+export type { CreateSchemaDto, UpdateSchemaDto, ValidateSchemaDto };
+export { ExtractionStrategy };
 
 export interface ValidationResult {
   valid: boolean;

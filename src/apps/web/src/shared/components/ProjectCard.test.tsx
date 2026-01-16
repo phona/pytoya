@@ -7,9 +7,12 @@ const mockProject = {
   id: 1,
   name: 'Test Project',
   description: 'Test project description',
+  ownerId: 1,
   userId: 1,
-  defaultProviderId: null,
+  ocrModelId: null,
+  llmModelId: null,
   defaultPromptId: null,
+  defaultSchemaId: null,
   createdAt: '2025-01-13T00:00:00.000Z',
   updatedAt: '2025-01-13T00:00:00.000Z',
   _count: {

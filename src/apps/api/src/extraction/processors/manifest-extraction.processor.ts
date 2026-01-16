@@ -13,7 +13,7 @@ import { ExtractionService } from '../extraction.service';
 
 type ManifestExtractionJob = {
   manifestId: number;
-  providerId?: number;
+  llmModelId?: string;
   promptId?: number;
   fieldName?: string;
 };
@@ -35,7 +35,7 @@ export class ManifestExtractionProcessor extends WorkerHost {
       this.logger.warn(`Unhandled job name ${job.name}`);
       return;
     }
-    const { manifestId, providerId, promptId, fieldName } = job.data;
+    const { manifestId, llmModelId, promptId, fieldName } = job.data;
     this.logger.log(
       `Starting extraction job ${job.id} for manifest ${manifestId}`,
     );
@@ -60,7 +60,7 @@ export class ManifestExtractionProcessor extends WorkerHost {
       const result = await this.extractionService.runExtraction(
         manifestId,
         {
-          providerId,
+          llmModelId,
           promptId,
           fieldName,
         },

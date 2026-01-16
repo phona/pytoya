@@ -22,7 +22,7 @@ export class QueueController {
   async addExtractionJob(@Body() body: CreateJobDto) {
     const jobId = await this.queueService.addExtractionJob(
       body.manifestId,
-      body.providerId,
+      body.llmModelId,
       body.promptId,
     );
 

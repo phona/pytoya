@@ -1,6 +1,7 @@
 import {
   IsArray,
   IsBoolean,
+  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsObject,
@@ -8,6 +9,7 @@ import {
   IsString,
   MinLength,
 } from 'class-validator';
+import { ExtractionStrategy } from '../../extraction/extraction.types';
 
 export class CreateSchemaDto {
   @IsString()
@@ -33,4 +35,8 @@ export class CreateSchemaDto {
   @IsOptional()
   @IsBoolean()
   isTemplate?: boolean;
+
+  @IsOptional()
+  @IsEnum(ExtractionStrategy)
+  extractionStrategy?: ExtractionStrategy;
 }

@@ -1,48 +1,33 @@
 import apiClient from '@/api/client';
+import type { Jsonify } from '@/api/types';
+import type {
+  CreateGroupDto,
+  CreateProjectDto,
+  GroupResponseDto,
+  ProjectResponseDto,
+  UpdateGroupDto,
+  UpdateProjectDto,
+} from '@pytoya/shared/types/projects';
 
-export interface Project {
-  id: number;
-  name: string;
-  description: string | null;
-  userId: number;
-  createdAt: string;
-  updatedAt: string;
-  defaultSchemaId?: number | null;
+export type Project = Jsonify<ProjectResponseDto> & {
   _count?: {
     groups?: number;
     manifests?: number;
   };
-}
+};
 
-export interface Group {
-  id: number;
-  name: string;
-  projectId: number;
-  createdAt: string;
-  updatedAt: string;
+export type Group = Jsonify<GroupResponseDto> & {
   _count?: {
     manifests?: number;
   };
-}
+};
 
-export interface CreateProjectDto {
-  name: string;
-  description?: string;
-}
-
-export interface UpdateProjectDto {
-  name?: string;
-  description?: string;
-  defaultSchemaId?: number | null;
-}
-
-export interface CreateGroupDto {
-  name: string;
-}
-
-export interface UpdateGroupDto {
-  name?: string;
-}
+export type {
+  CreateProjectDto,
+  UpdateProjectDto,
+  CreateGroupDto,
+  UpdateGroupDto,
+};
 
 export const projectsApi = {
   // Projects

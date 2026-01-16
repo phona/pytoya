@@ -25,6 +25,10 @@ interface UseWebSocketOptions {
   onError?: (error: Error) => void;
 }
 
+interface SubscriptionResponse {
+  event?: 'subscribed' | 'unsubscribed';
+}
+
 export function useWebSocket(options: UseWebSocketOptions = {}) {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -118,7 +122,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     }
 
     console.log(`Subscribing to manifest ${manifestId}`);
-    socket.emit('subscribe-manifest', { manifestId }, (response: any) => {
+    socket.emit('subscribe-manifest', { manifestId }, (response: SubscriptionResponse) => {
       if (response.event === 'subscribed') {
         subscriptionsRef.current.add(manifestId);
       }
@@ -139,7 +143,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     }
 
     console.log(`Unsubscribing from manifest ${manifestId}`);
-    socket.emit('unsubscribe-manifest', { manifestId }, (response: any) => {
+    socket.emit('unsubscribe-manifest', { manifestId }, (response: SubscriptionResponse) => {
       if (response.event === 'unsubscribed') {
         subscriptionsRef.current.delete(manifestId);
       }

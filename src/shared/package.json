@@ -1,0 +1,10 @@
+{
+  "name": "@pytoya/shared",
+  "private": true,
+  "version": "0.0.0",
+  "types": "src/types/index.ts",
+  "exports": {
+    "./types": "./src/types/index.ts",
+    "./types/*": "./src/types/*.ts"
+  }
+}

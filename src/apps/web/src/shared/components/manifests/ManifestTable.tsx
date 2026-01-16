@@ -162,7 +162,9 @@ export function ManifestTable({
                 {manifest.purchaseOrder ?? 'N/A'}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" onClick={() => onSelectManifest(manifest.id)}>
-                {manifest.invoiceDate ?? 'N/A'}
+              {manifest.invoiceDate
+                ? new Date(manifest.invoiceDate).toLocaleDateString()
+                : 'N/A'}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" onClick={() => onSelectManifest(manifest.id)}>
                 {manifest.department ?? 'N/A'}

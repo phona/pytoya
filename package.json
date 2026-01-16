@@ -3,7 +3,8 @@
   "private": true,
   "version": "0.0.0",
   "workspaces": [
-    "src/apps/*"
+    "src/apps/*",
+    "src/shared"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

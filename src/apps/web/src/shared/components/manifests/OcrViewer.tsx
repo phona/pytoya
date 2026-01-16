@@ -5,8 +5,8 @@ interface OcrViewerProps {
 }
 
 export function OcrViewer({ manifest }: OcrViewerProps) {
-  const extractedData = (manifest.extractedData as any) || {};
-  const extractionInfo = extractedData._extraction_info || {};
+  const extractedData = (manifest.extractedData ?? {}) as ExtractedData;
+  const extractionInfo = extractedData._extraction_info ?? {};
 
   return (
     <div className="p-6">
@@ -35,24 +35,24 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
         <div className="mb-6">
           <h4 className="text-sm font-medium text-gray-700 mb-3">Field-by-Field Confidence</h4>
           <div className="space-y-2">
-            {Object.entries(extractionInfo.field_confidences).map(([field, confidence]) => (
+          {Object.entries(extractionInfo.field_confidences ?? {}).map(([field, confidence]) => (
               <div key={field} className="flex items-center justify-between p-2 bg-white border rounded">
                 <span className="text-sm text-gray-600 font-mono">{field}</span>
                 <div className="flex items-center gap-2">
                   <div className="w-24 bg-gray-200 rounded-full h-2">
                     <div
                       className={`h-2 rounded-full ${
-                        (confidence as number) >= 0.9
+                        confidence >= 0.9
                           ? 'bg-green-500'
-                          : (confidence as number) >= 0.7
+                          : confidence >= 0.7
                             ? 'bg-yellow-500'
                             : 'bg-red-500'
                       }`}
-                      style={{ width: `${(confidence as number) * 100}%` }}
+                      style={{ width: `${confidence * 100}%` }}
                     />
                   </div>
                   <span className="text-sm text-gray-900 w-12 text-right">
-                    {Math.round((confidence as number) * 100)}%
+                    {Math.round(confidence * 100)}%
                   </span>
                 </div>
               </div>
@@ -126,4 +126,14 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
         )}
     </div>
   );
+}
+
+interface ExtractedData {
+  _extraction_info?: {
+    confidence?: number;
+    field_confidences?: Record<string, number>;
+    ocr_issues?: string[];
+    uncertain_fields?: string[];
+    raw_ocr_text?: string;
+  };
 }

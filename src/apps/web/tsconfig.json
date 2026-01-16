@@ -8,7 +8,8 @@
     "noEmit": true,
     "types": [
       "node",
-      "vite/client"
+      "vite/client",
+      "vitest/globals"
     ],
     "paths": {
       "@pytoya/api/*": [
@@ -20,6 +21,12 @@
       "@pytoya/common/*": [
         "src/apps/common/src/*"
       ],
+      "@pytoya/shared/types": [
+        "src/shared/src/types/index.ts"
+      ],
+      "@pytoya/shared/types/*": [
+        "src/shared/src/types/*"
+      ],
       "@/*": [
         "src/apps/web/src/*"
       ]
@@ -30,6 +37,7 @@
       "esnext"
     ],
     "allowJs": true,
+    "experimentalDecorators": true,
     "resolveJsonModule": true,
     "isolatedModules": true
   },

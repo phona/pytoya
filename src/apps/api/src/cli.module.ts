@@ -5,12 +5,13 @@ import { DatabaseModule } from './database/database.module';
 import { UsersModule } from './users/users.module';
 import { NewAdminCommand } from './users/new-admin.command';
 import { ServeCommand } from './users/serve.command';
+import appConfig from './config/app.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      load: [appConfig],
       validate: validateEnv,
     }),
     DatabaseModule,

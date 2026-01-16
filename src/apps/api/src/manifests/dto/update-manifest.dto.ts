@@ -3,7 +3,9 @@ import {
   IsBoolean,
   IsEnum,
   IsNumber,
+  IsObject,
   IsOptional,
+  IsString,
   Max,
   Min,
 } from 'class-validator';
@@ -25,4 +27,20 @@ export class UpdateManifestDto {
   @IsBoolean()
   @IsOptional()
   humanVerified?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  extractedData?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  purchaseOrder?: string;
+
+  @IsOptional()
+  @IsString()
+  invoiceDate?: string;
+
+  @IsOptional()
+  @IsString()
+  department?: string;
 }

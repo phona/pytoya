@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { projectsApi, Project, Group, CreateProjectDto, UpdateProjectDto, CreateGroupDto, UpdateGroupDto } from '@/api/projects';
+import { projectsApi, CreateProjectDto, UpdateProjectDto, CreateGroupDto, UpdateGroupDto } from '@/api/projects';
 
 export function useProjects() {
   const queryClient = useQueryClient();

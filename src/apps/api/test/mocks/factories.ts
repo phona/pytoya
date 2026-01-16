@@ -24,7 +24,8 @@ export function createMockProject(overrides = {}) {
     name: 'Test Project',
     description: 'Test project description',
     userId: 1,
-    defaultProviderId: null,
+    ocrModelId: null,
+    llmModelId: null,
     defaultPromptId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -70,16 +71,21 @@ export function createMockManifest(overrides = {}) {
   };
 }
 
-export function createMockProvider(overrides = {}) {
+export function createMockModel(overrides = {}) {
   return {
-    id: 1,
-    name: 'Test Provider',
-    type: 'OPENAI',
-    baseUrl: 'https://api.openai.com/v1',
-    apiKey: 'test-api-key',
-    modelName: 'gpt-4',
-    temperature: 0.7,
-    maxTokens: 4096,
+    id: '550e8400-e29b-41d4-a716-446655440000',
+    name: 'Test Model',
+    adapterType: 'openai',
+    parameters: {
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: 'test-api-key',
+      modelName: 'gpt-4',
+      temperature: 0.7,
+      maxTokens: 4096,
+      supportsVision: true,
+      supportsStructuredOutput: true,
+    },
+    description: null,
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -105,7 +111,7 @@ export function createMockJob(overrides = {}) {
     id: 1,
     manifestId: 1,
     status: 'completed',
-    providerId: 1,
+    llmModelId: '550e8400-e29b-41d4-a716-446655440000',
     promptId: 1,
     queueJobId: 'test-job-id',
     progress: 100,

@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { AxiosInstance } from 'axios';
 
 import { LlmService } from './llm.service';
-import { ProviderType } from '../entities/provider.entity';
 
 // Mock axios instance
 const mockAxiosInstance = {
@@ -80,7 +79,7 @@ describe('LlmService - Vision Support', () => {
   describe('providerSupportsVision', () => {
     it('should return true for OpenAI GPT-4o models', () => {
       const result = service.providerSupportsVision(
-        ProviderType.OPENAI,
+        'openai',
         'gpt-4o',
       );
       expect(result).toBe(true);
@@ -88,7 +87,7 @@ describe('LlmService - Vision Support', () => {
 
     it('should return true for OpenAI GPT-4o-mini models', () => {
       const result = service.providerSupportsVision(
-        ProviderType.OPENAI,
+        'openai',
         'gpt-4o-mini',
       );
       expect(result).toBe(true);
@@ -96,7 +95,7 @@ describe('LlmService - Vision Support', () => {
 
     it('should return true for OpenAI GPT-4 Turbo models', () => {
       const result = service.providerSupportsVision(
-        ProviderType.OPENAI,
+        'openai',
         'gpt-4-turbo',
       );
       expect(result).toBe(true);
@@ -104,7 +103,7 @@ describe('LlmService - Vision Support', () => {
 
     it('should return true for OpenAI models with "vision" in name', () => {
       const result = service.providerSupportsVision(
-        ProviderType.OPENAI,
+        'openai',
         'gpt-4-vision-preview',
       );
       expect(result).toBe(true);
@@ -112,7 +111,7 @@ describe('LlmService - Vision Support', () => {
 
     it('should return false for non-vision OpenAI models', () => {
       const result = service.providerSupportsVision(
-        ProviderType.OPENAI,
+        'openai',
         'gpt-3.5-turbo',
       );
       expect(result).toBe(false);
@@ -120,7 +119,7 @@ describe('LlmService - Vision Support', () => {
 
     it('should return false for PADDLEX provider', () => {
       const result = service.providerSupportsVision(
-        ProviderType.PADDLEX,
+        'paddlex',
         undefined,
       );
       expect(result).toBe(false);
@@ -128,14 +127,14 @@ describe('LlmService - Vision Support', () => {
 
     it('should return false for CUSTOM provider', () => {
       const result = service.providerSupportsVision(
-        ProviderType.CUSTOM,
+        'custom',
         undefined,
       );
       expect(result).toBe(false);
     });
 
     it('should use default model when model is undefined', () => {
-      const result = service.providerSupportsVision(ProviderType.OPENAI);
+      const result = service.providerSupportsVision('openai');
       expect(result).toBe(true); // default is gpt-4o
     });
   });

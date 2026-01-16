@@ -40,7 +40,7 @@ export function SchemaDetailPage() {
     );
   }
 
-  const handleUpdate = async (data: UpdateSchemaDto) => {
+  const handleUpdate = async (_data: UpdateSchemaDto) => {
     // Update logic would be handled by the hook
     setIsEditing(false);
   };

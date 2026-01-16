@@ -195,7 +195,7 @@ export class ManifestsController {
     await this.manifestsService.findOne(user, id);
     const jobId = await this.queueService.addExtractionJob(
       id,
-      body.providerId,
+      body.llmModelId,
       body.promptId,
     );
     return { jobId };
@@ -210,7 +210,7 @@ export class ManifestsController {
     await this.manifestsService.findOne(user, id);
     const jobId = await this.queueService.addExtractionJob(
       id,
-      body.providerId,
+      body.llmModelId,
       body.promptId,
       body.fieldName,
     );

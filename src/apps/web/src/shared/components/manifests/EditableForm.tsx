@@ -9,7 +9,7 @@ interface EditableFormProps {
 }
 
 export function EditableForm({ manifest, items, onSave, onReExtractField }: EditableFormProps) {
-  const extractedData = (manifest.extractedData as any) || {};
+  const extractedData = (manifest.extractedData ?? {}) as ExtractedData;
 
   const [formData, setFormData] = useState({
     department: extractedData.department?.code || '',
@@ -50,23 +50,26 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
     return () => clearTimeout(timer);
   }, [handleSave, unsavedChanges]);
 
-  const handleFieldChange = (field: string, value: any) => {
+  const handleFieldChange = (field: string, value: string | boolean) => {
     setFormData((prev) => {
       const keys = field.split('.');
       if (keys.length === 1) {
-        return { ...prev, [keys[0]]: value };
+        return { ...prev, [keys[0]]: value } as typeof prev;
       } else if (keys.length === 2) {
-        return {
-          ...prev,
-          [keys[0]]: { ...prev[keys[0] as keyof typeof prev], [keys[1]]: value },
-        };
+        if (keys[0] === 'invoice') {
+          return {
+            ...prev,
+            invoice: { ...prev.invoice, [keys[1]]: value },
+          };
+        }
+        return prev;
       }
       return prev;
     });
     setUnsavedChanges(true);
   };
 
-  const handleItemChange = (index: number, field: string, value: any) => {
+  const handleItemChange = (index: number, field: string, value: string | number) => {
     const newItems = [...formData.items];
     newItems[index] = { ...newItems[index], [field]: value };
     setFormData((prev) => ({ ...prev, items: newItems }));
@@ -101,7 +104,7 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
 
   const getConfidenceColor = (fieldName: string) => {
     // Get confidence from _extraction_info if available
-    const extractionInfo = (extractedData._extraction_info as any) || {};
+    const extractionInfo = extractedData._extraction_info ?? {};
     const fieldConfidence = extractionInfo.field_confidences?.[fieldName];
     if (!fieldConfidence) return 'border-gray-300';
 
@@ -119,6 +122,7 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
 
       {/* Department */}
       <FormField
+        inputId="departmentCode"
         label="Department Code"
         value={formData.department}
         onChange={(value) => handleFieldChange('department', value)}
@@ -131,6 +135,7 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
         <h3 className="text-sm font-medium text-gray-900">Invoice Information</h3>
 
         <FormField
+          inputId="invoicePoNumber"
           label="PO Number"
           value={formData.invoice.po_no}
           onChange={(value) => handleFieldChange('invoice.po_no', value)}
@@ -139,6 +144,7 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
         />
 
         <FormField
+          inputId="invoiceDate"
           label="Invoice Date"
           type="date"
           value={formData.invoice.invoice_date}
@@ -148,6 +154,7 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
         />
 
         <FormField
+          inputId="invoiceUsage"
           label="Usage"
           value={formData.invoice.usage}
           onChange={(value) => handleFieldChange('invoice.usage', value)}
@@ -209,6 +216,7 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
 }
 
 interface FormFieldProps {
+  inputId: string;
   label: string;
   value: string | number;
   type?: 'text' | 'number' | 'date';
@@ -217,11 +225,21 @@ interface FormFieldProps {
   confidenceColor: string;
 }
 
-function FormField({ label, value, type = 'text', onChange, onReExtract, confidenceColor }: FormFieldProps) {
+function FormField({
+  inputId,
+  label,
+  value,
+  type = 'text',
+  onChange,
+  onReExtract,
+  confidenceColor,
+}: FormFieldProps) {
   return (
     <div>
       <div className="flex justify-between items-center mb-1">
-        <label className="block text-sm font-medium text-gray-700">{label}</label>
+        <label htmlFor={inputId} className="block text-sm font-medium text-gray-700">
+          {label}
+        </label>
         <button
           onClick={onReExtract}
           className="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
@@ -234,6 +252,7 @@ function FormField({ label, value, type = 'text', onChange, onReExtract, confide
         </button>
       </div>
       <input
+        id={inputId}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -245,11 +264,16 @@ function FormField({ label, value, type = 'text', onChange, onReExtract, confide
 
 interface ItemCardProps {
   item: ManifestItem;
-  onChange: (field: string, value: any) => void;
+  onChange: (field: string, value: string | number) => void;
   onDelete: () => void;
 }
 
 function ItemCard({ item, onChange, onDelete }: ItemCardProps) {
+  const descriptionId = `item-${item.id}-description`;
+  const quantityId = `item-${item.id}-quantity`;
+  const unitPriceId = `item-${item.id}-unit-price`;
+  const totalId = `item-${item.id}-total`;
+
   return (
     <div className="border border-gray-200 rounded-lg p-4 space-y-3">
       <div className="flex justify-end">
@@ -265,8 +289,11 @@ function ItemCard({ item, onChange, onDelete }: ItemCardProps) {
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">Description</label>
+        <label htmlFor={descriptionId} className="block text-xs font-medium text-gray-500 mb-1">
+          Description
+        </label>
         <input
+          id={descriptionId}
           type="text"
           value={item.description}
           onChange={(e) => onChange('description', e.target.value)}
@@ -276,8 +303,11 @@ function ItemCard({ item, onChange, onDelete }: ItemCardProps) {
 
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Quantity</label>
+          <label htmlFor={quantityId} className="block text-xs font-medium text-gray-500 mb-1">
+            Quantity
+          </label>
           <input
+            id={quantityId}
             type="number"
             step="0.01"
             value={item.quantity}
@@ -286,8 +316,11 @@ function ItemCard({ item, onChange, onDelete }: ItemCardProps) {
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Unit Price</label>
+          <label htmlFor={unitPriceId} className="block text-xs font-medium text-gray-500 mb-1">
+            Unit Price
+          </label>
           <input
+            id={unitPriceId}
             type="number"
             step="0.01"
             value={item.unitPrice}
@@ -296,8 +329,11 @@ function ItemCard({ item, onChange, onDelete }: ItemCardProps) {
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Total</label>
+          <label htmlFor={totalId} className="block text-xs font-medium text-gray-500 mb-1">
+            Total
+          </label>
           <input
+            id={totalId}
             type="number"
             step="0.01"
             value={item.totalPrice}
@@ -312,6 +348,18 @@ function ItemCard({ item, onChange, onDelete }: ItemCardProps) {
 
 interface ExtractionAlertProps {
   extractionInfo: {
+    confidence?: number;
+    ocr_issues?: string[];
+    uncertain_fields?: string[];
+  };
+}
+
+interface ExtractedData {
+  department?: { code?: string };
+  invoice?: { po_no?: string; invoice_date?: string; usage?: string };
+  items?: ManifestItem[];
+  _extraction_info?: {
+    field_confidences?: Record<string, number>;
     confidence?: number;
     ocr_issues?: string[];
     uncertain_fields?: string[];

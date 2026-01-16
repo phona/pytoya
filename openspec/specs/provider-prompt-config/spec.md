@@ -63,3 +63,36 @@ The system SHALL allow configuring default provider and prompts per project.
 - **THEN** project system_prompt_id and re_extract_prompt_id are saved
 - **AND** prompts override defaults
 
+### Requirement: Prompt Management (Preserved)
+
+The system SHALL continue to allow users to create and manage prompt templates independently of models.
+
+> **Note**: This requirement is preserved from the original spec. Prompts are separate from models and can be used with any LLM model.
+
+#### Scenario: Create custom prompt
+- **WHEN** authenticated user creates prompt (system or re_extract type)
+- **THEN** prompt is saved with template_content
+- **AND** prompt can be selected for any LLM model
+
+#### Scenario: Edit prompt
+- **WHEN** authenticated user edits prompt template
+- **THEN** changes are saved
+- **AND** variable suggestions are shown ({{ocr_markdown}}, {{previous_result}})
+
+#### Scenario: Use variable suggestions
+- **WHEN** user types in prompt editor
+- **THEN** available variables are suggested
+- **AND** variable can be inserted with one click
+
+### Requirement: Project-level Prompt Configuration (Preserved)
+
+The system SHALL allow configuring default prompts per project independently of models.
+
+> **Note**: Prompts are configured separately from models. A project has both model references and prompt references.
+
+#### Scenario: Set project prompts
+- **WHEN** authenticated user configures prompts for project
+- **THEN** project system_prompt_id and re_extract_prompt_id are saved
+- **AND** prompts are used with the configured LLM model
+- **AND** prompts can be changed independently of the model
+

@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { GroupEntity } from './group.entity';
+import { ModelEntity } from './model.entity';
 import { SchemaEntity } from './schema.entity';
 import { UserEntity } from './user.entity';
 import { ValidationScriptEntity } from './validation-script.entity';
@@ -24,8 +25,11 @@ export class ProjectEntity {
   @Column({ type: 'varchar', nullable: true })
   description!: string | null;
 
-  @Column({ type: 'varchar', nullable: true, name: 'default_provider_id' })
-  defaultProviderId!: string | null;
+  @Column({ type: 'uuid', nullable: true, name: 'ocr_model_id' })
+  ocrModelId!: string | null;
+
+  @Column({ type: 'uuid', nullable: true, name: 'llm_model_id' })
+  llmModelId!: string | null;
 
   @Column({ type: 'varchar', nullable: true, name: 'default_prompt_id' })
   defaultPromptId!: string | null;
@@ -39,6 +43,14 @@ export class ProjectEntity {
   @ManyToOne(() => UserEntity, (user) => user.projects)
   @JoinColumn({ name: 'user_id' })
   owner!: UserEntity;
+
+  @ManyToOne(() => ModelEntity, { nullable: true })
+  @JoinColumn({ name: 'ocr_model_id' })
+  ocrModel!: ModelEntity | null;
+
+  @ManyToOne(() => ModelEntity, { nullable: true })
+  @JoinColumn({ name: 'llm_model_id' })
+  llmModel!: ModelEntity | null;
 
   @OneToMany(() => GroupEntity, (group) => group.project)
   groups!: GroupEntity[];

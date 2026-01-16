@@ -3,12 +3,13 @@ import { CreateGroupDto, UpdateGroupDto, Group } from '@/api/projects';
 
 interface GroupFormProps {
   group?: Group;
+  projectId?: number;
   onSubmit: (data: CreateGroupDto | UpdateGroupDto) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
 }
 
-export function GroupForm({ group, onSubmit, onCancel, isLoading }: GroupFormProps) {
+export function GroupForm({ group, projectId, onSubmit, onCancel, isLoading }: GroupFormProps) {
   const [name, setName] = useState(group?.name ?? '');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,7 +20,10 @@ export function GroupForm({ group, onSubmit, onCancel, isLoading }: GroupFormPro
       if (name) updateData.name = name;
       await onSubmit(updateData);
     } else {
-      const data: CreateGroupDto = { name };
+      if (!projectId) {
+        return;
+      }
+      const data: CreateGroupDto = { name, projectId };
       await onSubmit(data);
     }
   };

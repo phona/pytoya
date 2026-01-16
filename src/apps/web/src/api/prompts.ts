@@ -1,29 +1,14 @@
 import apiClient from '@/api/client';
+import type { Jsonify } from '@/api/types';
+import type {
+  CreatePromptDto,
+  PromptResponseDto,
+  UpdatePromptDto,
+} from '@pytoya/shared/types/prompts';
 
-export type PromptType = 'system' | 're_extract';
-
-export interface Prompt {
-  id: number;
-  name: string;
-  type: PromptType;
-  content: string;
-  variables?: string[] | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreatePromptDto {
-  name: string;
-  type: PromptType;
-  content: string;
-  variables?: string[];
-}
-
-export interface UpdatePromptDto {
-  name?: string;
-  content?: string;
-  variables?: string[];
-}
+export type Prompt = Jsonify<PromptResponseDto>;
+export type PromptType = CreatePromptDto['type'];
+export type { CreatePromptDto, UpdatePromptDto };
 
 export const promptsApi = {
   listPrompts: async () => {

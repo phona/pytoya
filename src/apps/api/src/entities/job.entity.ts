@@ -30,8 +30,8 @@ export class JobEntity {
   @Column({ type: 'enum', enum: JobStatus, default: JobStatus.PENDING })
   status!: JobStatus;
 
-  @Column({ type: 'int', name: 'provider_id', nullable: true })
-  providerId!: number | null;
+  @Column({ type: 'uuid', name: 'llm_model_id', nullable: true })
+  llmModelId!: string | null;
 
   @Column({ type: 'int', name: 'prompt_id', nullable: true })
   promptId!: number | null;
