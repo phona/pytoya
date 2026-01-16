@@ -103,3 +103,11 @@ Configuration structure MUST follow these design principles:
 - **AND** production secrets/URLs MUST NOT be committed to the repository
 - **AND** environment-specific config files MAY only be used for local development
 
+### Requirement: Supported NestJS Major Version
+The backend SHALL target NestJS major version 11 for runtime and tooling packages (all @nestjs/* dependencies).
+
+#### Scenario: Adding or upgrading NestJS packages
+- **WHEN** adding or updating a NestJS dependency
+- **THEN** the package MUST be on major version 11
+- **AND** the NestJS package set MUST NOT mix major versions
+

@@ -1,5 +1,9 @@
-import { PropsWithChildren } from 'react';
+import { Outlet } from 'react-router-dom';
 
-export function AuthLayout({ children }: PropsWithChildren) {
-  return <div className="font-sans">{children}</div>;
+export function AuthLayout() {
+  return (
+    <div className="font-sans">
+      <Outlet />
+    </div>
+  );
 }

@@ -61,6 +61,7 @@ export class CreateModelDto {
 
   @ApiProperty({
     type: 'object',
+    additionalProperties: true,
     example: {
       baseUrl: 'https://api.openai.com/v1',
       apiKey: 'sk-...',

@@ -14,7 +14,7 @@ export class ModelResponseDto {
   description!: string | null;
   @ApiProperty({ nullable: true, example: 'llm' })
   category!: string | null;
-  @ApiProperty({ type: 'object' })
+  @ApiProperty({ type: 'object', additionalProperties: true })
   parameters!: Record<string, unknown>;
   @ApiProperty({ example: true })
   isActive!: boolean;

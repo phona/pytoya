@@ -19,7 +19,7 @@ export class JobsController {
     return this.jobsService.listJobs(filters);
   }
 
-  @Get(':id(\\d+)')
+  @Get(':id')
   async getJob(@Param('id') id: string) {
     return this.jobsService.getJobById(id);
   }
