@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { getApiErrorMessage } from '@/api/client';
 import { AdapterSchema, CreateModelDto, Model, UpdateModelDto } from '@/api/models';
 import { ModelCard } from '@/shared/components/ModelCard';
 import { ModelForm } from '@/shared/components/ModelForm';
@@ -64,7 +65,7 @@ export function ModelsPage() {
       const result = await testModel(id);
       alert(result.message);
     } catch (error) {
-      alert('Connection test failed');
+      alert(getApiErrorMessage(error, 'Connection test failed. Please try again.'));
     } finally {
       setTestingId(null);
     }

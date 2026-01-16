@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getApiErrorMessage } from '@/api/client';
 import { useProjects } from '@/shared/hooks/use-projects';
 import { ProjectCard } from '@/shared/components/ProjectCard';
 import { ProjectForm } from '@/shared/components/ProjectForm';
@@ -7,8 +8,16 @@ import { Project, UpdateProjectDto, CreateProjectDto } from '@/api/projects';
 
 export function ProjectsPage() {
   const navigate = useNavigate();
-  const { projects, isLoading, createProject, updateProject, deleteProject, isCreating, isUpdating } =
-    useProjects();
+  const {
+    projects,
+    isLoading,
+    error,
+    createProject,
+    updateProject,
+    deleteProject,
+    isCreating,
+    isUpdating,
+  } = useProjects();
 
   const [showForm, setShowForm] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -85,6 +94,11 @@ export function ProjectsPage() {
           <div className="text-center py-12">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
             <p className="mt-2 text-sm text-gray-600">Loading projects...</p>
+          </div>
+        ) : error ? (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-6 py-4 text-sm text-red-700">
+            <div className="font-semibold">Unable to load projects</div>
+            <p className="mt-1">{getApiErrorMessage(error, 'Please try again in a moment.')}</p>
           </div>
         ) : projects.length === 0 ? (
           <div className="text-center py-12">

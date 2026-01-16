@@ -120,6 +120,7 @@ export function ModelForm({ adapter, model, onSubmit, onCancel, isLoading }: Mod
           <input
             id="model-name"
             type="text"
+            aria-label="Model name"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -130,6 +131,7 @@ export function ModelForm({ adapter, model, onSubmit, onCancel, isLoading }: Mod
           <input
             id="model-active"
             type="checkbox"
+            aria-label="Model active"
             checked={isActive}
             onChange={(e) => setIsActive(e.target.checked)}
             className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
@@ -147,6 +149,7 @@ export function ModelForm({ adapter, model, onSubmit, onCancel, isLoading }: Mod
         <input
           id="model-description"
           type="text"
+          aria-label="Model description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
@@ -174,6 +177,7 @@ export function ModelForm({ adapter, model, onSubmit, onCancel, isLoading }: Mod
                   <input
                     id={fieldId}
                     type="checkbox"
+                    aria-label={`${definition.label} enabled`}
                     checked={Boolean(value)}
                     onChange={(e) => updateValue(key, e.target.checked)}
                     className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
@@ -185,6 +189,7 @@ export function ModelForm({ adapter, model, onSubmit, onCancel, isLoading }: Mod
               {isEnum && (
                 <select
                   id={fieldId}
+                  aria-label={definition.label}
                   value={String(value ?? '')}
                   onChange={(e) => updateValue(key, e.target.value)}
                   className="mt-1 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
@@ -203,6 +208,7 @@ export function ModelForm({ adapter, model, onSubmit, onCancel, isLoading }: Mod
                   <input
                     id={fieldId}
                     type={isSecret && !showSecrets[key] ? 'password' : isNumber ? 'number' : 'text'}
+                    aria-label={definition.label}
                     value={value === undefined ? '' : String(value)}
                     onChange={(e) => updateValue(key, e.target.value)}
                     placeholder={definition.placeholder ?? ''}
@@ -217,6 +223,9 @@ export function ModelForm({ adapter, model, onSubmit, onCancel, isLoading }: Mod
                         setShowSecrets((prev) => ({ ...prev, [key]: !prev[key] }))
                       }
                       className="absolute right-2 top-3 text-xs text-gray-500"
+                      aria-pressed={Boolean(showSecrets[key])}
+                      aria-label="Toggle secret visibility"
+                      aria-controls={fieldId}
                     >
                       {showSecrets[key] ? 'Hide' : 'Show'}
                     </button>

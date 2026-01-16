@@ -124,6 +124,7 @@ openspec/                # Spec-driven development
 - **API Client**: Axios with centralized config in `src/apps/web/src/api/client.ts`
 - **State Management**: Zustand stores in `src/apps/web/src/shared/hooks` (e.g., `use-auth.ts`)
 - **Components**: Shared components in `src/apps/web/src/shared/components`
+- **Routing & UX**: Route protection, error boundaries, and accessibility basics in `docs/WEB_APP.md`
 
 ### Database Schema (11 Entities)
 ```

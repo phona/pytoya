@@ -20,6 +20,27 @@ export const apiClient = axios.create({
 
 export { WS_BASE_URL };
 
+export const getApiErrorMessage = (
+  error: unknown,
+  fallback = 'Something went wrong. Please try again.',
+): string => {
+  if (axios.isAxiosError(error)) {
+    const message =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.response?.statusText;
+    if (message && typeof message === 'string') {
+      return message;
+    }
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+};
+
 // Request interceptor to add auth token
 apiClient.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token;

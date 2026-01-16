@@ -1,8 +1,9 @@
 export function HomePage() {
   return (
-    <main>
-      <h1>PyToYa</h1>
-      <p>Welcome to the PyToYa web app.</p>
+    <main id="main-content" tabIndex={-1} className="focus:outline-none">
+      <h1 className="text-3xl font-semibold text-gray-900">
+        Welcome to the PyToYa web app.
+      </h1>
     </main>
   );
 }

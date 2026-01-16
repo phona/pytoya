@@ -53,6 +53,7 @@ build/
 .env
 .env.local
 .env.*.local
+!src/apps/web/.env.local
 
 # Configurations
 src/apps/api/config.yaml

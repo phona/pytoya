@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { getApiErrorMessage } from '@/api/client';
 import { useAuth } from '@/shared/hooks/use-auth';
 
 const safeNextUrl = (value: string | null) => {
@@ -51,8 +52,7 @@ export function RegisterPage() {
       await register({ username, password, confirmPassword });
       navigate(nextUrl, { replace: true });
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || 'Registration failed. Please try again.');
+      setError(getApiErrorMessage(err, 'Registration failed. Please try again.'));
     } finally {
       setIsLoading(false);
     }
