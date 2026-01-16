@@ -11,7 +11,7 @@ export enum PromptType {
   RE_EXTRACT = 're_extract',
 }
 
-@Entity()
+@Entity({ name: 'prompts' })
 export class PromptEntity {
   @PrimaryGeneratedColumn()
   id!: number;

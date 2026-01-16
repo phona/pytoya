@@ -17,7 +17,7 @@ export enum JobStatus {
   FAILED = 'failed',
 }
 
-@Entity()
+@Entity({ name: 'jobs' })
 export class JobEntity {
   @PrimaryGeneratedColumn()
   id!: number;

@@ -10,7 +10,7 @@ import {
 import { JobEntity } from './job.entity';
 import { ManifestEntity } from './manifest.entity';
 
-@Entity()
+@Entity({ name: 'extraction_history' })
 export class ExtractionHistoryEntity {
   @PrimaryGeneratedColumn()
   id!: number;

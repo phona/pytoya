@@ -41,7 +41,7 @@ export enum FileType {
   IMAGE = 'image',
 }
 
-@Entity()
+@Entity({ name: 'manifests' })
 export class ManifestEntity {
   @PrimaryGeneratedColumn()
   id!: number;

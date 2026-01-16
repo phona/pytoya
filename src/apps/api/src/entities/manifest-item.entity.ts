@@ -7,7 +7,7 @@ import {
 } from 'typeorm';
 import { ManifestEntity } from './manifest.entity';
 
-@Entity()
+@Entity({ name: 'manifest_items' })
 export class ManifestItemEntity {
   @PrimaryGeneratedColumn()
   id!: number;

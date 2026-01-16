@@ -14,7 +14,7 @@ import { SchemaEntity } from './schema.entity';
 import { UserEntity } from './user.entity';
 import { ValidationScriptEntity } from './validation-script.entity';
 
-@Entity()
+@Entity({ name: 'projects' })
 export class ProjectEntity {
   @PrimaryGeneratedColumn()
   id!: number;

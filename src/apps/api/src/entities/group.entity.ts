@@ -11,7 +11,7 @@ import {
 import { ManifestEntity } from './manifest.entity';
 import { ProjectEntity } from './project.entity';
 
-@Entity()
+@Entity({ name: 'groups' })
 export class GroupEntity {
   @PrimaryGeneratedColumn()
   id!: number;
