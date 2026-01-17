@@ -37,6 +37,9 @@ spec:
             - run
             - migration:run
             - --workspace=@pytoya/api
+          envFrom:
+            - secretRef:
+                name: {{ include "pytoya.fullname" . }}-secrets
           volumeMounts:
             - name: config
               mountPath: /app/config.yaml

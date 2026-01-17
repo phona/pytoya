@@ -128,6 +128,7 @@ describe('ModelsPage', () => {
     await screen.findByText('PaddleX OCR');
 
     await click(user, screen.getByRole('button', { name: /New Model/i }));
+    await click(user, screen.getByRole('button', { name: /Next/i }));
     await type(user, screen.getByLabelText(/Name/i), 'New OCR');
     await type(user, screen.getByLabelText(/Base URL/i), 'http://ocr.local');
     await click(user, screen.getByRole('button', { name: /Create Model/i }));

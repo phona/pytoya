@@ -2,7 +2,7 @@
 
 ## Home Route
 - The root route `/` redirects authenticated users to `/projects`.
-- Unauthenticated users see a landing page with login and register calls to action.
+- Unauthenticated users are redirected to `/login`.
 - The home route waits for auth hydration before redirecting.
 
 ## Route Protection
@@ -11,10 +11,36 @@
 - The route guard waits for auth hydration before deciding.
 
 ## Navigation
-- Dashboard pages render a sidebar with links to Projects, Models, Schemas, Prompts, and Validation Scripts.
+- Dashboard pages render a sidebar with links to Projects, Models, and Settings.
 - Active routes are highlighted based on the current pathname.
 - The sidebar is collapsible on mobile with a hamburger toggle.
 - Sign out is handled from the sidebar and clears auth state before redirecting to login.
+
+Admin-only pages (Schemas, Prompts, Validation Scripts) are still available but no longer appear in the main navigation.
+
+## Dialog Patterns
+- Projects, Models, and Manifests use modal dialogs for create/edit flows.
+- Manifests audit opens in a dialog overlay.
+- Dialogs trap focus, close on Escape/backdrop, and return focus to the triggering element.
+
+## Manifests List
+- Filters, sorting, and pagination are server-driven via `GET /api/groups/:groupId/manifests`.
+- Custom field filters accept dot-notation paths (e.g., `invoice.po_no`, `receipt.merchant.name`).
+- Pagination metadata (`total`, `page`, `pageSize`, `totalPages`) is returned when list parameters are present.
+
+## Project Creation Wizard
+Project creation is a multi-step wizard dialog:
+1. Basics (name, description)
+2. Strategy selection (schema vs prompt)
+3. Schema builder or prompt optimization
+4. Model selection (OCR + LLM)
+5. Review and create
+
+See `docs/PROJECT_CREATION.md` for a step-by-step guide.
+
+## Project Detail Enhancements
+- Project details include a Validation Scripts section scoped to the project.
+- Validation scripts can be created, edited, enabled/disabled, and deleted inline.
 
 ## Error Boundaries
 - The app root and dashboard routes are wrapped in `ErrorBoundary`.

@@ -38,6 +38,9 @@ spec:
             - {{ .Values.admin.username | quote }}
             - -p
             - {{ .Values.admin.password | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ include "pytoya.fullname" . }}-secrets
           volumeMounts:
             - name: config
               mountPath: /app/config.yaml

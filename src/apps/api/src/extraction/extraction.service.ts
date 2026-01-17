@@ -136,6 +136,39 @@ export class ExtractionService {
     return await this.pdfToImageService.convertPdfToImages(filePath);
   }
 
+  async optimizePrompt(description: string): Promise<{ prompt: string }> {
+    const systemPrompt = [
+      'You are an expert prompt designer for invoice extraction.',
+      'Create a concise, production-ready system prompt for an LLM to extract structured data from Chinese invoices.',
+      'Requirements to embed:',
+      '- Purchase order numbers are 7 digits, zero-padded (e.g., "0000009").',
+      '- Units must be one of KG, EA, or M.',
+      '- Preserve Chinese text accurately; do not translate unless asked.',
+      '- Capture dates in ISO format (YYYY-MM-DD) when possible.',
+      '- Include a brief validation checklist for required fields.',
+      'Return only the prompt text without quotes or extra commentary.',
+    ].join('\n');
+
+    const userPrompt = [
+      'Project description:',
+      description.trim(),
+      '',
+      'Generate the system prompt.',
+    ].join('\n');
+
+    try {
+      const result = await this.llmService.createChatCompletion([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ]);
+
+      return { prompt: result.content.trim() };
+    } catch (error) {
+      this.logger.error('Prompt optimization failed', error as Error);
+      throw new InternalServerErrorException('Failed to optimize prompt');
+    }
+  }
+
   async runExtraction(
     manifestId: number,
     options: ExtractionOptions = {},

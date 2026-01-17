@@ -12,6 +12,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UserEntity } from '../entities/user.entity';
 import { ManifestsService } from '../manifests/manifests.service';
 import { QueueService } from '../queue/queue.service';
+import { ExtractionService } from './extraction.service';
+import { OptimizePromptDto } from './dto/optimize-prompt.dto';
 import { ReExtractDto } from './dto/re-extract.dto';
 
 @UseGuards(JwtAuthGuard)
@@ -20,6 +22,7 @@ export class ExtractionController {
   constructor(
     private readonly manifestsService: ManifestsService,
     private readonly queueService: QueueService,
+    private readonly extractionService: ExtractionService,
   ) {}
 
   @Post('re-extract/:manifestId')
@@ -36,5 +39,10 @@ export class ExtractionController {
     );
 
     return { jobId };
+  }
+
+  @Post('optimize-prompt')
+  async optimizePrompt(@Body() body: OptimizePromptDto) {
+    return this.extractionService.optimizePrompt(body.description);
   }
 }

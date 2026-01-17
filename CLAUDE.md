@@ -62,11 +62,11 @@ npm run docker:ps          # Check status
 # Deploy deps (PowerShell)
 pwsh -File scripts/deploy-deps-nodeport.ps1 -PostgresPassword 123456
 
-# Update src/apps/api/config.yaml from NodePorts
+# Update src/apps/api/.env.local from NodePorts
 pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -Namespace pytoya-dev -ReleaseName pytoya-dev
 
-# Override the config file path if needed
-pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -ConfigPath "src/apps/api/config.yaml"
+# Override the env file path if needed
+pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -EnvPath "src/apps/api/.env.local"
 
 # Skip DB user setup if you only need NodePorts
 pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -SkipDbUserSetup
@@ -84,6 +84,7 @@ npm run migration:revert   # Revert last migration (ts-node/register)
 
 npm run cli -- serve       # Start API via CLI entrypoint
 npm run cli -- newadmin    # Seed default admin (create-only)
+npm run cli -- audit-passwords # Flag users with common weak passwords
 npm run cli:dev -- serve   # Dev CLI (ts-node)
 ```
 
@@ -182,18 +183,35 @@ Critical for mechanical industry invoices (Chinese):
 ## Configuration
 
 ### API Configuration
-The API uses `src/apps/api/config.yaml` as its single source of truth for runtime configuration. The file is read at startup and validated against the schema defined in `src/apps/api/src/config/env.validation.ts`.
+The API uses `src/apps/api/config.yaml` as its single source of truth for runtime configuration. The file is parsed as a Handlebars template and validated against the schema defined in `src/apps/api/src/config/env.validation.ts`.
+
+**Required environment variables** (used by template placeholders):
+- `DB_PASSWORD`
+- `JWT_SECRET`
+- `LLM_API_KEY`
 
 **Override config path**: Set the `CONFIG_PATH` environment variable to use a different config file location.
 
+**Local env file (dev)**: `src/apps/api/.env.local` is intended for local development and can be generated with `scripts/setup-dev-k8s-deps.ps1`. `npm run dev:api` loads it automatically.
+
 Key configuration sections:
-- `server`: nodeEnv, port
+- `server`: port, logLevel
 - `database`: host, port, username, password, database
 - `redis`: host, port
-- `jwt`: secret
+- `jwt`: secret, expiration
 - `paddleocr`: baseUrl
-- `llm`: apiKey, openaiApiKey
+- `llm`: apiKey
+- `security`: cors, rateLimit, accountLockout, passwordPolicy, usernamePolicy
 - `admin`: username, password (optional)
+
+### Security Notes
+- `/uploads` is protected by JWT and file ownership checks (admins bypass ownership).
+- Password policy enforces length, uppercase/lowercase, number, and special character requirements.
+- Username policy enforces length and pattern (starts with a letter, alphanumeric, `_` or `-`).
+- Accounts lock after repeated failed logins (configurable thresholds).
+- Responses include `X-Request-ID` for tracing and error correlation.
+
+See `docs/SECURITY.md` for config defaults and environment overrides.
 
 ### Required for Web (.env.local)
 ```
@@ -219,6 +237,13 @@ Test.createTestingModule({
 - Use React Query (`@tanstack/react-query`) for server state
 - Use Zustand for client state (auth, UI state)
 - API client modules in `src/apps/web/src/api` (e.g., `projects.ts`, `schemas.ts`)
+
+### Manifests List Filtering
+- `GET /api/groups/:groupId/manifests` supports server-side filtering, sorting, and pagination.
+- Query params: `filter[fieldPath]=value`, `sortBy=fieldPath`, `order=asc|desc`, `page`, `pageSize`.
+- Additional filters: `status`, `poNo`, `department`, `dateFrom`, `dateTo`, `humanVerified`, `confidenceMin`, `confidenceMax`.
+- When any filter/sort/pagination params are present, responses are `{ data, meta }` with `meta: { total, page, pageSize, totalPages }`. Without params, the endpoint returns a plain array for backward compatibility.
+- Field paths use dot-notation and are validated (letters/numbers/underscore only, no array indexing).
 
 ### File Naming
 - Backend: kebab-case for files (e.g., `extraction.service.ts`), PascalCase for classes

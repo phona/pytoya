@@ -1,15 +1,9 @@
-import { useState } from 'react';
-
-export interface ManifestFilterValues {
-  status?: string;
-  poNo?: string;
-  dateFrom?: string;
-  dateTo?: string;
-  department?: string;
-  confidenceMin?: number;
-  confidenceMax?: number;
-  humanVerified?: boolean;
-}
+import { useMemo, useState } from 'react';
+import { useSchemaTemplates } from '@/shared/hooks/use-schemas';
+import {
+  DynamicManifestFilter,
+  ManifestFilterValues,
+} from '@/shared/types/manifests';
 
 interface ManifestFiltersProps {
   values: ManifestFilterValues;
@@ -18,10 +12,53 @@ interface ManifestFiltersProps {
 }
 
 export function ManifestFilters({ values, onChange, manifestCount }: ManifestFiltersProps) {
+  const { templates } = useSchemaTemplates();
+  const [dynamicField, setDynamicField] = useState('');
+  const [dynamicValue, setDynamicValue] = useState('');
   const [confidenceRange, setConfidenceRange] = useState({
     min: values.confidenceMin ?? 0,
     max: values.confidenceMax ?? 100,
   });
+
+  const fieldOptions = useMemo(() => {
+    const options = new Set<string>();
+
+    const collectPaths = (schema: unknown, prefix: string[] = []): string[] => {
+      if (!schema || typeof schema !== 'object') {
+        return [];
+      }
+
+      const schemaNode = schema as {
+        type?: string;
+        properties?: Record<string, unknown>;
+        items?: unknown;
+      };
+
+      const hasProperties = schemaNode.properties && typeof schemaNode.properties === 'object';
+      const isObjectType = schemaNode.type === 'object' || hasProperties;
+      const isArrayType = schemaNode.type === 'array';
+
+      if (isArrayType) {
+        return [];
+      }
+
+      if (isObjectType && schemaNode.properties) {
+        return Object.entries(schemaNode.properties).flatMap(([key, value]) => {
+          const nextPrefix = [...prefix, key];
+          const nestedPaths = collectPaths(value, nextPrefix);
+          return nestedPaths.length > 0 ? nestedPaths : [nextPrefix.join('.')];
+        });
+      }
+
+      return prefix.length > 0 ? [prefix.join('.')] : [];
+    };
+
+    templates.forEach((template) => {
+      collectPaths(template.jsonSchema).forEach((path) => options.add(path));
+    });
+
+    return Array.from(options).sort((a, b) => a.localeCompare(b));
+  }, [templates]);
 
   const handleStatusChange = (status: string) => {
     onChange({
@@ -53,14 +90,50 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
     });
   };
 
+  const handleAddDynamicFilter = () => {
+    const field = dynamicField.trim();
+    const value = dynamicValue.trim();
+    if (!field || !value) {
+      return;
+    }
+
+    const existing = values.dynamicFilters ?? [];
+    const next: DynamicManifestFilter[] = [
+      ...existing,
+      { field, value },
+    ];
+
+    onChange({
+      ...values,
+      dynamicFilters: next,
+    });
+
+    setDynamicField('');
+    setDynamicValue('');
+  };
+
+  const handleRemoveDynamicFilter = (index: number) => {
+    const existing = values.dynamicFilters ?? [];
+    const next = existing.filter((_, idx) => idx !== index);
+    onChange({
+      ...values,
+      dynamicFilters: next.length > 0 ? next : undefined,
+    });
+  };
+
   const clearFilters = () => {
     onChange({});
     setConfidenceRange({ min: 0, max: 100 });
+    setDynamicField('');
+    setDynamicValue('');
   };
 
-  const hasActiveFilters = Object.keys(values).some(
-    (key) => values[key as keyof ManifestFilterValues] !== undefined,
-  );
+  const hasActiveFilters = Object.keys(values).some((key) => {
+    if (key === 'dynamicFilters') {
+      return (values.dynamicFilters ?? []).length > 0;
+    }
+    return values[key as keyof ManifestFilterValues] !== undefined;
+  });
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sticky top-4">
@@ -143,6 +216,74 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
           placeholder="Filter by department..."
           className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
         />
+      </div>
+
+      {/* Dynamic Field Filters */}
+      <div className="mb-4">
+        <p className="block text-sm font-medium text-gray-700 mb-2">Custom Field</p>
+        <div className="space-y-2">
+          <div>
+            <label htmlFor="dynamicFieldPath" className="sr-only">
+              Field path
+            </label>
+            <input
+              id="dynamicFieldPath"
+              list="dynamic-field-options"
+              type="text"
+              value={dynamicField}
+              onChange={(e) => setDynamicField(e.target.value)}
+              placeholder="e.g. invoice.po_no"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+            />
+            <datalist id="dynamic-field-options">
+              {fieldOptions.map((option) => (
+                <option key={option} value={option} />
+              ))}
+            </datalist>
+          </div>
+          <div>
+            <label htmlFor="dynamicFieldValue" className="sr-only">
+              Field value
+            </label>
+            <input
+              id="dynamicFieldValue"
+              type="text"
+              value={dynamicValue}
+              onChange={(e) => setDynamicValue(e.target.value)}
+              placeholder="Value to match"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleAddDynamicFilter}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Add Field Filter
+          </button>
+        </div>
+
+        {(values.dynamicFilters ?? []).length > 0 && (
+          <div className="mt-3 space-y-2">
+            {(values.dynamicFilters ?? []).map((filter, index) => (
+              <div
+                key={`${filter.field}-${index}`}
+                className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2 text-xs text-gray-600"
+              >
+                <span className="truncate">
+                  {filter.field}: {filter.value}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveDynamicFilter(index)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Confidence Range */}

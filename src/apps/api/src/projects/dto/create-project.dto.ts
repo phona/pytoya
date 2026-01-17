@@ -22,6 +22,10 @@ export class CreateProjectDto {
   defaultPromptId?: string;
 
   @IsOptional()
+  @IsString()
+  prompt?: string;
+
+  @IsOptional()
   @IsNumber()
   defaultSchemaId?: number;
 }

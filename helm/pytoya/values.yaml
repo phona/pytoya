@@ -88,8 +88,51 @@ api:
     redis:
       host: ""
       port: 6379
+    jwt:
+      expiration: 7d
     paddleocr:
       baseUrl: ""
+    security:
+      cors:
+        enabled: true
+        allowedOrigins:
+          - "http://localhost:3001"
+        credentials: true
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - PATCH
+        allowedHeaders:
+          - Content-Type
+          - Authorization
+      rateLimit:
+        enabled: true
+        ttl: 60000
+        limit: 10
+        storage: memory
+      accountLockout:
+        enabled: true
+        thresholds:
+          - attempts: 5
+            duration: 900000
+          - attempts: 10
+            duration: 3600000
+          - attempts: 15
+            permanent: true
+      passwordPolicy:
+        minLength: 8
+        maxLength: 128
+        requireUppercase: true
+        requireLowercase: true
+        requireNumber: true
+        requireSpecialChar: true
+        specialChars: "@$!%*?&"
+      usernamePolicy:
+        minLength: 3
+        maxLength: 50
+        pattern: "^[a-zA-Z][a-zA-Z0-9_-]*$"
   healthCheck:
     path: /health
     initialDelay: 30
@@ -147,6 +190,7 @@ hpa:
     targetCPUUtilizationPercentage: 80
 
 secrets:
+  dbPassword: ""
   jwtSecret: ""
   llmApiKey: ""
 

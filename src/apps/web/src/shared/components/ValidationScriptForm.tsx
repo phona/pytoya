@@ -11,6 +11,7 @@ import { useModels } from '@/shared/hooks/use-models';
 
 interface ValidationScriptFormProps {
   script?: ValidationScript;
+  fixedProjectId?: number;
   onSubmit: (data: CreateValidationScriptDto | UpdateValidationScriptDto) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
@@ -34,6 +35,7 @@ const DEFAULT_SCRIPT = `function validate(extractedData) {
 
 export function ValidationScriptForm({
   script,
+  fixedProjectId,
   onSubmit,
   onCancel,
   isLoading,
@@ -57,12 +59,22 @@ export function ValidationScriptForm({
   const [promptText, setPromptText] = useState('');
   const [structuredInput, setStructuredInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const fixedProjectIdValue = fixedProjectId ? fixedProjectId.toString() : '';
+  const fixedProject = fixedProjectId
+    ? projects.find((project) => project.id === fixedProjectId)
+    : undefined;
 
   useEffect(() => {
     if (script?.projectId) {
       setProjectId(script.projectId.toString());
     }
   }, [script?.projectId]);
+
+  useEffect(() => {
+    if (fixedProjectIdValue && projectId !== fixedProjectIdValue) {
+      setProjectId(fixedProjectIdValue);
+    }
+  }, [fixedProjectIdValue, projectId]);
 
   useEffect(() => {
     const defaultModel = models.find((model) => model.isActive);
@@ -147,7 +159,8 @@ export function ValidationScriptForm({
     e.preventDefault();
 
     // Validate project selection
-    if (!projectId) {
+    const effectiveProjectId = fixedProjectIdValue || projectId;
+    if (!effectiveProjectId) {
       alert('Please select a project');
       return;
     }
@@ -165,7 +178,7 @@ export function ValidationScriptForm({
       const data: CreateValidationScriptDto = {
         name,
         script: scriptCode,
-        projectId,
+        projectId: effectiveProjectId,
         severity: severity,
         enabled: enabled,
         description: description || undefined,
@@ -261,21 +274,27 @@ export function ValidationScriptForm({
         <label htmlFor="projectId" className="block text-sm font-medium text-gray-700">
           Project *
         </label>
-        <select
-          id="projectId"
-          required
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-          disabled={!!script}
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-        >
-          <option value="">Select a project...</option>
-          {projects.map((project) => (
-            <option key={project.id} value={project.id.toString()}>
-              {project.name}
-            </option>
-          ))}
-        </select>
+        {fixedProjectIdValue ? (
+          <div className="mt-1 rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+            {fixedProject?.name ?? `Project #${fixedProjectIdValue}`}
+          </div>
+        ) : (
+          <select
+            id="projectId"
+            required
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value)}
+            disabled={!!script}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+          >
+            <option value="">Select a project...</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id.toString()}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div>

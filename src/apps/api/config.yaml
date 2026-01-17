@@ -1,0 +1,75 @@
+# API Configuration
+# This file is the single source of truth for API runtime configuration.
+
+server:
+  port: {{default SERVER_PORT "3000"}}
+  logLevel: {{default SERVER_LOG_LEVEL "info"}}
+
+database:
+  host: {{default DB_HOST "localhost"}}
+  port: {{default DB_PORT "5432"}}
+  username: {{default DB_USERNAME "pytoya_user"}}
+  password: {{DB_PASSWORD}}
+  database: {{default DB_NAME "pytoya"}}
+
+redis:
+  host: {{default REDIS_HOST "localhost"}}
+  port: {{default REDIS_PORT "6379"}}
+
+jwt:
+  secret: {{JWT_SECRET}}
+  expiration: {{default JWT_EXPIRATION "7d"}}
+
+paddleocr:
+  baseUrl: {{default PADDLEOCR_BASE_URL "http://localhost:8080"}}
+
+llm:
+  apiKey: {{LLM_API_KEY}}
+
+security:
+  cors:
+    enabled: {{default ENABLE_CORS "true"}}
+    allowedOrigins:
+      - {{default ALLOWED_ORIGIN_1 "http://localhost:3001"}}
+      - {{default ALLOWED_ORIGIN_2 ""}}
+    credentials: true
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+    allowedHeaders:
+      - Content-Type
+      - Authorization
+
+  rateLimit:
+    enabled: {{default RATE_LIMIT_ENABLED "true"}}
+    ttl: {{default RATE_LIMIT_TTL "60000"}}
+    limit: {{default RATE_LIMIT_LIMIT "10"}}
+    storage: {{default RATE_LIMIT_STORAGE "memory"}}
+
+  accountLockout:
+    enabled: {{default ACCOUNT_LOCKOUT_ENABLED "true"}}
+    thresholds:
+      - attempts: 5
+        duration: 900000
+      - attempts: 10
+        duration: 3600000
+      - attempts: 15
+        permanent: true
+
+  passwordPolicy:
+    minLength: 8
+    maxLength: 128
+    requireUppercase: true
+    requireLowercase: true
+    requireNumber: true
+    requireSpecialChar: true
+    specialChars: "@$!%*?&"
+
+  usernamePolicy:
+    minLength: 3
+    maxLength: 50
+    pattern: "^[a-zA-Z][a-zA-Z0-9_-]*$"
+

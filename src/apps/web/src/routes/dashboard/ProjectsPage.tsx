@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiErrorMessage } from '@/api/client';
 import { useProjects } from '@/shared/hooks/use-projects';
+import { Dialog } from '@/shared/components/Dialog';
 import { ProjectCard } from '@/shared/components/ProjectCard';
 import { ProjectForm } from '@/shared/components/ProjectForm';
+import { ProjectWizard } from '@/shared/components/ProjectWizard';
 import { Project, UpdateProjectDto, CreateProjectDto } from '@/api/projects';
 
 export function ProjectsPage() {
@@ -12,25 +14,20 @@ export function ProjectsPage() {
     projects,
     isLoading,
     error,
-    createProject,
     updateProject,
     deleteProject,
-    isCreating,
     isUpdating,
   } = useProjects();
 
-  const [showForm, setShowForm] = useState(false);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-
-  const handleCreate = async (data: CreateProjectDto) => {
-    await createProject(data);
-    setShowForm(false);
-  };
 
   const handleUpdate = async (data: UpdateProjectDto) => {
     if (editingProject) {
       await updateProject({ id: editingProject.id, data });
       setEditingProject(null);
+      setIsEditOpen(false);
     }
   };
 
@@ -38,8 +35,6 @@ export function ProjectsPage() {
   const handleFormSubmit = async (data: CreateProjectDto | UpdateProjectDto) => {
     if (editingProject) {
       await handleUpdate(data as UpdateProjectDto);
-    } else {
-      await handleCreate(data as CreateProjectDto);
     }
   };
 
@@ -49,7 +44,7 @@ export function ProjectsPage() {
 
   const handleEdit = (project: Project) => {
     setEditingProject(project);
-    setShowForm(false);
+    setIsEditOpen(true);
   };
 
   return (
@@ -64,7 +59,7 @@ export function ProjectsPage() {
           </div>
           <button
             onClick={() => {
-              setShowForm(true);
+              setIsWizardOpen(true);
               setEditingProject(null);
             }}
             className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
@@ -73,22 +68,30 @@ export function ProjectsPage() {
           </button>
         </div>
 
-        {(showForm || editingProject) && (
-          <div className="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              {editingProject ? 'Edit Project' : 'Create New Project'}
-            </h2>
-            <ProjectForm
-              project={editingProject ?? undefined}
-              onSubmit={handleFormSubmit}
-              onCancel={() => {
-                setShowForm(false);
-                setEditingProject(null);
-              }}
-              isLoading={isCreating || isUpdating}
-            />
-          </div>
-        )}
+        <ProjectWizard
+          isOpen={isWizardOpen}
+          onClose={() => setIsWizardOpen(false)}
+          onCreated={(projectId) => navigate(`/projects/${projectId}`)}
+        />
+
+        <Dialog
+          isOpen={isEditOpen}
+          onClose={() => {
+            setIsEditOpen(false);
+            setEditingProject(null);
+          }}
+          title={editingProject ? `Edit ${editingProject.name}` : 'Edit Project'}
+        >
+          <ProjectForm
+            project={editingProject ?? undefined}
+            onSubmit={handleFormSubmit}
+            onCancel={() => {
+              setIsEditOpen(false);
+              setEditingProject(null);
+            }}
+            isLoading={isUpdating}
+          />
+        </Dialog>
 
         {isLoading ? (
           <div className="text-center py-12">
@@ -119,7 +122,7 @@ export function ProjectsPage() {
             <p className="mt-1 text-sm text-gray-500">Get started by creating a new project.</p>
             <div className="mt-6">
               <button
-                onClick={() => setShowForm(true)}
+                onClick={() => setIsWizardOpen(true)}
                 className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
               >
                 <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

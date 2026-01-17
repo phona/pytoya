@@ -1,21 +1,37 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
+import { THROTTLER_LIMIT, THROTTLER_TTL } from '@nestjs/throttler/dist/throttler.constants';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UserEntity } from '../entities/user.entity';
 import { UsersService } from '../users/users.service';
+import { ConfigService } from '@nestjs/config';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let usersService: jest.Mocked<Pick<UsersService, 'findByUsername' | 'create'>>;
+  let usersService: jest.Mocked<
+    Pick<UsersService, 'findByUsername' | 'create' | 'save' | 'findById'>
+  >;
 
   beforeEach(async () => {
     usersService = {
       findByUsername: jest.fn(),
       create: jest.fn(),
+      save: jest.fn(),
+      findById: jest.fn(),
     };
     const jwtService = {
       signAsync: jest.fn().mockResolvedValue('test-token'),
+    };
+    const configService = {
+      get: jest.fn().mockReturnValue({
+        enabled: true,
+        thresholds: [
+          { attempts: 5, duration: 15 * 60 * 1000 },
+          { attempts: 10, duration: 60 * 60 * 1000 },
+          { attempts: 15, permanent: true },
+        ],
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -28,6 +44,10 @@ describe('AuthService', () => {
         {
           provide: JwtService,
           useValue: jwtService,
+        },
+        {
+          provide: ConfigService,
+          useValue: configService,
         },
       ],
     }).compile();
@@ -59,6 +79,32 @@ describe('AuthService', () => {
       const result = await service.validateUser('test-user', 'password');
 
       expect(result).toBeDefined();
+    });
+  });
+
+  describe('login', () => {
+    it('locks the user after failed attempts threshold', async () => {
+      const user = {
+        id: 1,
+        username: 'locked-user',
+        password: 'hash',
+        role: 'user',
+        failedLoginAttempts: 4,
+        lockedUntil: null,
+        lastFailedLoginAt: null,
+      } as UserEntity;
+      usersService.findByUsername.mockResolvedValue(user);
+      jest
+        .spyOn(service as any, 'comparePassword')
+        .mockResolvedValue(false);
+
+      await expect(
+        service.login({ username: 'locked-user', password: 'bad' }),
+      ).rejects.toThrow('Invalid credentials');
+
+      expect(usersService.save).toHaveBeenCalled();
+      expect(user.failedLoginAttempts).toBe(5);
+      expect(user.lockedUntil).toBeInstanceOf(Date);
     });
   });
 });
@@ -100,6 +146,20 @@ describe('AuthController', () => {
 
       expect(result).toHaveProperty('user');
       expect(result).toHaveProperty('token');
+    });
+
+    it('has rate limit metadata for login', () => {
+      const limit = Reflect.getMetadata(
+        `${THROTTLER_LIMIT}default`,
+        AuthController.prototype.login,
+      );
+      const ttl = Reflect.getMetadata(
+        `${THROTTLER_TTL}default`,
+        AuthController.prototype.login,
+      );
+
+      expect(limit).toBe(5);
+      expect(ttl).toBe(60000);
     });
   });
 });

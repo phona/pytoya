@@ -86,6 +86,24 @@ processing:
   max_workers: 5
 ```
 
+## Web App (NestJS API) Configuration
+
+The NestJS API uses `src/apps/api/config.yaml` as a Handlebars template and expects credentials via environment variables:
+
+```bash
+DB_PASSWORD=your-db-password
+JWT_SECRET=your-jwt-secret
+LLM_API_KEY=your-llm-api-key
+```
+
+You can override the config path with `CONFIG_PATH` if you keep environment-specific templates.
+
+## Security Defaults (Web App)
+
+- CORS is enabled by default and controlled in `src/apps/api/config.yaml`.
+- Passwords require uppercase, lowercase, number, and special character (8-128 chars).
+- Accounts lock after repeated failed logins (configurable thresholds).
+
 ## PaddleOCR-VL Service Setup
 
 ### Option 1: Docker Compose (Recommended)

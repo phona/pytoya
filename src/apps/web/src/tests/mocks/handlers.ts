@@ -100,27 +100,70 @@ export const handlers = [
 
   // Manifests endpoints
   http.get('/api/groups/:groupId/manifests', () => {
+    return HttpResponse.json({
+      data: [
+        {
+          id: 1,
+          filename: 'manifest_0000001.pdf',
+          originalFilename: 'test.pdf',
+          storagePath: '/uploads/test.pdf',
+          fileSize: 12345,
+          status: 'completed',
+          groupId: 1,
+          extractedData: {
+            invoice: {
+              po_no: '0000001',
+              invoice_date: '2025-01-13',
+              department_code: 'PROD',
+            },
+          },
+          confidence: 0.95,
+          purchaseOrder: '0000001',
+          invoiceDate: '2025-01-13',
+          department: 'PROD',
+          humanVerified: false,
+          createdAt: '2025-01-13T00:00:00.000Z',
+          updatedAt: '2025-01-13T00:00:00.000Z',
+        },
+      ],
+      meta: {
+        total: 1,
+        page: 1,
+        pageSize: 25,
+        totalPages: 1,
+      },
+    });
+  }),
+
+  // Schema templates endpoints
+  http.get('/api/schemas/templates', () => {
     return HttpResponse.json([
       {
         id: 1,
-        filename: 'manifest_0000001.pdf',
-        originalFilename: 'test.pdf',
-        storagePath: '/uploads/test.pdf',
-        fileSize: 12345,
-        status: 'completed',
-        groupId: 1,
-        extractedData: {
-          invoice: {
-            po_no: '0000001',
-            invoice_date: '2025-01-13',
-            department_code: 'PROD',
+        name: 'Invoice Template',
+        jsonSchema: {
+          type: 'object',
+          properties: {
+            invoice: {
+              type: 'object',
+              properties: {
+                po_no: { type: 'string' },
+                invoice_date: { type: 'string' },
+              },
+            },
+            department: {
+              type: 'object',
+              properties: {
+                code: { type: 'string' },
+              },
+            },
           },
         },
-        confidence: 0.95,
-        purchaseOrder: '0000001',
-        invoiceDate: '2025-01-13',
-        department: 'PROD',
-        humanVerified: false,
+        requiredFields: [],
+        projectId: 1,
+        isTemplate: true,
+        description: null,
+        extractionStrategy: 'ocr-first',
         createdAt: '2025-01-13T00:00:00.000Z',
         updatedAt: '2025-01-13T00:00:00.000Z',
       },

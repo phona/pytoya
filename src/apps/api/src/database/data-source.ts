@@ -1,18 +1,26 @@
 import { join } from 'node:path';
 import { DataSource } from 'typeorm';
+import { plainToInstance } from 'class-transformer';
+import { validateSync } from 'class-validator';
 import appConfig from '../config/app.config';
-import { validateEnv } from '../config/env.validation';
+import { DatabaseConfig } from '../config/env.validation';
 
-let config = appConfig();
-config = validateEnv(config);
+const config = appConfig();
 
-const dbConfig = config.database as {
-  host: string;
-  port: number;
-  username: string;
-  password: string;
-  database: string;
-};
+const dbConfig = plainToInstance(DatabaseConfig, config.database, {
+  enableImplicitConversion: true,
+}) as DatabaseConfig;
+const dbErrors = validateSync(dbConfig);
+
+if (dbErrors.length > 0) {
+  throw new Error(
+    `Database configuration validation failed: ${dbErrors
+      .map((e: { property: string; constraints?: Record<string, unknown> }) =>
+        `${e.property} (${JSON.stringify(e.constraints)})`
+      )
+      .join(', ')}`,
+  );
+}
 
 const AppDataSource = new DataSource({
   type: 'postgres',

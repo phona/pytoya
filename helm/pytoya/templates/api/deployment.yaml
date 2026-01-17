@@ -52,6 +52,9 @@ spec:
                 configMapKeyRef:
                   name: {{ include "pytoya.fullname" . }}-config
                   key: VITE_API_URL
+          envFrom:
+            - secretRef:
+                name: {{ include "pytoya.fullname" . }}-secrets
           volumeMounts:
             - name: config
               mountPath: /app/config.yaml

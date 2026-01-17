@@ -1,23 +1,27 @@
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Manifest } from '@/api/manifests';
-import { ManifestFilterValues } from './ManifestFilters';
 import { ManifestTable } from './ManifestTable';
 import { ManifestCard } from './ManifestCard';
 import { Pagination } from './Pagination';
 import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/shared/hooks/use-websocket';
 import { useRunBatchValidation } from '@/shared/hooks/use-validation-scripts';
+import { ManifestSort } from '@/shared/types/manifests';
 
 interface ManifestListProps {
   manifests: Manifest[];
-  filters: ManifestFilterValues;
-  sort: { field: string; order: 'asc' | 'desc' };
+  totalManifests: number;
+  sort: ManifestSort;
   viewMode: 'table' | 'card';
   onViewModeChange: (mode: 'table' | 'card') => void;
-  onSortChange: (sort: { field: string; order: 'asc' | 'desc' }) => void;
+  onSortChange: (sort: ManifestSort) => void;
   onSelectManifest: (manifestId: number) => void;
   onBatchExport?: (manifestIds: number[]) => void;
   onBatchReExtract?: (manifestIds: number[]) => void;
-  projectId?: number;
+  currentPage: number;
+  pageSize: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
 }
 
 interface BatchValidationSummary {
@@ -27,7 +31,7 @@ interface BatchValidationSummary {
 
 export function ManifestList({
   manifests,
-  filters,
+  totalManifests,
   sort,
   viewMode,
   onViewModeChange,
@@ -35,11 +39,14 @@ export function ManifestList({
   onSelectManifest,
   onBatchExport,
   onBatchReExtract,
+  currentPage,
+  pageSize,
+  totalPages,
+  onPageChange,
+  onPageSizeChange,
 }: ManifestListProps) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
   const [manifestProgress, setManifestProgress] = useState<Record<number, { progress: number; status: string; error?: string }>>({});
   const [validationProgress, setValidationProgress] = useState<{
     completed: number;
@@ -75,6 +82,11 @@ export function ManifestList({
     onJobUpdate: handleJobUpdate,
     onManifestUpdate: handleManifestUpdate,
   });
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setSelectAll(false);
+  }, [currentPage, manifests]);
 
   const handleToggleSelect = (id: number) => {
     const newSelected = new Set(selectedIds);
@@ -146,121 +158,25 @@ export function ManifestList({
       setValidationProgress({ completed: 0, total: 0, results: {} });
     }
   };
-  const filteredAndSortedManifests = useMemo(() => {
-    let result = [...manifests];
-
-    // Apply filters
-    if (filters.status) {
-      result = result.filter((m) => m.status === filters.status);
-    }
-    if (filters.poNo) {
-      result = result.filter((m) =>
-        m.purchaseOrder?.toLowerCase().includes(filters.poNo!.toLowerCase()),
-      );
-    }
-    if (filters.department) {
-      result = result.filter((m) =>
-        m.department?.toLowerCase().includes(filters.department!.toLowerCase()),
-      );
-    }
-    if (filters.humanVerified !== undefined) {
-      result = result.filter((m) => m.humanVerified === filters.humanVerified);
-    }
-    if (filters.confidenceMin !== undefined) {
-      result = result.filter((m) => (m.confidence ?? 0) >= filters.confidenceMin!);
-    }
-    if (filters.confidenceMax !== undefined) {
-      result = result.filter((m) => (m.confidence ?? 0) <= filters.confidenceMax!);
-    }
-    if (filters.dateFrom) {
-      const from = new Date(filters.dateFrom).getTime();
-      result = result.filter(
-        (m) => m.invoiceDate && new Date(m.invoiceDate).getTime() >= from,
-      );
-    }
-    if (filters.dateTo) {
-      const to = new Date(filters.dateTo).getTime();
-      result = result.filter(
-        (m) => m.invoiceDate && new Date(m.invoiceDate).getTime() <= to,
-      );
-    }
-
-    // Apply sort
-    result.sort((a, b) => {
-      let aValue: string | number = '';
-      let bValue: string | number = '';
-
-      switch (sort.field) {
-        case 'filename':
-          aValue = a.filename;
-          bValue = b.filename;
-          break;
-        case 'poNo':
-          aValue = a.purchaseOrder ?? '';
-          bValue = b.purchaseOrder ?? '';
-          break;
-        case 'invoiceDate':
-          aValue = a.invoiceDate ? new Date(a.invoiceDate).getTime() : 0;
-          bValue = b.invoiceDate ? new Date(b.invoiceDate).getTime() : 0;
-          break;
-        case 'confidence':
-          aValue = a.confidence ?? 0;
-          bValue = b.confidence ?? 0;
-          break;
-        case 'status':
-          aValue = a.status;
-          bValue = b.status;
-          break;
-        default:
-          return 0;
-      }
-
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sort.order === 'asc'
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      }
-      return sort.order === 'asc'
-        ? Number(aValue) - Number(bValue)
-        : Number(bValue) - Number(aValue);
-    });
-
-    return result;
-  }, [manifests, filters, sort]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredAndSortedManifests.length / pageSize);
-
-  // Reset to page 1 when filters or sort changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filters, sort]);
-
-  const paginatedManifests = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    return filteredAndSortedManifests.slice(startIndex, endIndex);
-  }, [filteredAndSortedManifests, currentPage, pageSize]);
 
   const handlePageChange = useCallback((page: number) => {
-    setCurrentPage(page);
     setSelectedIds(new Set());
     setSelectAll(false);
-  }, []);
+    onPageChange(page);
+  }, [onPageChange]);
 
   const handlePageSizeChange = useCallback((size: number) => {
-    setPageSize(size);
-    setCurrentPage(1);
     setSelectedIds(new Set());
     setSelectAll(false);
-  }, []);
+    onPageSizeChange(size);
+  }, [onPageSizeChange]);
 
   // Update select all to work with current page
   const handleToggleSelectAll = () => {
     if (selectAll) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(paginatedManifests.map((m) => m.id)));
+      setSelectedIds(new Set(manifests.map((m) => m.id)));
     }
     setSelectAll(!selectAll);
   };
@@ -271,7 +187,7 @@ export function ManifestList({
       <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-semibold text-gray-900">
-            Manifests ({filteredAndSortedManifests.length})
+            Manifests ({totalManifests})
           </h2>
           {selectedIds.size > 0 && (
             <div className="flex items-center gap-2">
@@ -346,7 +262,7 @@ export function ManifestList({
       </div>
 
       {/* Content */}
-      {filteredAndSortedManifests.length === 0 ? (
+      {manifests.length === 0 ? (
         <div className="p-12 text-center">
           <svg
             className="mx-auto h-12 w-12 text-gray-400"
@@ -370,7 +286,7 @@ export function ManifestList({
         <>
           {viewMode === 'table' ? (
             <ManifestTable
-              manifests={paginatedManifests}
+              manifests={manifests}
               sort={sort}
               onSortChange={onSortChange}
               onSelectManifest={onSelectManifest}
@@ -382,7 +298,7 @@ export function ManifestList({
             />
           ) : (
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {paginatedManifests.map((manifest) => (
+              {manifests.map((manifest) => (
                 <ManifestCard
                   key={manifest.id}
                   manifest={manifest}
@@ -393,12 +309,12 @@ export function ManifestList({
           )}
 
           {/* Pagination */}
-          {filteredAndSortedManifests.length > 0 && (
+          {totalManifests > 0 && (
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
               pageSize={pageSize}
-              totalItems={filteredAndSortedManifests.length}
+              totalItems={totalManifests}
               onPageChange={handlePageChange}
               onPageSizeChange={handlePageSizeChange}
             />

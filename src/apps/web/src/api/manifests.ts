@@ -1,11 +1,14 @@
 import apiClient from '@/api/client';
 import type { Jsonify } from '@/api/types';
+import { ManifestListQueryParams } from '@/shared/types/manifests';
 import type {
+  ManifestListResponseDto,
   ManifestResponseDto,
   UpdateManifestDto,
 } from '@pytoya/shared/types/manifests';
 
 export type Manifest = Jsonify<ManifestResponseDto>;
+export type ManifestListResponse = Jsonify<ManifestListResponseDto>;
 export type { UpdateManifestDto };
 
 export interface ManifestItem {
@@ -39,8 +42,54 @@ export interface UploadManifestDto {
 
 export const manifestsApi = {
   // List manifests for a group
-  listManifests: async (groupId: number) => {
-    const response = await apiClient.get<Manifest[]>(`/groups/${groupId}/manifests`);
+  listManifests: async (groupId: number, params?: ManifestListQueryParams) => {
+    const searchParams = new URLSearchParams();
+    const filters = params?.filters;
+
+    if (filters?.status) searchParams.append('status', filters.status);
+    if (filters?.poNo) searchParams.append('poNo', filters.poNo);
+    if (filters?.department) searchParams.append('department', filters.department);
+    if (filters?.dateFrom) searchParams.append('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) searchParams.append('dateTo', filters.dateTo);
+    if (filters?.humanVerified !== undefined) {
+      searchParams.append('humanVerified', String(filters.humanVerified));
+    }
+    if (filters?.confidenceMin !== undefined) {
+      searchParams.append('confidenceMin', String(filters.confidenceMin));
+    }
+    if (filters?.confidenceMax !== undefined) {
+      searchParams.append('confidenceMax', String(filters.confidenceMax));
+    }
+    if (filters?.dynamicFilters) {
+      filters.dynamicFilters.forEach(({ field, value }) => {
+        if (field && value) {
+          searchParams.append(`filter[${field}]`, value);
+        }
+      });
+    }
+
+    if (params?.sort?.field) searchParams.append('sortBy', params.sort.field);
+    if (params?.sort?.order) searchParams.append('order', params.sort.order);
+    if (params?.page) searchParams.append('page', String(params.page));
+    if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
+
+    const response = await apiClient.get<ManifestListResponse | Manifest[]>(
+      `/groups/${groupId}/manifests`,
+      { params: searchParams },
+    );
+
+    if (Array.isArray(response.data)) {
+      return {
+        data: response.data,
+        meta: {
+          total: response.data.length,
+          page: 1,
+          pageSize: response.data.length,
+          totalPages: response.data.length > 0 ? 1 : 0,
+        },
+      };
+    }
+
     return response.data;
   },
 

@@ -15,20 +15,20 @@ describe('HomePage', () => {
     });
   });
 
-  it('renders landing page when not authenticated', () => {
+  it('redirects unauthenticated users to login', () => {
     act(() => {
       useAuthStore.setState({ isAuthenticated: false, hasHydrated: true });
     });
 
-    renderWithProviders(<HomePage />);
+    renderWithProviders(
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<div>Login Page</div>} />
+      </Routes>,
+      { route: '/' },
+    );
 
-    expect(
-      screen.getByRole('heading', { name: /PyToYa turns documents/i })
-    ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Sign in/i })).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: /Create account/i })
-    ).toBeInTheDocument();
+    expect(screen.getByText('Login Page')).toBeInTheDocument();
   });
 
   it('redirects authenticated users to projects', () => {

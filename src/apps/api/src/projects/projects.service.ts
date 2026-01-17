@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 
 import { ModelEntity } from '../entities/model.entity';
 import { ProjectEntity } from '../entities/project.entity';
-import { PromptEntity } from '../entities/prompt.entity';
+import { PromptEntity, PromptType } from '../entities/prompt.entity';
 import { UserEntity } from '../entities/user.entity';
 import { PromptNotFoundException } from '../prompts/exceptions/prompt-not-found.exception';
 import { adapterRegistry } from '../models/adapters/adapter-registry';
@@ -28,9 +28,12 @@ export class ProjectsService {
     user: UserEntity,
     input: CreateProjectDto,
   ): Promise<ProjectEntity> {
-    await this.ensureDefaultsExist(input);
+    const { prompt, ...projectInput } = input;
+    await this.ensureDefaultsExist(projectInput);
+    const promptId = await this.createPromptIfProvided(prompt, projectInput.name);
     const project = this.projectRepository.create({
-      ...input,
+      ...projectInput,
+      defaultPromptId: promptId ?? projectInput.defaultPromptId ?? null,
       ownerId: user.id,
     });
 
@@ -67,8 +70,14 @@ export class ProjectsService {
     input: UpdateProjectDto,
   ): Promise<ProjectEntity> {
     const project = await this.findOne(user, id);
-    await this.ensureDefaultsExist(input);
-    Object.assign(project, input);
+    const { prompt, ...projectInput } = input;
+    await this.ensureDefaultsExist(projectInput);
+    Object.assign(project, projectInput);
+
+    if (prompt) {
+      const promptId = await this.upsertPromptForProject(project, prompt);
+      project.defaultPromptId = promptId;
+    }
 
     return this.projectRepository.save(project);
   }
@@ -133,5 +142,57 @@ export class ProjectsService {
     if (!prompt) {
       throw new PromptNotFoundException(defaultPromptId);
     }
+  }
+
+  private async createPromptIfProvided(
+    prompt: string | undefined,
+    projectName: string,
+  ): Promise<string | null> {
+    if (!prompt || !prompt.trim()) {
+      return null;
+    }
+
+    const created = this.promptRepository.create({
+      name: `${projectName} Prompt`,
+      type: PromptType.SYSTEM,
+      content: prompt.trim(),
+      variables: null,
+    });
+    const saved = await this.promptRepository.save(created);
+    return saved.id.toString();
+  }
+
+  private async upsertPromptForProject(
+    project: ProjectEntity,
+    prompt: string,
+  ): Promise<string> {
+    const content = prompt.trim();
+    if (!content) {
+      throw new BadRequestException('Prompt cannot be empty');
+    }
+
+    if (project.defaultPromptId) {
+      const promptId = Number(project.defaultPromptId);
+      if (Number.isFinite(promptId)) {
+        const existing = await this.promptRepository.findOne({
+          where: { id: promptId },
+        });
+        if (existing) {
+          existing.content = content;
+          existing.name = `${project.name} Prompt`;
+          await this.promptRepository.save(existing);
+          return existing.id.toString();
+        }
+      }
+    }
+
+    const created = this.promptRepository.create({
+      name: `${project.name} Prompt`,
+      type: PromptType.SYSTEM,
+      content,
+      variables: null,
+    });
+    const saved = await this.promptRepository.save(created);
+    return saved.id.toString();
   }
 }

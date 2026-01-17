@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { getApiErrorMessage } from '@/api/client';
 import { AdapterSchema, CreateModelDto, Model, UpdateModelDto } from '@/api/models';
+import { Dialog } from '@/shared/components/Dialog';
 import { ModelCard } from '@/shared/components/ModelCard';
 import { ModelForm } from '@/shared/components/ModelForm';
 import { getAdapterByType, useModelAdapters, useModelMutations, useModels } from '@/shared/hooks/use-models';
@@ -9,9 +10,10 @@ type ModelCategory = 'ocr' | 'llm';
 
 export function ModelsPage() {
   const [activeTab, setActiveTab] = useState<ModelCategory>('ocr');
-  const [showForm, setShowForm] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<Model | null>(null);
   const [selectedAdapterType, setSelectedAdapterType] = useState<string>('');
+  const [createStep, setCreateStep] = useState<'select' | 'form'>('select');
   const [testingId, setTestingId] = useState<string | null>(null);
 
   const { models, isLoading } = useModels();
@@ -39,19 +41,20 @@ export function ModelsPage() {
   const openCreateForm = () => {
     setEditingModel(null);
     setSelectedAdapterType(availableAdapters[0]?.type ?? '');
-    setShowForm(true);
+    setCreateStep('select');
+    setIsDialogOpen(true);
   };
 
   const handleCreate = async (data: CreateModelDto) => {
     await createModel(data);
-    setShowForm(false);
+    setIsDialogOpen(false);
   };
 
   const handleUpdate = async (data: UpdateModelDto) => {
     if (!editingModel) return;
     await updateModel({ id: editingModel.id, data });
     setEditingModel(null);
-    setShowForm(false);
+    setIsDialogOpen(false);
   };
 
   const handleDelete = async (id: string) => {
@@ -104,7 +107,7 @@ export function ModelsPage() {
               onClick={() => {
                 setActiveTab(category);
                 setEditingModel(null);
-                setShowForm(false);
+                setIsDialogOpen(false);
               }}
               className={`rounded-full px-4 py-1 text-sm font-medium ${
                 activeTab === category
@@ -117,14 +120,29 @@ export function ModelsPage() {
           ))}
         </div>
 
-        {(showForm || editingModel) && (
-          <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              {editingModel ? 'Edit Model' : 'Create New Model'}
-            </h2>
-
-            {!editingModel && (
-              <div className="mb-4">
+        <Dialog
+          isOpen={isDialogOpen}
+          onClose={() => {
+            setIsDialogOpen(false);
+            setEditingModel(null);
+            setCreateStep('select');
+          }}
+          title={
+            editingModel
+              ? 'Edit Model'
+              : createStep === 'select'
+              ? 'Choose Model Type'
+              : 'Configure Model'
+          }
+          description={
+            editingModel
+              ? 'Update model settings and connection details.'
+              : 'Select the adapter type before configuring the model.'
+          }
+        >
+          {!editingModel && createStep === 'select' && (
+            <div className="space-y-4">
+              <div>
                 <label htmlFor="adapterType" className="block text-sm font-medium text-gray-700">
                   Adapter Type
                 </label>
@@ -140,27 +158,70 @@ export function ModelsPage() {
                     </option>
                   ))}
                 </select>
+                {activeAdapter && (
+                  <p className="mt-2 text-sm text-gray-600">
+                    {activeAdapter.description}
+                  </p>
+                )}
               </div>
-            )}
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsDialogOpen(false);
+                    setEditingModel(null);
+                  }}
+                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreateStep('form')}
+                  disabled={!selectedAdapterType}
+                  className="rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
 
-            {activeAdapter && (
-              <ModelForm
-                key={`${editingModel?.id ?? 'new'}-${activeAdapter.type}`}
-                adapter={activeAdapter}
-                model={editingModel ?? undefined}
-                onSubmit={handleFormSubmit}
-                onCancel={() => {
-                  setShowForm(false);
-                  setEditingModel(null);
-                }}
-                isLoading={isCreating || isUpdating}
-              />
-            )}
-            {!activeAdapter && !adaptersLoading && (
-              <div className="text-sm text-gray-500">No adapter available for this category.</div>
-            )}
-          </div>
-        )}
+          {(editingModel || createStep === 'form') && (
+            <div className="space-y-4">
+              {!editingModel && (
+                <div className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-700">
+                  <span>Adapter Type: {activeAdapter?.name ?? 'Unknown'}</span>
+                  <button
+                    type="button"
+                    onClick={() => setCreateStep('select')}
+                    className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                  >
+                    Change
+                  </button>
+                </div>
+              )}
+
+              {activeAdapter && (
+                <ModelForm
+                  key={`${editingModel?.id ?? 'new'}-${activeAdapter.type}`}
+                  adapter={activeAdapter}
+                  model={editingModel ?? undefined}
+                  onSubmit={handleFormSubmit}
+                  onCancel={() => {
+                    setIsDialogOpen(false);
+                    setEditingModel(null);
+                    setCreateStep('select');
+                  }}
+                  isLoading={isCreating || isUpdating}
+                />
+              )}
+              {!activeAdapter && !adaptersLoading && (
+                <div className="text-sm text-gray-500">No adapter available for this category.</div>
+              )}
+            </div>
+          )}
+        </Dialog>
 
         {isLoading ? (
           <div className="py-12 text-center">
@@ -178,7 +239,9 @@ export function ModelsPage() {
                 model={model}
                 onEdit={(selected) => {
                   setEditingModel(selected);
-                  setShowForm(true);
+                  setSelectedAdapterType(selected.adapterType);
+                  setCreateStep('form');
+                  setIsDialogOpen(true);
                 }}
                 onDelete={handleDelete}
                 onTest={handleTest}

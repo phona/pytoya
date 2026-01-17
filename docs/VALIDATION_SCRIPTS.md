@@ -11,6 +11,8 @@ Validation scripts allow you to verify data integrity after extraction. Scripts 
 3. **Results**: View issues grouped by severity (error/warning)
 4. **Action**: Re-extract or edit data manually based on findings
 
+Scripts are scoped to a project and can be managed from the project detail page.
+
 ## Script Function Signature
 
 ```javascript

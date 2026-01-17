@@ -101,6 +101,7 @@ DB_DATABASE=pytoya
 REDIS_HOST=redis
 REDIS_PORT=6379
 JWT_SECRET=dev-jwt-secret-change-in-production
+LLM_API_KEY=dev-llm-key
 PADDLEOCR_BASE_URL=http://localhost:8080
 ```
 

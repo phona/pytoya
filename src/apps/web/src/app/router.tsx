@@ -1,7 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { AuthLayout } from '../routes/auth/AuthLayout';
+import { AdminRoute } from '../routes/auth/AdminRoute';
 import { LoginPage } from '../routes/auth/LoginPage';
-import { RegisterPage } from '../routes/auth/RegisterPage';
 import { ProtectedRoute } from '../routes/auth/ProtectedRoute';
 import { DashboardLayout } from '../routes/dashboard/DashboardLayout';
 import { HomePage } from '../routes/HomePage';
@@ -26,7 +26,6 @@ export const router = createBrowserRouter([
         element: <AuthLayout />,
         children: [
           { path: 'login', element: <LoginPage /> },
-          { path: 'register', element: <RegisterPage /> },
         ],
       },
       {
@@ -41,11 +40,27 @@ export const router = createBrowserRouter([
           { path: 'projects', element: <ProjectsPage /> },
           { path: 'projects/:id', element: <ProjectDetailPage /> },
           { path: 'projects/:id/groups/:groupId/manifests', element: <ManifestsPage /> },
-          { path: 'schemas', element: <SchemasPage /> },
-          { path: 'schemas/:id', element: <SchemaDetailPage /> },
+          { path: 'schemas', element: (
+            <AdminRoute>
+              <SchemasPage />
+            </AdminRoute>
+          ) },
+          { path: 'schemas/:id', element: (
+            <AdminRoute>
+              <SchemaDetailPage />
+            </AdminRoute>
+          ) },
           { path: 'models', element: <ModelsPage /> },
-          { path: 'prompts', element: <PromptsPage /> },
-          { path: 'validation-scripts', element: <ValidationScriptsPage /> },
+          { path: 'prompts', element: (
+            <AdminRoute>
+              <PromptsPage />
+            </AdminRoute>
+          ) },
+          { path: 'validation-scripts', element: (
+            <AdminRoute>
+              <ValidationScriptsPage />
+            </AdminRoute>
+          ) },
         ],
       },
     ],

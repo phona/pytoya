@@ -4,6 +4,7 @@ import { validateEnv } from './config/env.validation';
 import { DatabaseModule } from './database/database.module';
 import { UsersModule } from './users/users.module';
 import { NewAdminCommand } from './users/new-admin.command';
+import { PasswordAuditCommand } from './users/password-audit.command';
 import { ServeCommand } from './users/serve.command';
 import appConfig from './config/app.config';
 
@@ -17,6 +18,6 @@ import appConfig from './config/app.config';
     DatabaseModule,
     UsersModule,
   ],
-  providers: [NewAdminCommand, ServeCommand],
+  providers: [NewAdminCommand, PasswordAuditCommand, ServeCommand],
 })
 export class CliModule {}

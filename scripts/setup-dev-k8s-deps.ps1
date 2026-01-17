@@ -4,8 +4,8 @@
 
 .DESCRIPTION
   Optionally deploys the dev dependencies using Helm, resolves NodePorts, updates
-  the API .env with DB/Redis connection info and AUTO_MIGRATIONS=true, and
-  optionally ensures the app DB user exists.
+  the API .env.local with DB/Redis connection info, and optionally ensures the
+  app DB user exists.
 
 .PARAMETER PostgresPassword
   Postgres admin password used for deployment and/or user setup.
@@ -37,6 +37,12 @@
 .PARAMETER DeployHelperPath
   Path to the deploy helper script (default: scripts/deploy-deps-nodeport.ps1).
 
+.PARAMETER JwtSecret
+  JWT secret to store in the env file and pass to the deploy helper (default: dev-jwt-secret).
+
+.PARAMETER LlmApiKey
+  LLM API key to store in the env file and pass to the deploy helper (default: dummy).
+
 .PARAMETER SkipDeploy
   Skip Helm deployment and only update env and/or DB user.
 
@@ -46,8 +52,8 @@
 .PARAMETER SkipDbUserSetup
   Skip creating/updating the AppDbUser.
 
-.PARAMETER ConfigPath
-  Path to the API config.yaml file to update (default: src/apps/api/config.yaml).
+.PARAMETER EnvPath
+  Path to the API env file to update (default: src/apps/api/.env.local).
 
 .EXAMPLE
   pwsh -File scripts/setup-dev-k8s-deps.ps1 -PostgresPassword 123456
@@ -63,10 +69,12 @@ param(
   [string]$AppDbPassword = "pytoya_pass",
   [string]$AppDbName = "pytoya",
   [string]$DeployHelperPath = "scripts/deploy-deps-nodeport.ps1",
+  [string]$JwtSecret = "dev-jwt-secret",
+  [string]$LlmApiKey = "dummy",
   [switch]$SkipDeploy,
   [switch]$DisablePersistence,
   [switch]$SkipDbUserSetup,
-  [string]$ConfigPath = "src/apps/api/config.yaml"
+  [string]$EnvPath = "src/apps/api/.env.local"
 )
 
 Set-StrictMode -Version Latest
@@ -86,55 +94,27 @@ function Require-Command {
   }
 }
 
-function Upsert-YamlValue {
+function Upsert-EnvValue {
   param(
     [string[]]$Lines,
-    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string]$Key,
     [Parameter(Mandatory = $true)][string]$Value
   )
   if (-not $Lines) {
     $Lines = @()
   }
 
-  $parts = $Path -split '\.'
-  $currentPath = ""
-  $indent = "  "
-
+  $escapedKey = [regex]::Escape($Key)
+  $pattern = "^\s*$escapedKey="
   $found = $false
   $output = @()
 
-  for ($i = 0; $i -lt $Lines.Count; $i++) {
-    $line = $Lines[$i]
-    $output += $line
-
-    if (-not $found) {
-      $trimmedLine = $line.Trim()
-      $lineIndent = $line.Substring(0, $line.Length - $trimmedLine.Length)
-
-      if ($trimmedLine -match "^(\w+):\s*(.+)$") {
-        $key = $matches[1]
-        $lineValue = $matches[2]
-
-        $fullPath = if ($currentPath) { "$currentPath.$key" } else { $key }
-
-        if ($fullPath -eq $Path) {
-          $found = $true
-          $output[$output.Count - 1] = "$lineIndent${key}: ${Value}"
-        }
-      }
-
-      if ($trimmedLine -match "^(\w+):$") {
-        $key = $matches[1]
-        $fullPath = if ($currentPath) { "$currentPath.$key" } else { $key }
-
-        if ($parts -contains $key) {
-          $currentPath = if ($currentPath) { "$currentPath.$key" } else { $key }
-        }
-      }
-    }
-
-    if ($trimmedLine -eq "" -or $trimmedLine -notmatch ":") {
-      $currentPath = ""
+  foreach ($line in $Lines) {
+    if (-not $found -and $line -match $pattern) {
+      $output += "$Key=$Value"
+      $found = $true
+    } else {
+      $output += $line
     }
   }
 
@@ -142,11 +122,7 @@ function Upsert-YamlValue {
     if ($output.Count -gt 0 -and $output[-1] -notmatch "^\s*$") {
       $output += ""
     }
-
-    for ($i = 0; $i -lt $parts.Count; $i++) {
-      $output += "$indent" * $i + $parts[$i] + ":"
-    }
-    $output += "$indent" * $parts.Count + $parts[-1] + ": $Value"
+    $output += "$Key=$Value"
   }
 
   return ,$output
@@ -248,8 +224,8 @@ function Invoke-Deploy {
     -Namespace $Namespace `
     -ReleaseName $ReleaseName `
     -PostgresPassword $Password `
-    -JwtSecret "dummy" `
-    -LlmApiKey "dummy" `
+    -JwtSecret $JwtSecret `
+    -LlmApiKey $LlmApiKey `
     $(if ($DisablePersistence) { "-DisablePersistence" })
   if ($LASTEXITCODE -ne 0) {
     throw "deploy-deps-nodeport.ps1 failed with exit code $LASTEXITCODE."
@@ -305,30 +281,34 @@ $postgresPort = Get-NodePort -ServiceName $postgresService
 $redisPort = Get-NodePort -ServiceName $redisService
 $resolvedNodeIp = Resolve-NodeIp
 
-$configPath = $ConfigPath
-
-$rawConfig = ""
-if (Test-Path $configPath) {
-  $rawConfig = Get-Content -Path $configPath -Raw
+$envPath = $EnvPath
+$envLines = @()
+if (Test-Path $envPath) {
+  $envLines = Get-Content -Path $envPath
 }
 
-$lines = @()
-if ($rawConfig) {
-  $lines = $rawConfig -split "`r?`n"
-}
+$envLines = Upsert-EnvValue -Lines $envLines -Key "DB_HOST" -Value $resolvedNodeIp
+$envLines = Upsert-EnvValue -Lines $envLines -Key "DB_PORT" -Value $postgresPort
+$envLines = Upsert-EnvValue -Lines $envLines -Key "REDIS_HOST" -Value $resolvedNodeIp
+$envLines = Upsert-EnvValue -Lines $envLines -Key "REDIS_PORT" -Value $redisPort
+$envLines = Upsert-EnvValue -Lines $envLines -Key "DB_USERNAME" -Value $AppDbUser
+$envLines = Upsert-EnvValue -Lines $envLines -Key "DB_PASSWORD" -Value $AppDbPassword
+$envLines = Upsert-EnvValue -Lines $envLines -Key "DB_NAME" -Value $AppDbName
+$envLines = Upsert-EnvValue -Lines $envLines -Key "JWT_SECRET" -Value $JwtSecret
+$envLines = Upsert-EnvValue -Lines $envLines -Key "LLM_API_KEY" -Value $LlmApiKey
 
-$lines = Upsert-YamlValue -Lines $lines -Path "database.host" -Value $resolvedNodeIp
-$lines = Upsert-YamlValue -Lines $lines -Path "database.port" -Value $postgresPort
-$lines = Upsert-YamlValue -Lines $lines -Path "redis.host" -Value $resolvedNodeIp
-$lines = Upsert-YamlValue -Lines $lines -Path "redis.port" -Value $redisPort
+Set-Content -Path $envPath -Value ($envLines -join "`r`n") -Encoding UTF8
 
-Set-Content -Path $configPath -Value ($lines -join "`r`n") -Encoding UTF8
-
-Write-Host "Updated $configPath with:"
-Write-Host "  database.host: $resolvedNodeIp"
-Write-Host "  database.port: $postgresPort"
-Write-Host "  redis.host: $resolvedNodeIp"
-Write-Host "  redis.port: $redisPort"
+Write-Host "Updated $envPath with:"
+Write-Host "  DB_HOST: $resolvedNodeIp"
+Write-Host "  DB_PORT: $postgresPort"
+Write-Host "  REDIS_HOST: $resolvedNodeIp"
+Write-Host "  REDIS_PORT: $redisPort"
+Write-Host "  DB_USERNAME: $AppDbUser"
+Write-Host "  DB_PASSWORD: ********"
+Write-Host "  DB_NAME: $AppDbName"
+Write-Host "  JWT_SECRET: ********"
+Write-Host "  LLM_API_KEY: ********"
 
 if (-not $SkipDbUserSetup) {
   $adminPassword = if ($PostgresPassword) { $PostgresPassword } else { $DbAdminPassword }

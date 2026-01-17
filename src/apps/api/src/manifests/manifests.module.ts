@@ -26,6 +26,6 @@ import {
     PdfFileInterceptor,
     PdfFilesInterceptor,
   ],
-  exports: [ManifestsService],
+  exports: [ManifestsService, TypeOrmModule],
 })
 export class ManifestsModule {}

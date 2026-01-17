@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 
 import { JobEntity, JobStatus } from '../entities/job.entity';
 import { ManifestEntity, ManifestStatus, FileType } from '../entities/manifest.entity';
@@ -14,8 +14,37 @@ import { StorageService } from '../storage/storage.service';
 import { UpdateManifestDto } from './dto/update-manifest.dto';
 import { ManifestNotFoundException } from './exceptions/manifest-not-found.exception';
 import { detectFileType } from './interceptors/pdf-file.interceptor';
+import { DynamicFieldFiltersDto } from './dto/dynamic-field-filters.dto';
+import {
+  assertValidJsonPath,
+  buildJsonPathQuery,
+} from './utils/json-path.util';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const DEFAULT_PAGE_SIZE = 25;
+
+const SORTABLE_COLUMNS: Record<string, string> = {
+  filename: 'manifest.filename',
+  status: 'manifest.status',
+  poNo: 'manifest.purchaseOrder',
+  invoiceDate: 'manifest.invoiceDate',
+  confidence: 'manifest.confidence',
+  department: 'manifest.department',
+  humanVerified: 'manifest.humanVerified',
+  createdAt: 'manifest.createdAt',
+};
+
+type ManifestListMeta = {
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type ManifestListResult = {
+  data: ManifestEntity[];
+  meta: ManifestListMeta;
+};
 
 @Injectable()
 export class ManifestsService {
@@ -67,12 +96,43 @@ export class ManifestsService {
   async findByGroup(
     user: UserEntity,
     groupId: number,
-  ): Promise<ManifestEntity[]> {
+    query: DynamicFieldFiltersDto = {},
+  ): Promise<ManifestListResult> {
     await this.groupsService.findOne(user, groupId);
-    return this.manifestRepository.find({
-      where: { groupId },
-      order: { createdAt: 'DESC' },
-    });
+
+    const queryBuilder = this.manifestRepository
+      .createQueryBuilder('manifest')
+      .where('manifest.groupId = :groupId', { groupId });
+
+    this.applyStandardFilters(queryBuilder, query);
+    this.applyJsonbFilters(queryBuilder, query.filter);
+    this.applySort(queryBuilder, query.sortBy, query.order);
+
+    const shouldPaginate =
+      query.page !== undefined || query.pageSize !== undefined;
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
+
+    if (shouldPaginate) {
+      const skip = Math.max(page - 1, 0) * pageSize;
+      queryBuilder.skip(skip).take(pageSize);
+    }
+
+    const [data, total] = await queryBuilder.getManyAndCount();
+    const resolvedPageSize = shouldPaginate ? pageSize : total;
+    const totalPages = resolvedPageSize
+      ? Math.ceil(total / resolvedPageSize)
+      : 0;
+
+    return {
+      data,
+      meta: {
+        total,
+        page: shouldPaginate ? page : 1,
+        pageSize: shouldPaginate ? resolvedPageSize : total,
+        totalPages,
+      },
+    };
   }
 
   async findOne(user: UserEntity, id: number): Promise<ManifestEntity> {
@@ -273,5 +333,119 @@ export class ManifestsService {
       return error.message;
     }
     return String(error);
+  }
+
+  private applyStandardFilters(
+    query: SelectQueryBuilder<ManifestEntity>,
+    filters: DynamicFieldFiltersDto,
+  ): void {
+    if (filters.status) {
+      query.andWhere('manifest.status = :status', {
+        status: filters.status,
+      });
+    }
+
+    if (filters.poNo) {
+      query.andWhere('manifest.purchaseOrder ILIKE :poNo', {
+        poNo: this.normalizeLikePattern(filters.poNo),
+      });
+    }
+
+    if (filters.department) {
+      query.andWhere('manifest.department ILIKE :department', {
+        department: this.normalizeLikePattern(filters.department),
+      });
+    }
+
+    if (filters.dateFrom) {
+      query.andWhere('manifest.invoiceDate >= :dateFrom', {
+        dateFrom: filters.dateFrom,
+      });
+    }
+
+    if (filters.dateTo) {
+      query.andWhere('manifest.invoiceDate <= :dateTo', {
+        dateTo: filters.dateTo,
+      });
+    }
+
+    if (filters.humanVerified !== undefined) {
+      query.andWhere('manifest.humanVerified = :humanVerified', {
+        humanVerified: filters.humanVerified,
+      });
+    }
+
+    if (filters.confidenceMin !== undefined) {
+      query.andWhere('manifest.confidence >= :confidenceMin', {
+        confidenceMin: filters.confidenceMin,
+      });
+    }
+
+    if (filters.confidenceMax !== undefined) {
+      query.andWhere('manifest.confidence <= :confidenceMax', {
+        confidenceMax: filters.confidenceMax,
+      });
+    }
+  }
+
+  private applyJsonbFilters(
+    query: SelectQueryBuilder<ManifestEntity>,
+    filters?: Record<string, string>,
+  ): void {
+    if (!filters) {
+      return;
+    }
+
+    let index = 0;
+    for (const [fieldPath, rawValue] of Object.entries(filters)) {
+      if (rawValue === undefined || rawValue === null || rawValue === '') {
+        continue;
+      }
+      if (fieldPath === 'status') {
+        query.andWhere('manifest.status = :statusFilter', {
+          statusFilter: String(rawValue).toLowerCase(),
+        });
+        continue;
+      }
+      assertValidJsonPath(fieldPath);
+      const expression = buildJsonPathQuery('manifest', fieldPath);
+      const paramName = `filterValue${index++}`;
+      query.andWhere(`${expression} ILIKE :${paramName}`, {
+        [paramName]: this.normalizeLikePattern(String(rawValue)),
+      });
+    }
+  }
+
+  private applySort(
+    query: SelectQueryBuilder<ManifestEntity>,
+    sortBy?: string,
+    order: 'asc' | 'desc' = 'asc',
+  ): void {
+    const normalizedOrder = order === 'desc' ? 'DESC' : 'ASC';
+
+    if (!sortBy) {
+      query.orderBy('manifest.createdAt', 'DESC');
+      return;
+    }
+
+    const mappedColumn = SORTABLE_COLUMNS[sortBy];
+    if (mappedColumn) {
+      query.orderBy(mappedColumn, normalizedOrder);
+      return;
+    }
+
+    assertValidJsonPath(sortBy);
+    const textExpression = buildJsonPathQuery('manifest', sortBy);
+    const numericExpression = `CASE WHEN ${textExpression} ~ '^[0-9]+(\\\\.[0-9]+)?$' THEN (${textExpression})::numeric ELSE NULL END`;
+
+    query.orderBy(numericExpression, normalizedOrder, 'NULLS LAST');
+    query.addOrderBy(textExpression, normalizedOrder, 'NULLS LAST');
+  }
+
+  private normalizeLikePattern(value: string): string {
+    if (value.includes('%') || value.includes('_')) {
+      return value;
+    }
+    return `%${value}%`;
   }
 }

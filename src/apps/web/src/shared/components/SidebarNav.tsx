@@ -9,9 +9,6 @@ type SidebarNavProps = {
 const navItems = [
   { label: 'Projects', to: '/projects' },
   { label: 'Models', to: '/models' },
-  { label: 'Schemas', to: '/schemas' },
-  { label: 'Prompts', to: '/prompts' },
-  { label: 'Validation Scripts', to: '/validation-scripts' },
 ];
 
 const isPathActive = (currentPath: string, targetPath: string) => {

@@ -46,6 +46,7 @@ helm upgrade --install pytoya helm/pytoya \
   --set api.tag=1.0.0 \
   --set web.tag=1.0.0 \
   --set postgres.auth.password=change-me \
+  --set secrets.dbPassword=change-me \
   --set secrets.jwtSecret=change-me \
   --set secrets.llmApiKey=change-me
 ```
@@ -71,6 +72,7 @@ Notes:
 - Values files live under `helm/pytoya/` (e.g., `values-prod.yaml`).
 - The chart can optionally run a pre-install/pre-upgrade migration Job when `migrations.enabled=true`.
 - The chart can optionally run a post-install/post-upgrade admin seed Job when `admin.username` and `admin.password` are provided.
+- `secrets.dbPassword` defaults to `postgres.auth.password` if not provided.
 
 ## NodePort (No Ingress)
 
@@ -111,9 +113,9 @@ Get the NodePorts:
 kubectl get svc -n pytoya-dev
 ```
 
-### Dev Deps + Local .env Helper
+### Dev Deps + Local .env.local Helper
 
-Use the PowerShell helper to read NodePorts and update `src/apps/api/.env`:
+Use the PowerShell helper to read NodePorts and update `src/apps/api/.env.local`:
 
 ```powershell
 pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -Namespace pytoya-dev -ReleaseName pytoya-dev
@@ -126,10 +128,17 @@ pwsh -File scripts/setup-dev-k8s-deps.ps1 -PostgresPassword change-me -Namespace
 ```
 
 Notes:
-- The helper updates `DB_HOST`, `DB_PORT`, `REDIS_HOST`, and `REDIS_PORT` in `src/apps/api/.env`.
+- The helper writes `DB_HOST`, `DB_PORT`, `REDIS_HOST`, `REDIS_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`,
+  `JWT_SECRET`, and `LLM_API_KEY` to `src/apps/api/.env.local`.
 - Pass `-EnvPath` to write a different env file.
+- If you want different secrets, pass `-JwtSecret` and `-LlmApiKey`, or edit the env file after generation.
 - The helper creates or updates the Postgres app user by default (use `-SkipDbUserSetup` to skip).
 - If `-NodeIp` is not provided, the helper prompts for a reachable node IP.
+
+To run the API locally after generation:
+```bash
+npm run dev:api
+```
 
 ## Verify
 

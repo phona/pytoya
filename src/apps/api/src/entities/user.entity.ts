@@ -28,6 +28,18 @@ export class UserEntity {
   @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
   role!: UserRole;
 
+  @Column({ type: 'int', name: 'failed_login_attempts', default: 0 })
+  failedLoginAttempts!: number;
+
+  @Column({ type: 'timestamp', name: 'locked_until', nullable: true })
+  lockedUntil!: Date | null;
+
+  @Column({ type: 'timestamp', name: 'last_login_at', nullable: true })
+  lastLoginAt!: Date | null;
+
+  @Column({ type: 'timestamp', name: 'last_failed_login_at', nullable: true })
+  lastFailedLoginAt!: Date | null;
+
   @OneToMany(() => ProjectEntity, (project) => project.owner)
   projects!: ProjectEntity[];
 

@@ -30,6 +30,7 @@ import { ExportManifestsDto } from './dto/export-manifests.dto';
 import { ManifestResponseDto } from './dto/manifest-response.dto';
 import { ReExtractFieldDto } from './dto/re-extract-field.dto';
 import { UpdateManifestDto } from './dto/update-manifest.dto';
+import { DynamicFieldFiltersDto } from './dto/dynamic-field-filters.dto';
 import { ManifestsService } from './manifests.service';
 import { QueueService } from '../queue/queue.service';
 import {
@@ -91,12 +92,38 @@ export class ManifestsController {
   async findByGroup(
     @CurrentUser() user: UserEntity,
     @Param('groupId', ParseIntPipe) groupId: number,
+    @Query() query: DynamicFieldFiltersDto,
   ) {
-    const manifests = await this.manifestsService.findByGroup(
+    const result = await this.manifestsService.findByGroup(
       user,
       groupId,
+      query,
     );
-    return manifests.map(ManifestResponseDto.fromEntity);
+
+    const data = result.data.map(ManifestResponseDto.fromEntity);
+    const hasFilters =
+      query.page !== undefined ||
+      query.pageSize !== undefined ||
+      query.sortBy ||
+      query.order ||
+      (query.filter && Object.keys(query.filter).length > 0) ||
+      query.status ||
+      query.poNo ||
+      query.department ||
+      query.dateFrom ||
+      query.dateTo ||
+      query.humanVerified !== undefined ||
+      query.confidenceMin !== undefined ||
+      query.confidenceMax !== undefined;
+
+    if (hasFilters) {
+      return {
+        data,
+        meta: result.meta,
+      };
+    }
+
+    return data;
   }
 
   @Get('manifests/export/csv')

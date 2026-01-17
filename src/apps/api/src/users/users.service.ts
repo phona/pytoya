@@ -29,8 +29,16 @@ export class UsersService {
     return this.userRepository.findOne({ where: { role: UserRole.ADMIN } });
   }
 
+  async findAll(): Promise<UserEntity[]> {
+    return this.userRepository.find();
+  }
+
   async create(input: CreateUserInput): Promise<UserEntity> {
     const user = this.userRepository.create(input);
+    return this.userRepository.save(user);
+  }
+
+  async save(user: UserEntity): Promise<UserEntity> {
     return this.userRepository.save(user);
   }
 }

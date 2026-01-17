@@ -1,10 +1,12 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { manifestsApi, UpdateManifestDto } from '@/api/manifests';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { manifestsApi, ManifestListResponse, UpdateManifestDto } from '@/api/manifests';
+import { ManifestListQueryParams } from '@/shared/types/manifests';
 
-export function useManifests(groupId: number) {
-  return useQuery({
-    queryKey: ['manifests', 'group', groupId],
-    queryFn: () => manifestsApi.listManifests(groupId),
+export function useManifests(groupId: number, params?: ManifestListQueryParams) {
+  return useQuery<ManifestListResponse>({
+    queryKey: ['manifests', 'group', groupId, params],
+    queryFn: () => manifestsApi.listManifests(groupId, params),
+    placeholderData: keepPreviousData,
   });
 }
 

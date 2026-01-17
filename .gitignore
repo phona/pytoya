@@ -55,9 +55,6 @@ build/
 .env.*.local
 !src/apps/web/.env.local
 
-# Configurations
-src/apps/api/config.yaml
-
 # Logs
 *.log
 npm-debug.log*
