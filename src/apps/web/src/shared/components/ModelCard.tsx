@@ -1,4 +1,18 @@
 import { Model } from '@/api/models';
+import { MoreHorizontal, PlayCircle, Pencil, Trash2 } from 'lucide-react';
+import { Button } from '@/shared/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/shared/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/shared/components/ui/tooltip';
 
 type ModelCardProps = {
   model: Model;
@@ -41,35 +55,41 @@ export function ModelCard({ model, onEdit, onDelete, onTest, isTesting }: ModelC
         {summary || 'No parameters set'}
       </div>
 
-      <div className="mt-4 flex items-center justify-end gap-3 text-sm">
-        {onTest && (
-          <button
-            type="button"
-            onClick={() => onTest(model.id)}
-            disabled={isTesting}
-            className="text-indigo-600 hover:text-indigo-700 disabled:opacity-50"
-          >
-            {isTesting ? 'Testing...' : 'Test'}
-          </button>
-        )}
-        {onEdit && (
-          <button
-            type="button"
-            onClick={() => onEdit(model)}
-            className="text-indigo-600 hover:text-indigo-700"
-          >
-            Edit
-          </button>
-        )}
-        {onDelete && (
-          <button
-            type="button"
-            onClick={() => onDelete(model.id)}
-            className="text-red-600 hover:text-red-700"
-          >
-            Delete
-          </button>
-        )}
+      <div className="mt-4 flex items-center justify-end">
+        <TooltipProvider>
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="Model actions">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Actions</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end">
+              {onTest && (
+                <DropdownMenuItem onClick={() => onTest(model.id)} disabled={isTesting}>
+                  <PlayCircle className="mr-2 h-4 w-4" />
+                  {isTesting ? 'Testing...' : 'Test Connection'}
+                </DropdownMenuItem>
+              )}
+              {onEdit && (
+                <DropdownMenuItem onClick={() => onEdit(model)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {onDelete && (
+                <DropdownMenuItem onClick={() => onDelete(model.id)}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </TooltipProvider>
       </div>
     </div>
   );

@@ -1,5 +1,18 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
 import { CreateGroupDto, UpdateGroupDto, Group } from '@/api/projects';
+import { groupSchema, type GroupFormValues } from '@/shared/schemas/group.schema';
+import { Button } from '@/shared/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/shared/components/ui/form';
+import { Input } from '@/shared/components/ui/input';
 
 interface GroupFormProps {
   group?: Group;
@@ -10,58 +23,57 @@ interface GroupFormProps {
 }
 
 export function GroupForm({ group, projectId, onSubmit, onCancel, isLoading }: GroupFormProps) {
-  const [name, setName] = useState(group?.name ?? '');
+  const form = useForm<GroupFormValues>({
+    resolver: zodResolver(groupSchema),
+    defaultValues: {
+      name: group?.name ?? '',
+    },
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    form.reset({ name: group?.name ?? '' });
+  }, [form, group]);
 
+  const handleSubmit = async (values: GroupFormValues) => {
+    const name = values.name.trim();
     if (group) {
-      const updateData: UpdateGroupDto = {};
-      if (name) updateData.name = name;
+      const updateData: UpdateGroupDto = { name };
       await onSubmit(updateData);
-    } else {
-      if (!projectId) {
-        return;
-      }
-      const data: CreateGroupDto = { name, projectId };
-      await onSubmit(data);
+      return;
     }
+    if (!projectId) {
+      return;
+    }
+    const data: CreateGroupDto = { name, projectId };
+    await onSubmit(data);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-          Group Name *
-        </label>
-        <input
-          id="name"
-          type="text"
-          required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          placeholder="Group A"
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="group-name">Group Name *</FormLabel>
+              <FormControl>
+                <Input {...field} id="group-name" placeholder="Group A" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
 
-      <div className="flex justify-end gap-3 pt-4">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isLoading}
-          className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? 'Saving...' : group ? 'Update' : 'Create'}
-        </button>
-      </div>
-    </form>
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? 'Saving...' : group ? 'Update' : 'Create'}
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }

@@ -116,8 +116,6 @@ The web application SHALL use lucide-react for all iconography.
 - **THEN** the icon SHALL be sized appropriately (h-4 w-4 for default buttons)
 - **AND** spacing SHALL be added between icon and text
 
-## MODIFIED Requirements
-
 ### Requirement: Custom Dialog Component Migration
 The existing custom `Dialog` component in `src/shared/components/Dialog.tsx` SHALL be migrated to shadcn-ui `Dialog`.
 
@@ -151,24 +149,3 @@ The application entry point SHALL be updated to include required providers.
 - **WHEN** the application boots
 - **THEN** `QueryClientProvider` from React Query SHALL wrap the application
 - **AND** `Toaster` from shadcn-ui SHALL be included for toast notifications
-
-## REMOVED Requirements
-
-### Requirement: Custom Generic UI Components
-Custom implementations of generic UI components SHALL be removed after shadcn-ui migration.
-
-#### Scenario: Remove custom implementations
-- **WHEN** shadcn-ui components are integrated and tested
-- **THEN** the following custom components SHALL be removed:
-  - `src/shared/components/Dialog.tsx` (replaced by shadcn-ui)
-- **AND** all imports of these components SHALL be updated
-
-#### Scenario: Remove custom form validation
-- **WHEN** React Hook Form + Zod are integrated
-- **THEN** manual form validation logic SHALL be removed
-- **AND** inline error state management SHALL be removed
-
-#### Scenario: Remove custom data fetching logic
-- **WHEN** React Query is integrated
-- **THEN** manual loading/error state management in hooks SHALL be removed
-- **AND** manual cache management logic SHALL be removed

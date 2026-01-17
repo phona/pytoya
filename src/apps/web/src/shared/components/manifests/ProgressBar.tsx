@@ -1,3 +1,6 @@
+import { Progress } from '@/shared/components/ui/progress';
+import { cn } from '@/shared/lib/utils';
+
 interface ProgressBarProps {
   progress: number;
   status?: string;
@@ -21,7 +24,7 @@ export function ProgressBar({
     lg: 'h-3',
   }[size];
 
-  const getColor = () => {
+  const getIndicatorColor = () => {
     if (error) return 'bg-red-500';
     if (status === 'completed' || progress === 100) return 'bg-green-500';
     if (status === 'failed') return 'bg-red-500';
@@ -48,16 +51,14 @@ export function ProgressBar({
           <span className="text-xs text-gray-600">{getStatusText()}</span>
         )}
       </div>
-      <div className={`w-full bg-gray-200 rounded-full overflow-hidden ${height}`}>
-        <div
-          className={`${height} ${getColor()} transition-all duration-300 ease-out`}
-          style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
-          role="progressbar"
-          aria-valuenow={progress}
-          aria-valuemin={0}
-          aria-valuemax={100}
-        />
-      </div>
+      <Progress
+        value={Math.min(100, Math.max(0, progress))}
+        className={cn(height, 'bg-gray-200')}
+        indicatorClassName={getIndicatorColor()}
+        aria-valuenow={progress}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      />
       {error && (
         <p className="mt-1 text-xs text-red-600">{error}</p>
       )}

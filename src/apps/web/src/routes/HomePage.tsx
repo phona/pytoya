@@ -1,5 +1,5 @@
 import { Navigate } from 'react-router-dom';
-import { useAuthStore } from '@/api/auth-store';
+import { useAuthStore } from '@/shared/stores/auth';
 
 export function HomePage() {
   const { isAuthenticated, hasHydrated } = useAuthStore();

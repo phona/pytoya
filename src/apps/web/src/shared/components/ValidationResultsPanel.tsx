@@ -1,4 +1,8 @@
-import { ValidationResult, ValidationIssue, ValidationSeverity } from '@/api/validation';
+import { format } from 'date-fns';
+import { AlertTriangle, CircleAlert, CircleCheck } from 'lucide-react';
+import { ValidationIssue, ValidationResult, ValidationSeverity } from '@/api/validation';
+import { Badge } from '@/shared/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 
 interface ValidationResultsPanelProps {
   result: ValidationResult | null;
@@ -8,11 +12,6 @@ interface ValidationResultsPanelProps {
 const SEVERITY_COLORS: Record<ValidationSeverity, string> = {
   error: 'text-red-600 bg-red-50 border-red-200',
   warning: 'text-yellow-600 bg-yellow-50 border-yellow-200',
-};
-
-const SEVERACY_ICONS: Record<ValidationSeverity, string> = {
-  error: '✖',
-  warning: '⚠',
 };
 
 export function ValidationResultsPanel({ result, isLoading }: ValidationResultsPanelProps) {
@@ -31,19 +30,7 @@ export function ValidationResultsPanel({ result, isLoading }: ValidationResultsP
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="text-center py-8">
-          <svg
-            className="mx-auto h-12 w-12 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
+          <CircleCheck className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">No validation results</h3>
           <p className="mt-1 text-sm text-gray-500">
             Run validation to check for data integrity issues.
@@ -54,64 +41,91 @@ export function ValidationResultsPanel({ result, isLoading }: ValidationResultsP
   }
 
   const { issues, errorCount, warningCount, validatedAt } = result;
+  const errors = issues.filter((issue) => issue.severity === 'error');
+  const warnings = issues.filter((issue) => issue.severity === 'warning');
+  const hasIssues = errors.length > 0 || warnings.length > 0;
+  const defaultTab = errors.length > 0 ? 'errors' : 'warnings';
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      {/* Summary Header */}
       <div className="border-b border-gray-200 p-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium text-gray-900">Validation Results</h3>
-          <div className="flex gap-4 text-sm">
+          <div className="flex gap-4 text-sm items-center">
             {errorCount > 0 && (
-              <span className="flex items-center text-red-600">
-                <span className="mr-1">{SEVERACY_ICONS.error}</span>
+              <Badge variant="destructive" className="gap-1">
+                <AlertTriangle className="h-3.5 w-3.5" />
                 {errorCount} {errorCount === 1 ? 'error' : 'errors'}
-              </span>
+              </Badge>
             )}
             {warningCount > 0 && (
-              <span className="flex items-center text-yellow-600">
-                <span className="mr-1">{SEVERACY_ICONS.warning}</span>
+              <Badge variant="secondary" className="gap-1">
+                <CircleAlert className="h-3.5 w-3.5" />
                 {warningCount} {warningCount === 1 ? 'warning' : 'warnings'}
-              </span>
+              </Badge>
             )}
             {errorCount === 0 && warningCount === 0 && (
               <span className="flex items-center text-green-600">
-                <span className="mr-1">✓</span>
+                <CircleCheck className="mr-1 h-4 w-4" />
                 All checks passed
               </span>
             )}
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-1">
-          Validated at {new Date(validatedAt).toLocaleString()}
+          Validated at {format(new Date(validatedAt), 'PPpp')}
         </p>
       </div>
 
-      {/* Issues List */}
-      {issues.length === 0 ? (
+      {!hasIssues ? (
         <div className="p-6 text-center">
-          <svg
-            className="mx-auto h-12 w-12 text-green-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
+          <CircleCheck className="mx-auto h-12 w-12 text-green-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">No issues found</h3>
           <p className="mt-1 text-sm text-gray-500">All validation checks passed successfully.</p>
         </div>
       ) : (
-        <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-          {issues.map((issue: ValidationIssue, index: number) => (
-            <ValidationIssueItem key={index} issue={issue} />
-          ))}
-        </div>
+        <Tabs defaultValue={defaultTab} className="p-4">
+          <TabsList className="mb-4">
+            <TabsTrigger value="errors">
+              Errors
+              <Badge variant="secondary" className="ml-2">
+                {errors.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="warnings">
+              Warnings
+              <Badge variant="secondary" className="ml-2">
+                {warnings.length}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="errors">
+            {errors.length === 0 ? (
+              <div className="rounded-md border border-dashed border-gray-200 p-6 text-sm text-gray-500">
+                No errors detected.
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                {errors.map((issue, index) => (
+                  <ValidationIssueItem key={index} issue={issue} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+          <TabsContent value="warnings">
+            {warnings.length === 0 ? (
+              <div className="rounded-md border border-dashed border-gray-200 p-6 text-sm text-gray-500">
+                No warnings detected.
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                {warnings.map((issue, index) => (
+                  <ValidationIssueItem key={index} issue={issue} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
@@ -119,7 +133,11 @@ export function ValidationResultsPanel({ result, isLoading }: ValidationResultsP
 
 function ValidationIssueItem({ issue }: { issue: ValidationIssue }) {
   const colorClass = SEVERITY_COLORS[issue.severity];
-  const icon = SEVERACY_ICONS[issue.severity];
+  const icon = issue.severity === 'error' ? (
+    <AlertTriangle className="h-4 w-4" />
+  ) : (
+    <CircleAlert className="h-4 w-4" />
+  );
 
   return (
     <div className={`p-4 ${colorClass} border-l-4`}>

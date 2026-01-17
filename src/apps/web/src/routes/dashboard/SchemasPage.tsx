@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { format } from 'date-fns';
+import { FileText, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSchemas, useSchemaTemplates } from '@/shared/hooks/use-schemas';
 import { CreateSchemaDto, UpdateSchemaDto, Schema } from '@/api/schemas';
@@ -136,19 +138,7 @@ export function SchemasPage() {
           </div>
         ) : schemas.length === 0 ? (
           <div className="text-center py-12">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
+            <FileText className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No schemas</h3>
             <p className="mt-1 text-sm text-gray-500">Create a schema to define your extraction structure.</p>
             <div className="mt-6">
@@ -156,9 +146,7 @@ export function SchemasPage() {
                 onClick={() => setShowForm(true)}
                 className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
               >
-                <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
+                <Plus className="mr-2 h-5 w-5" />
                 New Schema
               </button>
             </div>
@@ -204,7 +192,7 @@ export function SchemasPage() {
                 )}
                 <div className="text-sm text-gray-500">
                   <p>Required fields: {schema.requiredFields.length}</p>
-                  <p>Created: {new Date(schema.createdAt).toLocaleDateString()}</p>
+                  <p>Created: {format(new Date(schema.createdAt), 'PP')}</p>
                 </div>
               </div>
             ))}

@@ -1,4 +1,6 @@
+import { AlertTriangle, FileText, XCircle } from 'lucide-react';
 import { Manifest } from '@/api/manifests';
+import { Progress } from '@/shared/components/ui/progress';
 
 interface OcrViewerProps {
   manifest: Manifest;
@@ -21,12 +23,11 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
               {Math.round(extractionInfo.confidence * 100)}%
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="h-2 rounded-full bg-indigo-600"
-              style={{ width: `${extractionInfo.confidence * 100}%` }}
-            />
-          </div>
+          <Progress
+            value={Math.round(extractionInfo.confidence * 100)}
+            className="h-2 bg-gray-200"
+            indicatorClassName="bg-indigo-600"
+          />
         </div>
       )}
 
@@ -39,18 +40,17 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
               <div key={field} className="flex items-center justify-between p-2 bg-white border rounded">
                 <span className="text-sm text-gray-600 font-mono">{field}</span>
                 <div className="flex items-center gap-2">
-                  <div className="w-24 bg-gray-200 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${
-                        confidence >= 0.9
-                          ? 'bg-green-500'
-                          : confidence >= 0.7
-                            ? 'bg-yellow-500'
-                            : 'bg-red-500'
-                      }`}
-                      style={{ width: `${confidence * 100}%` }}
-                    />
-                  </div>
+                  <Progress
+                    value={Math.round(confidence * 100)}
+                    className="h-2 w-24 bg-gray-200"
+                    indicatorClassName={
+                      confidence >= 0.9
+                        ? 'bg-green-500'
+                        : confidence >= 0.7
+                          ? 'bg-yellow-500'
+                          : 'bg-red-500'
+                    }
+                  />
                   <span className="text-sm text-gray-900 w-12 text-right">
                     {Math.round(confidence * 100)}%
                   </span>
@@ -69,9 +69,7 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
             <ul className="space-y-2">
               {extractionInfo.ocr_issues.map((issue: string, i: number) => (
                 <li key={i} className="text-sm text-red-700 flex items-start">
-                  <svg className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
+                  <XCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
                   {issue}
                 </li>
               ))}
@@ -88,9 +86,7 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
             <ul className="space-y-2">
               {extractionInfo.uncertain_fields.map((field: string, i: number) => (
                 <li key={i} className="text-sm text-yellow-700 flex items-start">
-                  <svg className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
+                  <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
                   <span className="font-mono">{field}</span> - Please verify this value
                 </li>
               ))}
@@ -118,9 +114,7 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
         !extractionInfo.uncertain_fields &&
         !extractionInfo.raw_ocr_text && (
           <div className="text-center py-12 text-gray-500">
-            <svg className="w-12 h-12 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+            <FileText className="w-12 h-12 mx-auto mb-4 text-gray-400" />
             <p>No OCR data available for this manifest.</p>
           </div>
         )}

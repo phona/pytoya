@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { FileText, LayoutGrid, List } from 'lucide-react';
 import { Manifest } from '@/api/manifests';
 import { ManifestTable } from './ManifestTable';
 import { ManifestCard } from './ManifestCard';
@@ -6,6 +7,12 @@ import { Pagination } from './Pagination';
 import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/shared/hooks/use-websocket';
 import { useRunBatchValidation } from '@/shared/hooks/use-validation-scripts';
 import { ManifestSort } from '@/shared/types/manifests';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/shared/components/ui/tooltip';
 
 interface ManifestListProps {
   manifests: Manifest[];
@@ -225,58 +232,51 @@ export function ManifestList({
             Page {currentPage} of {totalPages || 1}
           </div>
           {/* View Toggle */}
-          <div className="inline-flex rounded-md shadow-sm" role="group">
-            <button
-              type="button"
-              onClick={() => onViewModeChange('table')}
-              className={`px-3 py-2 text-sm font-medium rounded-l-lg border ${
-                viewMode === 'table'
-                  ? 'bg-indigo-50 text-indigo-700 border-indigo-600 z-10'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={() => onViewModeChange('card')}
-              className={`px-3 py-2 text-sm font-medium rounded-r-lg border -ml-px ${
-                viewMode === 'card'
-                  ? 'bg-indigo-50 text-indigo-700 border-indigo-600 z-10'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-                />
-              </svg>
-            </button>
-          </div>
+          <TooltipProvider>
+            <div className="inline-flex rounded-md shadow-sm" role="group">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Table view"
+                    onClick={() => onViewModeChange('table')}
+                    className={`px-3 py-2 text-sm font-medium rounded-l-lg border ${
+                      viewMode === 'table'
+                        ? 'bg-indigo-50 text-indigo-700 border-indigo-600 z-10'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <List className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Table view</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Card view"
+                    onClick={() => onViewModeChange('card')}
+                    className={`px-3 py-2 text-sm font-medium rounded-r-lg border -ml-px ${
+                      viewMode === 'card'
+                        ? 'bg-indigo-50 text-indigo-700 border-indigo-600 z-10'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Card view</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
         </div>
       </div>
 
       {/* Content */}
       {manifests.length === 0 ? (
         <div className="p-12 text-center">
-          <svg
-            className="mx-auto h-12 w-12 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
+          <FileText className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">No manifests found</h3>
           <p className="mt-1 text-sm text-gray-500">
             Try adjusting your filters to see more results.

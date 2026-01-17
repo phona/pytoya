@@ -4,7 +4,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useProject, useGroups, useProjects } from '@/shared/hooks/use-projects';
 import { useProjectSchemas } from '@/shared/hooks/use-schemas';
 import { useProjectValidationScripts, useValidationScripts } from '@/shared/hooks/use-validation-scripts';
-import { Dialog } from '@/shared/components/Dialog';
+import { ArrowLeft, FileText, Folder, FolderOpen } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/shared/components/ui/dialog';
 import { GroupCard } from '@/shared/components/GroupCard';
 import { GroupForm } from '@/shared/components/GroupForm';
 import { ExportButton } from '@/shared/components/ExportButton';
@@ -170,9 +177,10 @@ export function ProjectDetailPage() {
         <div className="mb-8">
           <button
             onClick={() => navigate('/projects')}
-            className="text-sm text-indigo-600 hover:text-indigo-700 mb-4"
+            className="text-sm text-indigo-600 hover:text-indigo-700 mb-4 inline-flex items-center gap-2"
           >
-            ← Back to Projects
+            <ArrowLeft className="h-4 w-4" />
+            Back to Projects
           </button>
           <div className="flex justify-between items-start">
             <div>
@@ -189,15 +197,11 @@ export function ProjectDetailPage() {
 
           <div className="mt-4 flex items-center gap-6 text-sm text-gray-500">
             <div className="flex items-center gap-1">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-              </svg>
+              <Folder className="h-4 w-4" />
               <span>{project._count?.groups ?? 0} groups</span>
             </div>
             <div className="flex items-center gap-1">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+              <FileText className="h-4 w-4" />
               <span>{project._count?.manifests ?? 0} manifests</span>
             </div>
           </div>
@@ -242,19 +246,7 @@ export function ProjectDetailPage() {
             </div>
           ) : groups.length === 0 ? (
             <div className="text-center py-8">
-              <svg
-                className="mx-auto h-10 w-10 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"
-                />
-              </svg>
+              <FolderOpen className="mx-auto h-10 w-10 text-gray-400" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">No groups</h3>
               <p className="mt-1 text-sm text-gray-500">Create a group to organize your manifests.</p>
             </div>
@@ -408,28 +400,39 @@ export function ProjectDetailPage() {
       </div>
 
       <Dialog
-        isOpen={isScriptDialogOpen}
-        onClose={() => {
-          if (isScriptCreating || isScriptUpdating) return;
-          setIsScriptDialogOpen(false);
-          setEditingScript(null);
-        }}
-        title={
-          editingScript
-            ? `Edit ${editingScript.name}`
-            : 'Create Validation Script'
-        }
-      >
-        <ValidationScriptForm
-          script={editingScript ?? undefined}
-          fixedProjectId={projectId}
-          onSubmit={handleScriptSubmit}
-          onCancel={() => {
+        open={isScriptDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && (isScriptCreating || isScriptUpdating)) return;
+          if (!open) {
             setIsScriptDialogOpen(false);
             setEditingScript(null);
-          }}
-          isLoading={isScriptCreating || isScriptUpdating}
-        />
+          } else {
+            setIsScriptDialogOpen(true);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingScript
+                ? `Edit ${editingScript.name}`
+                : 'Create Validation Script'}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Configure validation logic and output checks for this project.
+            </DialogDescription>
+          </DialogHeader>
+          <ValidationScriptForm
+            script={editingScript ?? undefined}
+            fixedProjectId={projectId}
+            onSubmit={handleScriptSubmit}
+            onCancel={() => {
+              setIsScriptDialogOpen(false);
+              setEditingScript(null);
+            }}
+            isLoading={isScriptCreating || isScriptUpdating}
+          />
+        </DialogContent>
       </Dialog>
     </div>
   );

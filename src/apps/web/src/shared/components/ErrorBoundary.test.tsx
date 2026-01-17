@@ -1,3 +1,4 @@
+import { act } from '@testing-library/react';
 import { Routes, Route } from 'react-router-dom';
 import { renderWithProviders, screen, userEvent } from '@/tests/utils';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -30,14 +31,18 @@ describe('ErrorBoundary', () => {
 
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
 
-    view.rerender(
-      <ErrorBoundary>
-        <Bomb shouldThrow={false} />
-      </ErrorBoundary>,
-    );
+    await act(async () => {
+      view.rerender(
+        <ErrorBoundary>
+          <Bomb shouldThrow={false} />
+        </ErrorBoundary>,
+      );
+    });
 
     const retryButton = screen.getByRole('button', { name: 'Try again' });
-    await user.click(retryButton);
+    await act(async () => {
+      await user.click(retryButton);
+    });
 
     expect(await screen.findByText('Recovered')).toBeInTheDocument();
   });

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { format } from 'date-fns';
+import { ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSchema, useValidateSchema } from '@/shared/hooks/use-schemas';
 import { UpdateSchemaDto, ValidateSchemaDto } from '@/api/schemas';
@@ -73,9 +75,10 @@ export function SchemaDetailPage() {
         <div className="mb-8">
           <button
             onClick={() => navigate('/schemas')}
-            className="text-indigo-600 hover:text-indigo-800 text-sm font-medium mb-4 inline-block"
+            className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-800 text-sm font-medium mb-4"
           >
-            ← Back to Schemas
+            <ArrowLeft className="h-4 w-4" />
+            Back to Schemas
           </button>
           <div className="flex justify-between items-start">
             <div>
@@ -127,11 +130,11 @@ export function SchemaDetailPage() {
                 </div>
                 <div>
                   <span className="font-medium text-gray-900">Created:</span>{' '}
-                  <span className="text-gray-700">{new Date(schema.createdAt).toLocaleDateString()}</span>
+                  <span className="text-gray-700">{format(new Date(schema.createdAt), 'PP')}</span>
                 </div>
                 <div>
                   <span className="font-medium text-gray-900">Updated:</span>{' '}
-                  <span className="text-gray-700">{new Date(schema.updatedAt).toLocaleDateString()}</span>
+                  <span className="text-gray-700">{format(new Date(schema.updatedAt), 'PP')}</span>
                 </div>
               </div>
             </div>

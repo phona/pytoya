@@ -89,7 +89,7 @@ describe('ManifestsPage', () => {
     expect(screen.getByText('Manifest Audit')).toBeInTheDocument();
     expect(screen.getByText('Audit Content')).toBeInTheDocument();
 
-    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.keyDown(document, { key: 'Escape' });
 
     await waitFor(() => {
       expect(screen.queryByText('Manifest Audit')).not.toBeInTheDocument();

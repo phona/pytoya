@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -43,13 +43,22 @@ const type = async (user: ReturnType<typeof userEvent.setup>, element: HTMLEleme
   });
 };
 
-const select = async (
+const selectOption = async (
   user: ReturnType<typeof userEvent.setup>,
-  element: HTMLElement,
-  value: string,
+  label: RegExp,
+  optionText: string,
 ) => {
   await act(async () => {
-    await user.selectOptions(element, value);
+    await user.click(screen.getByLabelText(label));
+  });
+  const listbox = await screen.findByRole('listbox');
+  await act(async () => {
+    const option = within(listbox).getByRole('option', { name: optionText });
+    fireEvent.pointerDown(option);
+    fireEvent.click(option);
+  });
+  await waitFor(() => {
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 };
 
@@ -86,7 +95,7 @@ describe('SchemaForm', () => {
     });
 
     it('should submit valid schema', async () => {
-      const user = userEvent.setup();
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
 
       render(
         <SchemaForm
@@ -98,7 +107,7 @@ describe('SchemaForm', () => {
       );
 
       await type(user, screen.getByLabelText(/Schema Name/i), 'Test Schema');
-      await select(user, screen.getByLabelText(/Project/i), '1');
+      await selectOption(user, /Project/i, 'Project 1');
 
       // Submit form
       await click(user, screen.getByRole('button', { name: /Create/i }));
@@ -109,7 +118,7 @@ describe('SchemaForm', () => {
     });
 
     it('should cancel form submission', async () => {
-      const user = userEvent.setup();
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
 
       render(
         <SchemaForm
@@ -188,7 +197,7 @@ describe('SchemaForm', () => {
     });
 
     it('should switch to visual builder mode', async () => {
-      const user = userEvent.setup();
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
 
       render(
         <SchemaForm
@@ -208,7 +217,7 @@ describe('SchemaForm', () => {
 
   describe('JSON validation', () => {
     it('should show error for invalid JSON', async () => {
-      const user = userEvent.setup();
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
 
       render(
         <SchemaForm
@@ -238,7 +247,7 @@ describe('SchemaForm', () => {
     });
 
     it('should disable submit with invalid JSON', async () => {
-      const user = userEvent.setup();
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
 
       render(
         <SchemaForm
@@ -301,7 +310,7 @@ describe('SchemaForm', () => {
     });
 
     it('should populate form when template is selected', async () => {
-      const user = userEvent.setup();
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
 
       render(
         <SchemaForm
@@ -313,8 +322,7 @@ describe('SchemaForm', () => {
         { wrapper: createWrapper() }
       );
 
-      const templateSelect = screen.getByLabelText(/Start from Template/i);
-      await select(user, templateSelect, '1');
+      await selectOption(user, /Start from Template/i, 'Invoice Template');
 
       await waitFor(() => {
         // Verify template schema is loaded

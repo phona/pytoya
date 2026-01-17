@@ -1,12 +1,20 @@
 import { useState } from 'react';
+import { FolderPlus, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getApiErrorMessage } from '@/api/client';
 import { useProjects } from '@/shared/hooks/use-projects';
-import { Dialog } from '@/shared/components/Dialog';
 import { ProjectCard } from '@/shared/components/ProjectCard';
 import { ProjectForm } from '@/shared/components/ProjectForm';
 import { ProjectWizard } from '@/shared/components/ProjectWizard';
 import { Project, UpdateProjectDto, CreateProjectDto } from '@/api/projects';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/shared/components/ui/dialog';
+import { Skeleton } from '@/shared/components/ui/skeleton';
 
 export function ProjectsPage() {
   const navigate = useNavigate();
@@ -75,28 +83,45 @@ export function ProjectsPage() {
         />
 
         <Dialog
-          isOpen={isEditOpen}
-          onClose={() => {
-            setIsEditOpen(false);
-            setEditingProject(null);
-          }}
-          title={editingProject ? `Edit ${editingProject.name}` : 'Edit Project'}
-        >
-          <ProjectForm
-            project={editingProject ?? undefined}
-            onSubmit={handleFormSubmit}
-            onCancel={() => {
-              setIsEditOpen(false);
+          open={isEditOpen}
+          onOpenChange={(open) => {
+            setIsEditOpen(open);
+            if (!open) {
               setEditingProject(null);
-            }}
-            isLoading={isUpdating}
-          />
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>
+                {editingProject ? `Edit ${editingProject.name}` : 'Edit Project'}
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                Update the project name and description.
+              </DialogDescription>
+            </DialogHeader>
+            <ProjectForm
+              project={editingProject ?? undefined}
+              onSubmit={handleFormSubmit}
+              onCancel={() => {
+                setIsEditOpen(false);
+                setEditingProject(null);
+              }}
+              isLoading={isUpdating}
+            />
+          </DialogContent>
         </Dialog>
 
         {isLoading ? (
-          <div className="text-center py-12">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
-            <p className="mt-2 text-sm text-gray-600">Loading projects...</p>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="rounded-lg border border-gray-200 bg-white p-6">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="mt-2 h-4 w-full" />
+                <Skeleton className="mt-6 h-4 w-24" />
+                <Skeleton className="mt-2 h-4 w-28" />
+              </div>
+            ))}
           </div>
         ) : error ? (
           <div className="rounded-lg border border-red-200 bg-red-50 px-6 py-4 text-sm text-red-700">
@@ -105,19 +130,7 @@ export function ProjectsPage() {
           </div>
         ) : projects.length === 0 ? (
           <div className="text-center py-12">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"
-              />
-            </svg>
+            <FolderPlus className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No projects</h3>
             <p className="mt-1 text-sm text-gray-500">Get started by creating a new project.</p>
             <div className="mt-6">
@@ -125,9 +138,7 @@ export function ProjectsPage() {
                 onClick={() => setIsWizardOpen(true)}
                 className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
               >
-                <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
+                <Plus className="mr-2 h-5 w-5" />
                 New Project
               </button>
             </div>

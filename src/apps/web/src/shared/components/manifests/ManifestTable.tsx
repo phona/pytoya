@@ -1,4 +1,17 @@
+import { useCallback, useMemo } from 'react';
+import { format } from 'date-fns';
+import {
+  type ColumnDef,
+  getCoreRowModel,
+  type SortingState,
+  useReactTable,
+} from '@tanstack/react-table';
+import { CheckCircle2, ChevronDown, ChevronUp, Eye, XCircle } from 'lucide-react';
 import { Manifest } from '@/api/manifests';
+import { DataTable } from '@/shared/components/DataTable';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Checkbox } from '@/shared/components/ui/checkbox';
 import { ProgressBar } from './ProgressBar';
 
 interface ManifestTableProps {
@@ -24,33 +37,270 @@ export function ManifestTable({
   selectAll,
   manifestProgress,
 }: ManifestTableProps) {
-  const handleSort = (field: string) => {
+  const sorting = useMemo<SortingState>(
+    () => (sort.field ? [{ id: sort.field, desc: sort.order === 'desc' }] : []),
+    [sort],
+  );
+
+  const handleSort = useCallback((field: string) => {
     if (sort.field === field) {
       onSortChange({ field, order: sort.order === 'asc' ? 'desc' : 'asc' });
     } else {
       onSortChange({ field, order: 'asc' });
     }
-  };
+  }, [onSortChange, sort.field, sort.order]);
 
-  const getSortIcon = (field: string) => {
+  const renderSortIcon = useCallback((field: string) => {
     if (sort.field !== field) return null;
-    return sort.order === 'asc' ? '↑' : '↓';
-  };
+    return sort.order === 'asc' ? (
+      <ChevronUp className="h-3 w-3" />
+    ) : (
+      <ChevronDown className="h-3 w-3" />
+    );
+  }, [sort.field, sort.order]);
 
-  const getStatusColor = (status: Manifest['status']) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-700';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-700';
-      case 'processing':
-        return 'bg-blue-100 text-blue-700';
-      case 'failed':
-        return 'bg-red-100 text-red-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
+  const columns = useMemo<ColumnDef<Manifest>[]>(() => {
+    const cols: ColumnDef<Manifest>[] = [];
+
+    if (onSelectAll && onSelectToggle) {
+      cols.push({
+        id: 'select',
+        header: () => (
+          <div className="flex items-center justify-center">
+            <Checkbox
+              checked={selectAll ?? false}
+              onCheckedChange={() => onSelectAll()}
+              aria-label="Select all manifests"
+            />
+          </div>
+        ),
+        cell: ({ row }) => (
+          <div className="flex items-center justify-center">
+            <Checkbox
+              checked={selectedIds?.has(row.original.id) ?? false}
+              onCheckedChange={() => onSelectToggle(row.original.id)}
+              onClick={(event) => event.stopPropagation()}
+              aria-label={`Select ${row.original.originalFilename}`}
+            />
+          </div>
+        ),
+        meta: {
+          headerClassName: 'w-12',
+          cellClassName: 'w-12',
+        },
+      });
     }
-  };
+
+    cols.push(
+      {
+        id: 'filename',
+        header: () => (
+          <button
+            type="button"
+            onClick={() => handleSort('filename')}
+            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-gray-500"
+          >
+            Filename
+            {renderSortIcon('filename')}
+          </button>
+        ),
+        cell: ({ row }) => (
+          <div className="text-sm font-medium text-gray-900">
+            {row.original.originalFilename}
+          </div>
+        ),
+      },
+      {
+        id: 'status',
+        header: () => (
+          <button
+            type="button"
+            onClick={() => handleSort('status')}
+            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-gray-500"
+          >
+            Status
+            {renderSortIcon('status')}
+          </button>
+        ),
+        cell: ({ row }) => {
+          const status = row.original.status;
+          const statusClass =
+            status === 'completed'
+              ? 'bg-green-100 text-green-700'
+              : status === 'pending'
+              ? 'bg-yellow-100 text-yellow-700'
+              : status === 'processing'
+              ? 'bg-blue-100 text-blue-700'
+              : status === 'failed'
+              ? 'bg-red-100 text-red-700'
+              : 'bg-gray-100 text-gray-700';
+
+          return (
+            <Badge className={`px-2 py-1 ${statusClass}`}>{status}</Badge>
+          );
+        },
+      },
+      {
+        id: 'progress',
+        header: () => (
+          <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+            Progress
+          </span>
+        ),
+        cell: ({ row }) => {
+          const progress = manifestProgress?.[row.original.id];
+          return row.original.status === 'processing' || progress ? (
+            <div className="w-32">
+              <ProgressBar
+                progress={progress?.progress ?? 0}
+                status={progress?.status}
+                error={progress?.error}
+                size="sm"
+                showLabel={false}
+                showStatus={false}
+              />
+            </div>
+          ) : (
+            <span className="text-xs text-gray-400">-</span>
+          );
+        },
+      },
+      {
+        id: 'poNo',
+        header: () => (
+          <button
+            type="button"
+            onClick={() => handleSort('poNo')}
+            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-gray-500"
+          >
+            PO No
+            {renderSortIcon('poNo')}
+          </button>
+        ),
+        cell: ({ row }) => (
+          <span className="text-sm text-gray-500">
+            {row.original.purchaseOrder ?? 'N/A'}
+          </span>
+        ),
+      },
+      {
+        id: 'invoiceDate',
+        header: () => (
+          <button
+            type="button"
+            onClick={() => handleSort('invoiceDate')}
+            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-gray-500"
+          >
+            Invoice Date
+            {renderSortIcon('invoiceDate')}
+          </button>
+        ),
+        cell: ({ row }) => (
+          <span className="text-sm text-gray-500">
+            {row.original.invoiceDate
+              ? format(new Date(row.original.invoiceDate), 'PP')
+              : 'N/A'}
+          </span>
+        ),
+      },
+      {
+        id: 'department',
+        header: () => (
+          <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+            Department
+          </span>
+        ),
+        cell: ({ row }) => (
+          <span className="text-sm text-gray-500">
+            {row.original.department ?? 'N/A'}
+          </span>
+        ),
+      },
+      {
+        id: 'confidence',
+        header: () => (
+          <button
+            type="button"
+            onClick={() => handleSort('confidence')}
+            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-gray-500"
+          >
+            Confidence
+            {renderSortIcon('confidence')}
+          </button>
+        ),
+        cell: ({ row }) => (
+          <span className="text-sm text-gray-500">
+            {row.original.confidence !== null
+              ? `${Math.round(row.original.confidence * 100)}%`
+              : 'N/A'}
+          </span>
+        ),
+      },
+      {
+        id: 'verified',
+        header: () => (
+          <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+            Verified
+          </span>
+        ),
+        cell: ({ row }) => (
+          row.original.humanVerified ? (
+            <CheckCircle2 className="h-5 w-5 text-green-500" />
+          ) : (
+            <XCircle className="h-5 w-5 text-gray-300" />
+          )
+        ),
+        meta: {
+          cellClassName: 'text-center',
+        },
+      },
+      {
+        id: 'actions',
+        header: () => (
+          <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+            Actions
+          </span>
+        ),
+        cell: ({ row }) => (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelectManifest(row.original.id);
+            }}
+            className="text-indigo-600 hover:text-indigo-900"
+          >
+            <Eye className="mr-1 h-4 w-4" />
+            View
+          </Button>
+        ),
+        meta: {
+          cellClassName: 'text-right',
+          headerClassName: 'text-right',
+        },
+      },
+    );
+
+    return cols;
+  }, [
+    handleSort,
+    manifestProgress,
+    onSelectAll,
+    onSelectManifest,
+    onSelectToggle,
+    renderSortIcon,
+    selectedIds,
+    selectAll,
+  ]);
+
+  const table = useReactTable({
+    data: manifests,
+    columns,
+    state: { sorting },
+    manualSorting: true,
+    getCoreRowModel: getCoreRowModel(),
+  });
 
   const getConfidenceColor = (confidence: number | null) => {
     if (confidence === null) return 'border-gray-300';
@@ -61,145 +311,13 @@ export function ManifestTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            {onSelectAll && (
-              <th className="px-6 py-3 text-left">
-                <input
-                  type="checkbox"
-                  checked={selectAll ?? false}
-                  onChange={onSelectAll}
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-              </th>
-            )}
-            <th
-              onClick={() => handleSort('filename')}
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-            >
-              Filename {getSortIcon('filename')}
-            </th>
-            <th
-              onClick={() => handleSort('status')}
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-            >
-              Status {getSortIcon('status')}
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Progress
-            </th>
-            <th
-              onClick={() => handleSort('poNo')}
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-            >
-              PO No {getSortIcon('poNo')}
-            </th>
-            <th
-              onClick={() => handleSort('invoiceDate')}
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-            >
-              Invoice Date {getSortIcon('invoiceDate')}
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Department
-            </th>
-            <th
-              onClick={() => handleSort('confidence')}
-              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-            >
-              Confidence {getSortIcon('confidence')}
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Verified
-            </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {manifests.map((manifest) => (
-            <tr
-              key={manifest.id}
-              className={`hover:bg-gray-50 cursor-pointer border-l-4 ${getConfidenceColor(manifest.confidence)}`}
-            >
-              {onSelectToggle && (
-                <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    checked={selectedIds?.has(manifest.id) ?? false}
-                    onChange={() => onSelectToggle(manifest.id)}
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                </td>
-              )}
-              <td className="px-6 py-4 whitespace-nowrap" onClick={() => onSelectManifest(manifest.id)}>
-                <div className="text-sm font-medium text-gray-900">{manifest.originalFilename}</div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap" onClick={() => onSelectManifest(manifest.id)}>
-                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(manifest.status)}`}>
-                  {manifest.status}
-                </span>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                {(manifest.status === 'processing' || manifestProgress?.[manifest.id]) ? (
-                  <div className="w-32">
-                    <ProgressBar
-                      progress={manifestProgress?.[manifest.id]?.progress ?? 0}
-                      status={manifestProgress?.[manifest.id]?.status}
-                      error={manifestProgress?.[manifest.id]?.error}
-                      size="sm"
-                      showLabel={false}
-                      showStatus={false}
-                    />
-                  </div>
-                ) : (
-                  <span className="text-xs text-gray-400">-</span>
-                )}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" onClick={() => onSelectManifest(manifest.id)}>
-                {manifest.purchaseOrder ?? 'N/A'}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" onClick={() => onSelectManifest(manifest.id)}>
-              {manifest.invoiceDate
-                ? new Date(manifest.invoiceDate).toLocaleDateString()
-                : 'N/A'}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" onClick={() => onSelectManifest(manifest.id)}>
-                {manifest.department ?? 'N/A'}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" onClick={() => onSelectManifest(manifest.id)}>
-                {manifest.confidence !== null
-                  ? `${Math.round(manifest.confidence * 100)}%`
-                  : 'N/A'}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap" onClick={() => onSelectManifest(manifest.id)}>
-                {manifest.humanVerified ? (
-                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                )}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectManifest(manifest.id);
-                  }}
-                  className="text-indigo-600 hover:text-indigo-900"
-                >
-                  View
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <DataTable
+        table={table}
+        onRowClick={(row) => onSelectManifest(row.original.id)}
+        getRowClassName={(row) =>
+          `hover:bg-gray-50 cursor-pointer border-l-4 ${getConfidenceColor(row.original.confidence)}`
+        }
+      />
     </div>
   );
 }

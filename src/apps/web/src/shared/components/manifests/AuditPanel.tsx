@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useManifest, useManifestItems, useUpdateManifest, useReExtractField } from '@/shared/hooks/use-manifests';
 import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/shared/hooks/use-websocket';
 import { useRunValidation } from '@/shared/hooks/use-validation-scripts';
@@ -194,11 +195,9 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
             onClick={goToPrevious}
             disabled={currentIndex === 0}
             className="p-2 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Previous (←)"
+            title="Previous"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+            <ChevronLeft className="h-5 w-5" />
           </button>
           <span className="text-sm text-gray-600">
             {currentIndex + 1} / {allManifestIds.length}
@@ -207,11 +206,9 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
             onClick={goToNext}
             disabled={currentIndex === allManifestIds.length - 1}
             className="p-2 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Next (→)"
+            title="Next"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
+            <ChevronRight className="h-5 w-5" />
           </button>
 
           {/* Close */}
@@ -220,9 +217,7 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
             className="p-2 rounded border border-gray-300 hover:bg-gray-50"
             title="Close (Esc)"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="h-5 w-5" />
           </button>
         </div>
       </div>

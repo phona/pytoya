@@ -1,4 +1,5 @@
-import { useAuthStore } from '@/api/auth-store';
+import { useMutation } from '@tanstack/react-query';
+import { useAuthStore } from '@/shared/stores/auth';
 import apiClient from '@/api/client';
 
 export interface LoginCredentials {
@@ -24,21 +25,37 @@ export interface AuthResponse {
 export function useAuth() {
   const { user, token, isAuthenticated, setAuth, clearAuth } = useAuthStore();
 
+  const loginMutation = useMutation({
+    mutationFn: async (credentials: LoginCredentials) => {
+      const response = await apiClient.post<AuthResponse>('/auth/login', credentials);
+      return response.data;
+    },
+    onSuccess: ({ user: nextUser, token: nextToken }) => {
+      setAuth(nextUser, nextToken);
+    },
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: async (data: RegisterData) => {
+      const response = await apiClient.post<AuthResponse>('/auth/register', {
+        username: data.username,
+        password: data.password,
+      });
+      return response.data;
+    },
+    onSuccess: ({ user: nextUser, token: nextToken }) => {
+      setAuth(nextUser, nextToken);
+    },
+  });
+
   const login = async (credentials: LoginCredentials) => {
-    const response = await apiClient.post<AuthResponse>('/auth/login', credentials);
-    const { user, token } = response.data;
-    setAuth(user, token);
-    return user;
+    const { user: nextUser } = await loginMutation.mutateAsync(credentials);
+    return nextUser;
   };
 
   const register = async (data: RegisterData) => {
-    const response = await apiClient.post<AuthResponse>('/auth/register', {
-      username: data.username,
-      password: data.password,
-    });
-    const { user, token } = response.data;
-    setAuth(user, token);
-    return user;
+    const { user: nextUser } = await registerMutation.mutateAsync(data);
+    return nextUser;
   };
 
   const logout = () => {
@@ -56,5 +73,7 @@ export function useAuth() {
     login,
     register,
     logout,
+    isLoggingIn: loginMutation.isPending,
+    isRegistering: registerMutation.isPending,
   };
 }

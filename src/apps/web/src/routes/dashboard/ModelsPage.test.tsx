@@ -172,7 +172,8 @@ describe('ModelsPage', () => {
     });
     await screen.findByText('PaddleX OCR');
 
-    await click(user, screen.getByRole('button', { name: /Edit/i }));
+    await click(user, screen.getByRole('button', { name: /Model actions/i }));
+    await click(user, screen.getByRole('menuitem', { name: /Edit/i }));
     const nameInput = screen.getByLabelText(/Name/i);
     await act(async () => {
       await user.clear(nameInput);
@@ -184,12 +185,14 @@ describe('ModelsPage', () => {
       expect(patched).toMatchObject({ name: 'Updated OCR' });
     });
 
-    await click(user, screen.getByRole('button', { name: /Test/i }));
+    await click(user, screen.getByRole('button', { name: /Model actions/i }));
+    await click(user, screen.getByRole('menuitem', { name: /Test Connection/i }));
     await waitFor(() => {
       expect(alertSpy).toHaveBeenCalledWith('ok');
     });
 
-    await click(user, screen.getByRole('button', { name: /Delete/i }));
+    await click(user, screen.getByRole('button', { name: /Model actions/i }));
+    await click(user, screen.getByRole('menuitem', { name: /Delete/i }));
     await waitFor(() => {
       expect(confirmSpy).toHaveBeenCalled();
       expect(deleted).toBe(true);

@@ -1,7 +1,7 @@
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { act, renderWithProviders, screen } from '@/tests/utils';
 import { ProtectedRoute } from './ProtectedRoute';
-import { useAuthStore } from '@/api/auth-store';
+import { useAuthStore } from '@/shared/stores/auth';
 
 function LoginLocation() {
   const location = useLocation();

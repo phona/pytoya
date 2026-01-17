@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuthStore } from '@/api/auth-store';
+import { useAuthStore } from '@/shared/stores/auth';
 
 type AdminRouteProps = {
   children?: ReactNode;

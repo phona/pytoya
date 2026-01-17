@@ -1,10 +1,19 @@
 import { useMemo, useState } from 'react';
 import { getApiErrorMessage } from '@/api/client';
 import { AdapterSchema, CreateModelDto, Model, UpdateModelDto } from '@/api/models';
-import { Dialog } from '@/shared/components/Dialog';
 import { ModelCard } from '@/shared/components/ModelCard';
 import { ModelForm } from '@/shared/components/ModelForm';
 import { getAdapterByType, useModelAdapters, useModelMutations, useModels } from '@/shared/hooks/use-models';
+import { Button } from '@/shared/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/shared/components/ui/dialog';
+import { Skeleton } from '@/shared/components/ui/skeleton';
 
 type ModelCategory = 'ocr' | 'llm';
 
@@ -121,111 +130,123 @@ export function ModelsPage() {
         </div>
 
         <Dialog
-          isOpen={isDialogOpen}
-          onClose={() => {
-            setIsDialogOpen(false);
-            setEditingModel(null);
-            setCreateStep('select');
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setEditingModel(null);
+              setCreateStep('select');
+            }
           }}
-          title={
-            editingModel
-              ? 'Edit Model'
-              : createStep === 'select'
-              ? 'Choose Model Type'
-              : 'Configure Model'
-          }
-          description={
-            editingModel
-              ? 'Update model settings and connection details.'
-              : 'Select the adapter type before configuring the model.'
-          }
         >
-          {!editingModel && createStep === 'select' && (
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="adapterType" className="block text-sm font-medium text-gray-700">
-                  Adapter Type
-                </label>
-                <select
-                  id="adapterType"
-                  value={selectedAdapterType}
-                  onChange={(e) => setSelectedAdapterType(e.target.value)}
-                  className="mt-1 block w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                >
-                  {availableAdapters.map((adapter) => (
-                    <option key={adapter.type} value={adapter.type}>
-                      {adapter.name}
-                    </option>
-                  ))}
-                </select>
+          <DialogContent className="sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>
+                {editingModel
+                  ? 'Edit Model'
+                  : createStep === 'select'
+                  ? 'Choose Model Type'
+                  : 'Configure Model'}
+              </DialogTitle>
+              <DialogDescription>
+                {editingModel
+                  ? 'Update model settings and connection details.'
+                  : 'Select the adapter type before configuring the model.'}
+              </DialogDescription>
+            </DialogHeader>
+            {!editingModel && createStep === 'select' && (
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="adapterType" className="block text-sm font-medium text-gray-700">
+                    Adapter Type
+                  </label>
+                  <select
+                    id="adapterType"
+                    value={selectedAdapterType}
+                    onChange={(e) => setSelectedAdapterType(e.target.value)}
+                    className="mt-1 block w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                  >
+                    {availableAdapters.map((adapter) => (
+                      <option key={adapter.type} value={adapter.type}>
+                        {adapter.name}
+                      </option>
+                    ))}
+                  </select>
+                  {activeAdapter && (
+                    <p className="mt-2 text-sm text-gray-600">
+                      {activeAdapter.description}
+                    </p>
+                  )}
+                </div>
+                <DialogFooter className="gap-3 sm:gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsDialogOpen(false);
+                      setEditingModel(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => setCreateStep('form')}
+                    disabled={!selectedAdapterType}
+                  >
+                    Next
+                  </Button>
+                </DialogFooter>
+              </div>
+            )}
+
+            {(editingModel || createStep === 'form') && (
+              <div className="space-y-4">
+                {!editingModel && (
+                  <div className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-700">
+                    <span>Adapter Type: {activeAdapter?.name ?? 'Unknown'}</span>
+                    <button
+                      type="button"
+                      onClick={() => setCreateStep('select')}
+                      className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                    >
+                      Change
+                    </button>
+                  </div>
+                )}
+
                 {activeAdapter && (
-                  <p className="mt-2 text-sm text-gray-600">
-                    {activeAdapter.description}
-                  </p>
+                  <ModelForm
+                    key={`${editingModel?.id ?? 'new'}-${activeAdapter.type}`}
+                    adapter={activeAdapter}
+                    model={editingModel ?? undefined}
+                    onSubmit={handleFormSubmit}
+                    onCancel={() => {
+                      setIsDialogOpen(false);
+                      setEditingModel(null);
+                      setCreateStep('select');
+                    }}
+                    isLoading={isCreating || isUpdating}
+                  />
+                )}
+                {!activeAdapter && !adaptersLoading && (
+                  <div className="text-sm text-gray-500">No adapter available for this category.</div>
                 )}
               </div>
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsDialogOpen(false);
-                    setEditingModel(null);
-                  }}
-                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCreateStep('form')}
-                  disabled={!selectedAdapterType}
-                  className="rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
-
-          {(editingModel || createStep === 'form') && (
-            <div className="space-y-4">
-              {!editingModel && (
-                <div className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-700">
-                  <span>Adapter Type: {activeAdapter?.name ?? 'Unknown'}</span>
-                  <button
-                    type="button"
-                    onClick={() => setCreateStep('select')}
-                    className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
-                  >
-                    Change
-                  </button>
-                </div>
-              )}
-
-              {activeAdapter && (
-                <ModelForm
-                  key={`${editingModel?.id ?? 'new'}-${activeAdapter.type}`}
-                  adapter={activeAdapter}
-                  model={editingModel ?? undefined}
-                  onSubmit={handleFormSubmit}
-                  onCancel={() => {
-                    setIsDialogOpen(false);
-                    setEditingModel(null);
-                    setCreateStep('select');
-                  }}
-                  isLoading={isCreating || isUpdating}
-                />
-              )}
-              {!activeAdapter && !adaptersLoading && (
-                <div className="text-sm text-gray-500">No adapter available for this category.</div>
-              )}
-            </div>
-          )}
+            )}
+          </DialogContent>
         </Dialog>
 
         {isLoading ? (
-          <div className="py-12 text-center">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="mt-2 h-4 w-full" />
+                <Skeleton className="mt-4 h-4 w-20" />
+                <Skeleton className="mt-2 h-3 w-40" />
+              </div>
+            ))}
           </div>
         ) : filteredModels.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center text-gray-500">

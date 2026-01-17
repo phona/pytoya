@@ -39,9 +39,16 @@ describe('ModelCard', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: /Edit/i }));
-    await user.click(screen.getByRole('button', { name: /Delete/i }));
-    await user.click(screen.getByRole('button', { name: /Test/i }));
+    const trigger = screen.getByRole('button', { name: /model actions/i });
+
+    await user.click(trigger);
+    await user.click(screen.getByRole('menuitem', { name: /Test Connection/i }));
+
+    await user.click(trigger);
+    await user.click(screen.getByRole('menuitem', { name: /Edit/i }));
+
+    await user.click(trigger);
+    await user.click(screen.getByRole('menuitem', { name: /Delete/i }));
 
     expect(onEdit).toHaveBeenCalledWith(model);
     expect(onDelete).toHaveBeenCalledWith('model-1');

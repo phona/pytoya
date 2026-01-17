@@ -123,8 +123,9 @@ openspec/                # Spec-driven development
 ### Frontend (Vite Web)
 - **Framework**: Vite + React Router (`src/apps/web/src/routes`)
 - **API Client**: Axios with centralized config in `src/apps/web/src/api/client.ts`
-- **State Management**: Zustand stores in `src/apps/web/src/shared/hooks` (e.g., `use-auth.ts`)
+- **State Management**: Zustand stores in `src/apps/web/src/shared/stores` with hooks in `src/apps/web/src/shared/hooks`
 - **Components**: Shared components in `src/apps/web/src/shared/components`
+- **UI System**: shadcn/ui components in `src/apps/web/src/shared/components/ui`
 - **Routing & UX**: Route protection, error boundaries, and accessibility basics in `docs/WEB_APP.md`
 
 ### Database Schema (11 Entities)
@@ -237,6 +238,10 @@ Test.createTestingModule({
 - Use React Query (`@tanstack/react-query`) for server state
 - Use Zustand for client state (auth, UI state)
 - API client modules in `src/apps/web/src/api` (e.g., `projects.ts`, `schemas.ts`)
+
+### Web Forms and Validation
+- Use React Hook Form with Zod schemas in `src/apps/web/src/shared/schemas`
+- Prefer shadcn/ui form primitives for inputs, labels, and errors
 
 ### Manifests List Filtering
 - `GET /api/groups/:groupId/manifests` supports server-side filtering, sorting, and pagination.

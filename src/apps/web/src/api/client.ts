@@ -1,5 +1,5 @@
 import axios, { AxiosError } from 'axios';
-import { useAuthStore } from './auth-store';
+import { useAuthStore } from '@/shared/stores/auth';
 
 // Normalize API URL to ensure it ends with /api
 const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';

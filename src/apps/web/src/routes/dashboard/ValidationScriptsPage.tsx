@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { format } from 'date-fns';
+import { Code2, Plus } from 'lucide-react';
 import { useValidationScripts } from '@/shared/hooks/use-validation-scripts';
 import {
   CreateValidationScriptDto,
@@ -114,19 +116,7 @@ export function ValidationScriptsPage() {
           </div>
         ) : scripts.length === 0 ? (
           <div className="text-center py-12">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-              />
-            </svg>
+            <Code2 className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No validation scripts</h3>
             <p className="mt-1 text-sm text-gray-500">
               Create validation scripts to verify data integrity after extraction.
@@ -136,9 +126,7 @@ export function ValidationScriptsPage() {
                 onClick={() => setShowForm(true)}
                 className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
               >
-                <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
+                <Plus className="mr-2 h-5 w-5" />
                 New Script
               </button>
             </div>
@@ -197,8 +185,8 @@ export function ValidationScriptsPage() {
                   <p className="text-sm text-gray-600 mb-4">{script.description}</p>
                 )}
                 <div className="text-sm text-gray-500 mb-4">
-                  <p>Created: {new Date(script.createdAt).toLocaleDateString()}</p>
-                  <p>Updated: {new Date(script.updatedAt).toLocaleDateString()}</p>
+                  <p>Created: {format(new Date(script.createdAt), 'PP')}</p>
+                  <p>Updated: {format(new Date(script.updatedAt), 'PP')}</p>
                 </div>
                 <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                   <button

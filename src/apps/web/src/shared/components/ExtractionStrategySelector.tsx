@@ -1,4 +1,7 @@
 import { ExtractionStrategy } from '@/api/schemas';
+import { Badge } from '@/shared/components/ui/badge';
+import { ToggleGroup, ToggleGroupItem } from '@/shared/components/ui/toggle-group';
+import { cn } from '@/shared/lib/utils';
 
 interface ExtractionStrategySelectorProps {
   value: ExtractionStrategy | null | undefined;
@@ -50,54 +53,50 @@ export function ExtractionStrategySelector({
   disabled = false,
   showCostEstimate = true,
 }: ExtractionStrategySelectorProps) {
-  const selectedStrategy = STRATEGIES.find((strategy) => strategy.value === value);
   const helperId = 'extraction-strategy-help';
-  const detailsId = 'extraction-strategy-details';
 
   return (
     <div>
       <label htmlFor="extractionStrategy" className="block text-sm font-medium text-gray-700">
         Extraction Strategy
       </label>
-      <select
+      <ToggleGroup
         id="extractionStrategy"
+        type="single"
         value={value ?? ''}
-        onChange={(e) => onChange(e.target.value === '' ? null : (e.target.value as ExtractionStrategy))}
-        disabled={disabled}
-        aria-describedby={value ? detailsId : helperId}
-        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+        onValueChange={(nextValue) =>
+          onChange(nextValue ? (nextValue as ExtractionStrategy) : null)
+        }
+        className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2"
       >
-        <option value="">Auto-select (based on file type)</option>
         {STRATEGIES.map((strategy) => (
-          <option key={strategy.value} value={strategy.value}>
-            {strategy.label} - {strategy.description}
-          </option>
-        ))}
-      </select>
-      {value && showCostEstimate && (
-        <div
-          id={detailsId}
-          className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md"
-          aria-live="polite"
-        >
-          <div className="flex items-start">
-            <svg className="h-5 w-5 text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-            <div className="ml-3 flex-1">
-              <h4 className="text-sm font-medium text-blue-800">
-                {selectedStrategy?.label}
-              </h4>
-              <div className="mt-1 text-sm text-blue-700">
-                <p className="font-medium">Estimate: {selectedStrategy?.costEstimate}</p>
-                <p className="text-xs mt-1">Best for: {selectedStrategy?.useCase}</p>
+          <ToggleGroupItem
+            key={strategy.value}
+            value={strategy.value}
+            disabled={disabled}
+            className={cn(
+              'h-auto items-start justify-start whitespace-normal rounded-md border border-gray-200 p-4 text-left',
+              'data-[state=on]:border-primary data-[state=on]:bg-primary/5',
+              disabled && 'pointer-events-none opacity-50',
+            )}
+          >
+            <div className="w-full">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-900">{strategy.label}</span>
+                {showCostEstimate && (
+                  <Badge variant="secondary" className="text-xs">
+                    {strategy.costEstimate}
+                  </Badge>
+                )}
               </div>
+              <p className="mt-1 text-xs text-gray-600">{strategy.description}</p>
+              <p className="mt-2 text-xs text-gray-500">Best for: {strategy.useCase}</p>
             </div>
-          </div>
-        </div>
-      )}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
       {!value && (
-        <p id={helperId} className="mt-1 text-xs text-gray-500">
+        <p id={helperId} className="mt-2 text-xs text-gray-500">
           The system will automatically select the best strategy based on file type. PDFs use OCR-first, images use vision-only (if the LLM model supports it).
         </p>
       )}

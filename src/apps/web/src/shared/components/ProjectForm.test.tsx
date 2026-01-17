@@ -1,4 +1,5 @@
-import { renderWithProviders, screen, waitFor, act } from '@/tests/utils';
+import { renderWithProviders, screen, waitFor, act, fireEvent } from '@/tests/utils';
+import { within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { vi } from 'vitest';
@@ -57,13 +58,22 @@ const type = async (user: ReturnType<typeof userEvent.setup>, element: HTMLEleme
   });
 };
 
-const select = async (
+const selectOption = async (
   user: ReturnType<typeof userEvent.setup>,
-  element: HTMLElement,
-  value: string,
+  label: RegExp,
+  optionText: string,
 ) => {
   await act(async () => {
-    await user.selectOptions(element, value);
+    await user.click(screen.getByLabelText(label));
+  });
+  const listbox = await screen.findByRole('listbox');
+  await act(async () => {
+    const option = within(listbox).getByRole('option', { name: optionText });
+    fireEvent.pointerDown(option);
+    fireEvent.click(option);
+  });
+  await waitFor(() => {
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 };
 
@@ -83,7 +93,7 @@ describe('ProjectForm', () => {
   it('submits create payload with selected models', async () => {
     setupModelHandlers();
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    const user = userEvent.setup();
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
 
     await act(async () => {
       renderWithProviders(
@@ -93,9 +103,8 @@ describe('ProjectForm', () => {
 
     await type(user, screen.getByLabelText(/Project Name/i), 'New Project');
 
-    await screen.findByRole('option', { name: 'PaddleX OCR' });
-    await select(user, screen.getByLabelText(/OCR Model/i), 'ocr-1');
-    await select(user, screen.getByLabelText(/LLM Model/i), 'llm-1');
+    await selectOption(user, /OCR model/i, 'PaddleX OCR');
+    await selectOption(user, /LLM model/i, 'OpenAI GPT-4o');
 
     await click(user, screen.getByRole('button', { name: /Create/i }));
 
@@ -111,6 +120,7 @@ describe('ProjectForm', () => {
 
   it('populates selection in edit mode', async () => {
     setupModelHandlers();
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
 
     await act(async () => {
       renderWithProviders(
@@ -135,8 +145,18 @@ describe('ProjectForm', () => {
       );
     });
 
-    await screen.findByRole('option', { name: 'PaddleX OCR' });
-    expect(screen.getByLabelText(/OCR Model/i)).toHaveValue('ocr-1');
-    expect(screen.getByLabelText(/LLM Model/i)).toHaveValue('llm-1');
+    await act(async () => {
+      await user.click(screen.getByLabelText(/OCR model/i));
+    });
+    expect(
+      within(screen.getByRole('listbox')).getByRole('option', { name: 'PaddleX OCR' })
+    ).toHaveAttribute('aria-selected', 'true');
+
+    await act(async () => {
+      await user.click(screen.getByLabelText(/LLM model/i));
+    });
+    expect(
+      within(screen.getByRole('listbox')).getByRole('option', { name: 'OpenAI GPT-4o' })
+    ).toHaveAttribute('aria-selected', 'true');
   });
 });

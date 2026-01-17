@@ -22,6 +22,20 @@ Admin-only pages (Schemas, Prompts, Validation Scripts) are still available but 
 - Projects, Models, and Manifests use modal dialogs for create/edit flows.
 - Manifests audit opens in a dialog overlay.
 - Dialogs trap focus, close on Escape/backdrop, and return focus to the triggering element.
+- Dialogs are implemented with shadcn/ui components (`src/apps/web/src/shared/components/ui/dialog`).
+
+## UI Components
+- shadcn/ui components live under `src/apps/web/src/shared/components/ui`.
+- Toast notifications are rendered by the global `Toaster` in `src/apps/web/src/main.tsx`.
+
+## Forms and Validation
+- Forms use React Hook Form with shadcn form primitives and Zod schemas.
+- Schemas live in `src/apps/web/src/shared/schemas` and provide field-level errors.
+- Form components should validate on submit and display inline error messaging.
+
+## Data Fetching
+- Server state uses React Query hooks under `src/apps/web/src/shared/hooks`.
+- `QueryClientProvider` is created in `src/apps/web/src/main.tsx` and shared in tests.
 
 ## Manifests List
 - Filters, sorting, and pagination are server-driven via `GET /api/groups/:groupId/manifests`.

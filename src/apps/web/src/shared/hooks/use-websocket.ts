@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { useAuthStore } from '@/api/auth-store';
+import { useAuthStore } from '@/shared/stores/auth';
 import { WS_BASE_URL } from '@/api/client';
 
 interface JobUpdateEvent {

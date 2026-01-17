@@ -1,5 +1,27 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
 import { AdapterSchema, CreateModelDto, Model, UpdateModelDto } from '@/api/models';
+import { buildModelSchema, type ModelFormValues } from '@/shared/schemas/model.schema';
+import { Button } from '@/shared/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/shared/components/ui/form';
+import { Input } from '@/shared/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select';
+import { Switch } from '@/shared/components/ui/switch';
 
 type ModelFormProps = {
   adapter: AdapterSchema;
@@ -12,13 +34,9 @@ type ModelFormProps = {
 type FieldValue = string | number | boolean | undefined;
 
 export function ModelForm({ adapter, model, onSubmit, onCancel, isLoading }: ModelFormProps) {
-  const [name, setName] = useState(model?.name ?? '');
-  const [description, setDescription] = useState(model?.description ?? '');
-  const [isActive, setIsActive] = useState(model?.isActive ?? true);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
-  const [errors, setErrors] = useState<string[]>([]);
 
-  const initialValues = useMemo(() => {
+  const defaultParameters = useMemo(() => {
     const values: Record<string, FieldValue> = {};
     Object.entries(adapter.parameters).forEach(([key, definition]) => {
       const current = model?.parameters?.[key];
@@ -33,231 +51,255 @@ export function ModelForm({ adapter, model, onSubmit, onCancel, isLoading }: Mod
     return values;
   }, [adapter, model]);
 
-  const [values, setValues] = useState<Record<string, FieldValue>>(initialValues);
+  const schema = useMemo(() => buildModelSchema(adapter), [adapter]);
 
-  const updateValue = (key: string, value: FieldValue) => {
-    setValues((prev) => ({ ...prev, [key]: value }));
-  };
+  const form = useForm<ModelFormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      name: model?.name ?? '',
+      description: model?.description ?? '',
+      isActive: model?.isActive ?? true,
+      parameters: defaultParameters,
+    },
+  });
 
-  const validate = (): boolean => {
-    const nextErrors: string[] = [];
-    Object.entries(adapter.parameters).forEach(([key, definition]) => {
-      const value = values[key];
-      if (!definition.required) {
-        return;
-      }
-      if (definition.type === 'boolean') {
-        return;
-      }
-      if (value === undefined || value === null || value === '') {
-        nextErrors.push(`${definition.label} is required`);
-      }
+  useEffect(() => {
+    form.reset({
+      name: model?.name ?? '',
+      description: model?.description ?? '',
+      isActive: model?.isActive ?? true,
+      parameters: defaultParameters,
     });
-    setErrors(nextErrors);
-    return nextErrors.length === 0;
-  };
+  }, [defaultParameters, form, model]);
 
-  const buildParameters = (): Record<string, unknown> => {
-    const result: Record<string, unknown> = {};
-    Object.entries(adapter.parameters).forEach(([key, definition]) => {
-      const value = values[key];
-      if (value === undefined || value === null || value === '') {
-        return;
-      }
-      if (definition.type === 'number' && typeof value === 'string') {
-        const parsed = Number(value);
-        if (Number.isFinite(parsed)) {
-          result[key] = parsed;
+  const handleSubmit = async (values: ModelFormValues) => {
+    const parameters = Object.entries(values.parameters).reduce<Record<string, unknown>>(
+      (acc, [key, value]) => {
+        const definition = adapter.parameters[key];
+        let normalizedValue: unknown = value;
+
+        if (definition?.type === 'number') {
+          if (value === undefined || value === null || value === '') {
+            return acc;
+          }
+          const parsed = typeof value === 'number' ? value : Number(value);
+          normalizedValue = Number.isFinite(parsed) ? parsed : value;
         }
-        return;
-      }
-      result[key] = value;
-    });
-    return result;
-  };
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!validate()) {
-      return;
-    }
-    const parameters = buildParameters();
+        if (normalizedValue === undefined || normalizedValue === null || normalizedValue === '') {
+          return acc;
+        }
+        acc[key] = normalizedValue;
+        return acc;
+      },
+      {},
+    );
+
     if (model) {
       const data: UpdateModelDto = {
-        name,
-        description: description || undefined,
+        name: values.name.trim(),
+        description: values.description?.trim() || undefined,
         parameters,
-        isActive,
+        isActive: values.isActive,
       };
       await onSubmit(data);
       return;
     }
     const data: CreateModelDto = {
-      name,
+      name: values.name.trim(),
       adapterType: adapter.type,
-      description: description || undefined,
+      description: values.description?.trim() || undefined,
       parameters,
-      isActive,
+      isActive: values.isActive,
     };
     await onSubmit(data);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {errors.length > 0 && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {errors.map((error) => (
-            <div key={error}>{error}</div>
-          ))}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div>
-          <label htmlFor="model-name" className="block text-sm font-medium text-gray-700">
-            Name *
-          </label>
-          <input
-            id="model-name"
-            type="text"
-            aria-label="Model name"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel htmlFor="model-name">Name *</FormLabel>
+                <FormControl>
+                  <Input {...field} id="model-name" aria-label="Model name" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="isActive"
+            render={({ field }) => (
+              <FormItem className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2">
+                <div className="space-y-0.5">
+                  <FormLabel htmlFor="model-active">Active</FormLabel>
+                  <FormDescription>Toggle to enable this model.</FormDescription>
+                </div>
+                <FormControl>
+                  <Switch id="model-active" checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+              </FormItem>
+            )}
           />
         </div>
-        <div className="flex items-center gap-2 pt-6">
-          <input
-            id="model-active"
-            type="checkbox"
-            aria-label="Model active"
-            checked={isActive}
-            onChange={(e) => setIsActive(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          <label htmlFor="model-active" className="text-sm text-gray-700">
-            Active
-          </label>
-        </div>
-      </div>
 
-      <div>
-        <label htmlFor="model-description" className="block text-sm font-medium text-gray-700">
-          Description
-        </label>
-        <input
-          id="model-description"
-          type="text"
-          aria-label="Model description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="model-description">Description</FormLabel>
+              <FormControl>
+                <Input {...field} id="model-description" aria-label="Model description" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {Object.entries(adapter.parameters).map(([key, definition]) => {
-          const fieldId = `model-param-${key}`;
-          const value = values[key];
-          const isSecret = Boolean(definition.secret);
-          const isNumber = definition.type === 'number';
-          const isBoolean = definition.type === 'boolean';
-          const isEnum = definition.type === 'enum';
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {Object.entries(adapter.parameters).map(([key, definition]) => {
+            const fieldId = `model-param-${key}`;
+            const isSecret = Boolean(definition.secret);
+            const isNumber = definition.type === 'number';
+            const isBoolean = definition.type === 'boolean';
+            const isEnum = definition.type === 'enum';
+            const fieldName = `parameters.${key}` as const;
 
-          return (
-            <div key={key} className="flex flex-col">
-              <label htmlFor={fieldId} className="text-sm font-medium text-gray-700">
-                {definition.label}
-                {definition.required ? ' *' : ''}
-              </label>
-
-              {isBoolean && (
-                <div className="mt-2 flex items-center gap-2">
-                  <input
-                    id={fieldId}
-                    type="checkbox"
-                    aria-label={`${definition.label} enabled`}
-                    checked={Boolean(value)}
-                    onChange={(e) => updateValue(key, e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="text-xs text-gray-600">Enabled</span>
-                </div>
-              )}
-
-              {isEnum && (
-                <select
-                  id={fieldId}
-                  aria-label={definition.label}
-                  value={String(value ?? '')}
-                  onChange={(e) => updateValue(key, e.target.value)}
-                  className="mt-1 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                >
-                  <option value="">Select...</option>
-                  {(definition.validation?.enum ?? []).map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              {!isBoolean && !isEnum && (
-                <div className="relative">
-                  <input
-                    id={fieldId}
-                    type={isSecret && !showSecrets[key] ? 'password' : isNumber ? 'number' : 'text'}
-                    aria-label={definition.label}
-                    value={value === undefined ? '' : String(value)}
-                    onChange={(e) => updateValue(key, e.target.value)}
-                    placeholder={definition.placeholder ?? ''}
-                    min={definition.validation?.min}
-                    max={definition.validation?.max}
-                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  />
-                  {isSecret && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowSecrets((prev) => ({ ...prev, [key]: !prev[key] }))
-                      }
-                      className="absolute right-2 top-3 text-xs text-gray-500"
-                      aria-pressed={Boolean(showSecrets[key])}
-                      aria-label="Toggle secret visibility"
-                      aria-controls={fieldId}
-                    >
-                      {showSecrets[key] ? 'Hide' : 'Show'}
-                    </button>
+            if (isBoolean) {
+              return (
+                <FormField
+                  key={key}
+                  control={form.control}
+                  name={fieldName}
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2">
+                      <FormLabel htmlFor={fieldId}>{definition.label}</FormLabel>
+                      <FormControl>
+                        <Switch
+                          id={fieldId}
+                          checked={Boolean(field.value)}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </div>
-              )}
+                />
+              );
+            }
 
-              {definition.helpText && (
-                <span className="mt-1 text-xs text-gray-500">{definition.helpText}</span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            if (isEnum) {
+              const options = definition.validation?.enum ?? [];
+              return (
+                <FormField
+                  key={key}
+                  control={form.control}
+                  name={fieldName}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel htmlFor={fieldId}>
+                        {definition.label}
+                        {definition.required ? ' *' : ''}
+                      </FormLabel>
+                      <Select
+                        value={(field.value as string) || 'none'}
+                        onValueChange={(value) =>
+                          field.onChange(value === 'none' ? '' : value)
+                        }
+                      >
+                        <FormControl>
+                          <SelectTrigger id={fieldId} aria-label={definition.label}>
+                            <SelectValue placeholder="Select..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {!definition.required && (
+                            <SelectItem value="none">Select...</SelectItem>
+                          )}
+                          {options.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {option}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {definition.helpText && (
+                        <FormDescription>{definition.helpText}</FormDescription>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              );
+            }
 
-      <div className="flex justify-end gap-3 pt-4">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isLoading}
-          className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {isLoading ? 'Saving...' : model ? 'Update Model' : 'Create Model'}
-        </button>
-      </div>
-    </form>
+            return (
+              <FormField
+                key={key}
+                control={form.control}
+                name={fieldName}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor={fieldId}>
+                      {definition.label}
+                      {definition.required ? ' *' : ''}
+                    </FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          id={fieldId}
+                          type={isSecret && !showSecrets[key] ? 'password' : isNumber ? 'number' : 'text'}
+                          aria-label={definition.label}
+                          placeholder={definition.placeholder ?? ''}
+                          min={definition.validation?.min}
+                          max={definition.validation?.max}
+                          step={isNumber ? 'any' : undefined}
+                          value={field.value === undefined ? '' : String(field.value)}
+                          onChange={field.onChange}
+                        />
+                        {isSecret && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowSecrets((prev) => ({ ...prev, [key]: !prev[key] }))
+                            }
+                            className="absolute right-2 top-2 text-xs text-gray-500"
+                            aria-pressed={Boolean(showSecrets[key])}
+                            aria-label="Toggle secret visibility"
+                            aria-controls={fieldId}
+                          >
+                            {showSecrets[key] ? 'Hide' : 'Show'}
+                          </button>
+                        )}
+                      </div>
+                    </FormControl>
+                    {definition.helpText && (
+                      <FormDescription>{definition.helpText}</FormDescription>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            );
+          })}
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? 'Saving...' : model ? 'Update Model' : 'Create Model'}
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }

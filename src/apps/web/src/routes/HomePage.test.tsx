@@ -1,6 +1,6 @@
 import { Route, Routes } from 'react-router-dom';
 import { act, renderWithProviders, screen } from '@/tests/utils';
-import { useAuthStore } from '@/api/auth-store';
+import { useAuthStore } from '@/shared/stores/auth';
 import { HomePage } from './HomePage';
 
 describe('HomePage', () => {

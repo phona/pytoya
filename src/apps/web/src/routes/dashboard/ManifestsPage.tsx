@@ -1,14 +1,22 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useManifests } from '@/shared/hooks/use-manifests';
 import { useExportSelectedToCsv } from '@/shared/hooks/use-manifests';
 import { useQueryClient } from '@tanstack/react-query';
-import { Dialog } from '@/shared/components/Dialog';
 import { ManifestList } from '@/shared/components/manifests/ManifestList';
 import { ManifestFilters } from '@/shared/components/manifests/ManifestFilters';
 import { AuditPanel } from '@/shared/components/manifests/AuditPanel';
 import { UploadDialog } from '@/shared/components/UploadDialog';
 import { ManifestFilterValues, ManifestSort } from '@/shared/types/manifests';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/shared/components/ui/dialog';
+import { Skeleton } from '@/shared/components/ui/skeleton';
 
 export function ManifestsPage() {
   const navigate = useNavigate();
@@ -89,8 +97,25 @@ export function ManifestsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="mb-8 space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-56" />
+          </div>
+          <div className="flex gap-6">
+            <div className="w-64 flex-shrink-0 space-y-3">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-40 w-full" />
+              <Skeleton className="h-40 w-full" />
+            </div>
+            <div className="flex-1 space-y-4">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-64 w-full" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -102,9 +127,10 @@ export function ManifestsPage() {
         <div className="mb-8">
           <button
             onClick={handleBackToGroups}
-            className="text-sm text-indigo-600 hover:text-indigo-700 mb-4"
+            className="inline-flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 mb-4"
           >
-            ← Back to Project
+            <ArrowLeft className="h-4 w-4" />
+            Back to Project
           </button>
           <div className="flex items-center justify-between">
             <div>
@@ -156,18 +182,28 @@ export function ManifestsPage() {
       </div>
 
       <Dialog
-        isOpen={selectedManifestId !== null}
-        onClose={handleCloseAudit}
-        title="Manifest Audit"
-        maxWidthClassName="max-w-6xl"
+        open={selectedManifestId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCloseAudit();
+          }
+        }}
       >
-        {selectedManifestId ? (
-          <AuditPanel
-            manifestId={selectedManifestId}
-            onClose={handleCloseAudit}
-            allManifestIds={manifests.map((m: { id: number }) => m.id)}
-          />
-        ) : null}
+        <DialogContent className="sm:max-w-6xl">
+          <DialogHeader>
+            <DialogTitle>Manifest Audit</DialogTitle>
+            <DialogDescription className="sr-only">
+              Review extracted data and audit details for the selected manifest.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedManifestId ? (
+            <AuditPanel
+              manifestId={selectedManifestId}
+              onClose={handleCloseAudit}
+              allManifestIds={manifests.map((m: { id: number }) => m.id)}
+            />
+          ) : null}
+        </DialogContent>
       </Dialog>
 
       <UploadDialog

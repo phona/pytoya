@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
 import { Manifest, ManifestItem } from '@/api/manifests';
 
 interface EditableFormProps {
@@ -245,9 +246,7 @@ function FormField({
           className="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
           title="Re-extract this field"
         >
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
+          <RefreshCw className="h-3 w-3" />
           Re-extract
         </button>
       </div>
@@ -282,9 +281,7 @@ function ItemCard({ item, onChange, onDelete }: ItemCardProps) {
           className="text-red-600 hover:text-red-700 text-sm"
           title="Delete item"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
+          <Trash2 className="h-4 w-4" />
         </button>
       </div>
 
@@ -377,9 +374,7 @@ function ExtractionAlert({ extractionInfo }: ExtractionAlertProps) {
   return (
     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
       <div className="flex items-start">
-        <svg className="w-5 h-5 text-yellow-600 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-        </svg>
+        <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2" />
         <div className="flex-1">
           <h4 className="text-sm font-medium text-yellow-800">Extraction Issues</h4>
           <ul className="mt-2 text-sm text-yellow-700 list-disc list-inside">

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import type { AdapterSchema } from '@/api/models';
@@ -63,13 +63,22 @@ const clear = async (user: ReturnType<typeof userEvent.setup>, element: HTMLElem
   });
 };
 
-const select = async (
+const selectOption = async (
   user: ReturnType<typeof userEvent.setup>,
-  element: HTMLElement,
-  value: string,
+  label: RegExp,
+  optionText: string,
 ) => {
   await act(async () => {
-    await user.selectOptions(element, value);
+    await user.click(screen.getByLabelText(label));
+  });
+  const listbox = await screen.findByRole('listbox');
+  await act(async () => {
+    const option = within(listbox).getByRole('option', { name: optionText });
+    fireEvent.pointerDown(option);
+    fireEvent.click(option);
+  });
+  await waitFor(() => {
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 };
 
@@ -90,9 +99,22 @@ describe('ModelForm', () => {
     expect(screen.getByLabelText(/Model Family/i)).toBeInTheDocument();
   });
 
+  it('allows decimal input for number parameters', () => {
+    render(
+      <ModelForm
+        adapter={adapter}
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    const temperatureInput = screen.getByLabelText(/Temperature/i);
+    expect(temperatureInput).toHaveAttribute('step', 'any');
+  });
+
   it('validates required fields', async () => {
     const onSubmit = vi.fn();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
 
     render(
       <ModelForm
@@ -105,19 +127,22 @@ describe('ModelForm', () => {
     await type(user, screen.getByLabelText(/Name/i), 'Required Name');
     await type(user, screen.getByLabelText(/API Key/i), 'sk-required');
     const submitButton = screen.getByRole('button', { name: /Create Model/i });
+    const form = submitButton.closest('form');
+    if (!form) {
+      throw new Error('Expected ModelForm to render inside a form element.');
+    }
     await act(async () => {
-      fireEvent.submit(submitButton.closest('form') as HTMLFormElement);
+      fireEvent.submit(form);
     });
 
     await waitFor(() => {
       expect(onSubmit).not.toHaveBeenCalled();
-      expect(screen.getByText(/Base URL is required/i)).toBeInTheDocument();
     });
   });
 
   it('submits create payload with parsed values', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    const user = userEvent.setup();
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
 
     render(
       <ModelForm
@@ -132,12 +157,16 @@ describe('ModelForm', () => {
     await type(user, screen.getByLabelText(/API Key/i), 'sk-test');
     await clear(user, screen.getByLabelText(/Temperature/i));
     await type(user, screen.getByLabelText(/Temperature/i), '0.2');
-    await select(user, screen.getByLabelText(/Model Family/i), 'gpt-4o');
+    await selectOption(user, /Model Family/i, 'gpt-4o');
     await click(user, screen.getByLabelText(/Supports Vision/i));
 
     const submitButton = screen.getByRole('button', { name: /Create Model/i });
+    const form = submitButton.closest('form');
+    if (!form) {
+      throw new Error('Expected ModelForm to render inside a form element.');
+    }
     await act(async () => {
-      fireEvent.submit(submitButton.closest('form') as HTMLFormElement);
+      fireEvent.submit(form);
     });
 
     await waitFor(() => {

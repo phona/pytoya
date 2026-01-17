@@ -1,9 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
 import { CreateSchemaDto, UpdateSchemaDto, Schema, ExtractionStrategy } from '@/api/schemas';
 import { useProjects } from '@/shared/hooks/use-projects';
 import { JSONSchemaEditor } from '@/shared/components/JSONSchemaEditor';
 import { SchemaVisualBuilder } from '@/shared/components/SchemaVisualBuilder';
 import { ExtractionStrategySelector } from '@/shared/components/ExtractionStrategySelector';
+import { schemaFormSchema, type SchemaFormValues } from '@/shared/schemas/schema.schema';
+import { Button } from '@/shared/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/shared/components/ui/form';
+import { Input } from '@/shared/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select';
+import { Textarea } from '@/shared/components/ui/textarea';
 
 interface SchemaFormProps {
   schema?: Schema;
@@ -13,274 +35,300 @@ interface SchemaFormProps {
   isLoading?: boolean;
 }
 
+const DEFAULT_SCHEMA = JSON.stringify(
+  {
+    type: 'object',
+    properties: {},
+    required: [],
+  },
+  null,
+  2,
+);
+
 export function SchemaForm({ schema, templates = [], onSubmit, onCancel, isLoading }: SchemaFormProps) {
   const { projects } = useProjects();
-  const [name, setName] = useState(schema?.name ?? '');
-  const [description, setDescription] = useState(schema?.description ?? '');
-  const [projectId, setProjectId] = useState(schema?.projectId?.toString() ?? '');
-  const [jsonSchema, setJsonSchema] = useState(
-    schema?.jsonSchema ? JSON.stringify(schema.jsonSchema, null, 2) : JSON.stringify({
-      type: 'object',
-      properties: {},
-      required: [],
-    }, null, 2)
-  );
-  const [requiredFields, setRequiredFields] = useState(
-    schema?.requiredFields?.join('\n') ?? ''
-  );
-  const [extractionStrategy, setExtractionStrategy] = useState<ExtractionStrategy | null>(
-    schema?.extractionStrategy ?? null
-  );
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [editorMode, setEditorMode] = useState<'visual' | 'code'>('code');
 
+  const form = useForm<SchemaFormValues>({
+    resolver: zodResolver(schemaFormSchema),
+    defaultValues: {
+      name: schema?.name ?? '',
+      description: schema?.description ?? '',
+      projectId: schema?.projectId?.toString() ?? '',
+      jsonSchema: schema?.jsonSchema ? JSON.stringify(schema.jsonSchema, null, 2) : DEFAULT_SCHEMA,
+      requiredFields: schema?.requiredFields?.join('\n') ?? '',
+      extractionStrategy: schema?.extractionStrategy ?? null,
+    },
+  });
+
   useEffect(() => {
-    if (schema?.projectId) {
-      setProjectId(schema.projectId.toString());
+    form.reset({
+      name: schema?.name ?? '',
+      description: schema?.description ?? '',
+      projectId: schema?.projectId?.toString() ?? '',
+      jsonSchema: schema?.jsonSchema ? JSON.stringify(schema.jsonSchema, null, 2) : DEFAULT_SCHEMA,
+      requiredFields: schema?.requiredFields?.join('\n') ?? '',
+      extractionStrategy: schema?.extractionStrategy ?? null,
+    });
+    setSelectedTemplate('');
+  }, [form, schema]);
+
+  useEffect(() => {
+    if (jsonError) {
+      form.setError('jsonSchema', { type: 'validate', message: 'Invalid JSON' });
+    } else {
+      form.clearErrors('jsonSchema');
     }
-  }, [schema?.projectId]);
+  }, [form, jsonError]);
 
   const handleTemplateSelect = (templateId: string) => {
-    const template = templates.find(t => t.id.toString() === templateId);
-    if (template) {
-      setJsonSchema(JSON.stringify(template.jsonSchema, null, 2));
-      setRequiredFields(template.requiredFields.join('\n'));
-      setSelectedTemplate(templateId);
-    }
-  };
-
-  const handleJsonSchemaChange = (value: string) => {
-    setJsonSchema(value);
-    try {
-      JSON.parse(value);
-      setJsonError('');
-    } catch {
-      setJsonError('Invalid JSON');
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Validate JSON Schema
-    let parsedJsonSchema: Record<string, unknown>;
-    try {
-      parsedJsonSchema = JSON.parse(jsonSchema);
-    } catch {
-      setJsonError('Invalid JSON Schema format');
+    const template = templates.find((t) => t.id.toString() === templateId);
+    if (!template) {
+      setSelectedTemplate('');
       return;
     }
 
-    const fieldsArray = requiredFields
+    setSelectedTemplate(templateId);
+    form.setValue('jsonSchema', JSON.stringify(template.jsonSchema, null, 2), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    form.setValue('requiredFields', template.requiredFields.join('\n'), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
+  const handleSubmit = async (values: SchemaFormValues) => {
+    let parsedJsonSchema: Record<string, unknown>;
+    try {
+      parsedJsonSchema = JSON.parse(values.jsonSchema);
+    } catch {
+      return;
+    }
+
+    const fieldsArray = (values.requiredFields ?? '')
       .split('\n')
-      .map(f => f.trim())
-      .filter(f => f.length > 0);
+      .map((f) => f.trim())
+      .filter((f) => f.length > 0);
 
     if (schema) {
       const updateData: UpdateSchemaDto = {
-        name: name || undefined,
+        name: values.name.trim() || undefined,
         jsonSchema: parsedJsonSchema,
         requiredFields: fieldsArray,
-        description: description || undefined,
-        extractionStrategy: extractionStrategy || undefined,
+        description: values.description?.trim() || undefined,
+        extractionStrategy: values.extractionStrategy || undefined,
       };
       await onSubmit(updateData);
-    } else {
-      const data: CreateSchemaDto = {
-        name,
-        jsonSchema: parsedJsonSchema,
-        requiredFields: fieldsArray,
-        projectId: parseInt(projectId, 10),
-        description: description || undefined,
-        isTemplate: false,
-        extractionStrategy: extractionStrategy || undefined,
-      };
-      await onSubmit(data);
+      return;
     }
+
+    const data: CreateSchemaDto = {
+      name: values.name.trim(),
+      jsonSchema: parsedJsonSchema,
+      requiredFields: fieldsArray,
+      projectId: parseInt(values.projectId, 10),
+      description: values.description?.trim() || undefined,
+      isTemplate: false,
+      extractionStrategy: values.extractionStrategy || undefined,
+    };
+    await onSubmit(data);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Template Selection */}
-      {!schema && templates.length > 0 && (
-        <div>
-          <label htmlFor="template" className="block text-sm font-medium text-gray-700">
-            Start from Template (Optional)
-          </label>
-          <select
-            id="template"
-            value={selectedTemplate}
-            onChange={(e) => handleTemplateSelect(e.target.value)}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          >
-            <option value="">Start with blank schema...</option>
-            {templates.map((template) => (
-              <option key={template.id} value={template.id.toString()}>
-                {template.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-          Schema Name *
-        </label>
-        <input
-          id="name"
-          type="text"
-          required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          placeholder="Invoice Schema"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="projectId" className="block text-sm font-medium text-gray-700">
-          Project *
-        </label>
-        <select
-          id="projectId"
-          required
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-          disabled={!!schema}
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-        >
-          <option value="">Select a project...</option>
-          {projects.map((project) => (
-            <option key={project.id} value={project.id.toString()}>
-              {project.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-          Description
-        </label>
-        <textarea
-          id="description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={2}
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          placeholder="Optional description..."
-        />
-      </div>
-
-      <ExtractionStrategySelector
-        value={extractionStrategy}
-        onChange={setExtractionStrategy}
-        showCostEstimate={true}
-      />
-
-      <div>
-        <div className="flex justify-between items-center mb-2">
-          <label htmlFor="jsonSchema" className="block text-sm font-medium text-gray-700">
-            JSON Schema *
-          </label>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setEditorMode('visual')}
-              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                editorMode === 'visual'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+        {!schema && templates.length > 0 && (
+          <div>
+            <label htmlFor="template" className="block text-sm font-medium text-gray-700">
+              Start from Template (Optional)
+            </label>
+            <Select
+              value={selectedTemplate || 'none'}
+              onValueChange={(value) => handleTemplateSelect(value === 'none' ? '' : value)}
             >
-              Visual Builder
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditorMode('code')}
-              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                editorMode === 'code'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              Code Editor
-            </button>
+              <SelectTrigger id="template" className="mt-1">
+                <SelectValue placeholder="Start with blank schema..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Start with blank schema...</SelectItem>
+                {templates.map((template) => (
+                  <SelectItem key={template.id} value={template.id.toString()}>
+                    {template.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </div>
-
-        {editorMode === 'visual' ? (
-          <div className="mt-1">
-            <SchemaVisualBuilder
-              schema={JSON.parse(jsonSchema || '{"type":"object","properties":{},"required":[]}')}
-              onChange={(newSchema) => {
-                const newJsonSchema = JSON.stringify(newSchema, null, 2);
-                setJsonSchema(newJsonSchema);
-                try {
-                  JSON.parse(newJsonSchema);
-                  setJsonError(null);
-                } catch {
-                  setJsonError('Invalid JSON Schema');
-                }
-              }}
-            />
-            <p className="mt-2 text-xs text-gray-500">
-              Use the visual builder to create and edit schema properties. Switch to code editor for advanced editing.
-            </p>
-          </div>
-        ) : (
-          <>
-            <JSONSchemaEditor
-              value={jsonSchema}
-              onChange={handleJsonSchemaChange}
-              onError={setJsonError}
-              placeholder='{"type": "object", "properties": {...}, "required": [...]}'
-              rows={15}
-              className="mt-1"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Enter a valid JSON Schema. This defines the structure for data extraction.
-            </p>
-          </>
         )}
-      </div>
 
-      <div>
-        <label htmlFor="requiredFields" className="block text-sm font-medium text-gray-700">
-          Required Fields
-        </label>
-        <textarea
-          id="requiredFields"
-          value={requiredFields}
-          onChange={(e) => setRequiredFields(e.target.value)}
-          rows={4}
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          placeholder="department.code&#10;invoice.po_no&#10;items"
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="schema-name">Schema Name *</FormLabel>
+              <FormControl>
+                <Input {...field} id="schema-name" placeholder="Invoice Schema" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-        <p className="mt-1 text-xs text-gray-500">
-          Enter required fields using dot notation (one per line). These fields must be present in the extracted data.
-        </p>
-      </div>
 
-      <div className="flex justify-end gap-3 pt-4">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isLoading}
-          className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={isLoading || !!jsonError}
-          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? 'Saving...' : schema ? 'Update' : 'Create'}
-        </button>
-      </div>
-    </form>
+        <FormField
+          control={form.control}
+          name="projectId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="schema-project">Project *</FormLabel>
+              <Select
+                value={field.value || 'none'}
+                onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
+                disabled={!!schema}
+              >
+                <FormControl>
+                  <SelectTrigger id="schema-project">
+                    <SelectValue placeholder="Select a project..." />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="none">Select a project...</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel htmlFor="schema-description">Description</FormLabel>
+              <FormControl>
+                <Textarea
+                  {...field}
+                  id="schema-description"
+                  rows={2}
+                  placeholder="Optional description..."
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div>
+          <ExtractionStrategySelector
+            value={form.watch('extractionStrategy') as ExtractionStrategy | null}
+            onChange={(value) =>
+              form.setValue('extractionStrategy', value, {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
+            showCostEstimate={true}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="jsonSchema"
+          render={({ field }) => (
+            <FormItem>
+              <div className="flex items-center justify-between">
+                <FormLabel>JSON Schema *</FormLabel>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={editorMode === 'visual' ? 'default' : 'outline'}
+                    onClick={() => setEditorMode('visual')}
+                  >
+                    Visual Builder
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={editorMode === 'code' ? 'default' : 'outline'}
+                    onClick={() => setEditorMode('code')}
+                  >
+                    Code Editor
+                  </Button>
+                </div>
+              </div>
+              {editorMode === 'visual' ? (
+                <div className="mt-2">
+                  <SchemaVisualBuilder
+                    schema={JSON.parse(field.value || DEFAULT_SCHEMA)}
+                    onChange={(newSchema) => {
+                      const newJsonSchema = JSON.stringify(newSchema, null, 2);
+                      field.onChange(newJsonSchema);
+                    }}
+                  />
+                  <FormDescription>
+                    Use the visual builder to create and edit schema properties. Switch to code editor for advanced editing.
+                  </FormDescription>
+                </div>
+              ) : (
+                <div className="mt-2">
+                  <JSONSchemaEditor
+                    value={field.value}
+                    onChange={field.onChange}
+                    onError={setJsonError}
+                    placeholder='{"type": "object", "properties": {...}, "required": [...]}'
+                    rows={15}
+                  />
+                  <FormDescription>
+                    Enter a valid JSON Schema. This defines the structure for data extraction.
+                  </FormDescription>
+                </div>
+              )}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="requiredFields"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Required Fields</FormLabel>
+              <FormControl>
+                <Textarea
+                  {...field}
+                  rows={4}
+                  placeholder="department.code\ninvoice.po_no\nitems"
+                />
+              </FormControl>
+              <FormDescription>
+                Enter required fields using dot notation (one per line). These fields must be present in the extracted data.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isLoading || !!jsonError}>
+            {isLoading ? 'Saving...' : schema ? 'Update' : 'Create'}
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }

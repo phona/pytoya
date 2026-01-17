@@ -307,7 +307,6 @@ export class ValidationService {
       messages,
       {
         responseFormat: { type: 'json_object' },
-        temperature: 0.2,
         maxTokens: 1200,
       },
       this.buildLlmProviderConfig(model),
