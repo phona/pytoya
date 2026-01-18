@@ -35,7 +35,7 @@ export function SidebarNav({ isOpen, onClose }: SidebarNavProps) {
         aria-hidden={!isOpen}
       />
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-full min-h-screen w-72 flex-col border-r border-slate-200 bg-white shadow-lg transition-transform duration-200 lg:static lg:h-auto lg:min-h-0 lg:translate-x-0 lg:shadow-none ${
+        className={`fixed left-0 top-0 z-50 flex h-full min-h-screen w-72 flex-col border-r border-slate-200 bg-white shadow-lg transition-transform duration-200 lg:static lg:h-full lg:translate-x-0 lg:shadow-none ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         aria-label="Sidebar"

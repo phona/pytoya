@@ -1,23 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { useProject, useGroups, useProjects } from '@/shared/hooks/use-projects';
-import { useProjectSchemas } from '@/shared/hooks/use-schemas';
-import { useProjectValidationScripts, useValidationScripts } from '@/shared/hooks/use-validation-scripts';
+import { useProject, useGroups } from '@/shared/hooks/use-projects';
 import { ArrowLeft, FileText, Folder, FolderOpen } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/shared/components/ui/dialog';
 import { GroupCard } from '@/shared/components/GroupCard';
 import { GroupForm } from '@/shared/components/GroupForm';
 import { ExportButton } from '@/shared/components/ExportButton';
-import { ValidationScriptForm } from '@/shared/components/ValidationScriptForm';
+import { ProjectWizard } from '@/shared/components/ProjectWizard';
 import { Group, CreateGroupDto, UpdateGroupDto } from '@/api/projects';
-import { ValidationScript, CreateValidationScriptDto, UpdateValidationScriptDto } from '@/api/validation';
 
 export function ProjectDetailPage() {
   const navigate = useNavigate();
@@ -34,28 +23,10 @@ export function ProjectDetailPage() {
     isCreating,
     isUpdating,
   } = useGroups(projectId);
-  const { schemas: projectSchemas } = useProjectSchemas(projectId);
-  const { updateProject, isUpdating: isProjectUpdating } = useProjects();
-  const queryClient = useQueryClient();
-
-  const {
-    scripts: validationScripts,
-    isLoading: validationScriptsLoading,
-  } = useProjectValidationScripts(projectId);
-  const {
-    createScript,
-    updateScript,
-    deleteScript,
-    isCreating: isScriptCreating,
-    isUpdating: isScriptUpdating,
-    isDeleting: isScriptDeleting,
-  } = useValidationScripts();
 
   const [showForm, setShowForm] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
-  const [selectedSchemaId, setSelectedSchemaId] = useState<number | null>(null);
-  const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
-  const [editingScript, setEditingScript] = useState<ValidationScript | null>(null);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
 
   const handleCreateGroup = async (data: CreateGroupDto) => {
     await createGroup(data);
@@ -87,64 +58,6 @@ export function ProjectDetailPage() {
     setShowForm(false);
   };
 
-  const handleUpdateDefaultSchema = async () => {
-    await updateProject({
-      id: projectId,
-      data: { defaultSchemaId: selectedSchemaId ?? undefined },
-    });
-  };
-
-  const handleCreateScript = async (data: CreateValidationScriptDto) => {
-    await createScript(data);
-    await queryClient.invalidateQueries({
-      queryKey: ['validation-scripts', 'project', projectId],
-    });
-    setIsScriptDialogOpen(false);
-  };
-
-  const handleUpdateScript = async (data: UpdateValidationScriptDto) => {
-    if (!editingScript) return;
-    await updateScript({ id: editingScript.id, data });
-    await queryClient.invalidateQueries({
-      queryKey: ['validation-scripts', 'project', projectId],
-    });
-    setEditingScript(null);
-    setIsScriptDialogOpen(false);
-  };
-
-  const handleScriptSubmit = async (
-    data: CreateValidationScriptDto | UpdateValidationScriptDto,
-  ) => {
-    if (editingScript) {
-      await handleUpdateScript(data as UpdateValidationScriptDto);
-    } else {
-      await handleCreateScript(data as CreateValidationScriptDto);
-    }
-  };
-
-  const handleEditScript = (script: ValidationScript) => {
-    setEditingScript(script);
-    setIsScriptDialogOpen(true);
-  };
-
-  const handleDeleteScript = async (scriptId: number) => {
-    if (confirm('Delete this validation script?')) {
-      await deleteScript(scriptId);
-      await queryClient.invalidateQueries({
-        queryKey: ['validation-scripts', 'project', projectId],
-      });
-    }
-  };
-
-  const handleToggleScript = async (script: ValidationScript) => {
-    await updateScript({
-      id: script.id,
-      data: { enabled: !script.enabled },
-    });
-    await queryClient.invalidateQueries({
-      queryKey: ['validation-scripts', 'project', projectId],
-    });
-  };
 
   if (projectLoading) {
     return (
@@ -189,10 +102,18 @@ export function ProjectDetailPage() {
                 <p className="mt-1 text-sm text-gray-600">{project.description}</p>
               )}
             </div>
-            <ExportButton
-              filters={{ projectId }}
-              filename={`${project.name.replace(/\s+/g, '-')}-export.csv`}
-            />
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsWizardOpen(true)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Project Settings
+              </button>
+              <ExportButton
+                filters={{ projectId }}
+                filename={`${project.name.replace(/\s+/g, '-')}-export.csv`}
+              />
+            </div>
           </div>
 
           <div className="mt-4 flex items-center gap-6 text-sm text-gray-500">
@@ -263,177 +184,15 @@ export function ProjectDetailPage() {
             </div>
           )}
 
-          {/* Schema Settings Section */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Default Schema</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Select the default JSON Schema to use for data extraction in this project.
-            </p>
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <label htmlFor="schema-select" className="block text-sm font-medium text-gray-700 mb-1">
-                  Default Schema
-                </label>
-                <select
-                  id="schema-select"
-                  value={selectedSchemaId ?? project?.defaultSchemaId ?? ''}
-                  onChange={(e) => setSelectedSchemaId(e.target.value ? Number(e.target.value) : null)}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                >
-                  <option value="">No default schema</option>
-                  {projectSchemas.map((schema) => (
-                    <option key={schema.id} value={schema.id.toString()}>
-                      {schema.name}
-                      {schema.id === project?.defaultSchemaId && ' (Current)'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button
-                onClick={handleUpdateDefaultSchema}
-                disabled={isProjectUpdating || selectedSchemaId === project?.defaultSchemaId}
-                className="mt-5 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isProjectUpdating ? 'Saving...' : 'Save'}
-              </button>
-            </div>
-            {projectSchemas.length === 0 && (
-              <p className="mt-4 text-sm text-gray-500">
-                No schemas available.{' '}
-                <button
-                  onClick={() => navigate('/schemas')}
-                  className="text-indigo-600 hover:text-indigo-700 font-medium"
-                >
-                  Create a schema
-                </button>
-                {' '}to enable data extraction.
-              </p>
-            )}
-          </div>
-
-          {/* Validation Scripts Section */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Validation Scripts</h2>
-                <p className="text-sm text-gray-600">
-                  Define validation rules that run after extraction for this project.
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setEditingScript(null);
-                  setIsScriptDialogOpen(true);
-                }}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-              >
-                New Script
-              </button>
-            </div>
-
-            {validationScriptsLoading ? (
-              <div className="text-center py-6">
-                <div className="inline-block h-6 w-6 animate-spin rounded-full border-3 border-solid border-indigo-600 border-r-transparent"></div>
-              </div>
-            ) : validationScripts.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
-                No validation scripts yet. Create one to enforce project-specific rules.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4">
-                {validationScripts.map((script) => (
-                  <div
-                    key={script.id}
-                    className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-semibold text-gray-900">{script.name}</h3>
-                          <span
-                            className={`px-2 py-0.5 text-xs font-medium rounded ${
-                              script.severity === 'error'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}
-                          >
-                            {script.severity}
-                          </span>
-                          {!script.enabled && (
-                            <span className="px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-600">
-                              Disabled
-                            </span>
-                          )}
-                        </div>
-                        {script.description && (
-                          <p className="mt-1 text-sm text-gray-600">{script.description}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEditScript(script)}
-                          className="text-sm font-medium text-gray-600 hover:text-gray-800"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleToggleScript(script)}
-                          className="text-sm font-medium text-gray-600 hover:text-gray-800"
-                        >
-                          {script.enabled ? 'Disable' : 'Enable'}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteScript(script.id)}
-                          className="text-sm font-medium text-red-600 hover:text-red-800"
-                          disabled={isScriptDeleting}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
-      <Dialog
-        open={isScriptDialogOpen}
-        onOpenChange={(open) => {
-          if (!open && (isScriptCreating || isScriptUpdating)) return;
-          if (!open) {
-            setIsScriptDialogOpen(false);
-            setEditingScript(null);
-          } else {
-            setIsScriptDialogOpen(true);
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>
-              {editingScript
-                ? `Edit ${editingScript.name}`
-                : 'Create Validation Script'}
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              Configure validation logic and output checks for this project.
-            </DialogDescription>
-          </DialogHeader>
-          <ValidationScriptForm
-            script={editingScript ?? undefined}
-            fixedProjectId={projectId}
-            onSubmit={handleScriptSubmit}
-            onCancel={() => {
-              setIsScriptDialogOpen(false);
-              setEditingScript(null);
-            }}
-            isLoading={isScriptCreating || isScriptUpdating}
-          />
-        </DialogContent>
-      </Dialog>
+      <ProjectWizard
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        mode="edit"
+        projectId={projectId}
+      />
     </div>
   );
 }

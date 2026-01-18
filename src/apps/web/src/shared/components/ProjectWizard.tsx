@@ -1,13 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { getApiErrorMessage } from '@/api/client';
-import { extractionApi } from '@/api/extraction';
 import { CreateProjectDto } from '@/api/projects';
-import { ExtractionStrategy } from '@/api/schemas';
-import { ExtractionStrategySelector } from '@/shared/components/ExtractionStrategySelector';
-import { SchemaVisualBuilder } from '@/shared/components/SchemaVisualBuilder';
+import { schemasApi, SchemaRule } from '@/api/schemas';
+import { CreateValidationScriptDto, UpdateValidationScriptDto, ValidationSeverity, ValidationScript } from '@/api/validation';
+import { GenerateSchemaModal } from '@/shared/components/GenerateSchemaModal';
+import { ImportSchemaModal } from '@/shared/components/ImportSchemaModal';
+import { RuleEditor, RuleDraft } from '@/shared/components/RuleEditor';
+import { SchemaJsonEditor } from '@/shared/components/SchemaJsonEditor';
+import { ValidationScriptForm } from '@/shared/components/ValidationScriptForm';
 import { useModels } from '@/shared/hooks/use-models';
-import { useProjects } from '@/shared/hooks/use-projects';
-import { useSchemaTemplates, useSchemas } from '@/shared/hooks/use-schemas';
+import { useProject, useProjects } from '@/shared/hooks/use-projects';
+import { useProjectSchemas, useSchemaRules, useSchemas } from '@/shared/hooks/use-schemas';
+import { useProjectValidationScripts, useValidationScripts } from '@/shared/hooks/use-validation-scripts';
+import { deriveRequiredFields } from '@/shared/utils/schema';
 import {
   Dialog,
   DialogContent,
@@ -16,89 +22,237 @@ import {
   DialogTitle,
 } from '@/shared/components/ui/dialog';
 
-type StrategyType = 'schema' | 'prompt';
+const DEFAULT_SCHEMA_TEXT = JSON.stringify(
+  {
+    type: 'object',
+    properties: {},
+    required: [],
+  },
+  null,
+  2,
+);
+const DEFAULT_VALIDATION_SCRIPT = `function validate(extractedData) {
+  return [];
+}`;
+
+const mapRuleToDraft = (rule: SchemaRule): RuleDraft => ({
+  id: rule.id,
+  fieldPath: rule.fieldPath ?? '',
+  ruleType: rule.ruleType,
+  ruleOperator: rule.ruleOperator,
+  ruleConfig: rule.ruleConfig ?? {},
+  errorMessage: rule.errorMessage ?? undefined,
+  priority: rule.priority ?? 0,
+  enabled: rule.enabled ?? true,
+  description: rule.description ?? undefined,
+});
+
+const mapScriptToDraft = (script: ValidationScript): ValidationScriptDraft => ({
+  id: script.id,
+  name: script.name ?? '',
+  description: script.description ?? undefined,
+  severity: (script.severity ?? 'warning') as ValidationSeverity,
+  enabled: script.enabled ?? true,
+  script: script.script ?? '',
+});
+
+const mapDraftToScriptForm = (
+  draft: ValidationScriptDraft,
+  projectIdValue: number,
+): ValidationScript => ({
+  id: draft.id ?? -1,
+  projectId: projectIdValue,
+  name: draft.name ?? '',
+  description: draft.description ?? null,
+  severity: draft.severity,
+  enabled: draft.enabled,
+  script: draft.script ?? '',
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+});
+
+const createEmptyScript = (): ValidationScriptDraft => ({
+  name: '',
+  description: '',
+  severity: 'warning' as ValidationSeverity,
+  enabled: true,
+  script: DEFAULT_VALIDATION_SCRIPT,
+});
 
 type SchemaDraft = {
-  name: string;
-  description: string;
-  jsonSchema: Record<string, unknown>;
-  requiredFields: string;
-  extractionStrategy: ExtractionStrategy | null;
+  jsonSchema: string;
 };
+
+type ValidationScriptDraft = {
+  id?: number;
+  name: string;
+  description?: string;
+  severity: ValidationSeverity;
+  enabled: boolean;
+  script: string;
+};
+
+type WizardMode = 'create' | 'edit';
 
 type ProjectWizardProps = {
   isOpen: boolean;
   onClose: () => void;
-  onCreated: (projectId: number) => void;
+  onCreated?: (projectId: number) => void;
+  mode?: WizardMode;
+  projectId?: number;
 };
 
-const DEFAULT_SCHEMA: Record<string, unknown> = {
-  type: 'object',
-  properties: {},
-  required: [],
-};
-
-export function ProjectWizard({ isOpen, onClose, onCreated }: ProjectWizardProps) {
+export function ProjectWizard({ isOpen, onClose, onCreated, mode = 'create', projectId }: ProjectWizardProps) {
+  const isEditMode = mode === 'edit';
+  const effectiveProjectId = isEditMode ? projectId ?? 0 : 0;
   const { createProject, updateProject } = useProjects();
-  const { createSchema, schemas } = useSchemas();
-  const { templates } = useSchemaTemplates();
+  const { createSchema, updateSchema } = useSchemas();
+  const { createScript, updateScript, deleteScript } = useValidationScripts();
+  const queryClient = useQueryClient();
   const { models: ocrModels } = useModels({ category: 'ocr' });
   const { models: llmModels } = useModels({ category: 'llm' });
+  const { project: existingProject, isLoading: projectLoading } = useProject(effectiveProjectId);
+  const { schemas: projectSchemas, isLoading: projectSchemasLoading } = useProjectSchemas(effectiveProjectId);
+  const [selectedSchemaId, setSelectedSchemaId] = useState<number | null>(null);
+
+  const defaultSchema = useMemo(() => {
+    if (!isEditMode || !existingProject) return null;
+    if (existingProject.defaultSchemaId) {
+      return projectSchemas.find((schema) => schema.id === existingProject.defaultSchemaId) ?? null;
+    }
+    return projectSchemas[0] ?? null;
+  }, [existingProject, isEditMode, projectSchemas]);
+
+  const selectedSchema = useMemo(() => {
+    if (!selectedSchemaId) return null;
+    return projectSchemas.find((schema) => schema.id === selectedSchemaId) ?? null;
+  }, [projectSchemas, selectedSchemaId]);
+
+  const { rules: existingRules, isLoading: rulesLoading } = useSchemaRules(selectedSchemaId ?? 0);
+  const { scripts: existingScripts, isLoading: scriptsLoading } = useProjectValidationScripts(effectiveProjectId);
 
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [strategy, setStrategy] = useState<StrategyType | null>(null);
-  const [schemaMode, setSchemaMode] = useState<'existing' | 'new'>('existing');
-  const [existingSchemaId, setExistingSchemaId] = useState<number | null>(null);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
-  const [schemaDraft, setSchemaDraft] = useState<SchemaDraft>({
-    name: '',
-    description: '',
-    jsonSchema: DEFAULT_SCHEMA,
-    requiredFields: '',
-    extractionStrategy: null,
-  });
-  const [promptDescription, setPromptDescription] = useState('');
-  const [promptText, setPromptText] = useState('');
+  const [useOcr, setUseOcr] = useState(false);
   const [ocrModelId, setOcrModelId] = useState('');
   const [llmModelId, setLlmModelId] = useState('');
+  const [schemaDraft, setSchemaDraft] = useState<SchemaDraft>({
+    jsonSchema: DEFAULT_SCHEMA_TEXT,
+  });
+  const [schemaJsonError, setSchemaJsonError] = useState<string | null>(null);
+  const [rules, setRules] = useState<RuleDraft[]>([]);
+  const [rulesDescription, setRulesDescription] = useState('');
+  const [validationScripts, setValidationScripts] = useState<ValidationScriptDraft[]>([]);
+  const [editingValidationScript, setEditingValidationScript] = useState<ValidationScriptDraft | null>(null);
+  const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isOptimizing, setIsOptimizing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingRules, setIsGeneratingRules] = useState(false);
+  const [activeSchemaId, setActiveSchemaId] = useState<number | null>(null);
+
+  const projectInitializedRef = useRef(false);
+  const scriptsInitializedRef = useRef(false);
+  const initialRuleIdsRef = useRef<number[]>([]);
+  const initialScriptIdsRef = useRef<number[]>([]);
+  const lastLoadedSchemaIdRef = useRef<number | null>(null);
 
   const stepLabels = useMemo(() => {
-    return [
-      'Basics',
-      'Strategy',
-      strategy === 'prompt' ? 'Prompt' : 'Schema',
-      'Models',
-      'Review',
-    ];
-  }, [strategy]);
+    return ['Basics', 'Models', 'Schema', 'Rules', 'Validation Scripts', 'Review'];
+  }, []);
+
+  const isEditLoading = isEditMode && (projectLoading || projectSchemasLoading || scriptsLoading || (selectedSchemaId ? rulesLoading : false));
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!isEditMode || projectInitializedRef.current || !existingProject) return;
+    setName(existingProject.name ?? '');
+    setDescription(existingProject.description ?? '');
+    setUseOcr(Boolean(existingProject.ocrModelId));
+    setOcrModelId(existingProject.ocrModelId ?? '');
+    setLlmModelId(existingProject.llmModelId ?? '');
+    projectInitializedRef.current = true;
+  }, [existingProject, isEditMode, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!isEditMode || projectSchemasLoading || !existingProject) return;
+    if (selectedSchemaId) return;
+    if (defaultSchema) {
+      setSelectedSchemaId(defaultSchema.id);
+      return;
+    }
+    if (projectSchemas.length > 0) {
+      setSelectedSchemaId(projectSchemas[0].id);
+      return;
+    }
+    setSelectedSchemaId(null);
+  }, [defaultSchema, existingProject, isEditMode, isOpen, projectSchemas, projectSchemasLoading, selectedSchemaId]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!isEditMode) return;
+    if (!selectedSchemaId) {
+      setSchemaDraft({
+        jsonSchema: DEFAULT_SCHEMA_TEXT,
+      });
+      setRules([]);
+      initialRuleIdsRef.current = [];
+      setActiveSchemaId(null);
+      lastLoadedSchemaIdRef.current = null;
+      return;
+    }
+    if (rulesLoading) return;
+    if (lastLoadedSchemaIdRef.current === selectedSchemaId) return;
+    if (!selectedSchema) return;
+
+    setSchemaDraft({
+      jsonSchema: JSON.stringify(selectedSchema.jsonSchema ?? {}, null, 2),
+    });
+    setRules(existingRules.map(mapRuleToDraft));
+    initialRuleIdsRef.current = existingRules.map((rule) => rule.id);
+    setActiveSchemaId(selectedSchema.id);
+    lastLoadedSchemaIdRef.current = selectedSchema.id;
+  }, [existingRules, isEditMode, isOpen, rulesLoading, selectedSchema, selectedSchemaId]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!isEditMode || scriptsInitializedRef.current || scriptsLoading) return;
+    setValidationScripts(existingScripts.map(mapScriptToDraft));
+    initialScriptIdsRef.current = existingScripts.map((script) => script.id);
+    scriptsInitializedRef.current = true;
+  }, [existingScripts, isEditMode, isOpen, scriptsLoading]);
 
   const resetWizard = () => {
     setStep(1);
     setName('');
     setDescription('');
-    setStrategy(null);
-    setSchemaMode('existing');
-    setExistingSchemaId(null);
-    setSelectedTemplateId('');
-    setSchemaDraft({
-      name: '',
-      description: '',
-      jsonSchema: DEFAULT_SCHEMA,
-      requiredFields: '',
-      extractionStrategy: null,
-    });
-    setPromptDescription('');
-    setPromptText('');
+    setUseOcr(false);
     setOcrModelId('');
     setLlmModelId('');
+    setSchemaDraft({
+      jsonSchema: DEFAULT_SCHEMA_TEXT,
+    });
+    setSchemaJsonError(null);
+    setRules([]);
+    setRulesDescription('');
+    setValidationScripts([]);
+    setEditingValidationScript(null);
+    setIsScriptDialogOpen(false);
+    setShowGenerateModal(false);
+    setShowImportModal(false);
     setError(null);
-    setIsOptimizing(false);
     setIsSubmitting(false);
+    setIsGeneratingRules(false);
+    setActiveSchemaId(null);
+    setSelectedSchemaId(null);
+    projectInitializedRef.current = false;
+    scriptsInitializedRef.current = false;
+    initialRuleIdsRef.current = [];
+    initialScriptIdsRef.current = [];
+    lastLoadedSchemaIdRef.current = null;
   };
 
   const handleClose = () => {
@@ -107,105 +261,269 @@ export function ProjectWizard({ isOpen, onClose, onCreated }: ProjectWizardProps
     onClose();
   };
 
-  const handleTemplateSelect = (templateId: string) => {
-    setSelectedTemplateId(templateId);
-    const template = templates.find((t) => t.id.toString() === templateId);
-    if (!template) {
-      setSchemaDraft((prev) => ({
-        ...prev,
-        jsonSchema: DEFAULT_SCHEMA,
-        requiredFields: '',
-      }));
-      return;
-    }
-    setSchemaDraft((prev) => ({
-      ...prev,
-      jsonSchema: template.jsonSchema ?? DEFAULT_SCHEMA,
-      requiredFields: template.requiredFields?.join('\n') ?? '',
-    }));
-  };
-
   const canContinue = () => {
+    if (isEditLoading) return false;
     if (step === 1) {
       return name.trim().length > 0;
     }
     if (step === 2) {
-      return strategy !== null;
-    }
-    if (step === 3 && strategy === 'schema') {
-      if (schemaMode === 'existing') {
-        return Boolean(existingSchemaId);
+      if (!llmModelId) return false;
+      if (useOcr) {
+        return Boolean(ocrModelId);
       }
-      return schemaDraft.name.trim().length > 0;
+      return true;
     }
-    if (step === 3 && strategy === 'prompt') {
-      return promptText.trim().length > 0;
+    if (step === 3) {
+      return !schemaJsonError;
     }
     return true;
   };
 
-  const handleOptimizePrompt = async () => {
-    if (!promptDescription.trim()) {
-      setError('Describe the extraction requirements to generate a prompt.');
-      return;
+  const getInvalidRulesMessage = () => {
+    const invalidRule = rules.find((rule) => !rule.fieldPath || !rule.fieldPath.trim());
+    if (invalidRule) {
+      return 'Rule field path cannot be empty.';
     }
-    setError(null);
-    setIsOptimizing(true);
-    try {
-      const result = await extractionApi.optimizePrompt({
-        description: promptDescription.trim(),
-      });
-      setPromptText(result.prompt);
-    } catch (err) {
-      setError(getApiErrorMessage(err, 'Failed to optimize prompt.'));
-    } finally {
-      setIsOptimizing(false);
-    }
+    return null;
   };
 
   const buildProjectPayload = (): CreateProjectDto => {
-    const payload: CreateProjectDto = {
+    return {
       name: name.trim(),
       description: description.trim() || undefined,
-      ocrModelId: ocrModelId || undefined,
-      llmModelId: llmModelId || undefined,
+      ocrModelId: useOcr ? ocrModelId || undefined : undefined,
+      llmModelId: llmModelId,
     };
+  };
 
-    if (strategy === 'prompt') {
-      payload.prompt = promptText.trim();
+  const handleGenerateSchema = async (prompt: string, includeHints: boolean) => {
+    if (!llmModelId) {
+      setError('Select an LLM model before generating a schema.');
+      return;
+    }
+    setError(null);
+    const result = await schemasApi.generateSchema({
+      description: prompt,
+      modelId: llmModelId,
+      includeExtractionHints: includeHints,
+    });
+    const nextSchema = JSON.stringify(result.jsonSchema, null, 2);
+    setSchemaDraft((prev) => ({
+      ...prev,
+      jsonSchema: nextSchema,
+    }));
+  };
+
+  const handleImportSchema = async (file: File) => {
+    setError(null);
+    const result = await schemasApi.importSchema({ file });
+    if (!result.valid || !result.jsonSchema) {
+      const message = result.errors?.[0]?.message ?? 'Import failed.';
+      setError(message);
+      return;
+    }
+    setSchemaDraft((prev) => ({
+      ...prev,
+      jsonSchema: JSON.stringify(result.jsonSchema, null, 2),
+    }));
+  };
+
+  const handleGenerateRules = async (descriptionText: string) => {
+    if (!llmModelId) {
+      setError('Select an LLM model before generating rules.');
+      return;
+    }
+    setError(null);
+    setIsGeneratingRules(true);
+    try {
+      const parsedSchema = JSON.parse(schemaDraft.jsonSchema) as Record<string, unknown>;
+      const result = await schemasApi.generateRulesFromSchema({
+        description: descriptionText,
+        modelId: llmModelId,
+        jsonSchema: parsedSchema,
+      });
+      setRules(result.rules as RuleDraft[]);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to generate rules.'));
+    } finally {
+      setIsGeneratingRules(false);
+    }
+  };
+
+  const handleAddScript = () => {
+    setEditingValidationScript(createEmptyScript());
+    setIsScriptDialogOpen(true);
+  };
+
+  const handleEditScript = (script: ValidationScriptDraft) => {
+    setEditingValidationScript(script);
+    setIsScriptDialogOpen(true);
+  };
+
+  const handleSaveScript = async (
+    data: CreateValidationScriptDto | UpdateValidationScriptDto,
+  ) => {
+    if (!editingValidationScript) return;
+    const nextDraft: ValidationScriptDraft = {
+      ...editingValidationScript,
+      name: data.name ?? editingValidationScript.name,
+      description: data.description ?? editingValidationScript.description,
+      severity: data.severity ?? editingValidationScript.severity,
+      enabled: data.enabled ?? editingValidationScript.enabled,
+      script: data.script ?? editingValidationScript.script,
+    };
+    setValidationScripts((prev) => {
+      if (editingValidationScript.id) {
+        return prev.map((item) => (item.id === editingValidationScript.id ? nextDraft : item));
+      }
+      return [...prev, nextDraft];
+    });
+    setEditingValidationScript(null);
+    setIsScriptDialogOpen(false);
+  };
+
+  const handleRemoveScript = (script: ValidationScriptDraft) => {
+    setValidationScripts((prev) =>
+      prev.filter((item) => (script.id ? item.id !== script.id : item !== script)),
+    );
+  };
+
+  const syncRulesForSchema = async (schemaId: number) => {
+    const existingIds = initialRuleIdsRef.current;
+    const currentIds = rules.filter((rule) => rule.id).map((rule) => rule.id as number);
+    const deleteIds = existingIds.filter((id) => !currentIds.includes(id));
+
+    const createRules = rules.filter((rule) => !rule.id);
+    const updateRules = rules.filter((rule) => rule.id);
+
+    if (createRules.length > 0) {
+      await Promise.all(
+        createRules.map((rule) =>
+          schemasApi.createSchemaRule(schemaId, {
+            schemaId,
+            fieldPath: rule.fieldPath,
+            ruleType: rule.ruleType,
+            ruleOperator: rule.ruleOperator,
+            ruleConfig: rule.ruleConfig ?? {},
+            errorMessage: rule.errorMessage,
+            priority: rule.priority,
+            enabled: rule.enabled,
+            description: rule.description,
+          }),
+        ),
+      );
     }
 
-    if (strategy === 'schema' && schemaMode === 'existing' && existingSchemaId) {
-      payload.defaultSchemaId = existingSchemaId;
+    if (updateRules.length > 0) {
+      await Promise.all(
+        updateRules.map((rule) =>
+          schemasApi.updateSchemaRule(schemaId, rule.id as number, {
+            fieldPath: rule.fieldPath,
+            ruleType: rule.ruleType,
+            ruleOperator: rule.ruleOperator,
+            ruleConfig: rule.ruleConfig ?? {},
+            errorMessage: rule.errorMessage,
+            priority: rule.priority,
+            enabled: rule.enabled,
+            description: rule.description,
+          }),
+        ),
+      );
     }
 
-    return payload;
+    if (deleteIds.length > 0) {
+      await Promise.all(
+        deleteIds.map((ruleId) => schemasApi.deleteSchemaRule(schemaId, ruleId)),
+      );
+    }
+  };
+
+  const syncValidationScriptsForProject = async (projectIdValue: number) => {
+    const existingIds = initialScriptIdsRef.current;
+    const currentIds = validationScripts
+      .filter((script) => script.id)
+      .map((script) => script.id as number);
+    const deleteIds = existingIds.filter((id) => !currentIds.includes(id));
+
+    const createScripts = validationScripts.filter((script) => !script.id);
+    const updateScripts = validationScripts.filter((script) => script.id);
+
+    if (createScripts.length > 0) {
+      await Promise.all(
+        createScripts.map((script) =>
+          createScript({
+            name: script.name,
+            script: script.script,
+            projectId: projectIdValue.toString(),
+            severity: script.severity,
+            enabled: script.enabled,
+            description: script.description ?? undefined,
+          }),
+        ),
+      );
+    }
+
+    if (updateScripts.length > 0) {
+      await Promise.all(
+        updateScripts.map((script) =>
+          updateScript({
+            id: script.id as number,
+            data: {
+              name: script.name,
+              script: script.script,
+              severity: script.severity,
+              enabled: script.enabled,
+              description: script.description ?? undefined,
+            },
+          }),
+        ),
+      );
+    }
+
+    if (deleteIds.length > 0) {
+      await Promise.all(deleteIds.map((scriptId) => deleteScript(scriptId)));
+    }
   };
 
   const handleCreate = async () => {
+    const invalidRulesMessage = getInvalidRulesMessage();
+    if (invalidRulesMessage) {
+      setError(invalidRulesMessage);
+      return;
+    }
     setIsSubmitting(true);
     setError(null);
+
     try {
-      const project = await createProject(buildProjectPayload());
-      if (strategy === 'schema' && schemaMode === 'new') {
-        const requiredFields = schemaDraft.requiredFields
-          .split('\n')
-          .map((value) => value.trim())
-          .filter(Boolean);
-        const createdSchema = await createSchema({
-          name: schemaDraft.name.trim(),
-          description: schemaDraft.description.trim() || undefined,
-          jsonSchema: schemaDraft.jsonSchema,
-          requiredFields,
-          projectId: project.id,
-          isTemplate: false,
-          extractionStrategy: schemaDraft.extractionStrategy ?? undefined,
-        });
-        await updateProject({
-          id: project.id,
-          data: { defaultSchemaId: createdSchema.id },
-        });
+      if (!onCreated) {
+        throw new Error('Missing onCreated handler for create mode.');
       }
+      if (schemaJsonError) {
+        throw new Error('Schema JSON is invalid.');
+      }
+      const project = await createProject(buildProjectPayload());
+
+      const parsedSchema = JSON.parse(schemaDraft.jsonSchema) as Record<string, unknown>;
+      const createdSchema = await createSchema({
+        jsonSchema: parsedSchema,
+        projectId: project.id,
+      });
+
+      await updateProject({
+        id: project.id,
+        data: {
+          defaultSchemaId: createdSchema.id,
+          llmModelId: llmModelId,
+          ocrModelId: useOcr ? ocrModelId || undefined : undefined,
+        },
+      });
+
+      await syncRulesForSchema(createdSchema.id);
+      await syncValidationScriptsForProject(project.id);
+      await queryClient.invalidateQueries({ queryKey: ['schemas', 'project', project.id] });
+      await queryClient.invalidateQueries({ queryKey: ['schemas', createdSchema.id, 'rules'] });
+      await queryClient.invalidateQueries({ queryKey: ['validation-scripts', 'project', project.id] });
+
       onCreated(project.id);
       resetWizard();
     } catch (err) {
@@ -215,7 +533,85 @@ export function ProjectWizard({ isOpen, onClose, onCreated }: ProjectWizardProps
     }
   };
 
+  const handleUpdate = async () => {
+    if (!isEditMode || !projectId) return;
+    const invalidRulesMessage = getInvalidRulesMessage();
+    if (invalidRulesMessage) {
+      setError(invalidRulesMessage);
+      return;
+    }
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      if (schemaJsonError) {
+        throw new Error('Schema JSON is invalid.');
+      }
+
+      const parsedSchema = JSON.parse(schemaDraft.jsonSchema) as Record<string, unknown>;
+
+      await updateProject({
+        id: projectId,
+        data: buildProjectPayload(),
+      });
+
+      let schemaId = activeSchemaId;
+      if (schemaId) {
+        await updateSchema({
+          id: schemaId,
+          data: {
+            jsonSchema: parsedSchema,
+          },
+        });
+      } else {
+        const createdSchema = await createSchema({
+          jsonSchema: parsedSchema,
+          projectId: projectId,
+        });
+        schemaId = createdSchema.id;
+        setActiveSchemaId(createdSchema.id);
+        await updateProject({
+          id: projectId,
+          data: { ...buildProjectPayload(), defaultSchemaId: createdSchema.id },
+        });
+      }
+
+      if (schemaId) {
+        await syncRulesForSchema(schemaId);
+      }
+      await syncValidationScriptsForProject(projectId);
+      await queryClient.invalidateQueries({ queryKey: ['schemas', 'project', projectId] });
+      if (schemaId) {
+        await queryClient.invalidateQueries({ queryKey: ['schemas', schemaId, 'rules'] });
+      }
+      await queryClient.invalidateQueries({ queryKey: ['validation-scripts', 'project', projectId] });
+
+      resetWizard();
+      onClose();
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Unable to update project.'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const renderStep = () => {
+    if (isEditMode && !projectId) {
+      return (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Project ID is required to edit setup.
+        </div>
+      );
+    }
+
+    if (isEditLoading) {
+      return (
+        <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-600">
+          Loading project setup...
+        </div>
+      );
+    }
+
     if (step === 1) {
       return (
         <div className="space-y-4">
@@ -253,277 +649,9 @@ export function ProjectWizard({ isOpen, onClose, onCreated }: ProjectWizardProps
     if (step === 2) {
       return (
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Choose how extraction rules are defined for this project.
-          </p>
-          <div className="grid gap-3 md:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => setStrategy('schema')}
-              className={`rounded-lg border px-4 py-3 text-left text-sm shadow-sm transition ${
-                strategy === 'schema'
-                  ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                  : 'border-gray-200 hover:border-indigo-300'
-              }`}
-            >
-              <div className="font-semibold">Schema-based extraction</div>
-              <div className="mt-1 text-xs text-gray-500">
-                Use JSON Schemas and required fields for structured validation.
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={() => setStrategy('prompt')}
-              className={`rounded-lg border px-4 py-3 text-left text-sm shadow-sm transition ${
-                strategy === 'prompt'
-                  ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                  : 'border-gray-200 hover:border-indigo-300'
-              }`}
-            >
-              <div className="font-semibold">Prompt-based extraction</div>
-              <div className="mt-1 text-xs text-gray-500">
-                Use a custom prompt optimized by the LLM.
-              </div>
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    if (step === 3 && strategy === 'schema') {
-      return (
-        <div className="space-y-6">
-          <div>
-            <div className="block text-sm font-medium text-gray-700">
-              Schema setup
-            </div>
-            <div className="mt-2 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setSchemaMode('existing')}
-                className={`rounded-md border px-3 py-1.5 text-sm ${
-                  schemaMode === 'existing'
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                    : 'border-gray-300 text-gray-600 hover:border-indigo-300'
-                }`}
-              >
-                Use existing schema
-              </button>
-              <button
-                type="button"
-                onClick={() => setSchemaMode('new')}
-                className={`rounded-md border px-3 py-1.5 text-sm ${
-                  schemaMode === 'new'
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                    : 'border-gray-300 text-gray-600 hover:border-indigo-300'
-                }`}
-              >
-                Create new schema
-              </button>
-            </div>
-          </div>
-
-          {schemaMode === 'existing' ? (
-            <div>
-              <label htmlFor="schema-select" className="block text-sm font-medium text-gray-700">
-                Select Schema *
-              </label>
-              <select
-                id="schema-select"
-                value={existingSchemaId ?? ''}
-                onChange={(event) =>
-                  setExistingSchemaId(
-                    event.target.value ? Number(event.target.value) : null,
-                  )
-                }
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-              >
-                <option value="">Select a schema...</option>
-                {schemas.map((schema) => (
-                  <option key={schema.id} value={schema.id.toString()}>
-                    {schema.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {templates.length > 0 && (
-                <div>
-                  <label htmlFor="schema-template" className="block text-sm font-medium text-gray-700">
-                    Start from Template (Optional)
-                  </label>
-                  <select
-                    id="schema-template"
-                    value={selectedTemplateId}
-                    onChange={(event) => handleTemplateSelect(event.target.value)}
-                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  >
-                    <option value="">Blank schema</option>
-                    {templates.map((template) => (
-                      <option key={template.id} value={template.id.toString()}>
-                        {template.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label htmlFor="schema-name" className="block text-sm font-medium text-gray-700">
-                  Schema Name *
-                </label>
-                <input
-                  id="schema-name"
-                  type="text"
-                  value={schemaDraft.name}
-                  onChange={(event) =>
-                    setSchemaDraft((prev) => ({
-                      ...prev,
-                      name: event.target.value,
-                    }))
-                  }
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="schema-description" className="block text-sm font-medium text-gray-700">
-                  Description
-                </label>
-                <input
-                  id="schema-description"
-                  type="text"
-                  value={schemaDraft.description}
-                  onChange={(event) =>
-                    setSchemaDraft((prev) => ({
-                      ...prev,
-                      description: event.target.value,
-                    }))
-                  }
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                />
-              </div>
-
-              <ExtractionStrategySelector
-                value={schemaDraft.extractionStrategy}
-                onChange={(value) =>
-                  setSchemaDraft((prev) => ({
-                    ...prev,
-                    extractionStrategy: value,
-                  }))
-                }
-                showCostEstimate={false}
-              />
-
-              <div>
-                <div className="block text-sm font-medium text-gray-700">
-                  JSON Schema
-                </div>
-                <div className="mt-2 rounded-md border border-gray-200 p-3">
-                  <SchemaVisualBuilder
-                    schema={schemaDraft.jsonSchema}
-                    onChange={(nextSchema) =>
-                      setSchemaDraft((prev) => ({
-                        ...prev,
-                        jsonSchema: nextSchema,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="required-fields" className="block text-sm font-medium text-gray-700">
-                  Required Fields
-                </label>
-                <textarea
-                  id="required-fields"
-                  value={schemaDraft.requiredFields}
-                  onChange={(event) =>
-                    setSchemaDraft((prev) => ({
-                      ...prev,
-                      requiredFields: event.target.value,
-                    }))
-                  }
-                  rows={4}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                  placeholder="department.code&#10;invoice.po_no&#10;items"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    if (step === 3 && strategy === 'prompt') {
-      return (
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="prompt-description" className="block text-sm font-medium text-gray-700">
-              Describe your extraction needs *
-            </label>
-            <textarea
-              id="prompt-description"
-              value={promptDescription}
-              onChange={(event) => setPromptDescription(event.target.value)}
-              rows={4}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-              placeholder="Example: Extract invoice number, PO number, totals, and line items."
-            />
-          </div>
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={handleOptimizePrompt}
-              disabled={isOptimizing}
-              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
-            >
-              {isOptimizing ? 'Optimizing...' : 'Generate Prompt'}
-            </button>
-          </div>
-          <div>
-            <label htmlFor="prompt-text" className="block text-sm font-medium text-gray-700">
-              Optimized Prompt *
-            </label>
-            <textarea
-              id="prompt-text"
-              value={promptText}
-              onChange={(event) => setPromptText(event.target.value)}
-              rows={8}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-              placeholder="Generated prompt will appear here..."
-            />
-          </div>
-        </div>
-      );
-    }
-
-    if (step === 4) {
-      return (
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="ocr-model" className="block text-sm font-medium text-gray-700">
-              OCR Model
-            </label>
-            <select
-              id="ocr-model"
-              value={ocrModelId}
-              onChange={(event) => setOcrModelId(event.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-            >
-              <option value="">No OCR model</option>
-              {ocrModels.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.name} {model.isActive ? '' : '(Inactive)'}
-                </option>
-              ))}
-            </select>
-          </div>
           <div>
             <label htmlFor="llm-model" className="block text-sm font-medium text-gray-700">
-              LLM Model
+              LLM Model *
             </label>
             <select
               id="llm-model"
@@ -531,17 +659,252 @@ export function ProjectWizard({ isOpen, onClose, onCreated }: ProjectWizardProps
               onChange={(event) => setLlmModelId(event.target.value)}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
             >
-              <option value="">No LLM model</option>
+              <option value="">Select LLM model...</option>
               {llmModels.map((model) => (
                 <option key={model.id} value={model.id}>
                   {model.name} {model.isActive ? '' : '(Inactive)'}
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-xs text-gray-500">
+              The selected LLM will generate schema and rules.
+            </p>
           </div>
+          <div>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={useOcr}
+                onChange={(event) => {
+                  setUseOcr(event.target.checked);
+                  if (!event.target.checked) {
+                    setOcrModelId('');
+                  }
+                }}
+                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              Use OCR before LLM (optional)
+            </label>
+          </div>
+          {useOcr && (
+            <div>
+              <label htmlFor="ocr-model" className="block text-sm font-medium text-gray-700">
+                OCR Model
+              </label>
+              <select
+                id="ocr-model"
+                value={ocrModelId}
+                onChange={(event) => setOcrModelId(event.target.value)}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+              >
+                <option value="">Select OCR model...</option>
+                {ocrModels.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.name} {model.isActive ? '' : '(Inactive)'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       );
     }
+
+    if (step === 3) {
+      return (
+        <div className="space-y-6">
+          {isEditMode && (
+            <div>
+              <label htmlFor="schema-select" className="block text-sm font-medium text-gray-700">
+                Schema
+              </label>
+              <select
+                id="schema-select"
+                value={selectedSchemaId ? selectedSchemaId.toString() : ''}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setSelectedSchemaId(value ? Number(value) : null);
+                }}
+                disabled={projectSchemas.length === 0}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 disabled:bg-gray-100"
+              >
+                <option value="">
+                  {projectSchemas.length === 0 ? 'No schemas available' : 'Select a schema...'}
+                </option>
+                {projectSchemas.map((schema) => (
+                  <option key={schema.id} value={schema.id}>
+                    {schema.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Switching schemas loads its JSON Schema and rules.
+              </p>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => setShowGenerateModal(true)}
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              Generate by LLM
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowImportModal(true)}
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              Import File
+            </button>
+          </div>
+
+          <SchemaJsonEditor
+            value={schemaDraft.jsonSchema}
+            onChange={(nextValue) =>
+              setSchemaDraft((prev) => ({
+                ...prev,
+                jsonSchema: nextValue,
+              }))
+            }
+            onError={setSchemaJsonError}
+            onValidate={(schema) =>
+              schemasApi.validateSchemaDefinition({ jsonSchema: schema })
+            }
+            rows={16}
+          />
+        </div>
+      );
+    }
+
+    if (step === 4) {
+      return (
+        <div className="space-y-6">
+          <div>
+            <label htmlFor="rule-description" className="block text-sm font-medium text-gray-700">
+              Describe validation requirements
+            </label>
+            <textarea
+              id="rule-description"
+              value={rulesDescription}
+              onChange={(event) => setRulesDescription(event.target.value)}
+              rows={4}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+              placeholder="PO number must be 7 digits. Units should be KG, EA, or M. Apply OCR corrections for common errors."
+            />
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => handleGenerateRules(rulesDescription.trim())}
+              disabled={isGeneratingRules || !rulesDescription.trim()}
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {isGeneratingRules ? 'Generating...' : 'Generate Rules'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleGenerateRules('Generate validation rules for this schema.')}
+              disabled={isGeneratingRules}
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Auto-Generate All
+            </button>
+          </div>
+
+          <RuleEditor rules={rules} onChange={setRules} />
+        </div>
+      );
+    }
+
+    if (step === 5) {
+      return (
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Validation Scripts</h3>
+              <p className="text-sm text-gray-600">
+                Add validation scripts that run after extraction for this project.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleAddScript}
+              className="rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              New Script
+            </button>
+          </div>
+
+          {validationScripts.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
+              No validation scripts yet. Add one to enforce project-specific checks.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {validationScripts.map((script, index) => (
+                <div
+                  key={script.id ?? `draft-${index}`}
+                  className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-semibold text-gray-900">
+                          {script.name || 'Untitled Script'}
+                        </h4>
+                        <span
+                          className={`px-2 py-0.5 text-xs font-medium rounded ${
+                            script.severity === 'error'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}
+                        >
+                          {script.severity}
+                        </span>
+                        {!script.enabled && (
+                          <span className="px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-600">
+                            Disabled
+                          </span>
+                        )}
+                      </div>
+                      {script.description && (
+                        <p className="mt-1 text-sm text-gray-600">{script.description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEditScript(script)}
+                        className="text-sm font-medium text-gray-600 hover:text-gray-800"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveScript(script)}
+                        className="text-sm font-medium text-red-600 hover:text-red-800"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const requiredCount = (() => {
+      try {
+        const parsed = JSON.parse(schemaDraft.jsonSchema) as Record<string, unknown>;
+        return deriveRequiredFields(parsed).length;
+      } catch {
+        return 0;
+      }
+    })();
 
     return (
       <div className="space-y-4 text-sm text-gray-700">
@@ -551,26 +914,24 @@ export function ProjectWizard({ isOpen, onClose, onCreated }: ProjectWizardProps
           {description && <div className="mt-1 text-gray-500">{description}</div>}
         </div>
         <div className="rounded-md border border-gray-200 p-4">
-          <div className="font-semibold">Strategy</div>
-          <div className="mt-1 capitalize">{strategy ?? 'Not selected'}</div>
-          {strategy === 'schema' && schemaMode === 'existing' && existingSchemaId && (
-            <div className="mt-1 text-gray-500">Using existing schema ID {existingSchemaId}</div>
-          )}
-          {strategy === 'schema' && schemaMode === 'new' && (
-            <div className="mt-1 text-gray-500">New schema: {schemaDraft.name}</div>
-          )}
-          {strategy === 'prompt' && (
-            <div className="mt-2 rounded-md border border-gray-100 bg-gray-50 p-3 text-xs text-gray-600">
-              {promptText || 'No prompt generated.'}
-            </div>
-          )}
+          <div className="font-semibold">Models</div>
+          <div className="mt-1 text-gray-500">OCR: {useOcr ? ocrModelId || 'None' : 'None'}</div>
+          <div className="text-gray-500">LLM: {llmModelId || 'None'}</div>
         </div>
         <div className="rounded-md border border-gray-200 p-4">
-          <div className="font-semibold">Models</div>
+          <div className="font-semibold">Schema</div>
+          <div className="mt-1 text-gray-500">JSON Schema</div>
+          <div className="mt-2 text-xs text-gray-500">Required fields: {requiredCount}</div>
+        </div>
+        <div className="rounded-md border border-gray-200 p-4">
+          <div className="font-semibold">Rules</div>
+          <div className="mt-1 text-gray-500">{rules.length} rule{rules.length !== 1 ? 's' : ''}</div>
+        </div>
+        <div className="rounded-md border border-gray-200 p-4">
+          <div className="font-semibold">Validation Scripts</div>
           <div className="mt-1 text-gray-500">
-            OCR: {ocrModelId || 'None'}
+            {validationScripts.length} script{validationScripts.length !== 1 ? 's' : ''}
           </div>
-          <div className="text-gray-500">LLM: {llmModelId || 'None'}</div>
         </div>
       </div>
     );
@@ -587,13 +948,15 @@ export function ProjectWizard({ isOpen, onClose, onCreated }: ProjectWizardProps
     >
       <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
-          <DialogTitle>Create Project</DialogTitle>
+          <DialogTitle>{isEditMode ? 'Project Setup' : 'Create Project'}</DialogTitle>
           <DialogDescription>
-            Set up extraction strategy, models, and defaults in a guided flow.
+            {isEditMode
+              ? 'Update project settings, schema, rules, and validation scripts.'
+              : 'Set up models, schema, rules, and validation scripts in a guided flow.'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-6">
-          <div className="flex gap-2 text-xs font-medium text-gray-500">
+          <div className="flex flex-wrap gap-2 text-xs font-medium text-gray-500">
             {stepLabels.map((label, index) => (
               <div
                 key={label}
@@ -638,17 +1001,76 @@ export function ProjectWizard({ isOpen, onClose, onCreated }: ProjectWizardProps
               ) : (
                 <button
                   type="button"
-                  onClick={handleCreate}
+                  onClick={isEditMode ? handleUpdate : handleCreate}
                   disabled={isSubmitting}
                   className="rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Creating...' : 'Create Project'}
+                  {isSubmitting
+                    ? isEditMode
+                      ? 'Saving...'
+                      : 'Creating...'
+                    : isEditMode
+                      ? 'Save Changes'
+                      : 'Create Project'}
                 </button>
               )}
             </div>
           </div>
         </div>
       </DialogContent>
+
+      <GenerateSchemaModal
+        open={showGenerateModal}
+        onClose={() => setShowGenerateModal(false)}
+        onGenerate={handleGenerateSchema}
+      />
+      <ImportSchemaModal
+        open={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImport={handleImportSchema}
+      />
+
+      {editingValidationScript && (
+        <Dialog
+          open={isScriptDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setIsScriptDialogOpen(false);
+              setEditingValidationScript(null);
+            } else {
+              setIsScriptDialogOpen(true);
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>
+                {editingValidationScript.id ? 'Edit Validation Script' : 'New Validation Script'}
+              </DialogTitle>
+              <DialogDescription>
+                Configure validation logic that runs after extraction.
+              </DialogDescription>
+            </DialogHeader>
+            <ValidationScriptForm
+              script={
+                editingValidationScript
+                  ? mapDraftToScriptForm(editingValidationScript, effectiveProjectId)
+                  : undefined
+              }
+              fixedProjectId={isEditMode ? effectiveProjectId : undefined}
+              showProjectField={isEditMode}
+              allowDraft={!isEditMode}
+              draftProjectId="draft"
+              onSubmit={handleSaveScript}
+              onCancel={() => {
+                setIsScriptDialogOpen(false);
+                setEditingValidationScript(null);
+              }}
+              isLoading={isSubmitting}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
   );
 }

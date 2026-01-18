@@ -78,6 +78,12 @@ const schema: SchemaEntity = {
   name: "Chinese Invoice Schema",
   jsonSchema: {
     type: "object",
+    required: [
+      "invoiceNumber",
+      "invoiceDate",
+      "sellerName",
+      "amount"
+    ],
     properties: {
       invoiceNumber: { type: "string", description: "发票号码" },
       invoiceDate: { type: "string", description: "开票日期" },
@@ -87,12 +93,6 @@ const schema: SchemaEntity = {
       tax: { type: "number", description: "税额" },
     },
   },
-  requiredFields: [
-    "invoiceNumber",
-    "invoiceDate",
-    "sellerName",
-    "amount"
-  ],
   projectId: 1,
   extractionStrategy: ExtractionStrategy.VISION_ONLY,
 };
@@ -140,7 +140,7 @@ const systemPrompt = `
 const prompt = promptsService.buildExtractionPrompt(
   manifest,
   systemPrompt,
-  requiredFields
+  schema.jsonSchema.required ?? []
 );
 ```
 
@@ -597,7 +597,6 @@ const result = await extractionService.runExtraction(testManifestId, {
 const validation = schemasService.validateWithRequiredFields({
   jsonSchema: schema.jsonSchema,
   data: result.extractionResult.data,
-  requiredFields: schema.requiredFields,
 });
 
 if (!validation.valid) {

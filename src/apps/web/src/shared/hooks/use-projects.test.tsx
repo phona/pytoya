@@ -41,8 +41,8 @@ describe('useProjects', () => {
           description: 'Test project description',
           userId: 1,
           ocrModelId: null,
-          llmModelId: null,
-          defaultPromptId: null,
+          llmModelId: 'llm-1',
+          defaultSchemaId: null,
           createdAt: '2025-01-13T00:00:00.000Z',
           updatedAt: '2025-01-13T00:00:00.000Z',
           _count: {
@@ -85,8 +85,8 @@ describe('useProjects', () => {
         description: 'New description',
         userId: 1,
         ocrModelId: null,
-        llmModelId: null,
-        defaultPromptId: null,
+        llmModelId: 'llm-1',
+        defaultSchemaId: null,
         createdAt: '2025-01-13T00:00:00.000Z',
         updatedAt: '2025-01-13T00:00:00.000Z',
         _count: { groups: 0, manifests: 0 },
@@ -100,11 +100,13 @@ describe('useProjects', () => {
       await result.current.createProject({
         name: 'New Project',
         description: 'New description',
+        llmModelId: 'llm-1',
       });
 
       expect(projectsApi.createProject).toHaveBeenCalledWith({
         name: 'New Project',
         description: 'New description',
+        llmModelId: 'llm-1',
       });
     });
   });
@@ -117,8 +119,8 @@ describe('useProjects', () => {
         description: 'Updated description',
         userId: 1,
         ocrModelId: null,
-        llmModelId: null,
-        defaultPromptId: null,
+        llmModelId: 'llm-1',
+        defaultSchemaId: null,
         createdAt: '2025-01-13T00:00:00.000Z',
         updatedAt: '2025-01-13T00:00:00.000Z',
         _count: { groups: 0, manifests: 0 },
@@ -130,10 +132,10 @@ describe('useProjects', () => {
 
       await result.current.updateProject({
         id: 1,
-        data: { name: 'Updated Project' },
+        data: { name: 'Updated Project', llmModelId: 'llm-1' },
       });
 
-      expect(projectsApi.updateProject).toHaveBeenCalledWith(1, { name: 'Updated Project' });
+      expect(projectsApi.updateProject).toHaveBeenCalledWith(1, { name: 'Updated Project', llmModelId: 'llm-1' });
     });
   });
 

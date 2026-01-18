@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -7,20 +8,32 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateSchemaDto } from './dto/create-schema.dto';
+import { GenerateRulesDto } from './dto/generate-rules.dto';
+import { GenerateSchemaDto } from './dto/generate-schema.dto';
+import { ImportSchemaDto } from './dto/import-schema.dto';
 import { SchemaResponseDto } from './dto/schema-response.dto';
 import { UpdateSchemaDto } from './dto/update-schema.dto';
 import { ValidateSchemaDto } from './dto/validate-schema.dto';
+import { RuleGeneratorService } from './rule-generator.service';
+import { SchemaGeneratorService } from './schema-generator.service';
 import { SchemasService } from './schemas.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('schemas')
 export class SchemasController {
-  constructor(private readonly schemasService: SchemasService) {}
+  constructor(
+    private readonly schemasService: SchemasService,
+    private readonly schemaGeneratorService: SchemaGeneratorService,
+    private readonly ruleGeneratorService: RuleGeneratorService,
+  ) {}
 
   @Post()
   async create(@Body() createSchemaDto: CreateSchemaDto) {
@@ -31,12 +44,6 @@ export class SchemasController {
   @Get()
   async findAll() {
     const schemas = await this.schemasService.findAll();
-    return schemas.map(SchemaResponseDto.fromEntity);
-  }
-
-  @Get('templates')
-  async findTemplates() {
-    const schemas = await this.schemasService.findTemplates();
     return schemas.map(SchemaResponseDto.fromEntity);
   }
 
@@ -54,12 +61,65 @@ export class SchemasController {
 
   @Post('validate')
   async validate(@Body() validateSchemaDto: ValidateSchemaDto) {
-    return this.schemasService.validate(validateSchemaDto);
+    return this.schemasService.validateSchemaDefinition(validateSchemaDto.jsonSchema);
   }
 
   @Post('validate-with-required')
   async validateWithRequired(@Body() validateSchemaDto: ValidateSchemaDto) {
     return this.schemasService.validateWithRequiredFields(validateSchemaDto);
+  }
+
+  @Post('generate')
+  async generateSchema(@Body() generateSchemaDto: GenerateSchemaDto) {
+    const jsonSchema = await this.schemaGeneratorService.generate(generateSchemaDto);
+    return { jsonSchema };
+  }
+
+  @Post('generate-rules')
+  async generateRulesFromSchema(@Body() generateRulesDto: GenerateRulesDto) {
+    if (!generateRulesDto.jsonSchema) {
+      throw new BadRequestException('jsonSchema is required to generate rules');
+    }
+    const rules = await this.ruleGeneratorService.generate(
+      { jsonSchema: generateRulesDto.jsonSchema },
+      generateRulesDto,
+    );
+    return { rules };
+  }
+
+  @Post(':id/generate-rules')
+  async generateRules(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() generateRulesDto: GenerateRulesDto,
+  ) {
+    const schema = await this.schemasService.findOne(id);
+    const rules = await this.ruleGeneratorService.generate(schema, generateRulesDto);
+    return { rules };
+  }
+
+  @Post('import')
+  @UseInterceptors(FileInterceptor('file'))
+  async importSchema(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() _body: ImportSchemaDto,
+  ) {
+    void _body;
+    if (!file) {
+      throw new BadRequestException('Schema file is required');
+    }
+
+    const content = file.buffer.toString('utf-8');
+    const parsed = this.schemasService.parseSchemaContent(content);
+    if (!parsed.valid || !parsed.jsonSchema) {
+      return { valid: false, errors: parsed.errors ?? [] };
+    }
+
+    const validation = this.schemasService.validateSchemaDefinition(parsed.jsonSchema);
+    if (!validation.valid) {
+      return { valid: false, errors: validation.errors ?? [] };
+    }
+
+    return { valid: true, jsonSchema: parsed.jsonSchema };
   }
 
   @Patch(':id')

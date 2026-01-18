@@ -1,22 +1,27 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useSchema, useValidateSchema } from '@/shared/hooks/use-schemas';
+import { useSchema, useValidateWithRequired } from '@/shared/hooks/use-schemas';
 import { UpdateSchemaDto, ValidateSchemaDto } from '@/api/schemas';
 import { SchemaForm } from '@/shared/components/SchemaForm';
 import { SchemaPreview } from '@/shared/components/SchemaPreview';
+import { deriveRequiredFields } from '@/shared/utils/schema';
 
 export function SchemaDetailPage() {
   const navigate = useNavigate();
   const params = useParams();
   const schemaId = Number(params.id);
   const { schema, isLoading } = useSchema(schemaId);
-  const validateSchema = useValidateSchema();
+  const validateSchema = useValidateWithRequired();
 
   const [isEditing, setIsEditing] = useState(false);
   const [testData, setTestData] = useState('{}');
   const [validationResult, setValidationResult] = useState<{ valid: boolean; errors?: string[] } | null>(null);
+  const requiredFields = useMemo(() => {
+    if (!schema) return [];
+    return deriveRequiredFields(schema.jsonSchema as Record<string, unknown>);
+  }, [schema]);
 
   if (isLoading) {
     return (
@@ -53,7 +58,6 @@ export function SchemaDetailPage() {
       const validateDto: ValidateSchemaDto = {
         jsonSchema: schema.jsonSchema,
         data,
-        requiredFields: schema.requiredFields,
       };
       const result = await validateSchema.mutateAsync(validateDto);
       setValidationResult(result);
@@ -84,7 +88,7 @@ export function SchemaDetailPage() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">{schema.name}</h1>
               <p className="mt-1 text-sm text-gray-600">
-                {schema.isTemplate ? 'Template Schema' : `Project ID: ${schema.projectId}`}
+                {`Project ID: ${schema.projectId}`}
               </p>
             </div>
             <div className="flex gap-3">
@@ -109,7 +113,6 @@ export function SchemaDetailPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Edit Schema</h2>
             <SchemaForm
               schema={schema}
-              templates={[]}
               onSubmit={handleUpdate}
               onCancel={() => setIsEditing(false)}
               isLoading={false}
@@ -126,7 +129,7 @@ export function SchemaDetailPage() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="font-medium text-gray-900">Required Fields:</span>{' '}
-                  <span className="text-gray-700">{schema.requiredFields.length}</span>
+                  <span className="text-gray-700">{requiredFields.length}</span>
                 </div>
                 <div>
                   <span className="font-medium text-gray-900">Created:</span>{' '}
@@ -154,11 +157,11 @@ export function SchemaDetailPage() {
             </div>
 
             {/* Required Fields */}
-            {schema.requiredFields.length > 0 && (
+            {requiredFields.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Required Fields</h2>
                 <ul className="space-y-1">
-                  {schema.requiredFields.map((field) => (
+                  {requiredFields.map((field) => (
                     <li key={field} className="text-sm text-gray-700">
                       <code className="bg-gray-100 px-2 py-1 rounded">{field}</code>
                     </li>

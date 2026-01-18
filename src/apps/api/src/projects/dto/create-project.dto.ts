@@ -13,17 +13,8 @@ export class CreateProjectDto {
   @IsString()
   ocrModelId?: string;
 
-  @IsOptional()
   @IsString()
-  llmModelId?: string;
-
-  @IsOptional()
-  @IsString()
-  defaultPromptId?: string;
-
-  @IsOptional()
-  @IsString()
-  prompt?: string;
+  llmModelId!: string;
 
   @IsOptional()
   @IsNumber()

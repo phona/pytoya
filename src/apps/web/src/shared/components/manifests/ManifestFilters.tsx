@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useSchemaTemplates } from '@/shared/hooks/use-schemas';
+import { useSchemas } from '@/shared/hooks/use-schemas';
 import {
   DynamicManifestFilter,
   ManifestFilterValues,
@@ -12,7 +12,7 @@ interface ManifestFiltersProps {
 }
 
 export function ManifestFilters({ values, onChange, manifestCount }: ManifestFiltersProps) {
-  const { templates } = useSchemaTemplates();
+  const { schemas } = useSchemas();
   const [dynamicField, setDynamicField] = useState('');
   const [dynamicValue, setDynamicValue] = useState('');
   const [confidenceRange, setConfidenceRange] = useState({
@@ -53,12 +53,12 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
       return prefix.length > 0 ? [prefix.join('.')] : [];
     };
 
-    templates.forEach((template) => {
-      collectPaths(template.jsonSchema).forEach((path) => options.add(path));
+    schemas.forEach((schema) => {
+      collectPaths(schema.jsonSchema).forEach((path) => options.add(path));
     });
 
     return Array.from(options).sort((a, b) => a.localeCompare(b));
-  }, [templates]);
+  }, [schemas]);
 
   const handleStatusChange = (status: string) => {
     onChange({

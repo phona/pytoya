@@ -7,7 +7,9 @@ import { ExtractionService } from './extraction.service';
 import { PdfToImageService } from '../pdf-to-image/pdf-to-image.service';
 import { LlmService } from '../llm/llm.service';
 import { OcrService } from '../ocr/ocr.service';
+import { PromptBuilderService } from '../prompts/prompt-builder.service';
 import { PromptsService } from '../prompts/prompts.service';
+import { SchemaRulesService } from '../schemas/schema-rules.service';
 import { SchemasService } from '../schemas/schemas.service';
 import { IFileAccessService } from '../file-access/file-access.service';
 import { ManifestEntity, FileType } from '../entities/manifest.entity';
@@ -32,7 +34,9 @@ describe('ExtractionService - Vision Strategies Integration', () => {
   let pdfToImageService: jest.Mocked<PdfToImageService>;
   let llmService: jest.Mocked<LlmService>;
   let ocrService: jest.Mocked<OcrService>;
+  let promptBuilderService: jest.Mocked<PromptBuilderService>;
   let promptsService: jest.Mocked<PromptsService>;
+  let schemaRulesService: jest.Mocked<SchemaRulesService>;
   let schemasService: jest.Mocked<SchemasService>;
   let fileSystem: jest.Mocked<IFileAccessService>;
   let manifestRepository: jest.Mocked<Repository<ManifestEntity>>;
@@ -52,6 +56,19 @@ describe('ExtractionService - Vision Strategies Integration', () => {
       maxTokens: 2000,
       supportsVision: true,
       supportsStructuredOutput: true,
+    },
+    description: null,
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as ModelEntity;
+
+  const mockOcrModel: ModelEntity = {
+    id: 'ocr-1',
+    name: 'OCR Model',
+    adapterType: 'paddlex',
+    parameters: {
+      baseUrl: 'http://localhost:8080',
     },
     description: null,
     isActive: true,
@@ -96,9 +113,11 @@ describe('ExtractionService - Vision Strategies Integration', () => {
     },
     requiredFields: [], // Empty to bypass validation in tests
     projectId: 1,
-    isTemplate: false,
     extractionStrategy: ExtractionStrategy.VISION_ONLY,
     description: 'Test schema',
+    systemPromptTemplate: null,
+    validationSettings: null,
+    rules: [],
     project: {} as any,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -127,9 +146,8 @@ describe('ExtractionService - Vision Strategies Integration', () => {
         id: 1,
         name: 'Test Project',
         defaultSchemaId: 1,
-        ocrModelId: null,
-        llmModelId: null,
-        defaultPromptId: null,
+        ocrModelId: 'ocr-1',
+        llmModelId: '11111111-1111-1111-1111-111111111111',
       } as any,
     } as any,
     jobs: [],
@@ -183,6 +201,15 @@ describe('ExtractionService - Vision Strategies Integration', () => {
       savePagesToDisk: jest.fn(),
     } as unknown as jest.Mocked<PdfToImageService>;
 
+    const defaultConvertedPages = [
+      {
+        pageNumber: 1,
+        buffer: Buffer.from('fake-image-page-1'),
+        mimeType: 'image/png',
+      },
+    ];
+    pdfToImageService.convertPdfToImages.mockResolvedValue(defaultConvertedPages);
+
     llmService = {
       createChatCompletion: jest.fn().mockResolvedValue({
         content: JSON.stringify(validExtractionResponse),
@@ -204,6 +231,11 @@ describe('ExtractionService - Vision Strategies Integration', () => {
       }),
     } as unknown as jest.Mocked<OcrService>;
 
+    promptBuilderService = {
+      buildExtractionPrompt: jest.fn().mockReturnValue('Extract using schema'),
+      buildReExtractPrompt: jest.fn().mockReturnValue('Re-extract using schema'),
+    } as unknown as jest.Mocked<PromptBuilderService>;
+
     promptsService = {
       getSystemPrompt: jest.fn().mockReturnValue('Extract data from this document'),
       getReExtractSystemPrompt: jest.fn().mockReturnValue('Re-extract missing data'),
@@ -211,9 +243,12 @@ describe('ExtractionService - Vision Strategies Integration', () => {
       buildReExtractPrompt: jest.fn().mockReturnValue('Please re-extract'),
     } as unknown as jest.Mocked<PromptsService>;
 
+    schemaRulesService = {
+      findBySchema: jest.fn().mockResolvedValue([]),
+    } as unknown as jest.Mocked<SchemaRulesService>;
+
     schemasService = {
       findOne: jest.fn().mockResolvedValue(mockSchema),
-      validate: jest.fn().mockReturnValue({ valid: true }),
       validateWithRequiredFields: jest.fn().mockReturnValue({
         valid: true,
         errors: undefined,
@@ -231,7 +266,12 @@ describe('ExtractionService - Vision Strategies Integration', () => {
     } as unknown as jest.Mocked<Repository<ManifestEntity>>;
 
     modelRepository = {
-      findOne: jest.fn().mockResolvedValue(mockLlmModel),
+      findOne: jest.fn().mockImplementation(({ where }) => {
+        if (where?.id === mockOcrModel.id) {
+          return Promise.resolve(mockOcrModel);
+        }
+        return Promise.resolve(mockLlmModel);
+      }),
     } as unknown as jest.Mocked<Repository<ModelEntity>>;
 
     schemaRepository = {
@@ -247,7 +287,9 @@ describe('ExtractionService - Vision Strategies Integration', () => {
         { provide: PdfToImageService, useValue: pdfToImageService },
         { provide: LlmService, useValue: llmService },
         { provide: OcrService, useValue: ocrService },
+        { provide: PromptBuilderService, useValue: promptBuilderService },
         { provide: PromptsService, useValue: promptsService },
+        { provide: SchemaRulesService, useValue: schemaRulesService },
         { provide: SchemasService, useValue: schemasService },
         { provide: ConfigService, useValue: configService },
         { provide: 'IFileAccessService', useValue: fileSystem },
@@ -350,6 +392,51 @@ describe('ExtractionService - Vision Strategies Integration', () => {
     });
   });
 
+  describe('Rules in prompts', () => {
+    it('passes enabled rules to the prompt builder', async () => {
+      const enabledRule = {
+        id: 1,
+        schemaId: 1,
+        fieldPath: 'invoice.po_no',
+        ruleType: 'verification',
+        ruleOperator: 'pattern',
+        ruleConfig: { regex: '^\\d{7}$' },
+        errorMessage: null,
+        priority: 5,
+        enabled: true,
+        description: null,
+        schema: mockSchema,
+        createdAt: new Date(),
+      } as any;
+
+      const disabledRule = {
+        id: 2,
+        schemaId: 1,
+        fieldPath: 'invoice.total',
+        ruleType: 'restriction',
+        ruleOperator: 'range_min',
+        ruleConfig: { value: 0 },
+        errorMessage: null,
+        priority: 1,
+        enabled: false,
+        description: null,
+        schema: mockSchema,
+        createdAt: new Date(),
+      } as any;
+
+      schemaRulesService.findBySchema.mockResolvedValue([enabledRule, disabledRule]);
+
+      await service.runExtraction(1, {
+        llmModel: mockLlmModel,
+      });
+
+      const passedRules = promptBuilderService.buildExtractionPrompt.mock.calls
+        .map((call) => call[2] as Array<{ fieldPath: string }>);
+
+      expect(passedRules.some((rules) => rules.length === 1 && rules[0]?.fieldPath === 'invoice.po_no')).toBe(true);
+    });
+  });
+
   describe('VISION_FIRST strategy', () => {
     it('should use vision with OCR as fallback context', async () => {
       // Arrange: Mock PDF-to-image conversion
@@ -432,7 +519,7 @@ describe('ExtractionService - Vision Strategies Integration', () => {
       expect(result.strategy).toBe(ExtractionStrategy.OCR_FIRST);
     });
 
-    it('falls back to config defaults when project OCR model is missing', async () => {
+    it('uses vision-only when project OCR model is missing', async () => {
       const schemaWithOcrFirst = { ...mockSchema, extractionStrategy: ExtractionStrategy.OCR_FIRST };
       (schemasService.findOne as jest.Mock).mockResolvedValue(schemaWithOcrFirst);
 
@@ -442,23 +529,21 @@ describe('ExtractionService - Vision Strategies Integration', () => {
           ...mockManifest.group,
           project: {
             ...(mockManifest.group as any).project,
-            ocrModelId: 'missing-ocr-model',
-            llmModelId: null,
+            ocrModelId: null,
+            llmModelId: '11111111-1111-1111-1111-111111111111',
           },
         },
       };
       (manifestRepository.findOne as jest.Mock).mockResolvedValue(manifestWithMissingModel);
-      (modelRepository.findOne as jest.Mock).mockResolvedValue(null);
+      (modelRepository.findOne as jest.Mock).mockResolvedValue(mockLlmModel);
 
       const result = await service.runExtraction(1, {
         llmModel: mockLlmModel,
       });
 
       expect(result.status).toBe(ExtractionStatus.COMPLETED);
-      expect(ocrService.processPdf).toHaveBeenCalledWith(
-        expect.any(Buffer),
-        undefined,
-      );
+      expect(result.strategy).toBe(ExtractionStrategy.VISION_ONLY);
+      expect(ocrService.processPdf).not.toHaveBeenCalled();
     });
   });
 
@@ -496,6 +581,24 @@ describe('ExtractionService - Vision Strategies Integration', () => {
   });
 
   describe('Error handling', () => {
+    it('throws when project LLM model is missing', async () => {
+      const manifestWithoutLlm = {
+        ...mockManifest,
+        group: {
+          ...mockManifest.group,
+          project: {
+            ...(mockManifest.group as any).project,
+            llmModelId: null,
+          },
+        },
+      };
+      (manifestRepository.findOne as jest.Mock).mockResolvedValue(manifestWithoutLlm);
+
+      await expect(service.runExtraction(1)).rejects.toThrow(
+        'Project LLM model is required for extraction',
+      );
+    });
+
     it('should handle PDF-to-image conversion errors', async () => {
       // Arrange: Mock PDF conversion failure
       pdfToImageService.convertPdfToImages.mockRejectedValue(new Error('Conversion failed'));

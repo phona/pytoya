@@ -2,7 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   schemasApi,
   CreateSchemaDto,
+  CreateSchemaRuleDto,
+  GenerateRulesDto,
+  GenerateSchemaDto,
+  ImportSchemaDto,
   UpdateSchemaDto,
+  UpdateSchemaRuleDto,
   ValidateSchemaDto,
 } from '@/api/schemas';
 
@@ -78,22 +83,70 @@ export function useProjectSchemas(projectId: number) {
   };
 }
 
-export function useSchemaTemplates() {
-  const templates = useQuery({
-    queryKey: ['schemas', 'templates'],
-    queryFn: schemasApi.getTemplates,
+export function useSchemaRules(schemaId: number) {
+  const queryClient = useQueryClient();
+  const rules = useQuery({
+    queryKey: ['schemas', schemaId, 'rules'],
+    queryFn: () => schemasApi.listSchemaRules(schemaId),
+    enabled: !!schemaId,
+  });
+
+  const createRule = useMutation({
+    mutationFn: (data: CreateSchemaRuleDto) => schemasApi.createSchemaRule(schemaId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schemas', schemaId, 'rules'] });
+    },
+  });
+
+  const updateRule = useMutation({
+    mutationFn: ({ ruleId, data }: { ruleId: number; data: UpdateSchemaRuleDto }) =>
+      schemasApi.updateSchemaRule(schemaId, ruleId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schemas', schemaId, 'rules'] });
+    },
+  });
+
+  const deleteRule = useMutation({
+    mutationFn: (ruleId: number) => schemasApi.deleteSchemaRule(schemaId, ruleId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schemas', schemaId, 'rules'] });
+    },
   });
 
   return {
-    templates: templates.data ?? [],
-    isLoading: templates.isLoading,
-    error: templates.error,
+    rules: rules.data ?? [],
+    isLoading: rules.isLoading,
+    error: rules.error,
+    createRule: createRule.mutateAsync,
+    updateRule: updateRule.mutateAsync,
+    deleteRule: deleteRule.mutateAsync,
+    isCreating: createRule.isPending,
+    isUpdating: updateRule.isPending,
+    isDeleting: deleteRule.isPending,
   };
 }
 
-export function useValidateSchema() {
+export function useGenerateSchema() {
   return useMutation({
-    mutationFn: (data: ValidateSchemaDto) => schemasApi.validateSchema(data),
+    mutationFn: (data: GenerateSchemaDto) => schemasApi.generateSchema(data),
+  });
+}
+
+export function useGenerateRules(schemaId: number) {
+  return useMutation({
+    mutationFn: (data: GenerateRulesDto) => schemasApi.generateRules(schemaId, data),
+  });
+}
+
+export function useImportSchema() {
+  return useMutation({
+    mutationFn: (data: ImportSchemaDto) => schemasApi.importSchema(data),
+  });
+}
+
+export function useValidateSchemaDefinition() {
+  return useMutation({
+    mutationFn: (data: ValidateSchemaDto) => schemasApi.validateSchemaDefinition(data),
   });
 }
 

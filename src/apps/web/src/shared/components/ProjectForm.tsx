@@ -57,7 +57,7 @@ export function ProjectForm({ project, onSubmit, onCancel, isLoading }: ProjectF
     const name = values.name.trim();
     const description = values.description?.trim() || undefined;
     const ocrModelId = values.ocrModelId || undefined;
-    const llmModelId = values.llmModelId || undefined;
+    const llmModelId = values.llmModelId;
 
     if (project) {
       const updateData: UpdateProjectDto = {
@@ -156,20 +156,17 @@ export function ProjectForm({ project, onSubmit, onCancel, isLoading }: ProjectF
             name="llmModelId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>LLM Model</FormLabel>
+                <FormLabel>LLM Model *</FormLabel>
                 <Select
-                  value={field.value || 'none'}
-                  onValueChange={(value) =>
-                    field.onChange(value === 'none' ? '' : value)
-                  }
+                  value={field.value || ''}
+                  onValueChange={(value) => field.onChange(value)}
                 >
                   <FormControl>
                     <SelectTrigger aria-label="LLM model">
-                      <SelectValue placeholder="No LLM model" />
+                      <SelectValue placeholder="Select LLM model..." />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="none">No LLM model</SelectItem>
                     {llmModels.map((model) => (
                       <SelectItem key={model.id} value={model.id}>
                         {model.name}

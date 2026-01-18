@@ -49,8 +49,7 @@ export const handlers = [
         description: 'Test project description',
         userId: 1,
         ocrModelId: null,
-        llmModelId: null,
-        defaultPromptId: null,
+        llmModelId: '11111111-1111-1111-1111-111111111111',
         createdAt: '2025-01-13T00:00:00.000Z',
         updatedAt: '2025-01-13T00:00:00.000Z',
         _count: {
@@ -71,8 +70,7 @@ export const handlers = [
       description: 'Test project description',
       userId: 1,
       ocrModelId: null,
-      llmModelId: null,
-      defaultPromptId: null,
+      llmModelId: '11111111-1111-1111-1111-111111111111',
       createdAt: '2025-01-13T00:00:00.000Z',
       updatedAt: '2025-01-13T00:00:00.000Z',
       _count: {
@@ -135,39 +133,50 @@ export const handlers = [
     });
   }),
 
-  // Schema templates endpoints
-  http.get('/api/schemas/templates', () => {
-    return HttpResponse.json([
-      {
-        id: 1,
-        name: 'Invoice Template',
-        jsonSchema: {
-          type: 'object',
-          properties: {
-            invoice: {
-              type: 'object',
-              properties: {
-                po_no: { type: 'string' },
-                invoice_date: { type: 'string' },
-              },
-            },
-            department: {
-              type: 'object',
-              properties: {
-                code: { type: 'string' },
-              },
-            },
-          },
-        },
-        requiredFields: [],
-        projectId: 1,
-        isTemplate: true,
-        description: null,
-        extractionStrategy: 'ocr-first',
-        createdAt: '2025-01-13T00:00:00.000Z',
-        updatedAt: '2025-01-13T00:00:00.000Z',
+  // Schema validation endpoints
+  http.get('/api/schemas', () => {
+    return HttpResponse.json([]);
+  }),
+  http.post('/api/schemas/validate', () => {
+    return HttpResponse.json({ valid: true });
+  }),
+  http.post('/api/schemas/validate-with-required', () => {
+    return HttpResponse.json({ valid: true });
+  }),
+
+  // Schema generation endpoints
+  http.post('/api/schemas/generate', () => {
+    return HttpResponse.json({
+      jsonSchema: {
+        type: 'object',
+        properties: {},
+        required: [],
       },
-    ]);
+    });
+  }),
+  http.post('/api/schemas/generate-rules', () => {
+    return HttpResponse.json({ rules: [] });
+  }),
+  http.post('/api/schemas/:id/generate-rules', () => {
+    return HttpResponse.json({ rules: [] });
+  }),
+  http.post('/api/schemas/import', () => {
+    return HttpResponse.json({
+      valid: true,
+      jsonSchema: { type: 'object', properties: {}, required: [] },
+    });
+  }),
+  http.get('/api/schemas/:schemaId/rules', () => {
+    return HttpResponse.json([]);
+  }),
+  http.post('/api/schemas/:schemaId/rules', async ({ request, params }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({
+      id: 1,
+      schemaId: Number(params.schemaId),
+      ...body,
+      createdAt: '2025-01-13T00:00:00.000Z',
+    });
   }),
 
   // Models endpoints

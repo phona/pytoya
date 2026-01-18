@@ -37,12 +37,6 @@ const click = async (user: ReturnType<typeof userEvent.setup>, element: HTMLElem
   });
 };
 
-const type = async (user: ReturnType<typeof userEvent.setup>, element: HTMLElement, text: string) => {
-  await act(async () => {
-    await user.type(element, text);
-  });
-};
-
 const selectOption = async (
   user: ReturnType<typeof userEvent.setup>,
   label: RegExp,
@@ -87,11 +81,8 @@ describe('SchemaForm', () => {
         { wrapper: createWrapper() }
       );
 
-      expect(screen.getByLabelText(/Schema Name/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Project/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Description/i)).toBeInTheDocument();
       expect(screen.getByText(/^JSON Schema/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Required Fields/i)).toBeInTheDocument();
     });
 
     it('should submit valid schema', async () => {
@@ -106,7 +97,6 @@ describe('SchemaForm', () => {
         { wrapper: createWrapper() }
       );
 
-      await type(user, screen.getByLabelText(/Schema Name/i), 'Test Schema');
       await selectOption(user, /Project/i, 'Project 1');
 
       // Submit form
@@ -142,9 +132,10 @@ describe('SchemaForm', () => {
       projectId: 1,
       jsonSchema: { type: 'object', properties: { field: { type: 'string' } } },
       requiredFields: ['field'],
-      isTemplate: false,
       description: 'Test schema',
       extractionStrategy: ExtractionStrategy.OCR_FIRST,
+      systemPromptTemplate: null,
+      validationSettings: null,
       createdAt: '2025-01-13T00:00:00.000Z',
       updatedAt: '2025-01-13T00:00:00.000Z',
     };
@@ -160,8 +151,6 @@ describe('SchemaForm', () => {
         { wrapper: createWrapper() }
       );
 
-      expect(screen.getByDisplayValue('Existing Schema')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('Test schema')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Update/i })).toBeInTheDocument();
     });
 
@@ -272,65 +261,4 @@ describe('SchemaForm', () => {
     });
   });
 
-  describe('Template selection', () => {
-    const mockTemplates: Schema[] = [
-      {
-        id: 1,
-        name: 'Invoice Template',
-        projectId: 0,
-        jsonSchema: {
-          type: 'object',
-          properties: {
-            invoice_number: { type: 'string' },
-            total: { type: 'number' },
-          },
-          required: ['invoice_number'],
-        },
-        requiredFields: ['invoice_number'],
-        isTemplate: true,
-        description: 'Invoice template',
-        extractionStrategy: ExtractionStrategy.OCR_FIRST,
-        createdAt: '2025-01-13T00:00:00.000Z',
-        updatedAt: '2025-01-13T00:00:00.000Z',
-      },
-    ];
-
-    it('should show template selector when templates are available', () => {
-      render(
-        <SchemaForm
-          templates={mockTemplates}
-          onSubmit={mockOnSubmit}
-          onCancel={mockOnCancel}
-          isLoading={false}
-        />,
-        { wrapper: createWrapper() }
-      );
-
-      expect(screen.getByLabelText(/Start from Template/i)).toBeInTheDocument();
-    });
-
-    it('should populate form when template is selected', async () => {
-      const user = userEvent.setup({ pointerEventsCheck: 0 });
-
-      render(
-        <SchemaForm
-          templates={mockTemplates}
-          onSubmit={mockOnSubmit}
-          onCancel={mockOnCancel}
-          isLoading={false}
-        />,
-        { wrapper: createWrapper() }
-      );
-
-      await selectOption(user, /Start from Template/i, 'Invoice Template');
-
-      await waitFor(() => {
-        // Verify template schema is loaded
-        const textarea = screen.getByPlaceholderText(/"type": "object"/i);
-        expect(textarea).toHaveValue(
-          JSON.stringify(mockTemplates[0].jsonSchema, null, 2)
-        );
-      });
-    });
-  });
 });

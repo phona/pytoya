@@ -13,16 +13,19 @@ import { Repository } from 'typeorm';
 
 import { ManifestEntity, ManifestStatus, FileType } from '../entities/manifest.entity';
 import { ModelEntity } from '../entities/model.entity';
-import { PromptEntity, PromptType } from '../entities/prompt.entity';
+import { PromptEntity } from '../entities/prompt.entity';
 import { SchemaEntity } from '../entities/schema.entity';
+import { SchemaRuleEntity } from '../entities/schema-rule.entity';
 import { LlmResponseFormat } from '../llm/llm.types';
 import { LlmService } from '../llm/llm.service';
 import { LlmChatMessage, LlmProviderConfig } from '../llm/llm.types';
 import { OcrService } from '../ocr/ocr.service';
 import { PdfToImageService, ConvertedPage } from '../pdf-to-image/pdf-to-image.service';
+import { PromptBuilderService } from '../prompts/prompt-builder.service';
 import { PromptsService } from '../prompts/prompts.service';
+import { SchemaRulesService } from '../schemas/schema-rules.service';
 import { SchemasService } from '../schemas/schemas.service';
-import { IFileAccessService, FileStats } from '../file-access/file-access.service';
+import { IFileAccessService } from '../file-access/file-access.service';
 import { ExtractedData } from '../prompts/types/prompts.types';
 import { adapterRegistry } from '../models/adapters/adapter-registry';
 import {
@@ -37,11 +40,11 @@ import {
 type ExtractionOptions = {
   ocrModel?: ModelEntity;
   llmModel?: ModelEntity;
-  prompt?: PromptEntity;
-  reExtractPrompt?: PromptEntity;
   ocrModelId?: string;
   llmModelId?: string;
   promptId?: number;
+  systemPromptOverride?: string;
+  reExtractPromptOverride?: string;
   fieldName?: string;
 };
 
@@ -67,7 +70,9 @@ export class ExtractionService {
     private readonly ocrService: OcrService,
     private readonly llmService: LlmService,
     private readonly pdfToImageService: PdfToImageService,
+    private readonly promptBuilderService: PromptBuilderService,
     private readonly promptsService: PromptsService,
+    private readonly schemaRulesService: SchemaRulesService,
     private readonly schemasService: SchemasService,
     private readonly configService: ConfigService,
     @Inject('IFileAccessService')
@@ -81,34 +86,42 @@ export class ExtractionService {
     schema: SchemaEntity | null,
     fileType: FileType,
     llmModel?: ModelEntity,
+    ocrModel?: ModelEntity,
   ): ExtractionStrategy {
-    // If schema explicitly specifies a strategy, use it
+    const supportsVision = llmModel ? this.getLlmSupportsVision(llmModel) : false;
+
     if (schema?.extractionStrategy) {
-      // Validate that the strategy is compatible with the model
-      if (llmModel && schema.extractionStrategy !== ExtractionStrategy.OCR_FIRST) {
-        const supportsVision = this.getLlmSupportsVision(llmModel);
-        if (!supportsVision) {
-          this.logger.warn(
-            `Schema specifies ${schema.extractionStrategy} but model doesn't support vision, falling back to OCR_FIRST`,
-          );
-          return ExtractionStrategy.OCR_FIRST;
-        }
+      let strategy = schema.extractionStrategy;
+      if (strategy !== ExtractionStrategy.OCR_FIRST && !supportsVision) {
+        this.logger.warn(
+          `Schema specifies ${schema.extractionStrategy} but model doesn't support vision, falling back to OCR_FIRST`,
+        );
+        strategy = ExtractionStrategy.OCR_FIRST;
       }
-      return schema.extractionStrategy;
+
+      if (strategy !== ExtractionStrategy.VISION_ONLY && !ocrModel) {
+        if (supportsVision) {
+          return ExtractionStrategy.VISION_ONLY;
+        }
+        throw new BadRequestException('OCR model is required for non-vision extraction');
+      }
+
+      return strategy;
     }
 
-    // For image files, use VISION_ONLY if model supports it
-    if (fileType === FileType.IMAGE) {
-      const supportsVision = llmModel ? this.getLlmSupportsVision(llmModel) : false;
+    if (fileType === FileType.IMAGE && supportsVision) {
+      return ExtractionStrategy.VISION_ONLY;
+    }
+
+    const fallback = ExtractionStrategy.OCR_FIRST;
+    if (!ocrModel) {
       if (supportsVision) {
         return ExtractionStrategy.VISION_ONLY;
       }
-      // Image files require vision - if model doesn't support it, we'll fail later
-      this.logger.warn('Image file uploaded but model does not support vision');
+      throw new BadRequestException('OCR model is required for non-vision extraction');
     }
 
-    // Default to OCR_FIRST for backward compatibility
-    return ExtractionStrategy.OCR_FIRST;
+    return fallback;
   }
 
   /**
@@ -200,16 +213,20 @@ export class ExtractionService {
     reportProgress(5);
 
     const project = manifest.group?.project ?? null;
+    if (!project) {
+      throw new BadRequestException('Project not found for manifest');
+    }
+    if (!project.llmModelId) {
+      throw new BadRequestException('Project LLM model is required for extraction');
+    }
+    if (!project.defaultSchemaId) {
+      throw new BadRequestException('Project schema is required for extraction');
+    }
 
     // Load schema from project
-    let schema: SchemaEntity | null = null;
-    if (project?.defaultSchemaId) {
-      try {
-        schema = await this.schemasService.findOne(project.defaultSchemaId);
-      } catch (error) {
-        this.logger.warn(`Default schema ${project.defaultSchemaId} not found, using fallback`);
-      }
-    }
+    const schema = await this.schemasService.findOne(project.defaultSchemaId);
+    const rules = await this.schemaRulesService.findBySchema(schema.id);
+    const enabledRules = rules.filter((rule) => rule.enabled);
 
     const ocrModelFromProject = project?.ocrModelId
       ? await this.modelRepository.findOne({
@@ -217,8 +234,8 @@ export class ExtractionService {
         })
       : null;
     if (project?.ocrModelId && !ocrModelFromProject) {
-      this.logger.warn(
-        `OCR model ${project.ocrModelId} not found, using config defaults`,
+      throw new NotFoundException(
+        `OCR model ${project.ocrModelId} not found`,
       );
     }
 
@@ -228,8 +245,8 @@ export class ExtractionService {
         })
       : null;
     if (project?.llmModelId && !llmModelFromProject) {
-      this.logger.warn(
-        `LLM model ${project.llmModelId} not found, using config defaults`,
+      throw new NotFoundException(
+        `LLM model ${project.llmModelId} not found`,
       );
     }
 
@@ -265,6 +282,9 @@ export class ExtractionService {
       llmModelFromId ??
       llmModelFromProject ??
       undefined;
+    if (!llmModel) {
+      throw new BadRequestException('LLM model is required for extraction');
+    }
 
     if (ocrModel) {
       this.ensureModelCategory(ocrModel, 'ocr');
@@ -273,14 +293,6 @@ export class ExtractionService {
       this.ensureModelCategory(llmModel, 'llm');
     }
 
-    const defaultPromptId = this.parseOptionalNumber(
-      project?.defaultPromptId ?? null,
-    );
-    const promptFromProject = defaultPromptId
-      ? await this.promptRepository.findOne({
-          where: { id: defaultPromptId },
-        })
-      : null;
     const promptFromId = options.promptId
       ? await this.promptRepository.findOne({
           where: { id: options.promptId },
@@ -291,17 +303,8 @@ export class ExtractionService {
         `Prompt ${options.promptId} not found`,
       );
     }
-    const systemPrompt =
-      options.prompt ??
-      promptFromId ??
-      promptFromProject ??
-      undefined;
-    const reExtractPrompt =
-      options.reExtractPrompt ??
-      options.prompt ??
-      promptFromId ??
-      promptFromProject ??
-      undefined;
+    const systemPromptOverride = promptFromId?.content?.trim() || undefined;
+    const reExtractPromptOverride = promptFromId?.content?.trim() || undefined;
 
     const state: ExtractionWorkflowState = {
       manifestId: manifest.id,
@@ -313,7 +316,7 @@ export class ExtractionService {
       ),
       ocrRetryCount: 0,
       extractionRetryCount: 0,
-      strategy: this.determineExtractionStrategy(schema, manifest.fileType, llmModel),
+      strategy: this.determineExtractionStrategy(schema, manifest.fileType, llmModel, ocrModel),
     };
 
     if (isFieldReExtract && previousExtractedData && targetFieldName) {
@@ -384,10 +387,11 @@ export class ExtractionService {
           ...options,
           ocrModel,
           llmModel,
-          prompt: systemPrompt,
-          reExtractPrompt,
+          systemPromptOverride,
+          reExtractPromptOverride,
         },
         schema,
+        enabledRules,
         isFieldReExtract && targetFieldName
           ? [targetFieldName]
           : schema?.requiredFields ?? this.getRequiredFields(),
@@ -432,13 +436,13 @@ export class ExtractionService {
     state: ExtractionWorkflowState,
     options: ExtractionOptions,
     schema: SchemaEntity | null,
+    rules: SchemaRuleEntity[] | null,
     requiredFields: string[],
   ): Promise<void> {
     const providerConfig = this.buildLlmProviderConfig(options.llmModel);
-    const systemPrompt = this.getSystemPrompt(options.prompt);
-    const reExtractSystemPrompt = this.getReExtractPrompt(
-      options.reExtractPrompt ?? options.prompt,
-    );
+    const systemPrompt = this.getSystemPrompt(schema, options.systemPromptOverride);
+    const reExtractSystemPrompt = this.getReExtractPrompt(schema, options.reExtractPromptOverride);
+    const activeRules = (rules ?? []).filter((rule) => rule.enabled !== false);
 
     while (true) {
       state.status =
@@ -453,6 +457,7 @@ export class ExtractionService {
         reExtractSystemPrompt,
         requiredFields,
         schema,
+        activeRules,
       );
       state.extractionResult = extractionResult;
 
@@ -587,6 +592,7 @@ export class ExtractionService {
     reExtractSystemPrompt: string,
     requiredFields: string[],
     schema: SchemaEntity | null,
+    rules: SchemaRuleEntity[],
   ): Promise<ExtractionStateResult> {
     // Check if vision is required and available
     const requiresVision = state.strategy !== ExtractionStrategy.OCR_FIRST;
@@ -629,6 +635,8 @@ export class ExtractionService {
         reExtractSystemPrompt,
         useReExtract,
         previousExtraction,
+        schema,
+        rules,
       );
     } else if (state.strategy === ExtractionStrategy.VISION_FIRST) {
       // Vision-first: use images with OCR as fallback context
@@ -638,6 +646,8 @@ export class ExtractionService {
         reExtractSystemPrompt,
         useReExtract,
         previousExtraction,
+        schema,
+        rules,
       );
     } else if (state.strategy === ExtractionStrategy.TWO_STAGE) {
       // Two-stage: combine vision and OCR
@@ -647,6 +657,8 @@ export class ExtractionService {
         reExtractSystemPrompt,
         useReExtract,
         previousExtraction,
+        schema,
+        rules,
       );
     } else {
       // OCR_FIRST: traditional OCR-based extraction
@@ -656,6 +668,8 @@ export class ExtractionService {
         reExtractSystemPrompt,
         useReExtract,
         previousExtraction,
+        schema,
+        rules,
       );
     }
 
@@ -700,7 +714,6 @@ export class ExtractionService {
         const ajvResult = this.schemasService.validateWithRequiredFields({
           jsonSchema: schema.jsonSchema as Record<string, unknown>,
           data,
-          requiredFields: schema.requiredFields,
         });
         validation = {
           valid: ajvResult.valid,
@@ -743,19 +756,31 @@ export class ExtractionService {
     reExtractSystemPrompt: string,
     useReExtract: boolean,
     previousExtraction?: ExtractionStateResult,
+    schema?: SchemaEntity | null,
+    rules: SchemaRuleEntity[] = [],
   ): LlmChatMessage[] {
     const pages = state.convertedPages ?? [];
     const imageBuffers = pages.map((p) => ({ buffer: p.buffer, mimeType: p.mimeType }));
 
-    let userPrompt = 'Extract structured data from these document images.';
+    if (!schema) {
+      throw new BadRequestException('Schema is required for extraction');
+    }
+
+    let userPrompt = this.promptBuilderService.buildExtractionPrompt(
+      '',
+      schema,
+      rules,
+    );
     if (useReExtract && previousExtraction) {
-      userPrompt = this.promptsService.buildReExtractPrompt(
+      userPrompt = this.promptBuilderService.buildReExtractPrompt(
         '',
         previousExtraction.data,
         previousExtraction.validation?.missingFields,
         previousExtraction.error,
+        schema,
+        rules,
       );
-      userPrompt += '\n\nPlease re-examine the document images and correct the missing or incorrect fields.';
+      userPrompt += '\n\nRe-examine the document images and correct missing or incorrect fields.';
     }
 
     return [
@@ -773,24 +798,33 @@ export class ExtractionService {
     reExtractSystemPrompt: string,
     useReExtract: boolean,
     previousExtraction?: ExtractionStateResult,
+    schema?: SchemaEntity | null,
+    rules: SchemaRuleEntity[] = [],
   ): LlmChatMessage[] {
     const pages = state.convertedPages ?? [];
     const imageBuffers = pages.map((p) => ({ buffer: p.buffer, mimeType: p.mimeType }));
 
-    // For vision-first, we use images primarily but can include OCR text as context
-    let userPrompt = 'Extract structured data from these document images.';
-    if (state.ocrResult?.success && state.ocrResult.rawText) {
-      userPrompt += `\n\nAdditional OCR text context (may be useful for small text):\n${state.ocrResult.rawText.slice(0, 5000)}`;
+    if (!schema) {
+      throw new BadRequestException('Schema is required for extraction');
     }
 
+    const ocrMarkdown = state.ocrResult?.success ? state.ocrResult.markdown : '';
+    let userPrompt = this.promptBuilderService.buildExtractionPrompt(
+      ocrMarkdown,
+      schema,
+      rules,
+    );
+
     if (useReExtract && previousExtraction) {
-      userPrompt = this.promptsService.buildReExtractPrompt(
-        '',
+      userPrompt = this.promptBuilderService.buildReExtractPrompt(
+        ocrMarkdown,
         previousExtraction.data,
         previousExtraction.validation?.missingFields,
         previousExtraction.error,
+        schema,
+        rules,
       );
-      userPrompt += '\n\nPlease re-examine the document images and correct the missing or incorrect fields.';
+      userPrompt += '\n\nRe-examine the document images and correct missing or incorrect fields.';
     }
 
     return [
@@ -808,27 +842,33 @@ export class ExtractionService {
     reExtractSystemPrompt: string,
     useReExtract: boolean,
     previousExtraction?: ExtractionStateResult,
+    schema?: SchemaEntity | null,
+    rules: SchemaRuleEntity[] = [],
   ): LlmChatMessage[] {
     const pages = state.convertedPages ?? [];
     const imageBuffers = pages.map((p) => ({ buffer: p.buffer, mimeType: p.mimeType }));
 
-    // Two-stage: provide both vision content and OCR text
-    let userPrompt = 'Extract structured data from this document. ';
-    userPrompt += 'You have both the document images and OCR text available. ';
-    userPrompt += 'Use the images for visual understanding and OCR text for precise text extraction.';
-
-    if (state.ocrResult?.success && state.ocrResult.rawText) {
-      userPrompt += `\n\nOCR Text:\n${state.ocrResult.rawText}`;
+    if (!schema) {
+      throw new BadRequestException('Schema is required for extraction');
     }
 
+    const ocrMarkdown = state.ocrResult?.success ? state.ocrResult.markdown : '';
+    let userPrompt = this.promptBuilderService.buildExtractionPrompt(
+      ocrMarkdown,
+      schema,
+      rules,
+    );
+
     if (useReExtract && previousExtraction) {
-      userPrompt = this.promptsService.buildReExtractPrompt(
-        state.ocrResult?.markdown ?? '',
+      userPrompt = this.promptBuilderService.buildReExtractPrompt(
+        ocrMarkdown,
         previousExtraction.data,
         previousExtraction.validation?.missingFields,
         previousExtraction.error,
+        schema,
+        rules,
       );
-      userPrompt += '\n\nPlease re-examine both the document images and OCR text, then correct the missing or incorrect fields.';
+      userPrompt += '\n\nRe-examine both images and OCR text, then correct missing or incorrect fields.';
     }
 
     return [
@@ -846,6 +886,8 @@ export class ExtractionService {
     reExtractSystemPrompt: string,
     useReExtract: boolean,
     previousExtraction?: ExtractionStateResult,
+    schema?: SchemaEntity | null,
+    rules: SchemaRuleEntity[] = [],
   ): LlmChatMessage[] {
     const ocrResult = state.ocrResult;
     if (!ocrResult || !ocrResult.success) {
@@ -854,16 +896,24 @@ export class ExtractionService {
       );
     }
 
+    if (!schema) {
+      throw new BadRequestException('Schema is required for extraction');
+    }
+
     const prompt =
       useReExtract && previousExtraction
-        ? this.promptsService.buildReExtractPrompt(
+        ? this.promptBuilderService.buildReExtractPrompt(
             ocrResult.markdown,
             previousExtraction.data,
             previousExtraction.validation?.missingFields,
             previousExtraction.error,
+            schema,
+            rules,
           )
-        : this.promptsService.buildExtractionPrompt(
+        : this.promptBuilderService.buildExtractionPrompt(
             ocrResult.markdown,
+            schema,
+            rules,
           );
 
     return [
@@ -1060,24 +1110,28 @@ export class ExtractionService {
     current[parts[parts.length - 1]] = value;
   }
 
-  private parseOptionalNumber(value?: string | null): number | null {
-    if (value === undefined || value === null || value === '') {
-      return null;
+  private getSystemPrompt(
+    schema: SchemaEntity | null,
+    override?: string,
+  ): string {
+    if (override) {
+      return override;
     }
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  private getSystemPrompt(prompt?: PromptEntity): string {
-    if (prompt?.type === PromptType.SYSTEM && prompt.content) {
-      return prompt.content;
+    if (schema?.systemPromptTemplate) {
+      return schema.systemPromptTemplate;
     }
     return this.promptsService.getSystemPrompt();
   }
 
-  private getReExtractPrompt(prompt?: PromptEntity): string {
-    if (prompt?.type === PromptType.RE_EXTRACT && prompt.content) {
-      return prompt.content;
+  private getReExtractPrompt(
+    schema: SchemaEntity | null,
+    override?: string,
+  ): string {
+    if (override) {
+      return override;
+    }
+    if (schema?.systemPromptTemplate) {
+      return schema.systemPromptTemplate;
     }
     return this.promptsService.getReExtractSystemPrompt();
   }
@@ -1138,25 +1192,47 @@ export class ExtractionService {
     data: Record<string, unknown>,
     fieldPath: string,
   ): { exists: boolean; value?: unknown } {
-    const parts = fieldPath.split('.');
-    let current: unknown = data;
+    const parts = fieldPath.split('.').filter(Boolean);
 
-    for (const part of parts) {
+    const checkPath = (current: unknown, index: number): { exists: boolean; value?: unknown } => {
+      if (index >= parts.length) {
+        return { exists: true, value: current };
+      }
       if (current === null || typeof current !== 'object') {
+        return { exists: false };
+      }
+
+      const part = parts[index];
+      const anyMatch = part.match(/(.+)\[\]$/);
+      if (anyMatch) {
+        const key = anyMatch[1];
+        const obj = current as Record<string, unknown>;
+        const value = obj[key];
+        if (!Array.isArray(value) || value.length === 0) {
+          return { exists: false };
+        }
+        if (index === parts.length - 1) {
+          return { exists: true, value };
+        }
+        for (const item of value) {
+          const result = checkPath(item, index + 1);
+          if (result.exists) {
+            return result;
+          }
+        }
         return { exists: false };
       }
 
       const arrayMatch = part.match(/(.+)\[(\d+)\]$/);
       if (arrayMatch) {
         const key = arrayMatch[1];
-        const index = Number.parseInt(arrayMatch[2], 10);
+        const arrayIndex = Number.parseInt(arrayMatch[2], 10);
         const obj = current as Record<string, unknown>;
         const value = obj[key];
-        if (!Array.isArray(value) || index >= value.length) {
+        if (!Array.isArray(value) || arrayIndex >= value.length) {
           return { exists: false };
         }
-        current = value[index];
-        continue;
+        return checkPath(value[arrayIndex], index + 1);
       }
 
       const obj = current as Record<string, unknown>;
@@ -1164,18 +1240,23 @@ export class ExtractionService {
         return { exists: false };
       }
 
-      current = obj[part];
+      return checkPath(obj[part], index + 1);
+    };
+
+    const result = checkPath(data, 0);
+    if (!result.exists) {
+      return result;
     }
 
-    if (current === null) {
+    if (result.value === null) {
       return { exists: true, value: null };
     }
 
-    if (typeof current === 'string' && !current.trim()) {
+    if (typeof result.value === 'string' && !result.value.trim()) {
       return { exists: false };
     }
 
-    return { exists: true, value: current };
+    return result;
   }
 
   private parseJsonResult(content: string): Record<string, unknown> {

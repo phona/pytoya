@@ -17,15 +17,8 @@ const jsonStringSchema = z
 
 /** Zod schema for schema create/edit form values. */
 export const schemaFormSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, 'Schema name is required')
-    .max(120, 'Schema name is too long'),
   projectId: z.string().min(1, 'Project is required'),
-  description: z.string().max(500, 'Description is too long').optional(),
   jsonSchema: jsonStringSchema,
-  requiredFields: z.string().optional(),
   extractionStrategy: z.nativeEnum(ExtractionStrategy).nullable().optional(),
 });
 

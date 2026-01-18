@@ -19,6 +19,8 @@ describe('ExtractionService', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
+      {} as any,
     );
   };
 

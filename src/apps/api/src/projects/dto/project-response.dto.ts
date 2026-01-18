@@ -7,8 +7,7 @@ export class ProjectResponseDto {
   ownerId!: number;
   userId!: number;
   ocrModelId!: string | null;
-  llmModelId!: string | null;
-  defaultPromptId!: string | null;
+  llmModelId!: string;
   defaultSchemaId!: number | null;
   createdAt!: Date;
   updatedAt!: Date;
@@ -21,8 +20,7 @@ export class ProjectResponseDto {
       ownerId: project.ownerId,
       userId: project.ownerId,
       ocrModelId: project.ocrModelId ?? null,
-      llmModelId: project.llmModelId ?? null,
-      defaultPromptId: project.defaultPromptId ?? null,
+      llmModelId: project.llmModelId,
       defaultSchemaId: project.defaultSchemaId ?? null,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,

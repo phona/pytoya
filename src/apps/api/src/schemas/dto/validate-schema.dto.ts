@@ -1,9 +1,7 @@
 import {
-  IsArray,
   IsNotEmpty,
   IsObject,
   IsOptional,
-  IsString,
 } from 'class-validator';
 
 export class ValidateSchemaDto {
@@ -11,11 +9,7 @@ export class ValidateSchemaDto {
   @IsNotEmpty()
   jsonSchema!: Record<string, unknown>;
 
-  @IsObject()
-  data!: Record<string, unknown>;
-
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  requiredFields?: string[];
+  @IsObject()
+  data?: Record<string, unknown>;
 }

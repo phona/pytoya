@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { FileText, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useSchemas, useSchemaTemplates } from '@/shared/hooks/use-schemas';
+import { useSchemas } from '@/shared/hooks/use-schemas';
 import { CreateSchemaDto, UpdateSchemaDto, Schema } from '@/api/schemas';
 import { SchemaForm } from '@/shared/components/SchemaForm';
+import { deriveRequiredFields } from '@/shared/utils/schema';
 
 export function SchemasPage() {
   const navigate = useNavigate();
   const { schemas, isLoading, createSchema, updateSchema, deleteSchema, isCreating, isUpdating, isDeleting } =
     useSchemas();
-  const { templates: templateSchemas } = useSchemaTemplates();
 
   const [showForm, setShowForm] = useState(false);
   const [editingSchema, setEditingSchema] = useState<Schema | null>(null);
@@ -67,52 +67,6 @@ export function SchemasPage() {
           </button>
         </div>
 
-        {templateSchemas.length > 0 && !showForm && !editingSchema && (
-          <div className="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Template Schemas</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {templateSchemas.map((template) => (
-                <div
-                  key={template.id}
-                  className="p-4 border border-gray-200 rounded-lg hover:border-indigo-300 cursor-pointer transition"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => {
-                    setShowForm(true);
-                    setEditingSchema({
-                      ...template,
-                      name: '',
-                      id: 0,
-                      projectId: 0,
-                      isTemplate: false,
-                      createdAt: '',
-                      updatedAt: '',
-                    } as Schema);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      setShowForm(true);
-                      setEditingSchema({
-                        ...template,
-                        name: '',
-                        id: 0,
-                        projectId: 0,
-                        isTemplate: false,
-                        createdAt: '',
-                        updatedAt: '',
-                      } as Schema);
-                    }
-                  }}
-                >
-                  <h3 className="font-medium text-gray-900">{template.name}</h3>
-                  <p className="text-sm text-gray-500 mt-1">{template.description ?? 'Template schema'}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {(showForm || editingSchema) && (
           <div className="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
@@ -120,7 +74,6 @@ export function SchemasPage() {
             </h2>
             <SchemaForm
               schema={editingSchema ?? undefined}
-              templates={templateSchemas}
               onSubmit={handleFormSubmit}
               onCancel={() => {
                 setShowForm(false);
@@ -162,7 +115,7 @@ export function SchemasPage() {
                   <div className="flex-1">
                     <h3 className="text-lg font-medium text-gray-900">{schema.name}</h3>
                     <p className="text-sm text-gray-500 mt-1">
-                      {schema.isTemplate ? 'Template' : `Project ID: ${schema.projectId}`}
+                      {`Project ID: ${schema.projectId}`}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -191,7 +144,7 @@ export function SchemasPage() {
                   <p className="text-sm text-gray-600 mb-4">{schema.description}</p>
                 )}
                 <div className="text-sm text-gray-500">
-                  <p>Required fields: {schema.requiredFields.length}</p>
+                  <p>Required fields: {deriveRequiredFields(schema.jsonSchema as Record<string, unknown>).length}</p>
                   <p>Created: {format(new Date(schema.createdAt), 'PP')}</p>
                 </div>
               </div>

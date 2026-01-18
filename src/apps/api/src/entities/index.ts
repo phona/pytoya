@@ -7,6 +7,7 @@ import { ModelEntity } from './model.entity';
 import { ProjectEntity } from './project.entity';
 import { PromptEntity } from './prompt.entity';
 import { SchemaEntity } from './schema.entity';
+import { SchemaRuleEntity } from './schema-rule.entity';
 import { UserEntity } from './user.entity';
 import { ValidationScriptEntity } from './validation-script.entity';
 
@@ -20,6 +21,7 @@ export {
   ProjectEntity,
   PromptEntity,
   SchemaEntity,
+  SchemaRuleEntity,
   UserEntity,
   ValidationScriptEntity,
 };
@@ -34,6 +36,7 @@ export const entities = [
   ProjectEntity,
   GroupEntity,
   SchemaEntity,
+  SchemaRuleEntity,
   ManifestEntity,
   ManifestItemEntity,
   ModelEntity,

@@ -133,7 +133,6 @@ describe('ProjectForm', () => {
             userId: 1,
             ocrModelId: 'ocr-1',
             llmModelId: 'llm-1',
-            defaultPromptId: null,
             defaultSchemaId: null,
             createdAt: '2025-01-13T00:00:00.000Z',
             updatedAt: '2025-01-13T00:00:00.000Z',

@@ -45,9 +45,9 @@ Admin-only pages (Schemas, Prompts, Validation Scripts) are still available but 
 ## Project Creation Wizard
 Project creation is a multi-step wizard dialog:
 1. Basics (name, description)
-2. Strategy selection (schema vs prompt)
-3. Schema builder or prompt optimization
-4. Model selection (OCR + LLM)
+2. Model selection (LLM required, OCR optional)
+3. Schema editor (JSON editor with generate/import helpers; required fields live in JSON Schema)
+4. Rules (AI-assisted rule generation and manual edits)
 5. Review and create
 
 See `docs/PROJECT_CREATION.md` for a step-by-step guide.

@@ -7,9 +7,10 @@ export class SchemaResponseDto {
   jsonSchema!: Record<string, unknown>;
   requiredFields!: string[];
   projectId!: number;
-  isTemplate!: boolean;
   description!: string | null;
   extractionStrategy!: ExtractionStrategy;
+  systemPromptTemplate!: string | null;
+  validationSettings!: Record<string, unknown> | null;
   createdAt!: Date;
   updatedAt!: Date;
 
@@ -20,9 +21,10 @@ export class SchemaResponseDto {
       jsonSchema: schema.jsonSchema,
       requiredFields: schema.requiredFields,
       projectId: schema.projectId,
-      isTemplate: schema.isTemplate,
       description: schema.description,
       extractionStrategy: schema.extractionStrategy,
+      systemPromptTemplate: schema.systemPromptTemplate ?? null,
+      validationSettings: schema.validationSettings ?? null,
       createdAt: schema.createdAt,
       updatedAt: schema.updatedAt,
     };

@@ -19,7 +19,7 @@ const setupHandlers = () => {
   server.use(
     http.get('/api/projects', () => HttpResponse.json([])),
     http.get('/api/schemas', () => HttpResponse.json([])),
-    http.get('/api/schemas/templates', () => HttpResponse.json([])),
+    http.get('/api/validation/scripts', () => HttpResponse.json([])),
     http.get('/api/models', ({ request }) => {
       const url = new URL(request.url);
       const category = url.searchParams.get('category');
@@ -52,9 +52,6 @@ const setupHandlers = () => {
         },
       ]);
     }),
-    http.post('/api/extraction/optimize-prompt', () =>
-      HttpResponse.json({ prompt: 'Optimized prompt text' }),
-    ),
     http.post('/api/projects', async ({ request }) => {
       const body = (await request.json()) as Record<string, unknown>;
       return HttpResponse.json({
@@ -65,7 +62,37 @@ const setupHandlers = () => {
         userId: 1,
         ocrModelId: body.ocrModelId ?? null,
         llmModelId: body.llmModelId ?? null,
-        defaultPromptId: null,
+        defaultSchemaId: body.defaultSchemaId ?? null,
+        createdAt: '2025-01-15T00:00:00.000Z',
+        updatedAt: '2025-01-15T00:00:00.000Z',
+      });
+    }),
+    http.post('/api/schemas', async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({
+        id: 100,
+        name: body.name,
+        projectId: body.projectId,
+        jsonSchema: body.jsonSchema ?? {},
+        requiredFields: body.requiredFields ?? [],
+        description: body.description ?? null,
+        extractionStrategy: body.extractionStrategy ?? 'ocr-first',
+        systemPromptTemplate: null,
+        validationSettings: null,
+        createdAt: '2025-01-15T00:00:00.000Z',
+        updatedAt: '2025-01-15T00:00:00.000Z',
+      });
+    }),
+    http.patch('/api/projects/:id', async ({ params, request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({
+        id: Number(params.id),
+        name: 'New Project',
+        description: null,
+        ownerId: 1,
+        userId: 1,
+        ocrModelId: body.ocrModelId ?? null,
+        llmModelId: body.llmModelId ?? null,
         defaultSchemaId: body.defaultSchemaId ?? null,
         createdAt: '2025-01-15T00:00:00.000Z',
         updatedAt: '2025-01-15T00:00:00.000Z',
@@ -107,36 +134,19 @@ describe('ProjectsPage', () => {
     });
 
     await act(async () => {
-      await user.click(screen.getByRole('button', { name: /Prompt-based extraction/i }));
-    });
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Next/i })).toBeEnabled();
-    });
-    await act(async () => {
-      await user.click(screen.getByRole('button', { name: /Next/i }));
-    });
-
-    await screen.findByLabelText(/Describe your extraction needs/i);
-
-    await act(async () => {
-      await user.type(
-        screen.getByLabelText(/Describe your extraction needs/i),
-        'Extract invoice totals',
-      );
-      await user.click(screen.getByRole('button', { name: /Generate Prompt/i }));
-    });
-
-    await screen.findByDisplayValue('Optimized prompt text');
-
-    await act(async () => {
-      await user.click(screen.getByRole('button', { name: /Next/i }));
-    });
-
-    await screen.findByLabelText(/OCR Model/i);
-
-    await act(async () => {
-      await user.selectOptions(screen.getByLabelText(/OCR Model/i), 'ocr-1');
       await user.selectOptions(screen.getByLabelText(/LLM Model/i), 'llm-1');
+      await user.click(screen.getByRole('button', { name: /Next/i }));
+    });
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /Next/i }));
+    });
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /Next/i }));
+    });
+
+    await act(async () => {
       await user.click(screen.getByRole('button', { name: /Next/i }));
     });
 

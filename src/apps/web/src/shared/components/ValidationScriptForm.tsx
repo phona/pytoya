@@ -12,6 +12,9 @@ import { useModels } from '@/shared/hooks/use-models';
 interface ValidationScriptFormProps {
   script?: ValidationScript;
   fixedProjectId?: number;
+  showProjectField?: boolean;
+  allowDraft?: boolean;
+  draftProjectId?: string;
   onSubmit: (data: CreateValidationScriptDto | UpdateValidationScriptDto) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
@@ -36,6 +39,9 @@ const DEFAULT_SCRIPT = `function validate(extractedData) {
 export function ValidationScriptForm({
   script,
   fixedProjectId,
+  showProjectField = true,
+  allowDraft = false,
+  draftProjectId = 'draft',
   onSubmit,
   onCancel,
   isLoading,
@@ -60,6 +66,7 @@ export function ValidationScriptForm({
   const [structuredInput, setStructuredInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const fixedProjectIdValue = fixedProjectId ? fixedProjectId.toString() : '';
+  const isEditing = Boolean(script && script.id > 0);
   const fixedProject = fixedProjectId
     ? projects.find((project) => project.id === fixedProjectId)
     : undefined;
@@ -75,6 +82,12 @@ export function ValidationScriptForm({
       setProjectId(fixedProjectIdValue);
     }
   }, [fixedProjectIdValue, projectId]);
+
+  useEffect(() => {
+    if (!showProjectField && allowDraft && !fixedProjectIdValue) {
+      setProjectId(draftProjectId);
+    }
+  }, [allowDraft, draftProjectId, fixedProjectIdValue, showProjectField]);
 
   useEffect(() => {
     const defaultModel = models.find((model) => model.isActive);
@@ -160,12 +173,12 @@ export function ValidationScriptForm({
 
     // Validate project selection
     const effectiveProjectId = fixedProjectIdValue || projectId;
-    if (!effectiveProjectId) {
+    if (!effectiveProjectId && !allowDraft) {
       alert('Please select a project');
       return;
     }
 
-    if (script) {
+    if (isEditing) {
       const updateData: UpdateValidationScriptDto = {
         name: name || undefined,
         script: scriptCode,
@@ -178,7 +191,7 @@ export function ValidationScriptForm({
       const data: CreateValidationScriptDto = {
         name,
         script: scriptCode,
-        projectId: effectiveProjectId,
+        projectId: effectiveProjectId || draftProjectId,
         severity: severity,
         enabled: enabled,
         description: description || undefined,
@@ -270,32 +283,38 @@ export function ValidationScriptForm({
         />
       </div>
 
-      <div>
-        <label htmlFor="projectId" className="block text-sm font-medium text-gray-700">
-          Project *
-        </label>
-        {fixedProjectIdValue ? (
-          <div className="mt-1 rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-            {fixedProject?.name ?? `Project #${fixedProjectIdValue}`}
-          </div>
-        ) : (
-          <select
-            id="projectId"
-            required
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-            disabled={!!script}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-          >
-            <option value="">Select a project...</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id.toString()}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
+      {showProjectField ? (
+        <div>
+          <label htmlFor="projectId" className="block text-sm font-medium text-gray-700">
+            Project *
+          </label>
+          {fixedProjectIdValue ? (
+            <div className="mt-1 rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+              {fixedProject?.name ?? `Project #${fixedProjectIdValue}`}
+            </div>
+          ) : (
+            <select
+              id="projectId"
+              required
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              disabled={!!script}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              <option value="">Select a project...</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id.toString()}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+          Project will be set when you save the wizard.
+        </div>
+      )}
 
       <div>
         <label htmlFor="description" className="block text-sm font-medium text-gray-700">
@@ -406,7 +425,7 @@ export function ValidationScriptForm({
           disabled={isLoading || !!syntaxError}
           className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoading ? 'Saving...' : script ? 'Update' : 'Create'}
+          {isLoading ? 'Saving...' : isEditing ? 'Update' : 'Create'}
         </button>
       </div>
     </form>

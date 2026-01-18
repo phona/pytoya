@@ -28,11 +28,8 @@ export class ProjectEntity {
   @Column({ type: 'uuid', nullable: true, name: 'ocr_model_id' })
   ocrModelId!: string | null;
 
-  @Column({ type: 'uuid', nullable: true, name: 'llm_model_id' })
-  llmModelId!: string | null;
-
-  @Column({ type: 'varchar', nullable: true, name: 'default_prompt_id' })
-  defaultPromptId!: string | null;
+  @Column({ type: 'uuid', name: 'llm_model_id' })
+  llmModelId!: string;
 
   @Column({ type: 'int', nullable: true, name: 'default_schema_id' })
   defaultSchemaId!: number | null;
@@ -48,9 +45,9 @@ export class ProjectEntity {
   @JoinColumn({ name: 'ocr_model_id' })
   ocrModel!: ModelEntity | null;
 
-  @ManyToOne(() => ModelEntity, { nullable: true })
+  @ManyToOne(() => ModelEntity)
   @JoinColumn({ name: 'llm_model_id' })
-  llmModel!: ModelEntity | null;
+  llmModel!: ModelEntity;
 
   @OneToMany(() => GroupEntity, (group) => group.project)
   groups!: GroupEntity[];

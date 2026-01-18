@@ -1,21 +1,53 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi, type Mock } from 'vitest';
-import { schemasApi, type CreateSchemaDto } from '@/api/schemas';
-import { useSchemas, useSchema, useProjectSchemas, useSchemaTemplates, useValidateSchema } from './use-schemas';
+import {
+  schemasApi,
+  type CreateSchemaDto,
+  type CreateSchemaRuleDto,
+  type GenerateRulesDto,
+  type GenerateSchemaDto,
+  type ImportSchemaDto,
+  type ValidateSchemaDto,
+  ExtractionStrategy,
+  SchemaRuleOperator,
+  SchemaRuleType,
+} from '@/api/schemas';
+import {
+  useSchemas,
+  useSchema,
+  useProjectSchemas,
+  useSchemaRules,
+  useGenerateSchema,
+  useGenerateRules,
+  useImportSchema,
+  useValidateSchemaDefinition,
+  useValidateWithRequired,
+} from './use-schemas';
 
-vi.mock('@/api/schemas', () => ({
-  schemasApi: {
-    listSchemas: vi.fn(),
-    getSchema: vi.fn(),
-    getProjectSchemas: vi.fn(),
-    getTemplates: vi.fn(),
-    validateSchema: vi.fn(),
-    createSchema: vi.fn(),
-    updateSchema: vi.fn(),
-    deleteSchema: vi.fn(),
-  },
-}));
+vi.mock('@/api/schemas', async () => {
+  const actual = await vi.importActual<typeof import('@/api/schemas')>('@/api/schemas');
+  return {
+    ...actual,
+    schemasApi: {
+      listSchemas: vi.fn(),
+      getSchema: vi.fn(),
+      getProjectSchemas: vi.fn(),
+      listSchemaRules: vi.fn(),
+      createSchemaRule: vi.fn(),
+      updateSchemaRule: vi.fn(),
+      deleteSchemaRule: vi.fn(),
+      generateSchema: vi.fn(),
+      generateRules: vi.fn(),
+      importSchema: vi.fn(),
+      validateSchemaDefinition: vi.fn(),
+      validateWithRequired: vi.fn(),
+      createSchema: vi.fn(),
+      updateSchema: vi.fn(),
+      deleteSchema: vi.fn(),
+    },
+  };
+});
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -30,6 +62,20 @@ const createWrapper = () => {
   );
 };
 
+const baseSchema = {
+  id: 1,
+  name: 'Invoice Schema',
+  projectId: 1,
+  jsonSchema: { type: 'object', required: ['invoice_number'], properties: {} },
+  requiredFields: ['invoice_number'],
+  description: 'Invoice extraction schema',
+  extractionStrategy: ExtractionStrategy.OCR_FIRST,
+  systemPromptTemplate: null,
+  validationSettings: null,
+  createdAt: '2025-01-13T00:00:00.000Z',
+  updatedAt: '2025-01-13T00:00:00.000Z',
+};
+
 describe('useSchemas', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -37,21 +83,7 @@ describe('useSchemas', () => {
 
   describe('useSchemas query', () => {
     it('should fetch schemas successfully', async () => {
-      const mockSchemas = [
-        {
-          id: 1,
-          name: 'Invoice Schema',
-          projectId: 1,
-          jsonSchema: { type: 'object', properties: {} },
-          requiredFields: ['invoice_number'],
-          isTemplate: false,
-          description: 'Invoice extraction schema',
-          createdAt: '2025-01-13T00:00:00.000Z',
-          updatedAt: '2025-01-13T00:00:00.000Z',
-        },
-      ];
-
-      (schemasApi.listSchemas as Mock).mockResolvedValue(mockSchemas);
+      (schemasApi.listSchemas as Mock).mockResolvedValue([baseSchema]);
 
       const { result } = renderHook(() => useSchemas(), { wrapper: createWrapper() });
 
@@ -59,7 +91,7 @@ describe('useSchemas', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(result.current.schemas).toEqual(mockSchemas);
+      expect(result.current.schemas).toEqual([baseSchema]);
       expect(schemasApi.listSchemas).toHaveBeenCalled();
     });
 
@@ -79,19 +111,17 @@ describe('useSchemas', () => {
   describe('createSchema mutation', () => {
     it('should create schema successfully', async () => {
       const newSchema: CreateSchemaDto = {
-        name: 'Receipt Schema',
         projectId: 1,
-        jsonSchema: { type: 'object', properties: {} },
-        requiredFields: ['total'],
-        isTemplate: false,
+        jsonSchema: { type: 'object', required: ['total'], properties: {} },
+        extractionStrategy: ExtractionStrategy.OCR_FIRST,
       };
 
       const createdSchema = {
+        ...baseSchema,
         id: 2,
         ...newSchema,
-        description: null,
-        createdAt: '2025-01-13T00:00:00.000Z',
-        updatedAt: '2025-01-13T00:00:00.000Z',
+        systemPromptTemplate: null,
+        validationSettings: null,
       };
 
       (schemasApi.listSchemas as Mock).mockResolvedValue([]);
@@ -108,19 +138,13 @@ describe('useSchemas', () => {
   describe('updateSchema mutation', () => {
     it('should update schema successfully', async () => {
       const updateData = {
-        name: 'Updated Schema',
         jsonSchema: { type: 'object', properties: { updated: true } },
-        requiredFields: ['field1', 'field2'],
+        extractionStrategy: ExtractionStrategy.VISION_ONLY,
       };
 
       const updatedSchema = {
-        id: 1,
-        projectId: 1,
+        ...baseSchema,
         ...updateData,
-        isTemplate: false,
-        description: null,
-        createdAt: '2025-01-13T00:00:00.000Z',
-        updatedAt: '2025-01-13T00:00:00.000Z',
       };
 
       (schemasApi.listSchemas as Mock).mockResolvedValue([]);
@@ -154,19 +178,7 @@ describe('useSchema', () => {
   });
 
   it('should fetch single schema successfully', async () => {
-    const mockSchema = {
-      id: 1,
-      name: 'Invoice Schema',
-      projectId: 1,
-      jsonSchema: { type: 'object', properties: {} },
-      requiredFields: ['invoice_number'],
-      isTemplate: false,
-      description: 'Invoice extraction schema',
-      createdAt: '2025-01-13T00:00:00.000Z',
-      updatedAt: '2025-01-13T00:00:00.000Z',
-    };
-
-    (schemasApi.getSchema as Mock).mockResolvedValue(mockSchema);
+    (schemasApi.getSchema as Mock).mockResolvedValue(baseSchema);
 
     const { result } = renderHook(() => useSchema(1), { wrapper: createWrapper() });
 
@@ -174,7 +186,7 @@ describe('useSchema', () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    expect(result.current.schema).toEqual(mockSchema);
+    expect(result.current.schema).toEqual(baseSchema);
     expect(schemasApi.getSchema).toHaveBeenCalledWith(1);
   });
 
@@ -195,21 +207,15 @@ describe('useProjectSchemas', () => {
   });
 
   it('should fetch project schemas successfully', async () => {
-    const mockSchemas = [
-      {
-        id: 1,
-        name: 'Project Schema 1',
-        projectId: 5,
-        jsonSchema: { type: 'object' },
-        requiredFields: [],
-        isTemplate: false,
-        description: null,
-        createdAt: '2025-01-13T00:00:00.000Z',
-        updatedAt: '2025-01-13T00:00:00.000Z',
-      },
-    ];
+    const projectSchema = {
+      ...baseSchema,
+      id: 3,
+      projectId: 5,
+      name: 'Project Schema 1',
+      description: null,
+    };
 
-    (schemasApi.getProjectSchemas as Mock).mockResolvedValue(mockSchemas);
+    (schemasApi.getProjectSchemas as Mock).mockResolvedValue([projectSchema]);
 
     const { result } = renderHook(() => useProjectSchemas(5), { wrapper: createWrapper() });
 
@@ -217,92 +223,210 @@ describe('useProjectSchemas', () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    expect(result.current.schemas).toEqual(mockSchemas);
+    expect(result.current.schemas).toEqual([projectSchema]);
     expect(schemasApi.getProjectSchemas).toHaveBeenCalledWith(5);
   });
 });
 
-describe('useSchemaTemplates', () => {
+describe('useSchemaRules', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('should fetch template schemas successfully', async () => {
-    const mockTemplates = [
-      {
-        id: 1,
-        name: 'Invoice Template',
-        projectId: null,
-        jsonSchema: { type: 'object' },
-        requiredFields: ['invoice_number'],
-        isTemplate: true,
-        description: 'Invoice template',
-        createdAt: '2025-01-13T00:00:00.000Z',
-        updatedAt: '2025-01-13T00:00:00.000Z',
-      },
-    ];
+  const baseRule = {
+    id: 10,
+    schemaId: 1,
+    fieldPath: 'invoice.po_no',
+    ruleType: SchemaRuleType.VERIFICATION,
+    ruleOperator: SchemaRuleOperator.PATTERN,
+    ruleConfig: { pattern: '^\\d{7}$' },
+    errorMessage: 'PO number must be 7 digits',
+    priority: 7,
+    enabled: true,
+    description: null,
+    createdAt: '2025-01-13T00:00:00.000Z',
+  };
 
-    (schemasApi.getTemplates as Mock).mockResolvedValue(mockTemplates);
+  it('should fetch schema rules successfully', async () => {
+    (schemasApi.listSchemaRules as Mock).mockResolvedValue([baseRule]);
 
-    const { result } = renderHook(() => useSchemaTemplates(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useSchemaRules(1), { wrapper: createWrapper() });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    expect(result.current.templates).toEqual(mockTemplates);
-    expect(schemasApi.getTemplates).toHaveBeenCalled();
+    expect(result.current.rules).toEqual([baseRule]);
+    expect(schemasApi.listSchemaRules).toHaveBeenCalledWith(1);
+  });
+
+  it('should create a rule successfully', async () => {
+    const rulePayload: CreateSchemaRuleDto = {
+      schemaId: 1,
+      fieldPath: 'invoice.po_no',
+      ruleType: SchemaRuleType.VERIFICATION,
+      ruleOperator: SchemaRuleOperator.PATTERN,
+      ruleConfig: { pattern: '^\\d{7}$' },
+      priority: 7,
+    };
+
+    (schemasApi.listSchemaRules as Mock).mockResolvedValue([]);
+    (schemasApi.createSchemaRule as Mock).mockResolvedValue(baseRule);
+
+    const { result } = renderHook(() => useSchemaRules(1), { wrapper: createWrapper() });
+
+    await result.current.createRule(rulePayload);
+
+    expect(schemasApi.createSchemaRule).toHaveBeenCalledWith(1, rulePayload);
+  });
+
+  it('should update a rule successfully', async () => {
+    const updatePayload = {
+      ruleId: 10,
+      data: { enabled: false },
+    };
+
+    (schemasApi.listSchemaRules as Mock).mockResolvedValue([]);
+    (schemasApi.updateSchemaRule as Mock).mockResolvedValue({ ...baseRule, enabled: false });
+
+    const { result } = renderHook(() => useSchemaRules(1), { wrapper: createWrapper() });
+
+    await result.current.updateRule(updatePayload);
+
+    expect(schemasApi.updateSchemaRule).toHaveBeenCalledWith(1, 10, updatePayload.data);
+  });
+
+  it('should delete a rule successfully', async () => {
+    (schemasApi.listSchemaRules as Mock).mockResolvedValue([]);
+    (schemasApi.deleteSchemaRule as Mock).mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useSchemaRules(1), { wrapper: createWrapper() });
+
+    await result.current.deleteRule(10);
+
+    expect(schemasApi.deleteSchemaRule).toHaveBeenCalledWith(1, 10);
   });
 });
 
-describe('useValidateSchema', () => {
+describe('useGenerateSchema', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('should validate schema successfully', async () => {
+  it('should generate schema successfully', async () => {
+    const payload: GenerateSchemaDto = {
+      modelId: 'llm-1',
+      description: 'Generate invoice schema',
+      includeExtractionHints: true,
+    };
+
+    const response = { jsonSchema: { type: 'object' } };
+    (schemasApi.generateSchema as Mock).mockResolvedValue(response);
+
+    const { result } = renderHook(() => useGenerateSchema(), { wrapper: createWrapper() });
+
+    const output = await result.current.mutateAsync(payload);
+
+    expect(output).toEqual(response);
+    expect(schemasApi.generateSchema).toHaveBeenCalledWith(payload);
+  });
+});
+
+describe('useGenerateRules', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should generate rules successfully', async () => {
+    const payload: GenerateRulesDto = {
+      modelId: 'llm-1',
+      description: 'Generate rules',
+      jsonSchema: { type: 'object' },
+    };
+
+    const response = { rules: [] };
+    (schemasApi.generateRules as Mock).mockResolvedValue(response);
+
+    const { result } = renderHook(() => useGenerateRules(1), { wrapper: createWrapper() });
+
+    const output = await result.current.mutateAsync(payload);
+
+    expect(output).toEqual(response);
+    expect(schemasApi.generateRules).toHaveBeenCalledWith(1, payload);
+  });
+});
+
+describe('useImportSchema', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should import schema successfully', async () => {
+    const payload: ImportSchemaDto = {
+      file: new File(['{}'], 'schema.json', { type: 'application/json' }),
+    };
+
+    const response = { valid: true, jsonSchema: { type: 'object' } };
+    (schemasApi.importSchema as Mock).mockResolvedValue(response);
+
+    const { result } = renderHook(() => useImportSchema(), { wrapper: createWrapper() });
+
+    const output = await result.current.mutateAsync(payload);
+
+    expect(output).toEqual(response);
+    expect(schemasApi.importSchema).toHaveBeenCalledWith(payload);
+  });
+});
+
+describe('useValidateSchemaDefinition', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should validate schema definition successfully', async () => {
     const validationResult = {
       valid: true,
       errors: undefined,
     };
 
-    (schemasApi.validateSchema as Mock).mockResolvedValue(validationResult);
+    (schemasApi.validateSchemaDefinition as Mock).mockResolvedValue(validationResult);
 
-    const { result } = renderHook(() => useValidateSchema(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useValidateSchemaDefinition(), { wrapper: createWrapper() });
 
-    const validateDto = {
+    const validateDto: ValidateSchemaDto = {
       jsonSchema: { type: 'object' },
-      data: { field: 'value' },
-      requiredFields: [],
     };
 
-    await result.current.mutateAsync(validateDto);
+    const output = await result.current.mutateAsync(validateDto);
 
-    expect(schemasApi.validateSchema).toHaveBeenCalledWith(validateDto);
-    await waitFor(() => {
-      expect(result.current.data).toEqual(validationResult);
-    });
+    expect(output).toEqual(validationResult);
+    expect(schemasApi.validateSchemaDefinition).toHaveBeenCalledWith(validateDto);
   });
+});
 
-  it('should return validation errors', async () => {
-    const validationResult = {
-      valid: false,
-      errors: ['Required field missing', 'Type mismatch'],
-    };
+  describe('useValidateWithRequired', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
 
-    (schemasApi.validateSchema as Mock).mockResolvedValue(validationResult);
+    it('should validate schema with required fields', async () => {
+      const validationResult = {
+        valid: false,
+        errors: ['Required field missing'],
+      };
 
-    const { result } = renderHook(() => useValidateSchema(), { wrapper: createWrapper() });
+    (schemasApi.validateWithRequired as Mock).mockResolvedValue(validationResult);
 
-    const validateDto = {
-      jsonSchema: { type: 'object' },
-      data: {},
-      requiredFields: ['missing_field'],
-    };
+    const { result } = renderHook(() => useValidateWithRequired(), { wrapper: createWrapper() });
 
-    const response = await result.current.mutateAsync(validateDto);
+      const validateDto: ValidateSchemaDto = {
+        jsonSchema: { type: 'object', required: ['invoice_number'] },
+        data: {},
+      };
 
-    expect(response.valid).toBe(false);
-    expect(response.errors).toEqual(['Required field missing', 'Type mismatch']);
+    const output = await result.current.mutateAsync(validateDto);
+
+    expect(output).toEqual(validationResult);
+    expect(schemasApi.validateWithRequired).toHaveBeenCalledWith(validateDto);
   });
 });

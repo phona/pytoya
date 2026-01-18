@@ -1,6 +1,7 @@
 // test/setup.ts
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
+import { cleanup } from '@testing-library/react';
 import { TextEncoder, TextDecoder } from 'util';
 import { vi } from 'vitest';
 
@@ -75,6 +76,10 @@ beforeAll(() => {
     }
     originalWarn.call(console, ...args);
   };
+});
+
+afterEach(() => {
+  cleanup();
 });
 
 afterAll(() => {

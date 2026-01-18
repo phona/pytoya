@@ -2,7 +2,6 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { ProjectEntity } from '../entities/project.entity';
 import { ModelEntity } from '../entities/model.entity';
-import { PromptEntity } from '../entities/prompt.entity';
 import { UserEntity } from '../entities/user.entity';
 
 describe('ProjectsService', () => {
@@ -15,8 +14,6 @@ describe('ProjectsService', () => {
     remove: jest.Mock;
   };
   let modelRepository: { findOne: jest.Mock };
-  let promptRepository: { findOne: jest.Mock };
-
   const user = { id: 1 } as UserEntity;
 
   beforeEach(() => {
@@ -30,14 +27,9 @@ describe('ProjectsService', () => {
     modelRepository = {
       findOne: jest.fn(),
     };
-    promptRepository = {
-      findOne: jest.fn(),
-    };
-
     service = new ProjectsService(
       projectRepository as any,
       modelRepository as any,
-      promptRepository as any,
     );
   });
 
@@ -48,7 +40,7 @@ describe('ProjectsService', () => {
     } as ModelEntity);
 
     await expect(
-      service.create(user, { name: 'Test', ocrModelId: 'model-llm' }),
+      service.create(user, { name: 'Test', ocrModelId: 'model-llm', llmModelId: 'model-llm' }),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -102,7 +94,7 @@ describe('ProjectsService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('throws when prompt id is invalid', async () => {
+  it('rejects missing LLM model on update', async () => {
     projectRepository.findOne.mockResolvedValue({
       id: 1,
       ownerId: 1,
@@ -111,7 +103,7 @@ describe('ProjectsService', () => {
     } as unknown as ProjectEntity);
 
     await expect(
-      service.update(user, 1, { defaultPromptId: 'not-a-number' }),
-    ).rejects.toThrow();
+      service.update(user, 1, { llmModelId: '' }),
+    ).rejects.toThrow(BadRequestException);
   });
 });
