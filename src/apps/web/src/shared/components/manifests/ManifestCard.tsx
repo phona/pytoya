@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { ArrowRight, CheckCircle2, Clock } from 'lucide-react';
 import { Manifest } from '@/api/manifests';
+import { getStatusBadgeClasses } from '@/shared/styles/status-badges';
 
 interface ManifestCardProps {
   manifest: Manifest;
@@ -8,26 +9,11 @@ interface ManifestCardProps {
 }
 
 export function ManifestCard({ manifest, onClick }: ManifestCardProps) {
-  const getStatusColor = (status: Manifest['status']) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-700';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-700';
-      case 'processing':
-        return 'bg-blue-100 text-blue-700';
-      case 'failed':
-        return 'bg-red-100 text-red-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
-  };
-
   const getConfidenceColor = (confidence: number | null) => {
-    if (confidence === null) return 'border-gray-300';
-    if (confidence >= 0.9) return 'border-green-500';
-    if (confidence >= 0.7) return 'border-yellow-500';
-    return 'border-red-500';
+    if (confidence === null) return 'border-border';
+    if (confidence >= 0.9) return 'border-[color:var(--status-completed-text)]';
+    if (confidence >= 0.7) return 'border-[color:var(--status-pending-text)]';
+    return 'border-[color:var(--status-failed-text)]';
   };
 
   const formatFileSize = (bytes: number) => {
@@ -47,14 +33,14 @@ export function ManifestCard({ manifest, onClick }: ManifestCardProps) {
           onClick();
         }
       }}
-      className={`bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-pointer border-l-4 ${getConfidenceColor(manifest.confidence)}`}
+      className={`bg-card rounded-lg shadow-sm border border-border hover:shadow-md transition-shadow cursor-pointer border-l-4 ${getConfidenceColor(manifest.confidence)}`}
     >
       <div className="p-4">
         <div className="flex justify-between items-start mb-3">
-          <h3 className="text-sm font-medium text-gray-900 truncate flex-1" title={manifest.originalFilename}>
+          <h3 className="text-sm font-medium text-foreground truncate flex-1" title={manifest.originalFilename}>
             {manifest.originalFilename}
           </h3>
-          <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(manifest.status)}`}>
+          <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeClasses(manifest.status)}`}>
             {manifest.status}
           </span>
         </div>
@@ -62,15 +48,15 @@ export function ManifestCard({ manifest, onClick }: ManifestCardProps) {
         <div className="space-y-2 text-sm">
           {manifest.purchaseOrder && (
             <div className="flex justify-between">
-              <span className="text-gray-500">PO:</span>
-              <span className="text-gray-900">{manifest.purchaseOrder}</span>
+              <span className="text-muted-foreground">PO:</span>
+              <span className="text-foreground">{manifest.purchaseOrder}</span>
             </div>
           )}
 
           {manifest.invoiceDate && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Date:</span>
-              <span className="text-gray-900">
+              <span className="text-muted-foreground">Date:</span>
+              <span className="text-foreground">
                 {format(new Date(manifest.invoiceDate), 'PP')}
               </span>
             </div>
@@ -78,14 +64,14 @@ export function ManifestCard({ manifest, onClick }: ManifestCardProps) {
 
           {manifest.department && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Dept:</span>
-              <span className="text-gray-900">{manifest.department}</span>
+              <span className="text-muted-foreground">Dept:</span>
+              <span className="text-foreground">{manifest.department}</span>
             </div>
           )}
 
           <div className="flex justify-between">
-            <span className="text-gray-500">Confidence:</span>
-            <span className="text-gray-900">
+            <span className="text-muted-foreground">Confidence:</span>
+            <span className="text-foreground">
               {manifest.confidence !== null
                 ? `${Math.round(manifest.confidence * 100)}%`
                 : 'N/A'}
@@ -93,26 +79,26 @@ export function ManifestCard({ manifest, onClick }: ManifestCardProps) {
           </div>
 
           <div className="flex justify-between">
-            <span className="text-gray-500">Size:</span>
-            <span className="text-gray-900">{formatFileSize(manifest.fileSize)}</span>
+            <span className="text-muted-foreground">Size:</span>
+            <span className="text-foreground">{formatFileSize(manifest.fileSize)}</span>
           </div>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
+        <div className="mt-4 pt-3 border-t border-border flex justify-between items-center">
           <div className="flex items-center">
             {manifest.humanVerified ? (
-              <div className="flex items-center text-green-600">
+              <div className="flex items-center text-[color:var(--status-verified-text)]">
                 <CheckCircle2 className="mr-1 h-4 w-4" />
                 <span className="text-xs">Verified</span>
               </div>
             ) : (
-              <div className="flex items-center text-gray-400">
+              <div className="flex items-center text-[color:var(--status-pending-text)]">
                 <Clock className="mr-1 h-4 w-4" />
                 <span className="text-xs">Pending</span>
               </div>
             )}
           </div>
-          <span className="inline-flex items-center gap-1 text-indigo-600 text-xs font-medium">
+          <span className="inline-flex items-center gap-1 text-primary text-xs font-medium">
             View
             <ArrowRight className="h-3 w-3" />
           </span>
@@ -121,3 +107,7 @@ export function ManifestCard({ manifest, onClick }: ManifestCardProps) {
     </div>
   );
 }
+
+
+
+

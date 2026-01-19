@@ -1,3 +1,5 @@
+@import '../../styles/z-index.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -29,11 +31,24 @@ html {
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
+    --overlay: 222.2 84% 4.9%;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
+    --status-pending-bg: #fef9c3;
+    --status-pending-text: #a16207;
+    --status-processing-bg: #dbeafe;
+    --status-processing-text: #1d4ed8;
+    --status-completed-bg: #dcfce7;
+    --status-completed-text: #15803d;
+    --status-failed-bg: #fee2e2;
+    --status-failed-text: #b91c1c;
+    --status-verified-bg: #dcfce7;
+    --status-verified-text: #15803d;
+    --status-warning-bg: #ffedd5;
+    --status-warning-text: #9a3412;
     --radius: 0.5rem;
   }
   .dark {
@@ -56,11 +71,24 @@ html {
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+    --overlay: 222.2 84% 4.9%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+    --status-pending-bg: #78350f;
+    --status-pending-text: #fef3c7;
+    --status-processing-bg: #1e3a8a;
+    --status-processing-text: #dbeafe;
+    --status-completed-bg: #14532d;
+    --status-completed-text: #dcfce7;
+    --status-failed-bg: #7f1d1d;
+    --status-failed-text: #fee2e2;
+    --status-verified-bg: #14532d;
+    --status-verified-text: #dcfce7;
+    --status-warning-bg: #7c2d12;
+    --status-warning-text: #ffedd5;
   }
 }
 

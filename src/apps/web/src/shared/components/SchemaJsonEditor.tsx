@@ -120,7 +120,7 @@ export function SchemaJsonEditor({
             type="button"
             onClick={formatJSON}
             disabled={readOnly || !!error}
-            className="px-3 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1 text-xs font-medium text-foreground bg-card border border-border rounded hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
             title="Format JSON"
           >
             Format
@@ -129,7 +129,7 @@ export function SchemaJsonEditor({
             type="button"
             onClick={handleCopy}
             disabled={!value}
-            className="px-3 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1 text-xs font-medium text-foreground bg-card border border-border rounded hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
             title="Copy JSON"
           >
             Copy
@@ -138,14 +138,14 @@ export function SchemaJsonEditor({
             type="button"
             onClick={handleValidate}
             disabled={readOnly || !!error || !onValidate || isValidating}
-            className="px-3 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1 text-xs font-medium text-foreground bg-card border border-border rounded hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
             title="Validate JSON Schema"
           >
             {isValidating ? 'Validating...' : 'Validate'}
           </button>
         </div>
         {error && (
-          <span className="text-xs text-red-600 font-medium">
+          <span className="text-xs text-destructive font-medium">
             Invalid JSON
           </span>
         )}
@@ -154,7 +154,7 @@ export function SchemaJsonEditor({
       <div className="relative flex border rounded-md overflow-hidden">
         <div
           ref={lineNumbersRef}
-          className="flex-shrink-0 w-10 bg-gray-50 border-r border-gray-300 text-gray-400 text-xs font-mono text-right pr-2 pt-2 select-none overflow-hidden"
+          className="flex-shrink-0 w-10 bg-background border-r border-border text-muted-foreground text-xs font-mono text-right pr-2 pt-2 select-none overflow-hidden"
           style={{ height: `${rows * 20}px` }}
         >
           {lineNumbers.map((lineNum) => (
@@ -173,8 +173,8 @@ export function SchemaJsonEditor({
           readOnly={readOnly}
           rows={rows}
           placeholder={placeholder}
-          className={`flex-1 px-3 py-2 font-mono text-xs resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-            error ? 'bg-red-50' : 'bg-white'
+          className={`flex-1 px-3 py-2 font-mono text-xs resize-none focus:outline-none focus:ring-1 focus:ring-ring ${
+            error ? 'bg-destructive/10' : 'bg-card'
           }`}
           style={{
             minHeight: `${rows * 20}px`,
@@ -185,22 +185,24 @@ export function SchemaJsonEditor({
       </div>
 
       {error && (
-        <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded">
-          <p className="text-xs text-red-700 font-mono">{error}</p>
+        <div className="mt-1 p-2 bg-destructive/10 border border-destructive/30 rounded">
+          <p className="text-xs text-destructive font-mono">{error}</p>
         </div>
       )}
 
       {validationResult && !error && (
         <div className={`mt-2 p-2 rounded border ${
-          validationResult.valid ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+          validationResult.valid
+            ? 'bg-[color:var(--status-completed-bg)] border-border'
+            : 'bg-destructive/10 border-destructive/30'
         }`}>
           <p className={`text-xs font-medium ${
-            validationResult.valid ? 'text-green-700' : 'text-red-700'
+            validationResult.valid ? 'text-[color:var(--status-completed-text)]' : 'text-destructive'
           }`}>
             {validationResult.valid ? 'Schema is valid' : 'Schema is invalid'}
           </p>
           {validationResult.errors && validationResult.errors.length > 0 && (
-            <ul className="mt-1 text-xs text-red-700 list-disc list-inside">
+            <ul className="mt-1 text-xs text-destructive list-disc list-inside">
               {validationResult.errors.map((err, index) => (
                 <li key={`${err.message}-${index}`}>
                   {err.message}
@@ -218,3 +220,7 @@ export function SchemaJsonEditor({
     </div>
   );
 }
+
+
+
+

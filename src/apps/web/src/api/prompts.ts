@@ -35,3 +35,7 @@ export const promptsApi = {
     await apiClient.delete(`/prompts/${id}`);
   },
 };
+
+
+
+

@@ -70,3 +70,7 @@ describe('SchemaJsonEditor', () => {
     expect(writeText).toHaveBeenCalledWith('{"type":"object"}');
   });
 });
+
+
+
+

@@ -53,3 +53,7 @@ describe('RuleEditor', () => {
     expect(input).toHaveValue('invoice.po_no');
   });
 });
+
+
+
+

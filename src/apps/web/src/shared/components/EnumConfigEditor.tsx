@@ -11,7 +11,7 @@ export function EnumConfigEditor({ values, onChange }: EnumConfigEditorProps) {
 
   return (
     <div>
-      <label htmlFor={inputId} className="block text-xs font-medium text-gray-600">Allowed Values</label>
+      <label htmlFor={inputId} className="block text-xs font-medium text-muted-foreground">Allowed Values</label>
       <input
         id={inputId}
         type="text"
@@ -24,10 +24,14 @@ export function EnumConfigEditor({ values, onChange }: EnumConfigEditorProps) {
               .filter(Boolean),
           )
         }
-        className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+        className="mt-1 w-full rounded-md border border-border px-3 py-2 text-xs focus:border-ring focus:outline-none focus:ring-ring"
         placeholder="KG, EA, M"
       />
-      <p className="mt-1 text-[11px] text-gray-500">Separate values with commas.</p>
+      <p className="mt-1 text-[11px] text-muted-foreground">Separate values with commas.</p>
     </div>
   );
 }
+
+
+
+

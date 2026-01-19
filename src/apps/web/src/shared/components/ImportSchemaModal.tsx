@@ -52,13 +52,13 @@ export function ImportSchemaModal({
               const selected = event.target.files?.[0] ?? null;
               setFile(selected);
             }}
-            className="block w-full text-sm text-gray-600"
+            className="block w-full text-sm text-muted-foreground"
           />
           <div className="flex justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              className="rounded-md border border-border px-4 py-2 text-sm text-foreground hover:bg-muted"
               disabled={isSubmitting}
             >
               Cancel
@@ -66,7 +66,7 @@ export function ImportSchemaModal({
             <button
               type="button"
               onClick={handleImport}
-              className="rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
+              className="rounded-md border border-transparent bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               disabled={isSubmitting || !file}
             >
               {isSubmitting ? 'Importing...' : 'Import'}
@@ -77,3 +77,7 @@ export function ImportSchemaModal({
     </Dialog>
   );
 }
+
+
+
+

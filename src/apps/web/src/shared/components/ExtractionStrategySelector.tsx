@@ -57,7 +57,7 @@ export function ExtractionStrategySelector({
 
   return (
     <div>
-      <label htmlFor="extractionStrategy" className="block text-sm font-medium text-gray-700">
+      <label htmlFor="extractionStrategy" className="block text-sm font-medium text-foreground">
         Extraction Strategy
       </label>
       <ToggleGroup
@@ -75,31 +75,35 @@ export function ExtractionStrategySelector({
             value={strategy.value}
             disabled={disabled}
             className={cn(
-              'h-auto items-start justify-start whitespace-normal rounded-md border border-gray-200 p-4 text-left',
+              'h-auto items-start justify-start whitespace-normal rounded-md border border-border p-4 text-left',
               'data-[state=on]:border-primary data-[state=on]:bg-primary/5',
               disabled && 'pointer-events-none opacity-50',
             )}
           >
             <div className="w-full">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-gray-900">{strategy.label}</span>
+                <span className="text-sm font-semibold text-foreground">{strategy.label}</span>
                 {showCostEstimate && (
                   <Badge variant="secondary" className="text-xs">
                     {strategy.costEstimate}
                   </Badge>
                 )}
               </div>
-              <p className="mt-1 text-xs text-gray-600">{strategy.description}</p>
-              <p className="mt-2 text-xs text-gray-500">Best for: {strategy.useCase}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{strategy.description}</p>
+              <p className="mt-2 text-xs text-muted-foreground">Best for: {strategy.useCase}</p>
             </div>
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
       {!value && (
-        <p id={helperId} className="mt-2 text-xs text-gray-500">
+        <p id={helperId} className="mt-2 text-xs text-muted-foreground">
           The system will automatically select the best strategy based on file type. PDFs use OCR-first, images use vision-only (if the LLM model supports it).
         </p>
       )}
     </div>
   );
 }
+
+
+
+

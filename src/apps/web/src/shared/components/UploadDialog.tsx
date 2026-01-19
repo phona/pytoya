@@ -105,7 +105,7 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
           </DialogDescription>
         </DialogHeader>
         <div className="mb-4">
-          <label htmlFor="uploadFiles" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="uploadFiles" className="block text-sm font-medium text-foreground mb-2">
             Select PDF files
           </label>
           <input
@@ -115,7 +115,7 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
             accept=".pdf,application/pdf"
             onChange={handleFileChange}
             disabled={isUploading}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 disabled:opacity-50"
+            className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/10 disabled:opacity-50"
           />
         </div>
 
@@ -124,18 +124,18 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
             {uploads.map((upload, index) => (
               <div key={index} className="border rounded-md p-3">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-gray-900 truncate max-w-xs">
+                  <span className="text-sm font-medium text-foreground truncate max-w-xs">
                     {upload.fileName}
                   </span>
                   <span
                     className={`text-xs px-2 py-1 rounded ${
                       upload.status === 'success'
-                        ? 'bg-green-100 text-green-800'
+                        ? 'bg-[color:var(--status-completed-bg)] text-[color:var(--status-completed-text)]'
                         : upload.status === 'error'
-                        ? 'bg-red-100 text-red-800'
+                        ? 'bg-[color:var(--status-failed-bg)] text-[color:var(--status-failed-text)]'
                         : upload.status === 'uploading'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-800'
+                        ? 'bg-[color:var(--status-processing-bg)] text-[color:var(--status-processing-text)]'
+                        : 'bg-[color:var(--status-pending-bg)] text-[color:var(--status-pending-text)]'
                     }`}
                   >
                     {upload.status === 'success'
@@ -150,12 +150,12 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
                 {upload.status === 'uploading' && (
                   <Progress
                     value={upload.progress}
-                    className="h-2 bg-gray-200"
-                    indicatorClassName="bg-indigo-600"
+                    className="h-2 bg-muted"
+                    indicatorClassName="bg-primary"
                   />
                 )}
                 {upload.error && (
-                  <p className="text-sm text-red-600 mt-1">{upload.error}</p>
+                  <p className="text-sm text-destructive mt-1">{upload.error}</p>
                 )}
               </div>
             ))}
@@ -185,3 +185,7 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
     </Dialog>
   );
 }
+
+
+
+

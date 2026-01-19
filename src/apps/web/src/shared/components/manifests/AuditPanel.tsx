@@ -9,6 +9,7 @@ import { OcrViewer } from './OcrViewer';
 import { ProgressBar } from './ProgressBar';
 import { ValidationResultsPanel } from '@/shared/components/ValidationResultsPanel';
 import { Manifest } from '@/api/manifests';
+import { getStatusBadgeClasses } from '@/shared/styles/status-badges';
 
 interface AuditPanelProps {
   manifestId: number;
@@ -153,8 +154,8 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
 
   if (isLoading || !manifest) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 flex items-center justify-center">
-        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
+      <div className="bg-card rounded-lg shadow-sm border border-border p-8 flex items-center justify-center">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
       </div>
     );
   }
@@ -166,13 +167,29 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
     return null;
   }
 
+  const validationStatus: Manifest['status'] | null = manifest.validationResults
+    ? manifest.validationResults.errorCount > 0
+      ? ('failed' as Manifest['status'])
+      : manifest.validationResults.warningCount > 0
+        ? ('pending' as Manifest['status'])
+        : ('completed' as Manifest['status'])
+    : null;
+
+  const validationLabel = manifest.validationResults
+    ? manifest.validationResults.errorCount > 0
+      ? `${manifest.validationResults.errorCount} errors`
+      : manifest.validationResults.warningCount > 0
+        ? `${manifest.validationResults.warningCount} warnings`
+        : 'Passed'
+    : '';
+
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div className="bg-card rounded-lg shadow-sm border border-border">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+      <div className="px-6 py-4 border-b border-border flex justify-between items-center">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">{manifest.originalFilename}</h2>
-          <p className="text-sm text-gray-500">{manifest.storagePath}</p>
+          <h2 className="text-lg font-semibold text-foreground">{manifest.originalFilename}</h2>
+          <p className="text-sm text-muted-foreground">{manifest.storagePath}</p>
         </div>
         <div className="flex items-center gap-2">
           {/* Save Status */}
@@ -180,10 +197,10 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
             <span
               className={`text-sm ${
                 saveStatus === 'saved'
-                  ? 'text-green-600'
+                  ? 'text-[color:var(--status-completed-text)]'
                   : saveStatus === 'error'
-                    ? 'text-red-600'
-                    : 'text-gray-600'
+                    ? 'text-destructive'
+                    : 'text-muted-foreground'
               }`}
             >
               {saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'error' ? '✗ Failed' : 'Saving...'}
@@ -194,18 +211,18 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
           <button
             onClick={goToPrevious}
             disabled={currentIndex === 0}
-            className="p-2 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
             title="Previous"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-muted-foreground">
             {currentIndex + 1} / {allManifestIds.length}
           </span>
           <button
             onClick={goToNext}
             disabled={currentIndex === allManifestIds.length - 1}
-            className="p-2 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
             title="Next"
           >
             <ChevronRight className="h-5 w-5" />
@@ -214,7 +231,7 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
           {/* Close */}
           <button
             onClick={onClose}
-            className="p-2 rounded border border-gray-300 hover:bg-gray-50"
+            className="p-2 rounded border border-border hover:bg-muted"
             title="Close (Esc)"
           >
             <X className="h-5 w-5" />
@@ -223,15 +240,15 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
       </div>
 
       {/* Tabs */}
-      <div className="px-6 pt-4 border-b border-gray-200">
+      <div className="px-6 pt-4 border-b border-border">
         <div className="flex items-center justify-between">
           <div className="flex gap-4">
             <button
               onClick={() => setActiveTab('form')}
               className={`pb-2 px-1 text-sm font-medium border-b-2 ${
                 activeTab === 'form'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               Invoice Form
@@ -240,8 +257,8 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
               onClick={() => setActiveTab('ocr')}
               className={`pb-2 px-1 text-sm font-medium border-b-2 ${
                 activeTab === 'ocr'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               OCR Results
@@ -250,26 +267,18 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
               onClick={() => setActiveTab('validation')}
               className={`pb-2 px-1 text-sm font-medium border-b-2 ${
                 activeTab === 'validation'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               Validation
               {manifest.validationResults && (
                 <span
                   className={`ml-2 px-2 py-0.5 text-xs font-medium rounded-full ${
-                    manifest.validationResults.errorCount > 0
-                      ? 'bg-red-100 text-red-800'
-                      : manifest.validationResults.warningCount > 0
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-green-100 text-green-800'
+                    validationStatus ? getStatusBadgeClasses(validationStatus) : ''
                   }`}
                 >
-                  {manifest.validationResults.errorCount > 0
-                    ? `${manifest.validationResults.errorCount} errors`
-                    : manifest.validationResults.warningCount > 0
-                      ? `${manifest.validationResults.warningCount} warnings`
-                      : 'Passed'}
+                  {validationLabel}
                 </span>
               )}
             </button>
@@ -278,7 +287,7 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
             <button
               onClick={() => runValidation.mutate({ manifestId })}
               disabled={runValidation.isPending}
-              className="px-3 py-1 text-sm font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 text-sm font-medium rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {runValidation.isPending ? 'Running...' : 'Run Validation'}
             </button>
@@ -287,12 +296,12 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
       </div>
 
       {/* Content */}
-      <div className="flex h-[calc(100vh-300px)] relative">
+      <div className="relative flex flex-col gap-6 lg:flex-row lg:gap-0">
         {/* Progress Overlay */}
         {(manifest.status === 'processing' || jobProgress) && (
-          <div className="absolute inset-0 z-10 bg-white/90 backdrop-blur-sm flex items-center justify-center">
-            <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-6 max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="absolute inset-0 z-[var(--z-index-overlay)] bg-card/90 backdrop-blur-sm flex items-center justify-center">
+            <div className="bg-card rounded-lg shadow-xl border border-border p-6 max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold text-foreground mb-4">
                 {jobProgress?.status === 'processing' ? 'Processing Invoice' : 'Updating'}
               </h3>
               <ProgressBar
@@ -304,19 +313,19 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
                 showStatus={true}
               />
               {jobProgress?.error && (
-                <p className="mt-4 text-sm text-red-600">{jobProgress.error}</p>
+                <p className="mt-4 text-sm text-destructive">{jobProgress.error}</p>
               )}
             </div>
           </div>
         )}
 
         {/* PDF Viewer */}
-        <div className="w-1/2 border-r border-gray-200">
+        <div className="w-full min-h-0 border-border lg:w-1/2 lg:border-r">
           <PdfViewer manifestId={manifest.id} />
         </div>
 
         {/* Form/OCR Panel */}
-        <div className="w-1/2 overflow-y-auto">
+        <div className="w-full min-h-0 overflow-y-auto lg:w-1/2">
           {activeTab === 'form' ? (
             <EditableForm
               manifest={manifest}
@@ -337,3 +346,7 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
     </div>
   );
 }
+
+
+
+

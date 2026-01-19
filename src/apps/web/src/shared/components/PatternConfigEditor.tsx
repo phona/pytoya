@@ -10,15 +10,19 @@ export function PatternConfigEditor({ value, onChange }: PatternConfigEditorProp
 
   return (
     <div>
-      <label htmlFor={inputId} className="block text-xs font-medium text-gray-600">Regex Pattern</label>
+      <label htmlFor={inputId} className="block text-xs font-medium text-muted-foreground">Regex Pattern</label>
       <input
         id={inputId}
         type="text"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+        className="mt-1 w-full rounded-md border border-border px-3 py-2 text-xs focus:border-ring focus:outline-none focus:ring-ring"
         placeholder="^\\d{7}$"
       />
     </div>
   );
 }
+
+
+
+

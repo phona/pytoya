@@ -107,11 +107,11 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
     // Get confidence from _extraction_info if available
     const extractionInfo = extractedData._extraction_info ?? {};
     const fieldConfidence = extractionInfo.field_confidences?.[fieldName];
-    if (!fieldConfidence) return 'border-gray-300';
+    if (!fieldConfidence) return 'border-border';
 
-    if (fieldConfidence >= 0.9) return 'border-green-500';
-    if (fieldConfidence >= 0.7) return 'border-yellow-500';
-    return 'border-red-500';
+    if (fieldConfidence >= 0.9) return 'border-[color:var(--status-completed-text)]';
+    if (fieldConfidence >= 0.7) return 'border-[color:var(--status-pending-text)]';
+    return 'border-[color:var(--status-failed-text)]';
   };
 
   return (
@@ -133,7 +133,7 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
 
       {/* Invoice Fields */}
       <div className="space-y-4">
-        <h3 className="text-sm font-medium text-gray-900">Invoice Information</h3>
+        <h3 className="text-sm font-medium text-foreground">Invoice Information</h3>
 
         <FormField
           inputId="invoicePoNumber"
@@ -167,10 +167,10 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
       {/* Items */}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h3 className="text-sm font-medium text-gray-900">Line Items</h3>
+          <h3 className="text-sm font-medium text-foreground">Line Items</h3>
           <button
             onClick={handleAddItem}
-            className="px-3 py-1 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700"
+            className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
           >
             + Add Item
           </button>
@@ -186,7 +186,7 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
         ))}
 
         {formData.items.length === 0 && (
-          <div className="text-center py-8 text-gray-500 text-sm">
+          <div className="text-center py-8 text-muted-foreground text-sm">
             No items. Click &quot;Add Item&quot; to create one.
           </div>
         )}
@@ -201,16 +201,16 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
           onChange={(e) => {
             handleFieldChange('human_checked', e.target.checked);
           }}
-          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          className="rounded border-border text-primary focus:ring-ring"
         />
-        <label htmlFor="human_verified" className="ml-2 text-sm text-gray-700">
+        <label htmlFor="human_verified" className="ml-2 text-sm text-foreground">
           Human Verified
         </label>
       </div>
 
       {/* Unsaved Changes Indicator */}
       {unsavedChanges && (
-        <div className="text-xs text-gray-500 italic">Auto-saving...</div>
+        <div className="text-xs text-muted-foreground italic">Auto-saving...</div>
       )}
     </div>
   );
@@ -238,12 +238,12 @@ function FormField({
   return (
     <div>
       <div className="flex justify-between items-center mb-1">
-        <label htmlFor={inputId} className="block text-sm font-medium text-gray-700">
+        <label htmlFor={inputId} className="block text-sm font-medium text-foreground">
           {label}
         </label>
         <button
           onClick={onReExtract}
-          className="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+          className="text-xs text-primary hover:text-primary flex items-center gap-1"
           title="Re-extract this field"
         >
           <RefreshCw className="h-3 w-3" />
@@ -255,7 +255,7 @@ function FormField({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full border-l-4 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${confidenceColor}`}
+        className={`w-full border-l-4 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-ring focus:border-ring ${confidenceColor}`}
       />
     </div>
   );
@@ -274,11 +274,11 @@ function ItemCard({ item, onChange, onDelete }: ItemCardProps) {
   const totalId = `item-${item.id}-total`;
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+    <div className="border border-border rounded-lg p-4 space-y-3">
       <div className="flex justify-end">
         <button
           onClick={onDelete}
-          className="text-red-600 hover:text-red-700 text-sm"
+          className="text-destructive hover:text-destructive text-sm"
           title="Delete item"
         >
           <Trash2 className="h-4 w-4" />
@@ -286,7 +286,7 @@ function ItemCard({ item, onChange, onDelete }: ItemCardProps) {
       </div>
 
       <div>
-        <label htmlFor={descriptionId} className="block text-xs font-medium text-gray-500 mb-1">
+        <label htmlFor={descriptionId} className="block text-xs font-medium text-muted-foreground mb-1">
           Description
         </label>
         <input
@@ -294,13 +294,13 @@ function ItemCard({ item, onChange, onDelete }: ItemCardProps) {
           type="text"
           value={item.description}
           onChange={(e) => onChange('description', e.target.value)}
-          className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+          className="w-full border border-border rounded px-2 py-1 text-sm"
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
         <div>
-          <label htmlFor={quantityId} className="block text-xs font-medium text-gray-500 mb-1">
+          <label htmlFor={quantityId} className="block text-xs font-medium text-muted-foreground mb-1">
             Quantity
           </label>
           <input
@@ -309,11 +309,11 @@ function ItemCard({ item, onChange, onDelete }: ItemCardProps) {
             step="0.01"
             value={item.quantity}
             onChange={(e) => onChange('quantity', parseFloat(e.target.value) || 0)}
-            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+            className="w-full border border-border rounded px-2 py-1 text-sm"
           />
         </div>
         <div>
-          <label htmlFor={unitPriceId} className="block text-xs font-medium text-gray-500 mb-1">
+          <label htmlFor={unitPriceId} className="block text-xs font-medium text-muted-foreground mb-1">
             Unit Price
           </label>
           <input
@@ -322,11 +322,11 @@ function ItemCard({ item, onChange, onDelete }: ItemCardProps) {
             step="0.01"
             value={item.unitPrice}
             onChange={(e) => onChange('unitPrice', parseFloat(e.target.value) || 0)}
-            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+            className="w-full border border-border rounded px-2 py-1 text-sm"
           />
         </div>
         <div>
-          <label htmlFor={totalId} className="block text-xs font-medium text-gray-500 mb-1">
+          <label htmlFor={totalId} className="block text-xs font-medium text-muted-foreground mb-1">
             Total
           </label>
           <input
@@ -335,7 +335,7 @@ function ItemCard({ item, onChange, onDelete }: ItemCardProps) {
             step="0.01"
             value={item.totalPrice}
             onChange={(e) => onChange('totalPrice', parseFloat(e.target.value) || 0)}
-            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+            className="w-full border border-border rounded px-2 py-1 text-sm"
           />
         </div>
       </div>
@@ -372,12 +372,12 @@ function ExtractionAlert({ extractionInfo }: ExtractionAlertProps) {
   }
 
   return (
-    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+    <div className="bg-[color:var(--status-warning-bg)] border border-border rounded-lg p-4">
       <div className="flex items-start">
-        <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2" />
+        <AlertTriangle className="h-5 w-5 text-[color:var(--status-warning-text)] mt-0.5 mr-2" />
         <div className="flex-1">
-          <h4 className="text-sm font-medium text-yellow-800">Extraction Issues</h4>
-          <ul className="mt-2 text-sm text-yellow-700 list-disc list-inside">
+          <h4 className="text-sm font-medium text-[color:var(--status-warning-text)]">Extraction Issues</h4>
+          <ul className="mt-2 text-sm text-[color:var(--status-warning-text)] list-disc list-inside">
             {issues.map((issue, i) => (
               <li key={i}>{issue}</li>
             ))}
@@ -390,3 +390,7 @@ function ExtractionAlert({ extractionInfo }: ExtractionAlertProps) {
     </div>
   );
 }
+
+
+
+

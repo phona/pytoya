@@ -25,11 +25,11 @@ export function ProgressBar({
   }[size];
 
   const getIndicatorColor = () => {
-    if (error) return 'bg-red-500';
-    if (status === 'completed' || progress === 100) return 'bg-green-500';
-    if (status === 'failed') return 'bg-red-500';
-    if (status === 'processing') return 'bg-indigo-500';
-    return 'bg-gray-300';
+    if (error || status === 'failed') return 'bg-[color:var(--status-failed-text)]';
+    if (status === 'completed' || progress === 100) return 'bg-[color:var(--status-completed-text)]';
+    if (status === 'processing') return 'bg-[color:var(--status-processing-text)]';
+    if (status === 'pending') return 'bg-[color:var(--status-pending-text)]';
+    return 'bg-[color:var(--status-pending-text)]';
   };
 
   const getStatusText = () => {
@@ -45,23 +45,27 @@ export function ProgressBar({
     <div className="w-full">
       <div className="flex items-center justify-between mb-1">
         {showLabel && (
-          <span className="text-xs font-medium text-gray-700">Progress</span>
+          <span className="text-xs font-medium text-foreground">Progress</span>
         )}
         {showStatus && (
-          <span className="text-xs text-gray-600">{getStatusText()}</span>
+          <span className="text-xs text-muted-foreground">{getStatusText()}</span>
         )}
       </div>
       <Progress
         value={Math.min(100, Math.max(0, progress))}
-        className={cn(height, 'bg-gray-200')}
+        className={cn(height, 'bg-muted')}
         indicatorClassName={getIndicatorColor()}
         aria-valuenow={progress}
         aria-valuemin={0}
         aria-valuemax={100}
       />
       {error && (
-        <p className="mt-1 text-xs text-red-600">{error}</p>
+        <p className="mt-1 text-xs text-destructive">{error}</p>
       )}
     </div>
   );
 }
+
+
+
+

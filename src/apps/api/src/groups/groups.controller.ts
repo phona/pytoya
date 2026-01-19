@@ -43,8 +43,8 @@ export class GroupsController {
     @CurrentUser() user: UserEntity,
     @Param('projectId', ParseIntPipe) projectId: number,
   ) {
-    const groups = await this.groupsService.findByProject(user, projectId);
-    return groups.map(GroupResponseDto.fromEntity);
+    const groups = await this.groupsService.findByProjectWithCounts(user, projectId);
+    return groups.map(({ group, counts }) => GroupResponseDto.fromEntity(group, counts));
   }
 
   @Get('groups/:id')

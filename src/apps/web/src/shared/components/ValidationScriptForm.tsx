@@ -202,21 +202,21 @@ export function ValidationScriptForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="rounded-md border border-gray-200 p-4">
-        <h3 className="text-sm font-semibold text-gray-900">Generate with LLM</h3>
-        <p className="mt-1 text-xs text-gray-500">
+      <div className="rounded-md border border-border p-4">
+        <h3 className="text-sm font-semibold text-foreground">Generate with LLM</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
           Provide a structured JSON and a prompt to generate a validation script.
         </p>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label htmlFor="llmModelId" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="llmModelId" className="block text-sm font-medium text-foreground">
               LLM Model *
             </label>
             <select
               id="llmModelId"
               value={llmModelId}
               onChange={(e) => setLlmModelId(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
             >
               <option value="">Select a model...</option>
               {models.map((model) => (
@@ -227,7 +227,7 @@ export function ValidationScriptForm({
             </select>
           </div>
           <div>
-            <label htmlFor="promptText" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="promptText" className="block text-sm font-medium text-foreground">
               Prompt *
             </label>
             <input
@@ -235,13 +235,13 @@ export function ValidationScriptForm({
               type="text"
               value={promptText}
               onChange={(e) => setPromptText(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
               placeholder="Describe the validation rule"
             />
           </div>
         </div>
         <div className="mt-4">
-          <label htmlFor="structuredInput" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="structuredInput" className="block text-sm font-medium text-foreground">
             Structured JSON
           </label>
           <textarea
@@ -249,10 +249,10 @@ export function ValidationScriptForm({
             value={structuredInput}
             onChange={(e) => setStructuredInput(e.target.value)}
             rows={4}
-            className="mt-1 block w-full px-3 py-2 font-mono text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            className="mt-1 block w-full px-3 py-2 font-mono text-xs border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
             placeholder='{"taxRate":0.13,"requiredFields":["invoice.po_no"]}'
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Optional. Must be valid JSON if provided.
           </p>
         </div>
@@ -261,7 +261,7 @@ export function ValidationScriptForm({
             type="button"
             onClick={handleGenerate}
             disabled={isGenerating}
-            className="px-3 py-1.5 text-xs font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 text-xs font-medium rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? 'Generating...' : 'Generate'}
           </button>
@@ -269,7 +269,7 @@ export function ValidationScriptForm({
       </div>
 
       <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="name" className="block text-sm font-medium text-foreground">
           Script Name *
         </label>
         <input
@@ -278,18 +278,18 @@ export function ValidationScriptForm({
           required
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
           placeholder="Tax Calculation Check"
         />
       </div>
 
       {showProjectField ? (
         <div>
-          <label htmlFor="projectId" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="projectId" className="block text-sm font-medium text-foreground">
             Project *
           </label>
           {fixedProjectIdValue ? (
-            <div className="mt-1 rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+            <div className="mt-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
               {fixedProject?.name ?? `Project #${fixedProjectIdValue}`}
             </div>
           ) : (
@@ -299,7 +299,7 @@ export function ValidationScriptForm({
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
               disabled={!!script}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring sm:text-sm disabled:bg-muted disabled:cursor-not-allowed"
             >
               <option value="">Select a project...</option>
               {projects.map((project) => (
@@ -311,13 +311,13 @@ export function ValidationScriptForm({
           )}
         </div>
       ) : (
-        <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+        <div className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
           Project will be set when you save the wizard.
         </div>
       )}
 
       <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="description" className="block text-sm font-medium text-foreground">
           Description
         </label>
         <textarea
@@ -325,39 +325,39 @@ export function ValidationScriptForm({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
           placeholder="Optional description..."
         />
       </div>
 
       <div>
-        <label htmlFor="severity" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="severity" className="block text-sm font-medium text-foreground">
           Default Severity
         </label>
         <select
           id="severity"
           value={severity}
           onChange={(e) => setSeverity(e.target.value as ValidationSeverity)}
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
         >
           <option value="warning">Warning</option>
           <option value="error">Error</option>
         </select>
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-muted-foreground">
           The default severity level for issues found by this script.
         </p>
       </div>
 
       <div>
         <div className="flex justify-between items-center mb-2">
-          <label htmlFor="script" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="script" className="block text-sm font-medium text-foreground">
             Validation Script *
           </label>
           <button
             type="button"
             onClick={handleCheckSyntax}
             disabled={isCheckingSyntax}
-            className="px-3 py-1 text-xs font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1 text-xs font-medium rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isCheckingSyntax ? 'Checking...' : 'Check Syntax'}
           </button>
@@ -368,15 +368,15 @@ export function ValidationScriptForm({
           value={scriptCode}
           onChange={(e) => handleScriptChange(e.target.value)}
           rows={20}
-          className="mt-1 block w-full px-3 py-2 font-mono text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          className="mt-1 block w-full px-3 py-2 font-mono text-xs border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
           placeholder={DEFAULT_SCRIPT}
         />
         {syntaxError && (
-          <p className="mt-1 text-xs text-red-600">Syntax Error: {syntaxError}</p>
+          <p className="mt-1 text-xs text-destructive">Syntax Error: {syntaxError}</p>
         )}
-        <p className="mt-1 text-xs text-gray-500">
-          The script must export a function named <code className="bg-gray-100 px-1 rounded">validate</code> that
-          takes <code className="bg-gray-100 px-1 rounded">extractedData</code> and returns an array of validation
+        <p className="mt-1 text-xs text-muted-foreground">
+          The script must export a function named <code className="bg-muted px-1 rounded">validate</code> that
+          takes <code className="bg-muted px-1 rounded">extractedData</code> and returns an array of validation
           issues.
         </p>
       </div>
@@ -387,16 +387,16 @@ export function ValidationScriptForm({
           type="checkbox"
           checked={enabled}
           onChange={(e) => setEnabled(e.target.checked)}
-          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+          className="h-4 w-4 text-primary focus:ring-ring border-border rounded"
         />
-        <label htmlFor="enabled" className="ml-2 block text-sm text-gray-900">
+        <label htmlFor="enabled" className="ml-2 block text-sm text-foreground">
           Enabled (this script will run automatically when validation is triggered)
         </label>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-        <h4 className="text-sm font-medium text-blue-900 mb-2">Script Function Signature</h4>
-        <pre className="text-xs text-blue-800 overflow-x-auto">
+      <div className="bg-primary/10 border border-primary/20 rounded-md p-4">
+        <h4 className="text-sm font-medium text-primary mb-2">Script Function Signature</h4>
+        <pre className="text-xs text-primary overflow-x-auto">
           {`function validate(extractedData): ValidationIssue[] {
   return [
     {
@@ -416,14 +416,14 @@ export function ValidationScriptForm({
           type="button"
           onClick={onCancel}
           disabled={isLoading}
-          className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 border border-border rounded-md shadow-sm text-sm font-medium text-foreground bg-card hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={isLoading || !!syntaxError}
-          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? 'Saving...' : isEditing ? 'Update' : 'Create'}
         </button>
@@ -431,3 +431,7 @@ export function ValidationScriptForm({
     </form>
   );
 }
+
+
+
+

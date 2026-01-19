@@ -116,7 +116,7 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
         const value = typeof rule.ruleConfig.value === 'number' ? rule.ruleConfig.value : 0;
         return (
           <div>
-            <label htmlFor={buildId(index, 'config-value')} className="block text-xs font-medium text-gray-600">Value</label>
+            <label htmlFor={buildId(index, 'config-value')} className="block text-xs font-medium text-muted-foreground">Value</label>
             <input
               id={buildId(index, 'config-value')}
               type="number"
@@ -126,7 +126,7 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
                   ruleConfig: { ...rule.ruleConfig, value: Number(event.target.value) },
                 })
               }
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+              className="mt-1 w-full rounded-md border border-border px-3 py-2 text-xs focus:border-ring focus:outline-none focus:ring-ring"
             />
           </div>
         );
@@ -139,19 +139,19 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
   return (
     <div className="space-y-4">
       {rules.length === 0 && (
-        <div className="rounded-md border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+        <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
           No rules yet. Add a rule or generate with AI.
         </div>
       )}
 
       {rules.map((rule, index) => (
-        <div key={`rule-${index}`} className="rounded-md border border-gray-200 p-4 space-y-3">
+        <div key={`rule-${index}`} className="rounded-md border border-border p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <div className="text-sm font-medium text-gray-700">Rule {index + 1}</div>
+            <div className="text-sm font-medium text-foreground">Rule {index + 1}</div>
             <button
               type="button"
               onClick={() => handleRemoveRule(index)}
-              className="text-xs text-red-600 hover:text-red-700"
+              className="text-xs text-destructive hover:text-destructive"
             >
               Remove
             </button>
@@ -159,23 +159,23 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
 
           <div className="grid gap-3 md:grid-cols-2">
             <div>
-              <label htmlFor={buildId(index, 'field-path')} className="block text-xs font-medium text-gray-600">Field Path</label>
+              <label htmlFor={buildId(index, 'field-path')} className="block text-xs font-medium text-muted-foreground">Field Path</label>
               <input
                 id={buildId(index, 'field-path')}
                 type="text"
                 value={rule.fieldPath}
                 onChange={(event) => updateRule(index, { fieldPath: event.target.value })}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                className="mt-1 w-full rounded-md border border-border px-3 py-2 text-xs focus:border-ring focus:outline-none focus:ring-ring"
                 placeholder="invoice.po_no"
               />
             </div>
             <div>
-              <label htmlFor={buildId(index, 'rule-type')} className="block text-xs font-medium text-gray-600">Rule Type</label>
+              <label htmlFor={buildId(index, 'rule-type')} className="block text-xs font-medium text-muted-foreground">Rule Type</label>
               <select
                 id={buildId(index, 'rule-type')}
                 value={rule.ruleType}
                 onChange={(event) => updateRule(index, { ruleType: event.target.value as SchemaRuleType })}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                className="mt-1 w-full rounded-md border border-border px-3 py-2 text-xs focus:border-ring focus:outline-none focus:ring-ring"
               >
                 {RULE_TYPE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -185,7 +185,7 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
               </select>
             </div>
             <div>
-              <label htmlFor={buildId(index, 'operator')} className="block text-xs font-medium text-gray-600">Operator</label>
+              <label htmlFor={buildId(index, 'operator')} className="block text-xs font-medium text-muted-foreground">Operator</label>
               <select
                 id={buildId(index, 'operator')}
                 value={rule.ruleOperator}
@@ -197,7 +197,7 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
                   }
                   updateRule(index, patch);
                 }}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                className="mt-1 w-full rounded-md border border-border px-3 py-2 text-xs focus:border-ring focus:outline-none focus:ring-ring"
               >
                 {RULE_OPERATOR_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -207,7 +207,7 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
               </select>
             </div>
             <div>
-              <label htmlFor={buildId(index, 'priority')} className="block text-xs font-medium text-gray-600">Priority (0-10)</label>
+              <label htmlFor={buildId(index, 'priority')} className="block text-xs font-medium text-muted-foreground">Priority (0-10)</label>
               <input
                 id={buildId(index, 'priority')}
                 type="number"
@@ -215,30 +215,30 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
                 max={10}
                 value={rule.priority ?? 0}
                 onChange={(event) => updateRule(index, { priority: Number(event.target.value) })}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                className="mt-1 w-full rounded-md border border-border px-3 py-2 text-xs focus:border-ring focus:outline-none focus:ring-ring"
               />
             </div>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
             <div>
-              <label htmlFor={buildId(index, 'error-message')} className="block text-xs font-medium text-gray-600">Error Message</label>
+              <label htmlFor={buildId(index, 'error-message')} className="block text-xs font-medium text-muted-foreground">Error Message</label>
               <input
                 id={buildId(index, 'error-message')}
                 type="text"
                 value={rule.errorMessage ?? ''}
                 onChange={(event) => updateRule(index, { errorMessage: event.target.value })}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                className="mt-1 w-full rounded-md border border-border px-3 py-2 text-xs focus:border-ring focus:outline-none focus:ring-ring"
                 placeholder="Custom error message"
               />
             </div>
             <div>
-              <label htmlFor={buildId(index, 'enabled')} className="block text-xs font-medium text-gray-600">Enabled</label>
+              <label htmlFor={buildId(index, 'enabled')} className="block text-xs font-medium text-muted-foreground">Enabled</label>
               <select
                 id={buildId(index, 'enabled')}
                 value={rule.enabled === false ? 'false' : 'true'}
                 onChange={(event) => updateRule(index, { enabled: event.target.value === 'true' })}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                className="mt-1 w-full rounded-md border border-border px-3 py-2 text-xs focus:border-ring focus:outline-none focus:ring-ring"
               >
                 <option value="true">Enabled</option>
                 <option value="false">Disabled</option>
@@ -247,18 +247,18 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
           </div>
 
           <div>
-            <label htmlFor={buildId(index, 'description')} className="block text-xs font-medium text-gray-600">Description</label>
+            <label htmlFor={buildId(index, 'description')} className="block text-xs font-medium text-muted-foreground">Description</label>
             <textarea
               id={buildId(index, 'description')}
               value={rule.description ?? ''}
               onChange={(event) => updateRule(index, { description: event.target.value })}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+              className="mt-1 w-full rounded-md border border-border px-3 py-2 text-xs focus:border-ring focus:outline-none focus:ring-ring"
               rows={2}
               placeholder="Optional description"
             />
           </div>
 
-          <div className="rounded-md border border-gray-100 bg-gray-50 p-3">
+          <div className="rounded-md border border-border bg-background p-3">
             {renderConfigEditor(rule, index)}
           </div>
         </div>
@@ -267,10 +267,14 @@ export function RuleEditor({ rules, onChange }: RuleEditorProps) {
       <button
         type="button"
         onClick={handleAddRule}
-        className="w-full rounded-md border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+        className="w-full rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
       >
         + Add Manual Rule
       </button>
     </div>
   );
 }
+
+
+
+

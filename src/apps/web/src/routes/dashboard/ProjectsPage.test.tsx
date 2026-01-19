@@ -1,4 +1,5 @@
-import { act, renderWithProviders, screen, waitFor } from '@/tests/utils';
+import { act, fireEvent, renderWithProviders, screen, waitFor } from '@/tests/utils';
+import { within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -115,9 +116,9 @@ describe('ProjectsPage', () => {
     server.close();
   });
 
-  it('completes project creation flow from the list page', async () => {
+  it('completes quick create flow from the list page', async () => {
     setupHandlers();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
 
     await act(async () => {
       renderWithProviders(<ProjectsPage />);
@@ -129,25 +130,21 @@ describe('ProjectsPage', () => {
     });
 
     await act(async () => {
+      await user.click(screen.getByRole('menuitem', { name: /Quick Create/i }));
+    });
+
+    await act(async () => {
       await user.type(screen.getByLabelText(/Project Name/i), 'New Project');
-      await user.click(screen.getByRole('button', { name: /Next/i }));
     });
 
     await act(async () => {
-      await user.selectOptions(screen.getByLabelText(/LLM Model/i), 'llm-1');
-      await user.click(screen.getByRole('button', { name: /Next/i }));
+      await user.click(screen.getByLabelText(/LLM Model/i));
     });
-
+    const listbox = await screen.findByRole('listbox');
     await act(async () => {
-      await user.click(screen.getByRole('button', { name: /Next/i }));
-    });
-
-    await act(async () => {
-      await user.click(screen.getByRole('button', { name: /Next/i }));
-    });
-
-    await act(async () => {
-      await user.click(screen.getByRole('button', { name: /Next/i }));
+      const option = within(listbox).getByRole('option', { name: /LLM Model/i });
+      fireEvent.pointerDown(option);
+      fireEvent.click(option);
     });
 
     await act(async () => {
@@ -159,3 +156,7 @@ describe('ProjectsPage', () => {
     });
   });
 });
+
+
+
+

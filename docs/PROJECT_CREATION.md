@@ -1,8 +1,14 @@
 # Project Creation Guide
 
-PyToYa uses a guided wizard to create projects and set up extraction defaults.
+PyToYa supports Quick Create for fast setup and Guided Setup for full configuration.
 
-## Wizard Steps
+## Quick Create
+1. **Basics**: Enter project name.
+2. **Models**: Select the LLM model (required).
+
+Quick Create skips description, schema, and rules so you can start importing data right away.
+
+## Guided Setup Steps
 1. **Basics**: Enter project name and optional description.
 2. **Models**: Select the LLM model (required) and optionally enable OCR.
 3. **Schema**: Edit JSON Schema. Use the LLM generator or import a file if needed.

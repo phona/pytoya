@@ -74,3 +74,7 @@ describe('ProtectedRoute', () => {
     expect(screen.getByText('Checking your session...')).toBeInTheDocument();
   });
 });
+
+
+
+

@@ -84,3 +84,7 @@ export const getAdapterByType = (
   adapterType?: string,
 ): AdapterSchema | undefined =>
   adapters.find((adapter) => adapter.type === adapterType);
+
+
+
+

@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useProject, useGroups } from '@/shared/hooks/use-projects';
 import { ArrowLeft, FileText, Folder, FolderOpen } from 'lucide-react';
+import { useGroups, useProject, useProjects } from '@/shared/hooks/use-projects';
+import { useProjectSchemas } from '@/shared/hooks/use-schemas';
 import { GroupCard } from '@/shared/components/GroupCard';
 import { GroupForm } from '@/shared/components/GroupForm';
 import { ExportButton } from '@/shared/components/ExportButton';
-import { ProjectWizard } from '@/shared/components/ProjectWizard';
+import { SettingsDropdown } from '@/shared/components/SettingsDropdown';
+import { EmptyState } from '@/shared/components/EmptyState';
+import { Button } from '@/shared/components/ui/button';
 import { Group, CreateGroupDto, UpdateGroupDto } from '@/api/projects';
 
 export function ProjectDetailPage() {
@@ -23,10 +26,11 @@ export function ProjectDetailPage() {
     isCreating,
     isUpdating,
   } = useGroups(projectId);
+  const { schemas: projectSchemas } = useProjectSchemas(projectId);
+  const { deleteProject } = useProjects();
 
   const [showForm, setShowForm] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
 
   const handleCreateGroup = async (data: CreateGroupDto) => {
     await createGroup(data);
@@ -40,7 +44,6 @@ export function ProjectDetailPage() {
     }
   };
 
-  // Unified handler for form - accepts union type and routes appropriately
   const handleFormSubmit = async (data: CreateGroupDto | UpdateGroupDto) => {
     if (editingGroup) {
       await handleUpdateGroup(data as UpdateGroupDto);
@@ -58,57 +61,69 @@ export function ProjectDetailPage() {
     setShowForm(false);
   };
 
+  const handleDeleteProject = async () => {
+    if (!project) return;
+    if (!confirm(`Delete project "${project.name}"? This will remove all groups and manifests.`)) {
+      return;
+    }
+    await deleteProject(project.id);
+    navigate('/projects');
+  };
 
   if (projectLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
       </div>
     );
   }
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-medium text-gray-900">Project not found</h2>
-          <button
+          <h2 className="text-xl font-medium text-foreground">Project not found</h2>
+          <Button
+            type="button"
+            variant="ghost"
             onClick={() => navigate('/projects')}
-            className="mt-4 text-indigo-600 hover:text-indigo-700"
+            className="mt-4"
           >
             Back to Projects
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
+  const projectSchema = projectSchemas[0];
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
         <div className="mb-8">
-          <button
+          <Button
+            type="button"
+            variant="ghost"
             onClick={() => navigate('/projects')}
-            className="text-sm text-indigo-600 hover:text-indigo-700 mb-4 inline-flex items-center gap-2"
+            className="mb-4 inline-flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Projects
-          </button>
-          <div className="flex justify-between items-start">
+          </Button>
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
+              <h1 className="text-3xl font-bold text-foreground">{project.name}</h1>
               {project.description && (
-                <p className="mt-1 text-sm text-gray-600">{project.description}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{project.description}</p>
               )}
             </div>
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsWizardOpen(true)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                Project Settings
-              </button>
+              <SettingsDropdown
+                projectId={projectId}
+                schemaId={projectSchema?.id}
+                onDelete={handleDeleteProject}
+              />
               <ExportButton
                 filters={{ projectId }}
                 filename={`${project.name.replace(/\s+/g, '-')}-export.csv`}
@@ -116,7 +131,7 @@ export function ProjectDetailPage() {
             </div>
           </div>
 
-          <div className="mt-4 flex items-center gap-6 text-sm text-gray-500">
+          <div className="mt-4 flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Folder className="h-4 w-4" />
               <span>{project._count?.groups ?? 0} groups</span>
@@ -128,24 +143,23 @@ export function ProjectDetailPage() {
           </div>
         </div>
 
-        {/* Groups Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">Groups</h2>
-            <button
+        <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+            <h2 className="text-lg font-semibold text-foreground">Groups</h2>
+            <Button
+              type="button"
               onClick={() => {
                 setShowForm(true);
                 setEditingGroup(null);
               }}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
             >
               New Group
-            </button>
+            </Button>
           </div>
 
           {(showForm || editingGroup) && (
-            <div className="mb-6 bg-gray-50 rounded-lg p-4">
-              <h3 className="text-md font-medium text-gray-900 mb-3">
+            <div className="mb-6 bg-background rounded-lg p-4">
+              <h3 className="text-md font-medium text-foreground mb-3">
                 {editingGroup ? 'Edit Group' : 'Create New Group'}
               </h3>
               <GroupForm
@@ -163,36 +177,41 @@ export function ProjectDetailPage() {
 
           {groupsLoading ? (
             <div className="text-center py-8">
-              <div className="inline-block h-6 w-6 animate-spin rounded-full border-3 border-solid border-indigo-600 border-r-transparent"></div>
+              <div className="inline-block h-6 w-6 animate-spin rounded-full border-3 border-solid border-primary border-r-transparent"></div>
             </div>
           ) : groups.length === 0 ? (
-            <div className="text-center py-8">
-              <FolderOpen className="mx-auto h-10 w-10 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No groups</h3>
-              <p className="mt-1 text-sm text-gray-500">Create a group to organize your manifests.</p>
-            </div>
+            <EmptyState
+              title="No groups"
+              description="Create a group to organize your manifests."
+              icon={FolderOpen}
+              action={{
+                label: 'New Group',
+                onClick: () => {
+                  setShowForm(true);
+                  setEditingGroup(null);
+                },
+              }}
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {groups.map((group) => (
                 <GroupCard
                   key={group.id}
                   group={group}
+                  onClick={() => navigate(`/projects/${projectId}/groups/${group.id}/manifests`)}
                   onEdit={handleEditGroup}
                   onDelete={handleDeleteGroup}
                 />
               ))}
             </div>
           )}
-
         </div>
-      </div>
 
-      <ProjectWizard
-        isOpen={isWizardOpen}
-        onClose={() => setIsWizardOpen(false)}
-        mode="edit"
-        projectId={projectId}
-      />
+      </div>
     </div>
   );
 }
+
+
+
+

@@ -80,7 +80,7 @@ describe('SchemaPreview', () => {
 
       expect(screen.getByText('email')).toBeInTheDocument();
       expect(screen.getByText('required')).toBeInTheDocument();
-      expect(screen.getByText('required')).toHaveClass('text-red-600');
+      expect(screen.getByText('required')).toHaveClass('text-destructive');
     });
 
     it('should display multiple properties', () => {
@@ -313,7 +313,7 @@ describe('SchemaPreview', () => {
 
       expect(screen.getByText('email')).toBeInTheDocument();
       expect(screen.getByText(/format:\s*email/i)).toBeInTheDocument();
-      expect(screen.getByText('email')).toHaveClass('text-indigo-600');
+      expect(screen.getByText('email')).toHaveClass('text-primary');
     });
 
     it('should display pattern constraint', () => {
@@ -385,3 +385,7 @@ describe('SchemaPreview', () => {
     });
   });
 });
+
+
+
+

@@ -5,3 +5,7 @@ export type Jsonify<T> = T extends Date
     : T extends object
       ? { [K in keyof T]: Jsonify<T[K]> }
       : T;
+
+
+
+

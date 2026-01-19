@@ -29,7 +29,13 @@ describe('Pagination', () => {
     await user.click(nextButton);
     expect(onPageChange).toHaveBeenCalledWith(2);
 
-    await user.selectOptions(screen.getByLabelText(/per page/i), '50');
+    const pageSizeSelect = screen.getByLabelText(/per page/i);
+    await user.click(pageSizeSelect);
+    await user.click(screen.getByRole('option', { name: '50' }));
     expect(onPageSizeChange).toHaveBeenCalledWith(50);
   });
 });
+
+
+
+

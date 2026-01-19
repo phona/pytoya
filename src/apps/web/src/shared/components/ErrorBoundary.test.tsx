@@ -69,3 +69,7 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('Route error')).toBeInTheDocument();
   });
 });
+
+
+
+

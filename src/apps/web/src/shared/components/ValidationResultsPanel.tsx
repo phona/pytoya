@@ -10,17 +10,17 @@ interface ValidationResultsPanelProps {
 }
 
 const SEVERITY_COLORS: Record<ValidationSeverity, string> = {
-  error: 'text-red-600 bg-red-50 border-red-200',
-  warning: 'text-yellow-600 bg-yellow-50 border-yellow-200',
+  error: 'text-destructive bg-destructive/10 border-destructive/30',
+  warning: 'text-[color:var(--status-warning-text)] bg-[color:var(--status-warning-bg)] border-border',
 };
 
 export function ValidationResultsPanel({ result, isLoading }: ValidationResultsPanelProps) {
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-card rounded-lg shadow-sm border border-border p-6">
         <div className="flex items-center justify-center py-8">
-          <div className="inline-block h-6 w-6 animate-spin rounded-full border-3 border-solid border-indigo-600 border-r-transparent"></div>
-          <span className="ml-2 text-sm text-gray-600">Running validation...</span>
+          <div className="inline-block h-6 w-6 animate-spin rounded-full border-3 border-solid border-primary border-r-transparent"></div>
+          <span className="ml-2 text-sm text-muted-foreground">Running validation...</span>
         </div>
       </div>
     );
@@ -28,11 +28,11 @@ export function ValidationResultsPanel({ result, isLoading }: ValidationResultsP
 
   if (!result) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-card rounded-lg shadow-sm border border-border p-6">
         <div className="text-center py-8">
-          <CircleCheck className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No validation results</h3>
-          <p className="mt-1 text-sm text-gray-500">
+          <CircleCheck className="mx-auto h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-2 text-sm font-medium text-foreground">No validation results</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
             Run validation to check for data integrity issues.
           </p>
         </div>
@@ -47,10 +47,10 @@ export function ValidationResultsPanel({ result, isLoading }: ValidationResultsP
   const defaultTab = errors.length > 0 ? 'errors' : 'warnings';
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="border-b border-gray-200 p-4">
+    <div className="bg-card rounded-lg shadow-sm border border-border">
+      <div className="border-b border-border p-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium text-gray-900">Validation Results</h3>
+          <h3 className="text-lg font-medium text-foreground">Validation Results</h3>
           <div className="flex gap-4 text-sm items-center">
             {errorCount > 0 && (
               <Badge variant="destructive" className="gap-1">
@@ -65,23 +65,23 @@ export function ValidationResultsPanel({ result, isLoading }: ValidationResultsP
               </Badge>
             )}
             {errorCount === 0 && warningCount === 0 && (
-              <span className="flex items-center text-green-600">
+              <span className="flex items-center text-[color:var(--status-completed-text)]">
                 <CircleCheck className="mr-1 h-4 w-4" />
                 All checks passed
               </span>
             )}
           </div>
         </div>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-muted-foreground mt-1">
           Validated at {format(new Date(validatedAt), 'PPpp')}
         </p>
       </div>
 
       {!hasIssues ? (
         <div className="p-6 text-center">
-          <CircleCheck className="mx-auto h-12 w-12 text-green-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No issues found</h3>
-          <p className="mt-1 text-sm text-gray-500">All validation checks passed successfully.</p>
+          <CircleCheck className="mx-auto h-12 w-12 text-[color:var(--status-completed-text)]" />
+          <h3 className="mt-2 text-sm font-medium text-foreground">No issues found</h3>
+          <p className="mt-1 text-sm text-muted-foreground">All validation checks passed successfully.</p>
         </div>
       ) : (
         <Tabs defaultValue={defaultTab} className="p-4">
@@ -101,11 +101,11 @@ export function ValidationResultsPanel({ result, isLoading }: ValidationResultsP
           </TabsList>
           <TabsContent value="errors">
             {errors.length === 0 ? (
-              <div className="rounded-md border border-dashed border-gray-200 p-6 text-sm text-gray-500">
+              <div className="rounded-md border border-dashed border-border p-6 text-sm text-muted-foreground">
                 No errors detected.
               </div>
             ) : (
-              <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+              <div className="divide-y divide-border max-h-96 overflow-y-auto">
                 {errors.map((issue, index) => (
                   <ValidationIssueItem key={index} issue={issue} />
                 ))}
@@ -114,11 +114,11 @@ export function ValidationResultsPanel({ result, isLoading }: ValidationResultsP
           </TabsContent>
           <TabsContent value="warnings">
             {warnings.length === 0 ? (
-              <div className="rounded-md border border-dashed border-gray-200 p-6 text-sm text-gray-500">
+              <div className="rounded-md border border-dashed border-border p-6 text-sm text-muted-foreground">
                 No warnings detected.
               </div>
             ) : (
-              <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+              <div className="divide-y divide-border max-h-96 overflow-y-auto">
                 {warnings.map((issue, index) => (
                   <ValidationIssueItem key={index} issue={issue} />
                 ))}
@@ -156,7 +156,7 @@ function ValidationIssueItem({ issue }: { issue: ValidationIssue }) {
               {issue.actual !== undefined && (
                 <div>
                   <span className="font-medium">Actual: </span>
-                  <code className="bg-white bg-opacity-50 px-1 rounded">
+                  <code className="bg-card bg-opacity-50 px-1 rounded">
                     {JSON.stringify(issue.actual)}
                   </code>
                 </div>
@@ -164,7 +164,7 @@ function ValidationIssueItem({ issue }: { issue: ValidationIssue }) {
               {issue.expected !== undefined && (
                 <div>
                   <span className="font-medium">Expected: </span>
-                  <code className="bg-white bg-opacity-50 px-1 rounded">
+                  <code className="bg-card bg-opacity-50 px-1 rounded">
                     {JSON.stringify(issue.expected)}
                   </code>
                 </div>
@@ -176,3 +176,7 @@ function ValidationIssueItem({ issue }: { issue: ValidationIssue }) {
     </div>
   );
 }
+
+
+
+

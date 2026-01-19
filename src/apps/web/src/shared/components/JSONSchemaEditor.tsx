@@ -110,7 +110,7 @@ export function JSONSchemaEditor({
             type="button"
             onClick={formatJSON}
             disabled={readOnly || !!error}
-            className="px-3 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1 text-xs font-medium text-foreground bg-card border border-border rounded hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
             title="Format JSON (Prettify)"
           >
             Format
@@ -119,14 +119,14 @@ export function JSONSchemaEditor({
             type="button"
             onClick={minifyJSON}
             disabled={readOnly || !!error}
-            className="px-3 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1 text-xs font-medium text-foreground bg-card border border-border rounded hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
             title="Minify JSON"
           >
             Minify
           </button>
         </div>
         {error && (
-          <span className="text-xs text-red-600 font-medium">
+          <span className="text-xs text-destructive font-medium">
             Invalid JSON
           </span>
         )}
@@ -137,7 +137,7 @@ export function JSONSchemaEditor({
         {/* Line Numbers */}
         <div
           ref={lineNumbersRef}
-          className="flex-shrink-0 w-10 bg-gray-50 border-r border-gray-300 text-gray-400 text-xs font-mono text-right pr-2 pt-2 select-none overflow-hidden"
+          className="flex-shrink-0 w-10 bg-background border-r border-border text-muted-foreground text-xs font-mono text-right pr-2 pt-2 select-none overflow-hidden"
           style={{ height: `${rows * 20}px` }}
         >
           {lineNumbers.map((lineNum) => (
@@ -157,8 +157,8 @@ export function JSONSchemaEditor({
           readOnly={readOnly}
           rows={rows}
           placeholder={placeholder}
-          className={`flex-1 px-3 py-2 font-mono text-xs resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-            error ? 'bg-red-50' : 'bg-white'
+          className={`flex-1 px-3 py-2 font-mono text-xs resize-none focus:outline-none focus:ring-1 focus:ring-ring ${
+            error ? 'bg-destructive/10' : 'bg-card'
           }`}
           style={{
             minHeight: `${rows * 20}px`,
@@ -170,17 +170,21 @@ export function JSONSchemaEditor({
 
       {/* Error Message */}
       {error && (
-        <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded">
-          <p className="text-xs text-red-700 font-mono">{error}</p>
+        <div className="mt-1 p-2 bg-destructive/10 border border-destructive/30 rounded">
+          <p className="text-xs text-destructive font-mono">{error}</p>
         </div>
       )}
 
       {/* Helper Text */}
       {!error && (
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-muted-foreground">
           Press Tab to indent. Use Format to prettify your JSON.
         </p>
       )}
     </div>
   );
 }
+
+
+
+

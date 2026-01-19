@@ -11,12 +11,14 @@
 - The route guard waits for auth hydration before deciding.
 
 ## Navigation
-- Dashboard pages render a sidebar with links to Projects, Models, and Settings.
+- Dashboard pages render a sidebar with links to Projects and Models.
 - Active routes are highlighted based on the current pathname.
 - The sidebar is collapsible on mobile with a hamburger toggle.
 - Sign out is handled from the sidebar and clears auth state before redirecting to login.
+- Theme toggling is available from the sidebar.
 
-Admin-only pages (Schemas, Prompts, Validation Scripts) are still available but no longer appear in the main navigation.
+Admin-only pages (Prompts, Validation Scripts) are still available but no longer appear in the main navigation.
+Schema access is project-scoped and available from the project settings dropdown.
 
 ## Dialog Patterns
 - Projects, Models, and Manifests use modal dialogs for create/edit flows.
@@ -24,9 +26,22 @@ Admin-only pages (Schemas, Prompts, Validation Scripts) are still available but 
 - Dialogs trap focus, close on Escape/backdrop, and return focus to the triggering element.
 - Dialogs are implemented with shadcn/ui components (`src/apps/web/src/shared/components/ui/dialog`).
 
+## Z-Index Scale
+- Z-index variables live in `src/apps/web/src/styles/z-index.css`.
+- Use Tailwind arbitrary values with variables (example: `z-[var(--z-index-modal)]`).
+- Layers:
+  - `dropdown` (10): select menus, toggles
+  - `sticky` (20): headers, sticky nav
+  - `overlay` (30): backdrops, overlays
+  - `modal` (40): dialogs
+  - `popover` (50): tooltips, sidebars
+  - `toast` (60): toasts
+
 ## UI Components
 - shadcn/ui components live under `src/apps/web/src/shared/components/ui`.
 - Toast notifications are rendered by the global `Toaster` in `src/apps/web/src/main.tsx`.
+- Status badges use shared classes from `src/apps/web/src/shared/styles/status-badges.ts`.
+- Empty states use `src/apps/web/src/shared/components/EmptyState.tsx`.
 
 ## Forms and Validation
 - Forms use React Hook Form with shadcn form primitives and Zod schemas.
@@ -42,18 +57,22 @@ Admin-only pages (Schemas, Prompts, Validation Scripts) are still available but 
 - Custom field filters accept dot-notation paths (e.g., `invoice.po_no`, `receipt.merchant.name`).
 - Pagination metadata (`total`, `page`, `pageSize`, `totalPages`) is returned when list parameters are present.
 
+## Responsive Layout
+- Manifests filters stack above the list on mobile and can be toggled open/closed.
+- Audit panels stack the PDF viewer and form vertically on mobile.
+- Manifest line items use a 1/2/3 column grid across mobile/tablet/desktop.
+
 ## Project Creation Wizard
-Project creation is a multi-step wizard dialog:
-1. Basics (name, description)
-2. Model selection (LLM required, OCR optional)
-3. Schema editor (JSON editor with generate/import helpers; required fields live in JSON Schema)
-4. Rules (AI-assisted rule generation and manual edits)
-5. Review and create
+Project creation offers two paths:
+1. **Quick Create**: name + LLM selection only, used for fast setup.
+2. **Guided Setup**: multi-step wizard for full configuration (basics, models, schema, rules, review).
 
 See `docs/PROJECT_CREATION.md` for a step-by-step guide.
 
 ## Project Detail Enhancements
-- Project details include a Validation Scripts section scoped to the project.
+- Project settings use a dropdown menu and dedicated settings pages for basic info and model selection.
+- Schema and Rules open the schema detail view, with Rules landing on the Rules tab.
+- Validation scripts are accessed from the Settings dropdown and remain project-scoped.
 - Validation scripts can be created, edited, enabled/disabled, and deleted inline.
 
 ## Error Boundaries

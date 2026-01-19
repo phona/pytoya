@@ -428,7 +428,7 @@ describe('SchemaVisualBuilder', () => {
       );
 
       expect(screen.getByText('required')).toBeInTheDocument();
-      expect(screen.getByText('required')).toHaveClass('text-red-600');
+      expect(screen.getByText('required')).toHaveClass('text-destructive');
     });
 
     it('should display description', () => {
@@ -468,9 +468,13 @@ describe('SchemaVisualBuilder', () => {
         />
       );
 
-      expect(
-        screen.getByText('email', { selector: 'span.text-blue-600' })
-      ).toHaveClass('text-blue-600');
+      const emailBadges = screen.getAllByText('email', { selector: 'span' });
+      const formatBadge = emailBadges.find((badge) =>
+        badge.className.includes('status-processing-text'),
+      );
+
+      expect(formatBadge).toBeDefined();
+      expect(formatBadge).toHaveClass('text-[color:var(--status-processing-text)]');
     });
   });
 
@@ -531,3 +535,7 @@ describe('SchemaVisualBuilder', () => {
     });
   });
 });
+
+
+
+

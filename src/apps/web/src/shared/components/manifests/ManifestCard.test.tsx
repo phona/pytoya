@@ -42,3 +42,7 @@ describe('ManifestCard', () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 });
+
+
+
+

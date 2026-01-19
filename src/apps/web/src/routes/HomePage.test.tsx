@@ -57,3 +57,7 @@ describe('HomePage', () => {
     expect(screen.getByText('Checking your session...')).toBeInTheDocument();
   });
 });
+
+
+
+

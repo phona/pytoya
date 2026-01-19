@@ -95,39 +95,39 @@ function PropertyTreeNode({ property, depth = 0 }: { property: SchemaProperty; d
         className="flex items-start gap-2 py-1"
         style={{ paddingLeft: `${indent}px` }}
       >
-        <span className="font-mono text-sm text-indigo-600 font-medium">
+        <span className="font-mono text-sm text-primary font-medium">
           {property.name}
         </span>
-        <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
           {property.type}
         </span>
         {property.required && (
-          <span className="text-xs text-red-600 bg-red-50 px-1.5 py-0.5 rounded font-medium">
+          <span className="text-xs text-destructive bg-destructive/10 px-1.5 py-0.5 rounded font-medium">
             required
           </span>
         )}
       </div>
 
       {property.description && (
-        <div className="text-xs text-gray-600 ml-2 mt-0.5" style={{ paddingLeft: `${indent}px` }}>
+        <div className="text-xs text-muted-foreground ml-2 mt-0.5" style={{ paddingLeft: `${indent}px` }}>
           {property.description}
         </div>
       )}
 
       {property.format && (
-        <div className="text-xs text-gray-500 ml-2" style={{ paddingLeft: `${indent}px` }}>
+        <div className="text-xs text-muted-foreground ml-2" style={{ paddingLeft: `${indent}px` }}>
           format: {property.format}
         </div>
       )}
 
       {property.pattern && (
-        <div className="text-xs text-gray-500 ml-2 font-mono" style={{ paddingLeft: `${indent}px` }}>
+        <div className="text-xs text-muted-foreground ml-2 font-mono" style={{ paddingLeft: `${indent}px` }}>
           pattern: {property.pattern}
         </div>
       )}
 
       {property.enum && (
-        <div className="text-xs text-gray-500 ml-2" style={{ paddingLeft: `${indent}px` }}>
+        <div className="text-xs text-muted-foreground ml-2" style={{ paddingLeft: `${indent}px` }}>
           enum: [{property.enum.map(String).join(', ')}]
         </div>
       )}
@@ -142,7 +142,7 @@ function PropertyTreeNode({ property, depth = 0 }: { property: SchemaProperty; d
 
       {property.items && (
         <div className="mt-1">
-          <div className="text-xs text-gray-500 italic" style={{ paddingLeft: `${indent + 16}px` }}>
+          <div className="text-xs text-muted-foreground italic" style={{ paddingLeft: `${indent + 16}px` }}>
             Array items:
           </div>
           {property.items.properties && (
@@ -170,17 +170,17 @@ export function SchemaPreview({ schema, title }: SchemaPreviewProps) {
   return (
     <div className="schema-preview">
       {title && (
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">{title}</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-3">{title}</h3>
       )}
 
       {propertyCount === 0 ? (
-        <div className="text-center py-8 text-sm text-gray-500">
-          <FileText className="mx-auto h-10 w-10 text-gray-400 mb-2" />
+        <div className="text-center py-8 text-sm text-muted-foreground">
+          <FileText className="mx-auto h-10 w-10 text-muted-foreground mb-2" />
           No properties defined
         </div>
       ) : (
-        <div className="border rounded-lg bg-gray-50 p-4">
-          <div className="text-xs text-gray-500 mb-2">
+        <div className="border rounded-lg bg-background p-4">
+          <div className="text-xs text-muted-foreground mb-2">
             {propertyCount} {propertyCount === 1 ? 'property' : 'properties'} defined
           </div>
           {Object.values(properties).map((property) => (
@@ -191,3 +191,7 @@ export function SchemaPreview({ schema, title }: SchemaPreviewProps) {
     </div>
   );
 }
+
+
+
+

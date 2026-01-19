@@ -6,8 +6,8 @@ export function HomePage() {
 
   if (!hasHydrated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-sm text-gray-600">Checking your session...</div>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-sm text-muted-foreground">Checking your session...</div>
       </div>
     );
   }
@@ -18,3 +18,7 @@ export function HomePage() {
 
   return <Navigate to="/login" replace />;
 }
+
+
+
+

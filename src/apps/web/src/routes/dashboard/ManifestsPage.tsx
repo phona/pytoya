@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/components/ui/dialog';
+import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 
 export function ManifestsPage() {
@@ -33,6 +34,7 @@ export function ManifestsPage() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const [filters, setFilters] = useState<ManifestFilterValues>({});
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [sort, setSort] = useState<ManifestSort>({
     field: 'filename',
     order: 'asc',
@@ -97,7 +99,7 @@ export function ManifestsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-8 space-y-2">
             <Skeleton className="h-4 w-32" />
@@ -121,42 +123,63 @@ export function ManifestsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <button
+          <Button
+            type="button"
             onClick={handleBackToGroups}
-            className="inline-flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 mb-4"
+            variant="link"
+            size="sm"
+            className="mb-4 px-0 text-primary hover:text-primary"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Project
-          </button>
+          </Button>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Manifests</h1>
-              <p className="mt-1 text-sm text-gray-600">
+              <h1 className="text-3xl font-bold text-foreground">Manifests</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
                 {meta?.total ?? 0} invoice{meta?.total !== 1 ? 's' : ''} in this group
               </p>
             </div>
-            <button
+            <Button
+              type="button"
               onClick={() => setIsUploadOpen(true)}
-              className="rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
             >
               Upload Manifests
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="flex gap-6">
+        <div className="flex flex-col gap-6 lg:flex-row">
           {/* Filters Sidebar */}
-          <div className="w-64 flex-shrink-0">
-            <ManifestFilters
-              values={filters}
-              onChange={setFilters}
-              manifestCount={meta?.total ?? 0}
-            />
+          <div className="w-full flex-shrink-0 lg:w-64">
+            <div className="mb-3 flex items-center justify-between lg:hidden">
+              <h2 className="text-sm font-semibold text-foreground">Filters</h2>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFiltersOpen((open) => !open)}
+                aria-expanded={filtersOpen}
+                aria-controls="manifest-filters"
+              >
+                {filtersOpen ? 'Hide' : 'Show'}
+              </Button>
+            </div>
+            <div
+              id="manifest-filters"
+              className={`${filtersOpen ? 'block' : 'hidden'} lg:block`}
+            >
+              <ManifestFilters
+                values={filters}
+                onChange={setFilters}
+                manifestCount={meta?.total ?? 0}
+              />
+            </div>
           </div>
 
           {/* Manifest List */}
@@ -219,3 +242,7 @@ export function ManifestsPage() {
     </div>
   );
 }
+
+
+
+

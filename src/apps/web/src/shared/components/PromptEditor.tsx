@@ -60,7 +60,7 @@ export function PromptEditor({ prompt, onSubmit, onCancel, isLoading }: PromptEd
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="promptName" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="promptName" className="block text-sm font-medium text-foreground">
             Name *
           </label>
           <input
@@ -69,11 +69,11 @@ export function PromptEditor({ prompt, onSubmit, onCancel, isLoading }: PromptEd
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
           />
         </div>
         <div>
-          <label htmlFor="promptType" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="promptType" className="block text-sm font-medium text-foreground">
             Type *
           </label>
           <select
@@ -81,7 +81,7 @@ export function PromptEditor({ prompt, onSubmit, onCancel, isLoading }: PromptEd
             required
             value={type}
             onChange={(e) => setType(e.target.value as PromptType)}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
           >
             <option value="system">System Prompt</option>
             <option value="re_extract">Re-extraction Prompt</option>
@@ -90,7 +90,7 @@ export function PromptEditor({ prompt, onSubmit, onCancel, isLoading }: PromptEd
       </div>
 
       <div>
-        <label htmlFor="promptContent" className="block text-sm font-medium text-gray-700 mb-2">
+        <label htmlFor="promptContent" className="block text-sm font-medium text-foreground mb-2">
           Content *
         </label>
         <textarea
@@ -99,13 +99,13 @@ export function PromptEditor({ prompt, onSubmit, onCancel, isLoading }: PromptEd
           value={content}
           onChange={(e) => setContent(e.target.value)}
           rows={12}
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm font-mono text-sm"
+          className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring sm:text-sm font-mono text-sm"
           placeholder="Enter your prompt template here..."
         />
       </div>
 
       <div>
-        <p className="block text-sm font-medium text-gray-700 mb-2">
+        <p className="block text-sm font-medium text-foreground mb-2">
           Available Variables (click to insert)
         </p>
         <div className="flex flex-wrap gap-2">
@@ -114,7 +114,7 @@ export function PromptEditor({ prompt, onSubmit, onCancel, isLoading }: PromptEd
               key={variable.name}
               type="button"
               onClick={() => insertVariable(variable.name)}
-              className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-md text-gray-700 transition-colors"
+              className="px-3 py-1 text-xs bg-muted hover:bg-muted rounded-md text-foreground transition-colors"
               title={variable.description}
             >
               {variable.name}
@@ -128,14 +128,14 @@ export function PromptEditor({ prompt, onSubmit, onCancel, isLoading }: PromptEd
           type="button"
           onClick={onCancel}
           disabled={isLoading}
-          className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+          className="px-4 py-2 border border-border rounded-md shadow-sm text-sm font-medium text-foreground bg-card hover:bg-muted disabled:opacity-50"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={isLoading}
-          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 disabled:opacity-50"
         >
           {isLoading ? 'Saving...' : prompt ? 'Update' : 'Create'}
         </button>
@@ -143,3 +143,7 @@ export function PromptEditor({ prompt, onSubmit, onCancel, isLoading }: PromptEd
     </form>
   );
 }
+
+
+
+

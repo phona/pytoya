@@ -9,9 +9,11 @@ import {
 import { CheckCircle2, ChevronDown, ChevronUp, Eye, XCircle } from 'lucide-react';
 import { Manifest } from '@/api/manifests';
 import { DataTable } from '@/shared/components/DataTable';
+import { EmptyState } from '@/shared/components/EmptyState';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Checkbox } from '@/shared/components/ui/checkbox';
+import { getStatusBadgeClasses } from '@/shared/styles/status-badges';
 import { ProgressBar } from './ProgressBar';
 
 interface ManifestTableProps {
@@ -98,14 +100,14 @@ export function ManifestTable({
           <button
             type="button"
             onClick={() => handleSort('filename')}
-            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-gray-500"
+            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
           >
             Filename
             {renderSortIcon('filename')}
           </button>
         ),
         cell: ({ row }) => (
-          <div className="text-sm font-medium text-gray-900">
+          <div className="text-sm font-medium text-foreground">
             {row.original.originalFilename}
           </div>
         ),
@@ -116,7 +118,7 @@ export function ManifestTable({
           <button
             type="button"
             onClick={() => handleSort('status')}
-            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-gray-500"
+            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
           >
             Status
             {renderSortIcon('status')}
@@ -124,26 +126,15 @@ export function ManifestTable({
         ),
         cell: ({ row }) => {
           const status = row.original.status;
-          const statusClass =
-            status === 'completed'
-              ? 'bg-green-100 text-green-700'
-              : status === 'pending'
-              ? 'bg-yellow-100 text-yellow-700'
-              : status === 'processing'
-              ? 'bg-blue-100 text-blue-700'
-              : status === 'failed'
-              ? 'bg-red-100 text-red-700'
-              : 'bg-gray-100 text-gray-700';
-
           return (
-            <Badge className={`px-2 py-1 ${statusClass}`}>{status}</Badge>
+            <Badge className={`px-2 py-1 ${getStatusBadgeClasses(status)}`}>{status}</Badge>
           );
         },
       },
       {
         id: 'progress',
         header: () => (
-          <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Progress
           </span>
         ),
@@ -161,7 +152,7 @@ export function ManifestTable({
               />
             </div>
           ) : (
-            <span className="text-xs text-gray-400">-</span>
+            <span className="text-xs text-muted-foreground">-</span>
           );
         },
       },
@@ -171,14 +162,14 @@ export function ManifestTable({
           <button
             type="button"
             onClick={() => handleSort('poNo')}
-            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-gray-500"
+            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
           >
             PO No
             {renderSortIcon('poNo')}
           </button>
         ),
         cell: ({ row }) => (
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-muted-foreground">
             {row.original.purchaseOrder ?? 'N/A'}
           </span>
         ),
@@ -189,14 +180,14 @@ export function ManifestTable({
           <button
             type="button"
             onClick={() => handleSort('invoiceDate')}
-            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-gray-500"
+            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
           >
             Invoice Date
             {renderSortIcon('invoiceDate')}
           </button>
         ),
         cell: ({ row }) => (
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-muted-foreground">
             {row.original.invoiceDate
               ? format(new Date(row.original.invoiceDate), 'PP')
               : 'N/A'}
@@ -206,12 +197,12 @@ export function ManifestTable({
       {
         id: 'department',
         header: () => (
-          <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Department
           </span>
         ),
         cell: ({ row }) => (
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-muted-foreground">
             {row.original.department ?? 'N/A'}
           </span>
         ),
@@ -222,14 +213,14 @@ export function ManifestTable({
           <button
             type="button"
             onClick={() => handleSort('confidence')}
-            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-gray-500"
+            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
           >
             Confidence
             {renderSortIcon('confidence')}
           </button>
         ),
         cell: ({ row }) => (
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-muted-foreground">
             {row.original.confidence !== null
               ? `${Math.round(row.original.confidence * 100)}%`
               : 'N/A'}
@@ -239,15 +230,15 @@ export function ManifestTable({
       {
         id: 'verified',
         header: () => (
-          <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Verified
           </span>
         ),
         cell: ({ row }) => (
           row.original.humanVerified ? (
-            <CheckCircle2 className="h-5 w-5 text-green-500" />
+            <CheckCircle2 className="h-5 w-5 text-[color:var(--status-completed-text)]" />
           ) : (
-            <XCircle className="h-5 w-5 text-gray-300" />
+            <XCircle className="h-5 w-5 text-muted-foreground" />
           )
         ),
         meta: {
@@ -257,7 +248,7 @@ export function ManifestTable({
       {
         id: 'actions',
         header: () => (
-          <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Actions
           </span>
         ),
@@ -269,7 +260,7 @@ export function ManifestTable({
               event.stopPropagation();
               onSelectManifest(row.original.id);
             }}
-            className="text-indigo-600 hover:text-indigo-900"
+            className="text-primary hover:text-primary"
           >
             <Eye className="mr-1 h-4 w-4" />
             View
@@ -303,10 +294,10 @@ export function ManifestTable({
   });
 
   const getConfidenceColor = (confidence: number | null) => {
-    if (confidence === null) return 'border-gray-300';
-    if (confidence >= 0.9) return 'border-green-500';
-    if (confidence >= 0.7) return 'border-yellow-500';
-    return 'border-red-500';
+    if (confidence === null) return 'border-border';
+    if (confidence >= 0.9) return 'border-[color:var(--status-completed-text)]';
+    if (confidence >= 0.7) return 'border-[color:var(--status-pending-text)]';
+    return 'border-[color:var(--status-failed-text)]';
   };
 
   return (
@@ -315,9 +306,19 @@ export function ManifestTable({
         table={table}
         onRowClick={(row) => onSelectManifest(row.original.id)}
         getRowClassName={(row) =>
-          `hover:bg-gray-50 cursor-pointer border-l-4 ${getConfidenceColor(row.original.confidence)}`
+          `hover:bg-muted cursor-pointer border-l-4 ${getConfidenceColor(row.original.confidence)}`
         }
+        emptyState={(
+          <EmptyState
+            title="No results"
+            description="No matching manifests found."
+          />
+        )}
       />
     </div>
   );
 }
+
+
+
+

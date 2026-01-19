@@ -23,3 +23,7 @@ describe('GenerateSchemaModal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 });
+
+
+
+

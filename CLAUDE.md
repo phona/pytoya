@@ -127,6 +127,12 @@ openspec/                # Spec-driven development
 - **State Management**: Zustand stores in `src/apps/web/src/shared/stores` with hooks in `src/apps/web/src/shared/hooks`
 - **Components**: Shared components in `src/apps/web/src/shared/components`
 - **UI System**: shadcn/ui components in `src/apps/web/src/shared/components/ui`
+- **Z-Index Scale**: Use `src/apps/web/src/styles/z-index.css` with `z-[var(--z-index-...)]`
+- **Status Badges**: Use `src/apps/web/src/shared/styles/status-badges.ts` for manifest status colors
+- **Empty States**: Use `src/apps/web/src/shared/components/EmptyState.tsx`
+- **Theme**: Use `src/apps/web/src/shared/providers/ThemeProvider.tsx` and `ThemeToggle` for light/dark mode
+- **Project Settings**: Settings dropdown + pages live under `src/apps/web/src/routes/dashboard` (basic/models)
+- **Project Creation**: Quick Create uses `ProjectWizard`; Guided Setup uses `GuidedSetupWizard`
 - **Routing & UX**: Route protection, error boundaries, and accessibility basics in `docs/WEB_APP.md`
 
 ### Database Schema (11 Entities)

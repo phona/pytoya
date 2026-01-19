@@ -196,27 +196,27 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
   return (
     <div className="schema-visual-builder">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-sm font-medium text-gray-900">
+        <h3 className="text-sm font-medium text-foreground">
           Properties ({properties.length})
         </h3>
         <button
           type="button"
           onClick={() => setShowAddForm(true)}
-          className="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700"
+          className="px-3 py-1.5 text-xs font-medium text-primary-foreground bg-primary rounded hover:bg-primary/90"
         >
           Add Property
         </button>
       </div>
 
       {(showAddForm || editingIndex !== null) && (
-        <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <h4 className="text-sm font-medium text-gray-900 mb-3">
+        <div className="mb-4 p-4 bg-background rounded-lg border border-border">
+          <h4 className="text-sm font-medium text-foreground mb-3">
             {editingIndex !== null ? 'Edit Property' : 'Add New Property'}
           </h4>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="schema-field-name" className="block text-xs font-medium text-gray-700 mb-1">
+              <label htmlFor="schema-field-name" className="block text-xs font-medium text-foreground mb-1">
                 Name *
               </label>
               <input
@@ -224,20 +224,20 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
                 type="text"
                 value={newField.name}
                 onChange={(e) => setNewField({ ...newField, name: e.target.value })}
-                className="block w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="block w-full px-2 py-1.5 text-xs border border-border rounded focus:outline-none focus:ring-ring focus:border-ring"
                 placeholder="field_name"
               />
             </div>
 
             <div>
-              <label htmlFor="schema-field-type" className="block text-xs font-medium text-gray-700 mb-1">
+              <label htmlFor="schema-field-type" className="block text-xs font-medium text-foreground mb-1">
                 Type *
               </label>
               <select
                 id="schema-field-type"
                 value={newField.type}
                 onChange={(e) => setNewField({ ...newField, type: e.target.value })}
-                className="block w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="block w-full px-2 py-1.5 text-xs border border-border rounded focus:outline-none focus:ring-ring focus:border-ring"
               >
                 {TYPE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -248,7 +248,7 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
             </div>
 
             <div>
-              <label htmlFor="schema-field-description" className="block text-xs font-medium text-gray-700 mb-1">
+              <label htmlFor="schema-field-description" className="block text-xs font-medium text-foreground mb-1">
                 Description
               </label>
               <input
@@ -256,7 +256,7 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
                 type="text"
                 value={newField.description}
                 onChange={(e) => setNewField({ ...newField, description: e.target.value })}
-                className="block w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="block w-full px-2 py-1.5 text-xs border border-border rounded focus:outline-none focus:ring-ring focus:border-ring"
                 placeholder="Field description"
               />
             </div>
@@ -264,14 +264,14 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
             {newField.type === 'string' && (
               <>
                 <div>
-                  <label htmlFor="schema-field-format" className="block text-xs font-medium text-gray-700 mb-1">
+                  <label htmlFor="schema-field-format" className="block text-xs font-medium text-foreground mb-1">
                     Format
                   </label>
                   <select
                     id="schema-field-format"
                     value={newField.format}
                     onChange={(e) => setNewField({ ...newField, format: e.target.value })}
-                    className="block w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-2 py-1.5 text-xs border border-border rounded focus:outline-none focus:ring-ring focus:border-ring"
                   >
                     {STRING_FORMATS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -282,7 +282,7 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
                 </div>
 
                 <div>
-                  <label htmlFor="schema-field-pattern" className="block text-xs font-medium text-gray-700 mb-1">
+                  <label htmlFor="schema-field-pattern" className="block text-xs font-medium text-foreground mb-1">
                     Pattern (Regex)
                   </label>
                   <input
@@ -290,13 +290,13 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
                     type="text"
                     value={newField.pattern}
                     onChange={(e) => setNewField({ ...newField, pattern: e.target.value })}
-                    className="block w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 font-mono"
+                    className="block w-full px-2 py-1.5 text-xs border border-border rounded focus:outline-none focus:ring-ring focus:border-ring font-mono"
                     placeholder="^[A-Z]"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="schema-field-enum" className="block text-xs font-medium text-gray-700 mb-1">
+                  <label htmlFor="schema-field-enum" className="block text-xs font-medium text-foreground mb-1">
                     Enum (comma-separated)
                   </label>
                   <input
@@ -304,13 +304,13 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
                     type="text"
                     value={newField.enum}
                     onChange={(e) => setNewField({ ...newField, enum: e.target.value })}
-                    className="block w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-2 py-1.5 text-xs border border-border rounded focus:outline-none focus:ring-ring focus:border-ring"
                     placeholder="value1, value2, value3"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="schema-field-minlength" className="block text-xs font-medium text-gray-700 mb-1">
+                  <label htmlFor="schema-field-minlength" className="block text-xs font-medium text-foreground mb-1">
                     Min Length
                   </label>
                   <input
@@ -318,13 +318,13 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
                     type="number"
                     value={newField.minLength}
                     onChange={(e) => setNewField({ ...newField, minLength: e.target.value })}
-                    className="block w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-2 py-1.5 text-xs border border-border rounded focus:outline-none focus:ring-ring focus:border-ring"
                     placeholder="0"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="schema-field-maxlength" className="block text-xs font-medium text-gray-700 mb-1">
+                  <label htmlFor="schema-field-maxlength" className="block text-xs font-medium text-foreground mb-1">
                     Max Length
                   </label>
                   <input
@@ -332,7 +332,7 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
                     type="number"
                     value={newField.maxLength}
                     onChange={(e) => setNewField({ ...newField, maxLength: e.target.value })}
-                    className="block w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-2 py-1.5 text-xs border border-border rounded focus:outline-none focus:ring-ring focus:border-ring"
                     placeholder="100"
                   />
                 </div>
@@ -342,7 +342,7 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
             {newField.type === 'number' || newField.type === 'integer' ? (
               <>
                 <div>
-                  <label htmlFor="schema-field-minimum" className="block text-xs font-medium text-gray-700 mb-1">
+                  <label htmlFor="schema-field-minimum" className="block text-xs font-medium text-foreground mb-1">
                     Minimum
                   </label>
                   <input
@@ -350,13 +350,13 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
                     type="number"
                     value={newField.minimum}
                     onChange={(e) => setNewField({ ...newField, minimum: e.target.value })}
-                    className="block w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-2 py-1.5 text-xs border border-border rounded focus:outline-none focus:ring-ring focus:border-ring"
                     placeholder="0"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="schema-field-maximum" className="block text-xs font-medium text-gray-700 mb-1">
+                  <label htmlFor="schema-field-maximum" className="block text-xs font-medium text-foreground mb-1">
                     Maximum
                   </label>
                   <input
@@ -364,7 +364,7 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
                     type="number"
                     value={newField.maximum}
                     onChange={(e) => setNewField({ ...newField, maximum: e.target.value })}
-                    className="block w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="block w-full px-2 py-1.5 text-xs border border-border rounded focus:outline-none focus:ring-ring focus:border-ring"
                     placeholder="100"
                   />
                 </div>
@@ -372,13 +372,13 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
             ) : null}
 
             <div className="flex items-end">
-              <label htmlFor="schema-field-required" className="flex items-center gap-2 text-xs text-gray-700">
+              <label htmlFor="schema-field-required" className="flex items-center gap-2 text-xs text-foreground">
                 <input
                   id="schema-field-required"
                   type="checkbox"
                   checked={newField.required}
                   onChange={(e) => setNewField({ ...newField, required: e.target.checked })}
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  className="rounded border-border text-primary focus:ring-ring"
                 />
                 Required field
               </label>
@@ -389,7 +389,7 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
             <button
               type="button"
               onClick={cancelEdit}
-              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
+              className="px-3 py-1.5 text-xs font-medium text-foreground bg-card border border-border rounded hover:bg-muted"
             >
               Cancel
             </button>
@@ -397,7 +397,7 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
               type="button"
               onClick={() => editingIndex !== null ? handleUpdateField(editingIndex) : handleAddField()}
               disabled={!newField.name}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-xs font-medium text-primary-foreground bg-primary rounded hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {editingIndex !== null ? 'Update' : 'Add'}
             </button>
@@ -406,7 +406,7 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
       )}
 
       {properties.length === 0 ? (
-        <div className="text-center py-8 text-sm text-gray-500">
+        <div className="text-center py-8 text-sm text-muted-foreground">
           No properties defined yet. Click &quot;Add Property&quot; to start building your schema.
         </div>
       ) : (
@@ -414,36 +414,36 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
           {properties.map((field, index) => (
             <div
               key={index}
-              className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded hover:border-indigo-300 transition"
+              className="flex items-center justify-between p-3 bg-card border border-border rounded hover:border-primary/40 transition"
             >
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm font-medium text-indigo-600">
+                  <span className="font-mono text-sm font-medium text-primary">
                     {field.name}
                   </span>
-                  <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                  <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                     {field.type}
                   </span>
                   {field.required && (
-                    <span className="text-xs text-red-600 bg-red-50 px-1.5 py-0.5 rounded font-medium">
+                    <span className="text-xs text-destructive bg-destructive/10 px-1.5 py-0.5 rounded font-medium">
                       required
                     </span>
                   )}
                   {field.format && (
-                    <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                    <span className="text-xs bg-[color:var(--status-processing-bg)] text-[color:var(--status-processing-text)] px-1.5 py-0.5 rounded">
                       {field.format}
                     </span>
                   )}
                 </div>
                 {field.description && (
-                  <p className="text-xs text-gray-600 mt-1">{field.description}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{field.description}</p>
                 )}
               </div>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => startEdit(index)}
-                  className="p-1.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded"
+                  className="p-1.5 text-muted-foreground hover:text-primary hover:bg-muted rounded"
                   title="Edit"
                 >
                   <Pencil className="h-4 w-4" />
@@ -451,7 +451,7 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
                 <button
                   type="button"
                   onClick={() => handleDeleteField(index)}
-                  className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-gray-100 rounded"
+                  className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-muted rounded"
                   title="Delete"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -464,3 +464,7 @@ export function SchemaVisualBuilder({ schema, onChange }: SchemaVisualBuilderPro
     </div>
   );
 }
+
+
+
+

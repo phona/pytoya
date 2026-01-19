@@ -4,6 +4,16 @@ import {
   DynamicManifestFilter,
   ManifestFilterValues,
 } from '@/shared/types/manifests';
+import { Button } from '@/shared/components/ui/button';
+import { Checkbox } from '@/shared/components/ui/checkbox';
+import { Input } from '@/shared/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select';
 
 interface ManifestFiltersProps {
   values: ManifestFilterValues;
@@ -63,7 +73,7 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
   const handleStatusChange = (status: string) => {
     onChange({
       ...values,
-      status: values.status === status ? undefined : status,
+      status: status === 'all' ? undefined : status,
     });
   };
 
@@ -135,105 +145,108 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
     return values[key as keyof ManifestFilterValues] !== undefined;
   });
 
+  const statusValue = values.status ?? 'all';
+
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sticky top-4">
+    <div className="bg-card rounded-lg shadow-sm border border-border p-4 sticky top-4">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="font-semibold text-gray-900">Filters</h3>
+        <h3 className="font-semibold text-foreground">Filters</h3>
         {hasActiveFilters && (
-          <button
+          <Button
+            type="button"
             onClick={clearFilters}
-            className="text-xs text-indigo-600 hover:text-indigo-700"
+            variant="ghost"
+            size="sm"
+            className="text-primary hover:text-primary"
           >
             Clear all
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Status */}
       <div className="mb-4">
-        <p className="block text-sm font-medium text-gray-700 mb-2">Status</p>
-        <div className="space-y-1">
-          {['pending', 'processing', 'completed', 'failed'].map((status) => (
-            <label key={status} className="flex items-center">
-              <input
-                type="checkbox"
-                checked={values.status === status}
-                onChange={() => handleStatusChange(status)}
-                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span className="ml-2 text-sm text-gray-600 capitalize">{status}</span>
-            </label>
-          ))}
-        </div>
+        <label htmlFor="filter-status" className="block text-sm font-medium text-foreground mb-2">
+          Status
+        </label>
+        <Select value={statusValue} onValueChange={handleStatusChange}>
+          <SelectTrigger id="filter-status">
+            <SelectValue placeholder="Any status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Any status</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="processing">Processing</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="failed">Failed</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* PO Number */}
       <div className="mb-4">
-        <label htmlFor="filterPoNo" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="filterPoNo" className="block text-sm font-medium text-foreground mb-1">
           PO Number
         </label>
-        <input
+        <Input
           id="filterPoNo"
           type="text"
           value={values.poNo ?? ''}
           onChange={(e) => handleInputChange('poNo', e.target.value)}
           placeholder="Filter by PO..."
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+          className="mt-1"
         />
       </div>
 
       {/* Date Range */}
       <div className="mb-4">
-        <p className="block text-sm font-medium text-gray-700 mb-1">Invoice Date</p>
+        <p className="block text-sm font-medium text-foreground mb-1">Invoice Date</p>
         <div className="space-y-2">
-          <input
+          <Input
             type="date"
             aria-label="Invoice date from"
             value={values.dateFrom ?? ''}
             onChange={(e) => handleInputChange('dateFrom', e.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
           />
-          <input
+          <Input
             type="date"
             aria-label="Invoice date to"
             value={values.dateTo ?? ''}
             onChange={(e) => handleInputChange('dateTo', e.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
           />
         </div>
       </div>
 
       {/* Department */}
       <div className="mb-4">
-        <label htmlFor="filterDepartment" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="filterDepartment" className="block text-sm font-medium text-foreground mb-1">
           Department
         </label>
-        <input
+        <Input
           id="filterDepartment"
           type="text"
           value={values.department ?? ''}
           onChange={(e) => handleInputChange('department', e.target.value)}
           placeholder="Filter by department..."
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+          className="mt-1"
         />
       </div>
 
       {/* Dynamic Field Filters */}
       <div className="mb-4">
-        <p className="block text-sm font-medium text-gray-700 mb-2">Custom Field</p>
+        <p className="block text-sm font-medium text-foreground mb-2">Custom Field</p>
         <div className="space-y-2">
           <div>
             <label htmlFor="dynamicFieldPath" className="sr-only">
               Field path
             </label>
-            <input
+            <Input
               id="dynamicFieldPath"
               list="dynamic-field-options"
               type="text"
               value={dynamicField}
               onChange={(e) => setDynamicField(e.target.value)}
               placeholder="e.g. invoice.po_no"
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
             />
             <datalist id="dynamic-field-options">
               {fieldOptions.map((option) => (
@@ -245,22 +258,22 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
             <label htmlFor="dynamicFieldValue" className="sr-only">
               Field value
             </label>
-            <input
+            <Input
               id="dynamicFieldValue"
               type="text"
               value={dynamicValue}
               onChange={(e) => setDynamicValue(e.target.value)}
               placeholder="Value to match"
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
-          <button
+          <Button
             type="button"
             onClick={handleAddDynamicFilter}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            variant="outline"
+            className="w-full"
           >
             Add Field Filter
-          </button>
+          </Button>
         </div>
 
         {(values.dynamicFilters ?? []).length > 0 && (
@@ -268,18 +281,20 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
             {(values.dynamicFilters ?? []).map((filter, index) => (
               <div
                 key={`${filter.field}-${index}`}
-                className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2 text-xs text-gray-600"
+                className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-xs text-muted-foreground"
               >
                 <span className="truncate">
                   {filter.field}: {filter.value}
                 </span>
-                <button
+                <Button
                   type="button"
                   onClick={() => handleRemoveDynamicFilter(index)}
-                  className="text-gray-400 hover:text-gray-600"
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-muted-foreground"
                 >
                   Remove
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -288,47 +303,46 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
 
       {/* Confidence Range */}
       <div className="mb-4">
-        <p className="block text-sm font-medium text-gray-700 mb-1">
+        <p className="block text-sm font-medium text-foreground mb-1">
           Confidence: {confidenceRange.min}% - {confidenceRange.max}%
         </p>
         <div className="space-y-2">
-          <input
+          <Input
             type="range"
             min="0"
             max="100"
             aria-label="Confidence minimum"
             value={confidenceRange.min}
             onChange={(e) => handleConfidenceChange(Number(e.target.value), confidenceRange.max)}
-            className="w-full"
+            className="h-2 px-0 py-0"
           />
-          <input
+          <Input
             type="range"
             min="0"
             max="100"
             aria-label="Confidence maximum"
             value={confidenceRange.max}
             onChange={(e) => handleConfidenceChange(confidenceRange.min, Number(e.target.value))}
-            className="w-full"
+            className="h-2 px-0 py-0"
           />
         </div>
       </div>
 
       {/* Human Verified */}
       <div className="mb-4">
-        <label className="flex items-center">
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Checkbox
             checked={values.humanVerified ?? false}
-            onChange={(e) => handleVerifiedChange(e.target.checked)}
-            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            onCheckedChange={(checked) => handleVerifiedChange(checked === true)}
+            aria-label="Human Verified Only"
           />
-          <span className="ml-2 text-sm text-gray-600">Human Verified Only</span>
-        </label>
+          <span>Human Verified Only</span>
+        </div>
       </div>
 
       {/* Results Count */}
-      <div className="pt-4 border-t border-gray-200">
-        <p className="text-xs text-gray-500">
+      <div className="pt-4 border-t border-border">
+        <p className="text-xs text-muted-foreground">
           {hasActiveFilters ? 'Filtered' : 'Total'}: {manifestCount} manifest
           {manifestCount !== 1 ? 's' : ''}
         </p>
@@ -336,3 +350,7 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
     </div>
   );
 }
+
+
+
+

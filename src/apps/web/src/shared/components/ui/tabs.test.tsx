@@ -53,3 +53,7 @@ describe('Tabs', () => {
     expect(screen.getByText('Second content')).toBeVisible();
   });
 });
+
+
+
+

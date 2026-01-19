@@ -14,20 +14,20 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen);
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:flex lg:h-screen lg:flex-row">
+    <div className="min-h-screen bg-background lg:flex lg:h-screen lg:flex-row">
       <SidebarNav
         isOpen={isSidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
       <div className="flex flex-1 flex-col lg:overflow-hidden">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-slate-200 bg-white px-4 lg:hidden">
+        <header className="sticky top-0 z-[var(--z-index-sticky)] flex h-16 items-center gap-4 border-b border-border bg-card px-4 lg:hidden">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => setSidebarOpen(true)}
-                  className="rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  <button
+                    type="button"
+                    onClick={() => setSidebarOpen(true)}
+                  className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
                   aria-label="Open sidebar"
                 >
                   <span className="block h-0.5 w-5 rounded bg-current" />
@@ -38,7 +38,7 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
               <TooltipContent>Open sidebar</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <Link to="/projects" className="text-base font-semibold text-slate-900">
+          <Link to="/projects" className="text-base font-semibold text-foreground">
             PyToYa
           </Link>
         </header>
@@ -53,3 +53,7 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
     </div>
   );
 }
+
+
+
+

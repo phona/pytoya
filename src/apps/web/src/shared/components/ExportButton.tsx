@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import { manifestsApi } from '@/api/manifests';
+import { Button } from '@/shared/components/ui/button';
 
 interface ExportButtonProps {
   filters?: {
@@ -52,22 +53,27 @@ export function ExportButton({ filters, selectedIds, filename }: ExportButtonPro
   const isDisabled = isExporting || (!filters && !selectedIds);
 
   return (
-    <button
+    <Button
+      type="button"
       onClick={handleExport}
       disabled={isDisabled}
-      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+      variant="secondary"
     >
       {isExporting ? (
         <>
-          <Loader2 className="-ml-1 mr-2 h-4 w-4 animate-spin text-white" />
+          <Loader2 className="-ml-1 mr-2 h-4 w-4 animate-spin" />
           Exporting...
         </>
       ) : (
         <>
-          <Download className="-ml-1 mr-2 h-4 w-4 text-white" />
+          <Download className="-ml-1 mr-2 h-4 w-4" />
           Export CSV
         </>
       )}
-    </button>
+    </Button>
   );
 }
+
+
+
+

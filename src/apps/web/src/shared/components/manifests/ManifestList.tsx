@@ -13,6 +13,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/shared/components/ui/tooltip';
+import { Button } from '@/shared/components/ui/button';
 
 interface ManifestListProps {
   manifests: Manifest[];
@@ -189,46 +190,48 @@ export function ManifestList({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div className="bg-card rounded-lg shadow-sm border border-border">
       {/* Toolbar */}
-      <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+      <div className="px-6 py-4 border-b border-border flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-foreground">
             Manifests ({totalManifests})
           </h2>
           {selectedIds.size > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-muted-foreground">
                 {selectedIds.size} selected
               </span>
-              <button
+              <Button
                 onClick={handleBatchExport}
-                className="px-3 py-1 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                size="sm"
               >
                 Export CSV
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleBatchValidate}
                 disabled={runBatchValidation.isPending || validationProgress.total > 0}
-                className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                size="sm"
+                variant="secondary"
               >
                 {validationProgress.total > 0
                   ? `Validating ${validationProgress.completed}/${validationProgress.total}`
                   : runBatchValidation.isPending
                     ? 'Validating...'
                     : 'Run Validation'}
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleBatchReExtract}
-                className="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700"
+                size="sm"
+                variant="outline"
               >
                 Re-extract
-              </button>
+              </Button>
             </div>
           )}
         </div>
         <div className="flex items-center gap-4">
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-muted-foreground">
             Page {currentPage} of {totalPages || 1}
           </div>
           {/* View Toggle */}
@@ -242,8 +245,8 @@ export function ManifestList({
                     onClick={() => onViewModeChange('table')}
                     className={`px-3 py-2 text-sm font-medium rounded-l-lg border ${
                       viewMode === 'table'
-                        ? 'bg-indigo-50 text-indigo-700 border-indigo-600 z-10'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        ? 'bg-primary/10 text-primary border-primary z-[var(--z-index-dropdown)]'
+                        : 'bg-card text-foreground border-border hover:bg-muted'
                     }`}
                   >
                     <List className="h-4 w-4" />
@@ -259,8 +262,8 @@ export function ManifestList({
                     onClick={() => onViewModeChange('card')}
                     className={`px-3 py-2 text-sm font-medium rounded-r-lg border -ml-px ${
                       viewMode === 'card'
-                        ? 'bg-indigo-50 text-indigo-700 border-indigo-600 z-10'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        ? 'bg-primary/10 text-primary border-primary z-[var(--z-index-dropdown)]'
+                        : 'bg-card text-foreground border-border hover:bg-muted'
                     }`}
                   >
                     <LayoutGrid className="h-4 w-4" />
@@ -276,9 +279,9 @@ export function ManifestList({
       {/* Content */}
       {manifests.length === 0 ? (
         <div className="p-12 text-center">
-          <FileText className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No manifests found</h3>
-          <p className="mt-1 text-sm text-gray-500">
+          <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-2 text-sm font-medium text-foreground">No manifests found</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
             Try adjusting your filters to see more results.
           </p>
         </div>
@@ -324,3 +327,7 @@ export function ManifestList({
     </div>
   );
 }
+
+
+
+

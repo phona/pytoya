@@ -136,7 +136,7 @@ export function ModelForm({ adapter, model, onSubmit, onCancel, isLoading }: Mod
             control={form.control}
             name="isActive"
             render={({ field }) => (
-              <FormItem className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2">
+              <FormItem className="flex items-center justify-between rounded-md border border-border px-3 py-2">
                 <div className="space-y-0.5">
                   <FormLabel htmlFor="model-active">Active</FormLabel>
                   <FormDescription>Toggle to enable this model.</FormDescription>
@@ -179,7 +179,7 @@ export function ModelForm({ adapter, model, onSubmit, onCancel, isLoading }: Mod
                   control={form.control}
                   name={fieldName}
                   render={({ field }) => (
-                    <FormItem className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2">
+                    <FormItem className="flex items-center justify-between rounded-md border border-border px-3 py-2">
                       <FormLabel htmlFor={fieldId}>{definition.label}</FormLabel>
                       <FormControl>
                         <Switch
@@ -270,7 +270,7 @@ export function ModelForm({ adapter, model, onSubmit, onCancel, isLoading }: Mod
                             onClick={() =>
                               setShowSecrets((prev) => ({ ...prev, [key]: !prev[key] }))
                             }
-                            className="absolute right-2 top-2 text-xs text-gray-500"
+                            className="absolute right-2 top-2 text-xs text-muted-foreground"
                             aria-pressed={Boolean(showSecrets[key])}
                             aria-label="Toggle secret visibility"
                             aria-controls={fieldId}
@@ -303,3 +303,7 @@ export function ModelForm({ adapter, model, onSubmit, onCancel, isLoading }: Mod
     </Form>
   );
 }
+
+
+
+

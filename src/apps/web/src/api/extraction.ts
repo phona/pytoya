@@ -17,3 +17,7 @@ export const extractionApi = {
     return response.data;
   },
 };
+
+
+
+

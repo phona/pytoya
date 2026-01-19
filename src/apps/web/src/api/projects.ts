@@ -20,6 +20,11 @@ export type Group = Jsonify<GroupResponseDto> & {
   _count?: {
     manifests?: number;
   };
+  statusCounts?: {
+    pending?: number;
+    failed?: number;
+    verified?: number;
+  };
 };
 
 export type {
@@ -80,3 +85,7 @@ export const projectsApi = {
     await apiClient.delete(`/projects/${projectId}/groups/${groupId}`);
   },
 };
+
+
+
+

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Code2, Plus } from 'lucide-react';
+import { ArrowLeft, Code2, Plus } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useValidationScripts } from '@/shared/hooks/use-validation-scripts';
 import {
   CreateValidationScriptDto,
@@ -8,8 +9,11 @@ import {
   ValidationScript,
 } from '@/api/validation';
 import { ValidationScriptForm } from '@/shared/components/ValidationScriptForm';
+import { Button } from '@/shared/components/ui/button';
 
 export function ValidationScriptsPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const {
     scripts,
     isLoading,
@@ -23,6 +27,8 @@ export function ValidationScriptsPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingScript, setEditingScript] = useState<ValidationScript | null>(null);
+  const projectId = Number(searchParams.get('projectId'));
+  const projectLink = Number.isFinite(projectId) ? `/projects/${projectId}` : '/projects';
 
   const handleCreate = async (data: CreateValidationScriptDto) => {
     await createScript(data);
@@ -72,29 +78,37 @@ export function ValidationScriptsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <button
+          type="button"
+          onClick={() => navigate(projectLink)}
+          className="mb-4 inline-flex items-center gap-2 text-primary hover:text-primary text-sm font-medium"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Project
+        </button>
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Validation Scripts</h1>
-            <p className="mt-1 text-sm text-gray-600">
+            <h1 className="text-3xl font-bold text-foreground">Validation Scripts</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
               {scripts.length} {scripts.length === 1 ? 'script' : 'scripts'}
             </p>
           </div>
-          <button
+          <Button
+            type="button"
             onClick={() => {
               setShowForm(true);
               setEditingScript(null);
             }}
-            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
           >
             New Script
-          </button>
+          </Button>
         </div>
 
         {(showForm || editingScript) && (
-          <div className="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="mb-8 bg-card rounded-lg shadow-sm border border-border p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4">
               {editingScript ? 'Edit Validation Script' : 'Create New Validation Script'}
             </h2>
             <ValidationScriptForm
@@ -111,24 +125,21 @@ export function ValidationScriptsPage() {
 
         {isLoading ? (
           <div className="text-center py-12">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
-            <p className="mt-2 text-sm text-gray-600">Loading validation scripts...</p>
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+            <p className="mt-2 text-sm text-muted-foreground">Loading validation scripts...</p>
           </div>
         ) : scripts.length === 0 ? (
           <div className="text-center py-12">
-            <Code2 className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No validation scripts</h3>
-            <p className="mt-1 text-sm text-gray-500">
+            <Code2 className="mx-auto h-12 w-12 text-muted-foreground" />
+            <h3 className="mt-2 text-sm font-medium text-foreground">No validation scripts</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
               Create validation scripts to verify data integrity after extraction.
             </p>
             <div className="mt-6">
-              <button
-                onClick={() => setShowForm(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-              >
+              <Button type="button" onClick={() => setShowForm(true)}>
                 <Plus className="mr-2 h-5 w-5" />
                 New Script
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
@@ -136,45 +147,45 @@ export function ValidationScriptsPage() {
             {scripts.map((script) => (
               <div
                 key={script.id}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition"
+                className="bg-card rounded-lg shadow-sm border border-border p-6 hover:shadow-md transition"
               >
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-medium text-gray-900">{script.name}</h3>
+                      <h3 className="text-lg font-medium text-foreground">{script.name}</h3>
                       <span
                         className={`px-2 py-0.5 text-xs font-medium rounded ${
                           script.severity === 'error'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-yellow-100 text-yellow-800'
+                            ? 'bg-[color:var(--status-failed-bg)] text-[color:var(--status-failed-text)]'
+                            : 'bg-[color:var(--status-warning-bg)] text-[color:var(--status-warning-text)]'
                         }`}
                       >
                         {script.severity}
                       </span>
                       {!script.enabled && (
-                        <span className="px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-600">
+                        <span className="px-2 py-0.5 text-xs font-medium rounded bg-muted text-muted-foreground">
                           Disabled
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">Project ID: {script.projectId}</p>
+                    <p className="text-sm text-muted-foreground mt-1">Project ID: {script.projectId}</p>
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleEdit(script)}
-                      className="text-gray-600 hover:text-gray-800 text-sm font-medium"
+                      className="text-muted-foreground hover:text-foreground text-sm font-medium"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => handleDuplicate(script)}
-                      className="text-gray-600 hover:text-gray-800 text-sm font-medium"
+                      className="text-muted-foreground hover:text-foreground text-sm font-medium"
                     >
                       Duplicate
                     </button>
                     <button
                       onClick={() => handleDelete(script.id)}
-                      className="text-red-600 hover:text-red-800 text-sm font-medium"
+                      className="text-destructive hover:text-destructive text-sm font-medium"
                       disabled={isDeleting}
                     >
                       Delete
@@ -182,24 +193,24 @@ export function ValidationScriptsPage() {
                   </div>
                 </div>
                 {script.description && (
-                  <p className="text-sm text-gray-600 mb-4">{script.description}</p>
+                  <p className="text-sm text-muted-foreground mb-4">{script.description}</p>
                 )}
-                <div className="text-sm text-gray-500 mb-4">
+                <div className="text-sm text-muted-foreground mb-4">
                   <p>Created: {format(new Date(script.createdAt), 'PP')}</p>
                   <p>Updated: {format(new Date(script.updatedAt), 'PP')}</p>
                 </div>
-                <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                <div className="flex items-center justify-between pt-4 border-t border-border">
                   <button
                     onClick={() => handleToggleEnabled(script)}
                     className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
                       script.enabled
-                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        : 'bg-green-100 text-green-700 hover:bg-green-200'
+                        ? 'bg-muted text-foreground hover:bg-muted'
+                        : 'bg-[color:var(--status-completed-bg)] text-[color:var(--status-completed-text)]'
                     }`}
                   >
                     {script.enabled ? 'Disable' : 'Enable'}
                   </button>
-                  <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                  <code className="text-xs bg-muted px-2 py-1 rounded">
                     function validate()
                   </code>
                 </div>
@@ -211,3 +222,7 @@ export function ValidationScriptsPage() {
     </div>
   );
 }
+
+
+
+

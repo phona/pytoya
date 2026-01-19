@@ -92,3 +92,7 @@ describe('ProjectCard', () => {
     expect(screen.queryByText('Test project description')).not.toBeInTheDocument();
   });
 });
+
+
+
+

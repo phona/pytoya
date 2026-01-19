@@ -29,29 +29,29 @@ export function PdfViewer({ manifestId }: PdfViewerProps) {
   };
 
   return (
-    <div className="h-full flex flex-col bg-gray-100">
+    <div className="h-full flex flex-col bg-muted">
       {/* Toolbar */}
-      <div className="px-4 py-2 bg-white border-b border-gray-200 flex items-center gap-2">
+      <div className="px-4 py-2 bg-card border-b border-border flex items-center gap-2">
         <button
           onClick={handleZoomOut}
-          className="p-1 rounded hover:bg-gray-100"
+          className="p-1 rounded hover:bg-muted"
           title="Zoom Out"
         >
-          <Minus className="h-5 w-5 text-gray-600" />
+          <Minus className="h-5 w-5 text-muted-foreground" />
         </button>
-        <span className="text-sm text-gray-600 min-w-[50px] text-center">
+        <span className="text-sm text-muted-foreground min-w-[50px] text-center">
           {Math.round(zoom * 100)}%
         </span>
         <button
           onClick={handleZoomIn}
-          className="p-1 rounded hover:bg-gray-100"
+          className="p-1 rounded hover:bg-muted"
           title="Zoom In"
         >
-          <Plus className="h-5 w-5 text-gray-600" />
+          <Plus className="h-5 w-5 text-muted-foreground" />
         </button>
         <button
           onClick={handleResetZoom}
-          className="p-1 rounded hover:bg-gray-100 text-sm text-gray-600"
+          className="p-1 rounded hover:bg-muted text-sm text-muted-foreground"
           title="Reset Zoom"
         >
           Reset
@@ -59,10 +59,10 @@ export function PdfViewer({ manifestId }: PdfViewerProps) {
         <div className="flex-1" />
         <button
           onClick={handleOpenNewTab}
-          className="p-1 rounded hover:bg-gray-100"
+          className="p-1 rounded hover:bg-muted"
           title="Open in New Tab"
         >
-          <ExternalLink className="h-5 w-5 text-gray-600" />
+          <ExternalLink className="h-5 w-5 text-muted-foreground" />
         </button>
       </div>
 
@@ -78,3 +78,7 @@ export function PdfViewer({ manifestId }: PdfViewerProps) {
     </div>
   );
 }
+
+
+
+

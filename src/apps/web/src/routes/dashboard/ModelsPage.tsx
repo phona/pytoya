@@ -92,40 +92,39 @@ export function ModelsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Models</h1>
-            <p className="mt-1 text-sm text-gray-600">
+            <h1 className="text-3xl font-bold text-foreground">Models</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
               {filteredModels.length} {filteredModels.length === 1 ? 'model' : 'models'}
             </p>
           </div>
-          <button
+          <Button
+            type="button"
             onClick={openCreateForm}
-            className="rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
           >
             New Model
-          </button>
+          </Button>
         </div>
 
         <div className="mb-6 flex gap-3">
           {(['ocr', 'llm'] as ModelCategory[]).map((category) => (
-            <button
+            <Button
+              type="button"
               key={category}
               onClick={() => {
                 setActiveTab(category);
                 setEditingModel(null);
                 setIsDialogOpen(false);
               }}
-              className={`rounded-full px-4 py-1 text-sm font-medium ${
-                activeTab === category
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white text-gray-600 border border-gray-200'
-              }`}
+              variant={activeTab === category ? 'default' : 'outline'}
+              size="sm"
+              className="rounded-full"
             >
               {category === 'ocr' ? 'OCR Models' : 'LLM Models'}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -157,14 +156,14 @@ export function ModelsPage() {
             {!editingModel && createStep === 'select' && (
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="adapterType" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="adapterType" className="block text-sm font-medium text-foreground">
                     Adapter Type
                   </label>
                   <select
                     id="adapterType"
                     value={selectedAdapterType}
                     onChange={(e) => setSelectedAdapterType(e.target.value)}
-                    className="mt-1 block w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                    className="mt-1 block w-full max-w-md rounded-md border border-border px-3 py-2 text-sm shadow-sm focus:border-ring focus:outline-none focus:ring-ring"
                   >
                     {availableAdapters.map((adapter) => (
                       <option key={adapter.type} value={adapter.type}>
@@ -173,7 +172,7 @@ export function ModelsPage() {
                     ))}
                   </select>
                   {activeAdapter && (
-                    <p className="mt-2 text-sm text-gray-600">
+                    <p className="mt-2 text-sm text-muted-foreground">
                       {activeAdapter.description}
                     </p>
                   )}
@@ -203,15 +202,17 @@ export function ModelsPage() {
             {(editingModel || createStep === 'form') && (
               <div className="space-y-4">
                 {!editingModel && (
-                  <div className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-700">
+                  <div className="flex items-center justify-between rounded-md border border-border bg-background px-4 py-2 text-sm text-foreground">
                     <span>Adapter Type: {activeAdapter?.name ?? 'Unknown'}</span>
-                    <button
+                    <Button
                       type="button"
                       onClick={() => setCreateStep('select')}
-                      className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                      variant="link"
+                      size="sm"
+                      className="px-0 text-primary hover:text-primary"
                     >
                       Change
-                    </button>
+                    </Button>
                   </div>
                 )}
 
@@ -230,7 +231,7 @@ export function ModelsPage() {
                   />
                 )}
                 {!activeAdapter && !adaptersLoading && (
-                  <div className="text-sm text-gray-500">No adapter available for this category.</div>
+                  <div className="text-sm text-muted-foreground">No adapter available for this category.</div>
                 )}
               </div>
             )}
@@ -240,7 +241,7 @@ export function ModelsPage() {
         {isLoading ? (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+              <div key={index} className="rounded-lg border border-border bg-card p-5 shadow-sm">
                 <Skeleton className="h-5 w-32" />
                 <Skeleton className="mt-2 h-4 w-full" />
                 <Skeleton className="mt-4 h-4 w-20" />
@@ -249,7 +250,7 @@ export function ModelsPage() {
             ))}
           </div>
         ) : filteredModels.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center text-gray-500">
+          <div className="rounded-lg border border-dashed border-border bg-card p-10 text-center text-muted-foreground">
             No models configured yet.
           </div>
         ) : (
@@ -275,3 +276,7 @@ export function ModelsPage() {
     </div>
   );
 }
+
+
+
+

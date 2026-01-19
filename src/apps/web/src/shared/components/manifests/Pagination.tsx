@@ -5,6 +5,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/shared/components/ui/tooltip';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/components/ui/select';
 
 interface PaginationProps {
   currentPage: number;
@@ -64,9 +71,9 @@ export function Pagination({
   };
 
   return (
-    <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+    <div className="px-6 py-4 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-4">
       {/* Info */}
-      <div className="text-sm text-gray-600">
+      <div className="text-sm text-muted-foreground">
         Showing <span className="font-medium">{startItem}</span> to{' '}
         <span className="font-medium">{endItem}</span> of{' '}
         <span className="font-medium">{totalItems}</span> results
@@ -75,21 +82,24 @@ export function Pagination({
       <div className="flex items-center gap-4">
         {/* Page Size Selector */}
         <div className="flex items-center gap-2">
-          <label htmlFor="pageSize" className="text-sm text-gray-600">
+          <label htmlFor="pageSize" className="text-sm text-muted-foreground">
             Per page:
           </label>
-          <select
-            id="pageSize"
-            value={pageSize}
-            onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          <Select
+            value={String(pageSize)}
+            onValueChange={(value) => onPageSizeChange(Number(value))}
           >
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="pageSize" className="h-8 w-20 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <SelectItem key={size} value={String(size)}>
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Page Navigation */}
@@ -101,7 +111,7 @@ export function Pagination({
                 <button
                   onClick={() => onPageChange(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="p-2 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Previous page"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -114,7 +124,7 @@ export function Pagination({
           {getPageNumbers().map((page, index) => {
             if (page === '...') {
               return (
-                <span key={`ellipsis-${index}`} className="px-2 text-gray-500">
+                <span key={`ellipsis-${index}`} className="px-2 text-muted-foreground">
                   ...
                 </span>
               );
@@ -129,8 +139,8 @@ export function Pagination({
                 onClick={() => onPageChange(pageNum)}
                 className={`min-w-[36px] px-3 py-2 text-sm font-medium rounded ${
                   isActive
-                    ? 'bg-indigo-600 text-white'
-                    : 'border border-gray-300 hover:bg-gray-50 text-gray-700'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'border border-border hover:bg-muted text-foreground'
                 }`}
               >
                 {pageNum}
@@ -144,7 +154,7 @@ export function Pagination({
                 <button
                   onClick={() => onPageChange(currentPage + 1)}
                   disabled={currentPage === totalPages || totalPages === 0}
-                  className="p-2 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Next page"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -158,3 +168,7 @@ export function Pagination({
     </div>
   );
 }
+
+
+
+

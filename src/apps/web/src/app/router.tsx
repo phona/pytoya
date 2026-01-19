@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AuthLayout } from '../routes/auth/AuthLayout';
 import { AdminRoute } from '../routes/auth/AdminRoute';
 import { LoginPage } from '../routes/auth/LoginPage';
@@ -7,8 +7,9 @@ import { DashboardLayout } from '../routes/dashboard/DashboardLayout';
 import { HomePage } from '../routes/HomePage';
 import { ProjectsPage } from '../routes/dashboard/ProjectsPage';
 import { ProjectDetailPage } from '../routes/dashboard/ProjectDetailPage';
+import { ProjectSettingsBasicPage } from '../routes/dashboard/ProjectSettingsBasicPage';
+import { ProjectSettingsModelsPage } from '../routes/dashboard/ProjectSettingsModelsPage';
 import { ManifestsPage } from '../routes/dashboard/ManifestsPage';
-import { SchemasPage } from '../routes/dashboard/SchemasPage';
 import { SchemaDetailPage } from '../routes/dashboard/SchemaDetailPage';
 import { ModelsPage } from '../routes/dashboard/ModelsPage';
 import { PromptsPage } from '../routes/dashboard/PromptsPage';
@@ -39,12 +40,10 @@ export const router = createBrowserRouter([
         children: [
           { path: 'projects', element: <ProjectsPage /> },
           { path: 'projects/:id', element: <ProjectDetailPage /> },
+          { path: 'projects/:id/settings/basic', element: <ProjectSettingsBasicPage /> },
+          { path: 'projects/:id/settings/models', element: <ProjectSettingsModelsPage /> },
           { path: 'projects/:id/groups/:groupId/manifests', element: <ManifestsPage /> },
-          { path: 'schemas', element: (
-            <AdminRoute>
-              <SchemasPage />
-            </AdminRoute>
-          ) },
+          { path: 'schemas', element: <Navigate to="/projects" replace /> },
           { path: 'schemas/:id', element: (
             <AdminRoute>
               <SchemaDetailPage />
@@ -66,3 +65,7 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
+
+
+
+

@@ -42,7 +42,7 @@ export function DataTable<TData>({
       <TableBody>
         {rows.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center text-sm text-gray-500">
+            <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center text-sm text-muted-foreground">
               {emptyState ?? 'No results.'}
             </TableCell>
           </TableRow>
@@ -68,3 +68,7 @@ export function DataTable<TData>({
     </Table>
   );
 }
+
+
+
+

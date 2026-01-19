@@ -85,8 +85,8 @@ describe('JSONSchemaEditor', () => {
       await waitFor(() => {
         const errorText = screen.getByText(/Expected|Unexpected/i);
         expect(errorText).toBeInTheDocument();
-        expect(errorText).toHaveClass('text-red-700');
-        expect(errorText.closest('div')).toHaveClass('bg-red-50');
+        expect(errorText).toHaveClass('text-destructive');
+        expect(errorText.closest('div')).toHaveClass('bg-destructive/10');
       });
     });
   });
@@ -279,3 +279,7 @@ describe('JSONSchemaEditor', () => {
     });
   });
 });
+
+
+
+
