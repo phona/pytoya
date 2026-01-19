@@ -274,6 +274,327 @@ export const handlers = [
       },
     ]);
   }),
+
+  http.get('/api/prompts/:id', ({ params }) => {
+    if (params.id === '999') {
+      return HttpResponse.json({ message: 'Prompt not found' }, { status: 404 });
+    }
+    return HttpResponse.json({
+      id: Number(params.id),
+      name: 'Test Prompt',
+      type: 'invoice',
+      content: 'Test content {{field}}',
+      variables: ['field'],
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+
+  http.post('/api/prompts', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json({
+      id: 2,
+      name: body.name || 'New Prompt',
+      type: body.type || 'invoice',
+      content: body.content || 'New content',
+      variables: body.variables || [],
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+
+  http.patch('/api/prompts/:id', async ({ request, params }) => {
+    const body = await request.json();
+    return HttpResponse.json({
+      id: Number(params.id),
+      name: body.name || 'Updated Prompt',
+      type: 'invoice',
+      content: body.content || 'Updated content',
+      variables: body.variables || [],
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+
+  http.delete('/api/prompts/:id', () => {
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  // Extraction endpoints
+  http.post('/api/extraction/optimize-prompt', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json({
+      prompt: `Optimized: ${body.description}`,
+    });
+  }),
+
+  // Manifests export endpoints
+  http.post('/api/groups/:groupId/manifests/export', () => {
+    return HttpResponse.json(
+      new Blob(['csv,data'], { type: 'text/csv' }),
+      {
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': 'attachment; filename="export.csv"',
+        },
+      }
+    );
+  }),
+
+  http.get('/api/manifests/export/csv', () => {
+    return HttpResponse.json(
+      new Blob(['csv,data'], { type: 'text/csv' }),
+      {
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': 'attachment; filename="export.csv"',
+        },
+      }
+    );
+  }),
+
+  http.post('/api/manifests/export/csv', () => {
+    return HttpResponse.json(
+      new Blob(['csv,data'], { type: 'text/csv' }),
+      {
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': 'attachment; filename="export.csv"',
+        },
+      }
+    );
+  }),
+
+  http.post('/api/manifests/export', () => {
+    return HttpResponse.json(
+      new Blob(['csv,data'], { type: 'text/csv' }),
+      {
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': 'attachment; filename="export.csv"',
+        },
+      }
+    );
+  }),
+
+  // Validation endpoints
+  http.get('/api/validation-scripts', () => {
+    return HttpResponse.json([
+      {
+        id: 1,
+        name: 'Test Script',
+        code: 'return true;',
+        language: 'javascript',
+        projectId: 1,
+        createdAt: '2025-01-13T00:00:00.000Z',
+        updatedAt: '2025-01-13T00:00:00.000Z',
+      },
+    ]);
+  }),
+
+  http.get('/api/validation-scripts/:id', () => {
+    return HttpResponse.json({
+      id: 1,
+      name: 'Test Script',
+      code: 'return true;',
+      language: 'javascript',
+      projectId: 1,
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+
+  http.post('/api/validation-scripts', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json({
+      id: 1,
+      ...body,
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+
+  http.patch('/api/validation-scripts/:id', async ({ request, params }) => {
+    const body = await request.json();
+    return HttpResponse.json({
+      id: Number(params.id),
+      ...body,
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+
+  http.delete('/api/validation-scripts/:id', () => {
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post('/api/validation-scripts/validate-syntax', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json({
+      valid: true,
+      errors: [],
+    });
+  }),
+
+  http.post('/api/validation-scripts/generate', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json({
+      id: 1,
+      name: 'Generated Script',
+      code: 'return true;',
+      language: 'javascript',
+      ...body,
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+
+  // Validation endpoints with correct path (slash instead of dash)
+  http.get('/api/validation/scripts', () => {
+    return HttpResponse.json([
+      {
+        id: 1,
+        name: 'Test Script',
+        code: 'return true;',
+        language: 'javascript',
+        projectId: 1,
+        createdAt: '2025-01-13T00:00:00.000Z',
+        updatedAt: '2025-01-13T00:00:00.000Z',
+      },
+    ]);
+  }),
+
+  http.get('/api/validation/scripts/:id', () => {
+    return HttpResponse.json({
+      id: 1,
+      name: 'Test Script',
+      code: 'return true;',
+      language: 'javascript',
+      projectId: 1,
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+
+  http.get('/api/validation/scripts/project/:projectId', () => {
+    return HttpResponse.json([]);
+  }),
+
+  http.post('/api/validation/scripts', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json({
+      id: 1,
+      ...body,
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+
+  // Specific routes must come before :id parameterized routes to avoid matching issues
+  http.post('/api/validation/scripts/validate-syntax', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json({
+      valid: true,
+      errors: [],
+    });
+  }),
+
+  http.post('/api/validation/scripts/generate', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json({
+      id: 1,
+      name: 'Generated Script',
+      code: 'return true;',
+      language: 'javascript',
+      ...body,
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+
+  http.post('/api/validation/scripts/:id', async ({ request, params }) => {
+    const body = await request.json();
+    return HttpResponse.json({
+      id: Number(params.id),
+      ...body,
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+
+  http.delete('/api/validation/scripts/:id', () => {
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post('/api/validation/run', async () => {
+    return HttpResponse.json({
+      valid: true,
+      errors: [],
+      warnings: [],
+    });
+  }),
+
+  http.post('/api/validation/batch', async () => {
+    return HttpResponse.json({
+      1: { errorCount: 0, warningCount: 1 },
+      2: { errorCount: 1, warningCount: 0 },
+    });
+  }),
+
+  // Additional manifests endpoints for use-manifests tests
+  http.get('/api/manifests/:id', () => {
+    return HttpResponse.json({
+      id: 1,
+      originalFilename: 'test.pdf',
+      storagePath: '/uploads/test.pdf',
+      fileSize: 12345,
+      status: 'completed',
+      groupId: 1,
+      extractedData: { field: 'value' },
+      confidence: 0.95,
+      purchaseOrder: '0000001',
+      invoiceDate: '2025-01-13',
+      department: 'PROD',
+      humanVerified: false,
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+
+  http.get('/api/manifests/:id/items', () => {
+    return HttpResponse.json([
+      {
+        id: 1,
+        manifestId: 1,
+        fieldName: 'field',
+        fieldValue: 'value',
+        confidence: 0.95,
+      },
+    ]);
+  }),
+
+  http.patch('/api/manifests/:id', async ({ request, params }) => {
+    const body = await request.json();
+    return HttpResponse.json({
+      id: Number(params.id),
+      ...body,
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+
+  http.delete('/api/manifests/:id', () => {
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post('/api/manifests/:id/re-extract', () => {
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.post('/api/manifests/:id/extract', () => {
+    return HttpResponse.json({ jobId: 'test-job-id' });
+  }),
+
+  http.post('/api/manifests/:id/trigger', () => {
+    return HttpResponse.json({ success: true });
+  }),
 ];
 
 
