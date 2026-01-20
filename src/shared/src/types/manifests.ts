@@ -4,6 +4,11 @@ export type { ManifestResponseDto } from '../../../apps/api/src/manifests/dto/ma
 export type { ManifestListResponseDto } from '../../../apps/api/src/manifests/dto/manifest-list-response.dto';
 export type { ExtractDto } from '../../../apps/api/src/manifests/dto/extract.dto';
 export type { ReExtractFieldDto } from '../../../apps/api/src/manifests/dto/re-extract-field.dto';
+export type { BulkExtractDto } from '../../../apps/api/src/manifests/dto/bulk-extract.dto';
+export type { ReExtractFieldPreviewDto, ReExtractFieldPreviewResponseDto, OcrContextPreviewDto } from '../../../apps/api/src/manifests/dto/re-extract-field-preview.dto';
+export type { OcrResultDto, OcrResultResponseDto } from '../../../apps/api/src/manifests/dto/ocr-result.dto';
+export type { CostEstimateDto } from '../../../apps/api/src/manifests/dto/cost-estimate.dto';
+export type { TriggerOcrDto } from '../../../apps/api/src/manifests/dto/trigger-ocr.dto';
 export type { ExportBulkDto } from '../../../apps/api/src/manifests/dto/export-bulk.dto';
 export type { ExportManifestsDto } from '../../../apps/api/src/manifests/dto/export-manifests.dto';
 export type { ManifestFiltersDto } from '../../../apps/api/src/manifests/dto/manifest-filters.dto';

@@ -1,4 +1,5 @@
-import { LayoutSummary } from '../ocr/types/ocr.types';
+import { LayoutSummary, OcrResponse } from '../ocr/types/ocr.types';
+import { OcrResultDto } from '../manifests/dto/ocr-result.dto';
 import { ExtractedData } from '../prompts/types/prompts.types';
 import { ConvertedPage } from '../pdf-to-image/pdf-to-image.service';
 
@@ -28,6 +29,8 @@ export interface OcrState {
   success: boolean;
   error?: string;
   retryCount: number;
+  rawResponse?: OcrResponse;
+  cachedResult?: OcrResultDto;
 }
 
 export interface ExtractionValidationResult {
@@ -42,6 +45,11 @@ export interface ExtractionStateResult {
   error?: string;
   retryCount: number;
   validation?: ExtractionValidationResult;
+  tokenUsage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
 }
 
 export interface ExtractionWorkflowState {
@@ -56,5 +64,7 @@ export interface ExtractionWorkflowState {
   ocrResult?: OcrState;
   extractionResult?: ExtractionStateResult;
   convertedPages?: ConvertedPage[];
+  ocrCost?: number;
+  llmCost?: number;
+  extractionCost?: number;
 }
-

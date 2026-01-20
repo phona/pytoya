@@ -16,19 +16,28 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { ConfigService } from '@nestjs/config';
 
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { ManifestStatus } from '../entities/manifest.entity';
+import { UserRole } from '../entities/user.entity';
 import { UserEntity } from '../entities/user.entity';
 import { StorageService } from '../storage/storage.service';
 import { FileNotFoundException } from '../storage/exceptions/file-not-found.exception';
 import { CsvExportService } from './csv-export.service';
+import { CostEstimateService } from './cost-estimate.service';
+import { BulkExtractDto } from './dto/bulk-extract.dto';
 import { ExportBulkDto } from './dto/export-bulk.dto';
 import { ExtractDto } from './dto/extract.dto';
 import { ExportManifestsDto } from './dto/export-manifests.dto';
 import { ManifestResponseDto } from './dto/manifest-response.dto';
+import { OcrResultResponseDto } from './dto/ocr-result.dto';
+import { ReExtractFieldPreviewDto, ReExtractFieldPreviewResponseDto } from './dto/re-extract-field-preview.dto';
 import { ReExtractFieldDto } from './dto/re-extract-field.dto';
+import { TriggerOcrDto } from './dto/trigger-ocr.dto';
 import { UpdateManifestDto } from './dto/update-manifest.dto';
 import { DynamicFieldFiltersDto } from './dto/dynamic-field-filters.dto';
 import { ManifestsService } from './manifests.service';
@@ -44,8 +53,10 @@ export class ManifestsController {
   constructor(
     private readonly csvExportService: CsvExportService,
     private readonly manifestsService: ManifestsService,
+    private readonly costEstimateService: CostEstimateService,
     private readonly queueService: QueueService,
     private readonly storageService: StorageService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Post('groups/:groupId/manifests/upload')
@@ -56,6 +67,7 @@ export class ManifestsController {
     @UploadedFile() file: Express.Multer.File | undefined,
   ) {
     const manifest = await this.manifestsService.create(user, groupId, file);
+    await this.autoExtractIfEnabled(user, manifest.id);
     return ManifestResponseDto.fromEntity(manifest);
   }
 
@@ -73,7 +85,8 @@ export class ManifestsController {
     const manifests = await Promise.all(
       files.map((file) => this.manifestsService.create(user, groupId, file)),
     );
-    return manifests.map(ManifestResponseDto.fromEntity);
+    await this.autoExtractBatchIfEnabled(user, manifests.map((manifest) => manifest.id));
+    return manifests.map((m) => ManifestResponseDto.fromEntity(m));
   }
 
   // Alias for uploadSingle - canonical path expected by web app
@@ -85,6 +98,7 @@ export class ManifestsController {
     @UploadedFile() file: Express.Multer.File | undefined,
   ) {
     const manifest = await this.manifestsService.create(user, groupId, file);
+    await this.autoExtractIfEnabled(user, manifest.id);
     return ManifestResponseDto.fromEntity(manifest);
   }
 
@@ -100,7 +114,7 @@ export class ManifestsController {
       query,
     );
 
-    const data = result.data.map(ManifestResponseDto.fromEntity);
+    const data = result.data.map((m) => ManifestResponseDto.fromEntity(m));
     const hasFilters =
       query.page !== undefined ||
       query.pageSize !== undefined ||
@@ -114,7 +128,12 @@ export class ManifestsController {
       query.dateTo ||
       query.humanVerified !== undefined ||
       query.confidenceMin !== undefined ||
-      query.confidenceMax !== undefined;
+      query.confidenceMax !== undefined ||
+      query.ocrQualityMin !== undefined ||
+      query.ocrQualityMax !== undefined ||
+      query.extractionStatus !== undefined ||
+      query.costMin !== undefined ||
+      query.costMax !== undefined;
 
     if (hasFilters) {
       return {
@@ -124,6 +143,66 @@ export class ManifestsController {
     }
 
     return data;
+  }
+
+  @Get('manifests/:id/ocr')
+  async getOcrResult(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<OcrResultResponseDto> {
+    const manifest = await this.manifestsService.findOne(user, id);
+    const ocrResult =
+      (manifest.ocrResult as OcrResultResponseDto['ocrResult']) ?? null;
+
+    return {
+      manifestId: manifest.id,
+      ocrResult,
+      hasOcr: Boolean(ocrResult),
+      ocrProcessedAt: manifest.ocrProcessedAt ?? null,
+      qualityScore: manifest.ocrQualityScore ?? null,
+    };
+  }
+
+  @Post('manifests/:id/ocr')
+  async triggerOcr(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('force') force?: string,
+    @Body() body?: TriggerOcrDto,
+  ): Promise<OcrResultResponseDto> {
+    const manifest = await this.manifestsService.findOne(user, id);
+    const shouldForce = this.parseOptionalBoolean(force) === true;
+    const result = await this.manifestsService.processOcrForManifest(
+      manifest,
+      { force: shouldForce, ocrModelId: body?.ocrModelId },
+    );
+
+    return {
+      manifestId: manifest.id,
+      ocrResult: result,
+      hasOcr: true,
+      ocrProcessedAt: manifest.ocrProcessedAt ?? null,
+      qualityScore: manifest.ocrQualityScore ?? null,
+    };
+  }
+
+  @Post('manifests/ocr/backfill')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async backfillOcr(
+    @Query('limit') limit?: string,
+    @Query('concurrency') concurrency?: string,
+  ) {
+    const result = await this.manifestsService.backfillOcrResults({
+      limit: this.parseOptionalNumber(limit) ?? undefined,
+      concurrency: this.parseOptionalNumber(concurrency) ?? undefined,
+    });
+
+    return {
+      started: true,
+      processed: result.processed,
+      skipped: result.skipped,
+    };
   }
 
   @Get('manifests/export/csv')
@@ -219,13 +298,116 @@ export class ManifestsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() body: ExtractDto,
   ) {
-    await this.manifestsService.findOne(user, id);
+    const manifest = await this.manifestsService.findOne(user, id);
+    if (!manifest.ocrResult) {
+      await this.manifestsService.processOcrForManifest(manifest);
+    }
+
+    const estimate = await this.costEstimateService.estimateCost({
+      manifests: [manifest],
+      llmModelId: body.llmModelId,
+    });
+
     const jobId = await this.queueService.addExtractionJob(
       id,
       body.llmModelId,
       body.promptId,
+      undefined,
+      undefined,
+      undefined,
+      estimate.estimatedCostMax,
     );
-    return { jobId };
+
+    return {
+      jobId,
+      estimatedCost: {
+        min: estimate.estimatedCostMin,
+        max: estimate.estimatedCostMax,
+      },
+      currency: estimate.currency,
+    };
+  }
+
+  @Post('manifests/extract-bulk')
+  async extractBulk(
+    @CurrentUser() user: UserEntity,
+    @Body() body: BulkExtractDto,
+  ) {
+    const manifests = await this.manifestsService.findManyByIds(
+      user,
+      body.manifestIds,
+    );
+
+    for (const manifest of manifests) {
+      if (!manifest.ocrResult) {
+        await this.manifestsService.processOcrForManifest(manifest);
+      }
+    }
+
+    const estimate = await this.costEstimateService.estimateCost({
+      manifests,
+      llmModelId: body.llmModelId,
+      ocrModelId: body.ocrModelId,
+    });
+
+    if (body.dryRun) {
+      return {
+        manifestCount: manifests.length,
+        estimatedCost: {
+          min: estimate.estimatedCostMin,
+          max: estimate.estimatedCostMax,
+        },
+        currency: estimate.currency,
+      };
+    }
+
+    const perManifestEstimate = manifests.length
+      ? estimate.estimatedCostMax / manifests.length
+      : 0;
+    const jobIds = await Promise.all(
+      manifests.map((manifest) =>
+        this.queueService.addExtractionJob(
+          manifest.id,
+          body.llmModelId,
+          body.promptId,
+          undefined,
+          undefined,
+          undefined,
+          perManifestEstimate,
+        ),
+      ),
+    );
+    const batchId = `batch_${Date.now()}_${jobIds.length}`;
+
+    return {
+      jobId: batchId,
+      jobIds,
+      manifestCount: manifests.length,
+      estimatedCost: {
+        min: estimate.estimatedCostMin,
+        max: estimate.estimatedCostMax,
+      },
+      currency: estimate.currency,
+    };
+  }
+
+  @Get('manifests/cost-estimate')
+  async getCostEstimate(
+    @CurrentUser() user: UserEntity,
+    @Query('manifestIds') manifestIds?: string,
+    @Query('llmModelId') llmModelId?: string,
+    @Query('ocrModelId') ocrModelId?: string,
+  ) {
+    const parsedIds = this.parseManifestIds(manifestIds);
+    const manifests = await this.manifestsService.findManyByIds(
+      user,
+      parsedIds,
+    );
+    return this.costEstimateService.estimateCost({
+      manifests,
+      llmModelId,
+      ocrModelId,
+    });
   }
 
   @Post('manifests/:id/re-extract')
@@ -242,6 +424,58 @@ export class ManifestsController {
       body.fieldName,
     );
     return { jobId };
+  }
+
+  @Post('manifests/:id/re-extract-field')
+  async reExtractField(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: ReExtractFieldPreviewDto,
+  ): Promise<ReExtractFieldPreviewResponseDto> {
+    const manifest = await this.manifestsService.findOne(user, id);
+
+    if (!manifest.ocrResult) {
+      await this.manifestsService.processOcrForManifest(manifest);
+    }
+
+    const ocrPreview = this.manifestsService.buildOcrContextPreview(
+      manifest,
+      body.fieldName,
+    );
+
+    const estimate = await this.costEstimateService.estimateFieldCost({
+      manifest,
+      fieldName: body.fieldName,
+      snippet: ocrPreview?.snippet ?? '',
+      llmModelId: body.llmModelId,
+    });
+
+    if (body.previewOnly) {
+      return {
+        fieldName: body.fieldName,
+        ocrPreview,
+        estimatedCost: estimate.cost,
+        currency: estimate.currency,
+      };
+    }
+
+    const jobId = await this.queueService.addExtractionJob(
+      id,
+      body.llmModelId,
+      body.promptId,
+      body.fieldName,
+      body.customPrompt,
+      body.includeOcrContext ? ocrPreview?.snippet : undefined,
+      estimate.cost,
+    );
+
+    return {
+      jobId,
+      fieldName: body.fieldName,
+      ocrPreview,
+      estimatedCost: estimate.cost,
+      currency: estimate.currency,
+    };
   }
 
   @Get('manifests/:id')
@@ -319,6 +553,48 @@ export class ManifestsController {
       return false;
     }
     return undefined;
+  }
+
+  private isManualExtractionEnabled(): boolean {
+    const flag = this.configService.get<boolean>('features.manualExtraction');
+    return flag !== false;
+  }
+
+  private async autoExtractIfEnabled(
+    user: UserEntity,
+    manifestId: number,
+  ): Promise<void> {
+    if (this.isManualExtractionEnabled()) {
+      return;
+    }
+    const manifest = await this.manifestsService.findOne(user, manifestId);
+    const llmModelId = manifest.group?.project?.llmModelId ?? undefined;
+    if (!llmModelId) {
+      return;
+    }
+    await this.queueService.addExtractionJob(manifestId, llmModelId);
+  }
+
+  private async autoExtractBatchIfEnabled(
+    user: UserEntity,
+    manifestIds: number[],
+  ): Promise<void> {
+    if (this.isManualExtractionEnabled()) {
+      return;
+    }
+    for (const manifestId of manifestIds) {
+      await this.autoExtractIfEnabled(user, manifestId);
+    }
+  }
+
+  private parseManifestIds(value?: string): number[] {
+    if (!value) {
+      return [];
+    }
+    return value
+      .split(',')
+      .map((item) => Number(item.trim()))
+      .filter((item) => Number.isFinite(item));
   }
 
   private parseOptionalStatus(status?: string) {

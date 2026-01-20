@@ -12,12 +12,14 @@ export class SocketIoAdapter extends IoAdapter {
   }
 
   createIOServer(port: number, options?: ServerOptions) {
-    const origin = this.configService.get<string>(
-      'WEB_URL',
-      'http://localhost:3000',
+    // Use the same CORS origins as the HTTP API
+    const allowedOrigins = this.configService.get<string[]>(
+      'security.cors.allowedOrigins',
+      ['http://localhost:3001'],
     );
+
     const cors = {
-      origin,
+      origin: allowedOrigins,
       credentials: true,
     };
 

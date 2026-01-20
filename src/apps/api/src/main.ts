@@ -149,9 +149,11 @@ export async function createApp(): Promise<NestExpressApplication> {
   app.use("/uploads", express.static(uploadsPath));
 
   // Compatibility middleware: rewrite legacy non-/api paths to /api/*
-  // Exclude /uploads and WebSocket paths
+  // Exclude /uploads and WebSocket paths (including namespaced socket.io paths)
   app.use((req: Request, res: Response, next: NextFunction) => {
-    if (req.path.startsWith("/uploads") || req.path.startsWith("/socket.io/")) {
+    const isUploads = req.path.startsWith("/uploads");
+    const isSocketIo = req.path.startsWith("/socket.io");
+    if (isUploads || isSocketIo) {
       return next();
     }
     // If path doesn't start with /api and doesn't have a file extension, rewrite it

@@ -4,6 +4,7 @@ import {
   ManifestStatus,
   ValidationResult,
 } from '../../entities/manifest.entity';
+import { OcrResultDto } from './ocr-result.dto';
 
 export class ManifestResponseDto {
   id!: number;
@@ -21,10 +22,22 @@ export class ManifestResponseDto {
   department!: string | null;
   humanVerified!: boolean;
   validationResults!: ValidationResult | null;
+  ocrResult!: OcrResultDto | null;
+  ocrProcessedAt!: Date | null;
+  ocrQualityScore!: number | null;
+  extractionCost!: number | null;
   createdAt!: Date;
   updatedAt!: Date;
 
-  static fromEntity(manifest: ManifestEntity): ManifestResponseDto {
+  static fromEntity(
+    manifest: ManifestEntity,
+    options: { includeOcr?: boolean } = {},
+  ): ManifestResponseDto {
+    const extractionCost =
+      typeof manifest.extractionCost === 'string'
+        ? Number.parseFloat(manifest.extractionCost)
+        : manifest.extractionCost ?? null;
+
     return {
       id: manifest.id,
       filename: manifest.filename,
@@ -41,6 +54,12 @@ export class ManifestResponseDto {
       department: manifest.department,
       humanVerified: manifest.humanVerified,
       validationResults: manifest.validationResults,
+      ocrResult: options.includeOcr
+        ? (manifest.ocrResult as OcrResultDto | null)
+        : null,
+      ocrProcessedAt: manifest.ocrProcessedAt ?? null,
+      ocrQualityScore: manifest.ocrQualityScore ?? null,
+      extractionCost,
       createdAt: manifest.createdAt,
       updatedAt: manifest.updatedAt,
     };

@@ -9,7 +9,11 @@ describe('WebSocketModule', () => {
     await expect(
       Test.createTestingModule({
         imports: [
-          ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }),
+          ConfigModule.forRoot({
+            isGlobal: true,
+            ignoreEnvFile: true,
+            load: [() => ({ jwt: { secret: 'test-secret' } })],
+          }),
           JwtModule.register({ secret: 'test-secret' }),
           WebSocketModule,
         ],

@@ -95,4 +95,37 @@ export class DynamicFieldFiltersDto {
   @Max(1)
   @Type(() => Number)
   confidenceMax?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @Type(() => Number)
+  ocrQualityMin?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @Type(() => Number)
+  ocrQualityMax?: number;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toLowerCase() : value,
+  )
+  @IsIn(['not_extracted', 'extracting', 'complete', 'partial', 'failed'])
+  extractionStatus?: 'not_extracted' | 'extracting' | 'complete' | 'partial' | 'failed';
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  costMin?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  costMax?: number;
 }

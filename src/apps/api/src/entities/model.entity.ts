@@ -6,6 +6,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { ModelPricing, ModelPricingHistoryEntry } from './model-pricing.types';
 
 @Entity({ name: 'models' })
 export class ModelEntity {
@@ -22,6 +23,16 @@ export class ModelEntity {
 
   @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
   parameters!: Record<string, unknown>;
+
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
+  pricing!: ModelPricing;
+
+  @Column({
+    type: 'jsonb',
+    name: 'pricing_history',
+    default: () => "'[]'::jsonb",
+  })
+  pricingHistory!: ModelPricingHistoryEntry[];
 
   @Column({ type: 'varchar', nullable: true })
   description!: string | null;

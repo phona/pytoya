@@ -16,6 +16,7 @@ interface ManifestUpdatePayload {
   status: string;
   progress: number;
   error?: string;
+  cost?: number;
 }
 
 interface JobUpdatePayload {
@@ -24,6 +25,14 @@ interface JobUpdatePayload {
   progress: number;
   status: string;
   error?: string;
+  cost?: number;
+}
+
+interface OcrUpdatePayload {
+  manifestId: number;
+  hasOcr: boolean;
+  qualityScore?: number | null;
+  processedAt?: Date | null;
 }
 
 @WebSocketGateway({
@@ -101,7 +110,7 @@ export class ManifestGateway implements OnGatewayConnection, OnGatewayDisconnect
    * Called by BullMQ processor to broadcast job progress updates
    */
   emitJobUpdate(payload: JobUpdatePayload) {
-    const { manifestId, progress, status, error } = payload;
+    const { manifestId, progress, status, error, cost } = payload;
     this.logger.debug(`Emitting job update for manifest ${manifestId}: ${progress}%`);
 
     this.server.to(`manifest:${manifestId}`).emit('job-update', {
@@ -109,6 +118,7 @@ export class ManifestGateway implements OnGatewayConnection, OnGatewayDisconnect
       progress,
       status,
       error,
+      cost,
     });
   }
 
@@ -116,7 +126,7 @@ export class ManifestGateway implements OnGatewayConnection, OnGatewayDisconnect
    * Called when manifest status changes
    */
   emitManifestUpdate(payload: ManifestUpdatePayload) {
-    const { manifestId, status, progress, error } = payload;
+    const { manifestId, status, progress, error, cost } = payload;
     this.logger.debug(`Emitting manifest update for manifest ${manifestId}: ${status}`);
 
     this.server.to(`manifest:${manifestId}`).emit('manifest-update', {
@@ -124,6 +134,22 @@ export class ManifestGateway implements OnGatewayConnection, OnGatewayDisconnect
       status,
       progress,
       error,
+      cost,
+    });
+  }
+
+  /**
+   * Called when OCR processing completes
+   */
+  emitOcrUpdate(payload: OcrUpdatePayload) {
+    const { manifestId, hasOcr, qualityScore, processedAt } = payload;
+    this.logger.debug(`Emitting OCR update for manifest ${manifestId}`);
+
+    this.server.to(`manifest:${manifestId}`).emit('ocr-update', {
+      manifestId,
+      hasOcr,
+      qualityScore,
+      processedAt,
     });
   }
 

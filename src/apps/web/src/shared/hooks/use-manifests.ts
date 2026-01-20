@@ -69,6 +69,23 @@ export function useReExtractField() {
   });
 }
 
+export function useReExtractFieldPreview() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      manifestId,
+      data,
+    }: {
+      manifestId: number;
+      data: Parameters<typeof manifestsApi.reExtractFieldWithPreview>[1];
+    }) => manifestsApi.reExtractFieldWithPreview(manifestId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId] });
+    },
+  });
+}
+
 export function useTriggerExtraction() {
   const queryClient = useQueryClient();
 
@@ -81,10 +98,64 @@ export function useTriggerExtraction() {
       manifestId: number;
       llmModelId?: string;
       promptId?: number;
-    }) => manifestsApi.triggerExtraction(manifestId, llmModelId, promptId),
+    }) => manifestsApi.extractManifest(manifestId, { llmModelId, promptId }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId] });
     },
+  });
+}
+
+export function useTriggerOcr() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      manifestId,
+      force,
+      data,
+    }: {
+      manifestId: number;
+      force?: boolean;
+      data?: Parameters<typeof manifestsApi.triggerOcr>[1];
+    }) => manifestsApi.triggerOcr(manifestId, data, force),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId] });
+      queryClient.invalidateQueries({ queryKey: ['ocr', variables.manifestId] });
+    },
+  });
+}
+
+export function useOcrResult(manifestId: number, enabled = true) {
+  return useQuery({
+    queryKey: ['ocr', manifestId],
+    queryFn: () => manifestsApi.getOcrResult(manifestId),
+    enabled: enabled && manifestId > 0,
+  });
+}
+
+export function useExtractBulk() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: Parameters<typeof manifestsApi.extractBulk>[0]) =>
+      manifestsApi.extractBulk(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['manifests', 'group'] });
+    },
+  });
+}
+
+export function useCostEstimate() {
+  return useMutation({
+    mutationFn: ({
+      manifestIds,
+      llmModelId,
+      ocrModelId,
+    }: {
+      manifestIds: number[];
+      llmModelId?: string;
+      ocrModelId?: string;
+    }) => manifestsApi.getCostEstimate(manifestIds, llmModelId, ocrModelId),
   });
 }
 

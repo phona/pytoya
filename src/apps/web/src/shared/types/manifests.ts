@@ -11,6 +11,11 @@ export type ManifestFilterValues = {
   department?: string;
   confidenceMin?: number;
   confidenceMax?: number;
+  ocrQualityMin?: number;
+  ocrQualityMax?: number;
+  extractionStatus?: 'not_extracted' | 'extracting' | 'complete' | 'partial' | 'failed';
+  costMin?: number;
+  costMax?: number;
   humanVerified?: boolean;
   dynamicFilters?: DynamicManifestFilter[];
 };

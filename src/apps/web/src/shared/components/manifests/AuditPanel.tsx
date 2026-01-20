@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Eye } from 'lucide-react';
 import { useManifest, useManifestItems, useUpdateManifest, useReExtractField } from '@/shared/hooks/use-manifests';
 import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/shared/hooks/use-websocket';
 import { useRunValidation } from '@/shared/hooks/use-validation-scripts';
@@ -8,6 +8,8 @@ import { EditableForm } from './EditableForm';
 import { OcrViewer } from './OcrViewer';
 import { ProgressBar } from './ProgressBar';
 import { ValidationResultsPanel } from '@/shared/components/ValidationResultsPanel';
+import { OcrPreviewModal } from './OcrPreviewModal';
+import { ExtractionHistoryPanel, ExtractionHistoryEntry } from './ExtractionHistoryPanel';
 import { Manifest } from '@/api/manifests';
 import { getStatusBadgeClasses } from '@/shared/styles/status-badges';
 
@@ -24,11 +26,12 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
   const reExtractField = useReExtractField();
   const runValidation = useRunValidation();
 
-  const [activeTab, setActiveTab] = useState<'form' | 'ocr' | 'validation'>('form');
+  const [activeTab, setActiveTab] = useState<'form' | 'ocr' | 'validation' | 'ocrPreview' | 'history'>('form');
   const [currentIndex, setCurrentIndex] = useState(allManifestIds.indexOf(manifestId));
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
   const [jobProgress, setJobProgress] = useState<{ progress: number; status: string; error?: string } | null>(null);
+  const [showOcrPreviewModal, setShowOcrPreviewModal] = useState(false);
 
   // WebSocket integration
   const { subscribeToManifest, unsubscribeFromManifest } = useWebSocket({
@@ -242,10 +245,10 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
       {/* Tabs */}
       <div className="px-6 pt-4 border-b border-border">
         <div className="flex items-center justify-between">
-          <div className="flex gap-4">
+          <div className="flex gap-4 overflow-x-auto">
             <button
               onClick={() => setActiveTab('form')}
-              className={`pb-2 px-1 text-sm font-medium border-b-2 ${
+              className={`pb-2 px-1 text-sm font-medium border-b-2 whitespace-nowrap ${
                 activeTab === 'form'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -255,7 +258,7 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
             </button>
             <button
               onClick={() => setActiveTab('ocr')}
-              className={`pb-2 px-1 text-sm font-medium border-b-2 ${
+              className={`pb-2 px-1 text-sm font-medium border-b-2 whitespace-nowrap ${
                 activeTab === 'ocr'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -264,8 +267,29 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
               OCR Results
             </button>
             <button
+              onClick={() => setActiveTab('ocrPreview')}
+              className={`pb-2 px-1 text-sm font-medium border-b-2 flex items-center gap-1 whitespace-nowrap ${
+                activeTab === 'ocrPreview'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Eye className="h-3 w-3" />
+              OCR Preview
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`pb-2 px-1 text-sm font-medium border-b-2 whitespace-nowrap ${
+                activeTab === 'history'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Extraction History
+            </button>
+            <button
               onClick={() => setActiveTab('validation')}
-              className={`pb-2 px-1 text-sm font-medium border-b-2 ${
+              className={`pb-2 px-1 text-sm font-medium border-b-2 whitespace-nowrap ${
                 activeTab === 'validation'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -287,7 +311,7 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
             <button
               onClick={() => runValidation.mutate({ manifestId })}
               disabled={runValidation.isPending}
-              className="px-3 py-1 text-sm font-medium rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 text-sm font-medium rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
             >
               {runValidation.isPending ? 'Running...' : 'Run Validation'}
             </button>
@@ -333,6 +357,28 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
               onSave={handleAutoSave}
               onReExtractField={handleReExtractField}
             />
+          ) : activeTab === 'ocrPreview' ? (
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-medium">OCR Result Preview</h3>
+                <button
+                  onClick={() => setShowOcrPreviewModal(true)}
+                  className="px-3 py-1 text-xs font-medium border border-border rounded hover:bg-muted"
+                >
+                  <Eye className="h-3 w-3 inline mr-1" />
+                  Open Full Preview
+                </button>
+              </div>
+              <OcrViewer manifest={manifest} />
+            </div>
+          ) : activeTab === 'history' ? (
+            <div className="p-6">
+              <ExtractionHistoryPanel
+                manifestId={manifest.id}
+                manifestName={manifest.originalFilename}
+                history={((manifest as unknown as { extractionHistory?: ExtractionHistoryEntry[] }).extractionHistory) ?? []}
+              />
+            </div>
           ) : activeTab === 'validation' ? (
             <ValidationResultsPanel
               result={manifest.validationResults}
@@ -343,6 +389,13 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
           )}
         </div>
       </div>
+
+      {/* OCR Preview Modal */}
+      <OcrPreviewModal
+        manifestId={manifest.id}
+        open={showOcrPreviewModal}
+        onClose={() => setShowOcrPreviewModal(false)}
+      />
     </div>
   );
 }

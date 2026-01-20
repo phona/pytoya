@@ -47,9 +47,11 @@ describe('useValidationScripts', () => {
         {
           id: 1,
           name: 'Test Script',
-          code: 'return true;',
-          language: 'javascript',
+          description: null,
+          script: 'return true;',
           projectId: 1,
+          severity: 'warning',
+          enabled: true,
           createdAt: '2025-01-13T00:00:00.000Z',
           updatedAt: '2025-01-13T00:00:00.000Z',
         },
@@ -71,7 +73,11 @@ describe('useValidationScripts', () => {
     it('should create script', async () => {
       const { result } = renderHook(() => useValidationScripts(), { wrapper: createWrapper() });
 
-      await result.current.createScript({ name: 'New Script', code: 'return true;' });
+      await result.current.createScript({
+        name: 'New Script',
+        projectId: '1',
+        script: 'return true;',
+      });
 
       // If we get here without throwing, the mutation succeeded
       expect(true).toBe(true);
@@ -89,9 +95,11 @@ describe('useValidationScripts', () => {
       expect(result.current.script).toEqual({
         id: 1,
         name: 'Test Script',
-        code: 'return true;',
-        language: 'javascript',
+        description: null,
+        script: 'return true;',
         projectId: 1,
+        severity: 'warning',
+        enabled: true,
         createdAt: '2025-01-13T00:00:00.000Z',
         updatedAt: '2025-01-13T00:00:00.000Z',
       });
@@ -124,9 +132,9 @@ describe('useValidationScripts', () => {
     it('should validate script syntax', async () => {
       const { result } = renderHook(() => useValidateScriptSyntax(), { wrapper: createWrapper() });
 
-      const response = await result.current.mutateAsync({ code: 'return true;' });
+      const response = await result.current.mutateAsync({ script: 'return true;' });
 
-      expect(response).toEqual({ valid: true, errors: [] });
+      expect(response).toEqual({ valid: true });
     });
   });
 
@@ -134,7 +142,11 @@ describe('useValidationScripts', () => {
     it('should generate validation script', async () => {
       const { result } = renderHook(() => useGenerateValidationScript(), { wrapper: createWrapper() });
 
-      await result.current.mutateAsync({ schemaId: 1 });
+      await result.current.mutateAsync({
+        llmModelId: 'llm-1',
+        prompt: 'Generate validation script',
+        structured: { schema: {} },
+      });
 
       // If we get here without throwing, the mutation succeeded
       expect(true).toBe(true);
@@ -145,7 +157,7 @@ describe('useValidationScripts', () => {
     it('should run validation', async () => {
       const { result } = renderHook(() => useRunValidation(), { wrapper: createWrapper() });
 
-      await result.current.mutateAsync({ manifestId: 1, data: {} });
+      await result.current.mutateAsync({ manifestId: 1 });
 
       // If we get here without throwing, the mutation succeeded
       expect(true).toBe(true);

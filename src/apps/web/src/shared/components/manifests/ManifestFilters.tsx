@@ -29,6 +29,11 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
     min: values.confidenceMin ?? 0,
     max: values.confidenceMax ?? 100,
   });
+  const [costRange, setCostRange] = useState({
+    min: values.costMin ?? 0,
+    max: values.costMax ?? 100,
+  });
+
 
   const fieldOptions = useMemo(() => {
     const options = new Set<string>();
@@ -100,6 +105,42 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
     });
   };
 
+  const handleCostChange = (min: number, max: number) => {
+    setCostRange({ min, max });
+    onChange({
+      ...values,
+      costMin: min > 0 ? min : undefined,
+      costMax: max < 100 ? max : undefined,
+    });
+  };
+
+  const handleExtractionStatusChange = (status: string) => {
+    onChange({
+      ...values,
+      extractionStatus: status === 'all' ? undefined : (status as ManifestFilterValues['extractionStatus']),
+    });
+  };
+
+  const handleOcrQualityChange = (value: string) => {
+    if (value === 'excellent') {
+      onChange({ ...values, ocrQualityMin: 90, ocrQualityMax: 100 });
+      return;
+    }
+    if (value === 'good') {
+      onChange({ ...values, ocrQualityMin: 70, ocrQualityMax: 89 });
+      return;
+    }
+    if (value === 'poor') {
+      onChange({ ...values, ocrQualityMin: 0, ocrQualityMax: 69 });
+      return;
+    }
+    if (value === 'unprocessed') {
+      onChange({ ...values, ocrQualityMin: 0, ocrQualityMax: 0 });
+      return;
+    }
+    onChange({ ...values, ocrQualityMin: undefined, ocrQualityMax: undefined });
+  };
+
   const handleAddDynamicFilter = () => {
     const field = dynamicField.trim();
     const value = dynamicValue.trim();
@@ -134,6 +175,7 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
   const clearFilters = () => {
     onChange({});
     setConfidenceRange({ min: 0, max: 100 });
+    setCostRange({ min: 0, max: 100 });
     setDynamicField('');
     setDynamicValue('');
   };
@@ -146,6 +188,17 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
   });
 
   const statusValue = values.status ?? 'all';
+  const extractionStatusValue = values.extractionStatus ?? 'all';
+
+  const resolveOcrQualitySelection = () => {
+    if (values.ocrQualityMin === 90 && values.ocrQualityMax === 100) return 'excellent';
+    if (values.ocrQualityMin === 70 && values.ocrQualityMax === 89) return 'good';
+    if (values.ocrQualityMin === 0 && values.ocrQualityMax === 69) return 'poor';
+    if (values.ocrQualityMin === 0 && values.ocrQualityMax === 0) return 'unprocessed';
+    return 'all';
+  };
+
+  const ocrQualityValue = resolveOcrQualitySelection();
 
   return (
     <div className="bg-card rounded-lg shadow-sm border border-border p-4 sticky top-4">
@@ -179,6 +232,45 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
             <SelectItem value="processing">Processing</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
             <SelectItem value="failed">Failed</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Extraction Status */}
+      <div className="mb-4">
+        <label htmlFor="filter-extraction-status" className="block text-sm font-medium text-foreground mb-2">
+          Extraction Status
+        </label>
+        <Select value={extractionStatusValue} onValueChange={handleExtractionStatusChange}>
+          <SelectTrigger id="filter-extraction-status">
+            <SelectValue placeholder="Any extraction status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Any status</SelectItem>
+            <SelectItem value="not_extracted">Not Extracted</SelectItem>
+            <SelectItem value="extracting">Extracting</SelectItem>
+            <SelectItem value="complete">Complete</SelectItem>
+            <SelectItem value="partial">Partial</SelectItem>
+            <SelectItem value="failed">Failed</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* OCR Quality */}
+      <div className="mb-4">
+        <label htmlFor="filter-ocr-quality" className="block text-sm font-medium text-foreground mb-2">
+          OCR Quality
+        </label>
+        <Select value={ocrQualityValue} onValueChange={handleOcrQualityChange}>
+          <SelectTrigger id="filter-ocr-quality">
+            <SelectValue placeholder="Any quality" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Any quality</SelectItem>
+            <SelectItem value="excellent">Excellent (90-100)</SelectItem>
+            <SelectItem value="good">Good (70-89)</SelectItem>
+            <SelectItem value="poor">Poor (&lt;70)</SelectItem>
+            <SelectItem value="unprocessed">Not Processed</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -323,6 +415,53 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
             aria-label="Confidence maximum"
             value={confidenceRange.max}
             onChange={(e) => handleConfidenceChange(confidenceRange.min, Number(e.target.value))}
+            className="h-2 px-0 py-0"
+          />
+        </div>
+      </div>
+
+      {/* Cost Range */}
+      <div className="mb-4">
+        <p className="block text-sm font-medium text-foreground mb-1">
+          Cost Range: ${costRange.min.toFixed(2)} - ${costRange.max.toFixed(2)}
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            aria-label="Cost minimum"
+            value={costRange.min}
+            onChange={(e) => handleCostChange(Number(e.target.value), costRange.max)}
+          />
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            aria-label="Cost maximum"
+            value={costRange.max}
+            onChange={(e) => handleCostChange(costRange.min, Number(e.target.value))}
+          />
+        </div>
+        <div className="space-y-2 mt-2">
+          <Input
+            type="range"
+            min="0"
+            max="100"
+            step="0.5"
+            aria-label="Cost minimum slider"
+            value={costRange.min}
+            onChange={(e) => handleCostChange(Number(e.target.value), costRange.max)}
+            className="h-2 px-0 py-0"
+          />
+          <Input
+            type="range"
+            min="0"
+            max="100"
+            step="0.5"
+            aria-label="Cost maximum slider"
+            value={costRange.max}
+            onChange={(e) => handleCostChange(costRange.min, Number(e.target.value))}
             className="h-2 px-0 py-0"
           />
         </div>

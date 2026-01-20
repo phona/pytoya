@@ -5,6 +5,7 @@ import type {
   ModelResponseDto,
   UpdateModelDto,
   TestModelResponseDto,
+  UpdateModelPricingDto,
 } from '@pytoya/shared/types/models';
 
 export type AdapterCategory = 'ocr' | 'llm';
@@ -64,6 +65,11 @@ export const modelsApi = {
 
   updateModel: async (id: string, data: UpdateModelDto) => {
     const response = await apiClient.patch<Model>(`/models/${id}`, data);
+    return response.data;
+  },
+
+  updateModelPricing: async (id: string, pricing: UpdateModelPricingDto['pricing']) => {
+    const response = await apiClient.patch<Model>(`/models/${id}/pricing`, { pricing });
     return response.data;
   },
 

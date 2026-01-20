@@ -16,6 +16,8 @@ type ManifestExtractionJob = {
   llmModelId?: string;
   promptId?: number;
   fieldName?: string;
+  customPrompt?: string;
+  ocrContextSnippet?: string;
 };
 
 @Processor(EXTRACTION_QUEUE)
@@ -35,7 +37,7 @@ export class ManifestExtractionProcessor extends WorkerHost {
       this.logger.warn(`Unhandled job name ${job.name}`);
       return;
     }
-    const { manifestId, llmModelId, promptId, fieldName } = job.data;
+    const { manifestId, llmModelId, promptId, fieldName, customPrompt, ocrContextSnippet } = job.data;
     this.logger.log(
       `Starting extraction job ${job.id} for manifest ${manifestId}`,
     );
@@ -63,6 +65,8 @@ export class ManifestExtractionProcessor extends WorkerHost {
           llmModelId,
           promptId,
           fieldName,
+          customPrompt,
+          ocrContextSnippet,
         },
         reportProgress,
       );
@@ -71,6 +75,7 @@ export class ManifestExtractionProcessor extends WorkerHost {
         String(job.id),
         result,
         job.attemptsMade,
+        result.extractionCost,
       );
       // Emit WebSocket completion update
       this.webSocketService.emitJobUpdate({
@@ -78,11 +83,13 @@ export class ManifestExtractionProcessor extends WorkerHost {
         manifestId,
         progress: 100,
         status: 'completed',
+        cost: result.extractionCost,
       });
       this.webSocketService.emitManifestUpdate({
         manifestId,
         status: ManifestStatus.COMPLETED,
         progress: 100,
+        cost: result.extractionCost,
       });
       this.logger.log(
         `Completed extraction job ${job.id} for manifest ${manifestId}`,

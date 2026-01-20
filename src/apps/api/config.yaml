@@ -26,6 +26,9 @@ paddleocr:
 llm:
   apiKey: {{LLM_API_KEY}}
 
+features:
+  manualExtraction: {{default FEATURE_MANUAL_EXTRACTION "true"}}
+
 security:
   cors:
     enabled: {{default ENABLE_CORS "true"}}

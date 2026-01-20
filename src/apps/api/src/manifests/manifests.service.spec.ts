@@ -4,8 +4,11 @@ import { Repository } from 'typeorm';
 
 import { JobEntity } from '../entities/job.entity';
 import { ManifestEntity } from '../entities/manifest.entity';
+import { ModelEntity } from '../entities/model.entity';
 import { GroupsService } from '../groups/groups.service';
+import { OcrService } from '../ocr/ocr.service';
 import { StorageService } from '../storage/storage.service';
+import { WebSocketService } from '../websocket/websocket.service';
 import { ManifestsService } from './manifests.service';
 
 const createQueryBuilder = () => ({
@@ -43,8 +46,12 @@ describe('ManifestsService', () => {
         ManifestsService,
         { provide: getRepositoryToken(ManifestEntity), useValue: manifestRepository },
         { provide: getRepositoryToken(JobEntity), useValue: jobRepository },
+        { provide: getRepositoryToken(ModelEntity), useValue: {} },
         { provide: GroupsService, useValue: groupsService },
         { provide: StorageService, useValue: {} },
+        { provide: OcrService, useValue: {} },
+        { provide: WebSocketService, useValue: {} },
+        { provide: 'IFileAccessService', useValue: {} },
       ],
     }).compile();
 

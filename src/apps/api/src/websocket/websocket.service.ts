@@ -11,6 +11,7 @@ export class WebSocketService {
     progress: number;
     status: string;
     error?: string;
+    cost?: number;
   }) {
     this.manifestGateway.emitJobUpdate(data);
   }
@@ -20,8 +21,18 @@ export class WebSocketService {
     status: string;
     progress: number;
     error?: string;
+    cost?: number;
   }) {
     this.manifestGateway.emitManifestUpdate(data);
+  }
+
+  emitOcrUpdate(data: {
+    manifestId: number;
+    hasOcr: boolean;
+    qualityScore?: number | null;
+    processedAt?: Date | null;
+  }) {
+    this.manifestGateway.emitOcrUpdate(data);
   }
 
   getSubscriberCount(manifestId: number): number {

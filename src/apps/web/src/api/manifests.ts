@@ -5,11 +5,20 @@ import type {
   ManifestListResponseDto,
   ManifestResponseDto,
   UpdateManifestDto,
+  OcrResultResponseDto,
+  CostEstimateDto,
+  BulkExtractDto,
+  ReExtractFieldPreviewDto,
+  ReExtractFieldPreviewResponseDto,
+  TriggerOcrDto,
 } from '@pytoya/shared/types/manifests';
 
 export type Manifest = Jsonify<ManifestResponseDto>;
 export type ManifestListResponse = Jsonify<ManifestListResponseDto>;
 export type { UpdateManifestDto };
+export type OcrResultResponse = Jsonify<OcrResultResponseDto>;
+export type CostEstimate = Jsonify<CostEstimateDto>;
+export type ReExtractFieldPreviewResponse = Jsonify<ReExtractFieldPreviewResponseDto>;
 
 export interface ManifestItem {
   id: number;
@@ -59,6 +68,21 @@ export const manifestsApi = {
     }
     if (filters?.confidenceMax !== undefined) {
       searchParams.append('confidenceMax', String(filters.confidenceMax));
+    }
+    if (filters?.ocrQualityMin !== undefined) {
+      searchParams.append('ocrQualityMin', String(filters.ocrQualityMin));
+    }
+    if (filters?.ocrQualityMax !== undefined) {
+      searchParams.append('ocrQualityMax', String(filters.ocrQualityMax));
+    }
+    if (filters?.extractionStatus) {
+      searchParams.append('extractionStatus', filters.extractionStatus);
+    }
+    if (filters?.costMin !== undefined) {
+      searchParams.append('costMin', String(filters.costMin));
+    }
+    if (filters?.costMax !== undefined) {
+      searchParams.append('costMax', String(filters.costMax));
     }
     if (filters?.dynamicFilters) {
       filters.dynamicFilters.forEach(({ field, value }) => {
@@ -165,6 +189,49 @@ export const manifestsApi = {
     return response.data;
   },
 
+  getOcrResult: async (manifestId: number) => {
+    const response = await apiClient.get<OcrResultResponse>(`/manifests/${manifestId}/ocr`);
+    return response.data;
+  },
+
+  triggerOcr: async (manifestId: number, data?: TriggerOcrDto, force?: boolean) => {
+    const response = await apiClient.post<OcrResultResponse>(`/manifests/${manifestId}/ocr`, data ?? {}, {
+      params: force ? { force: 'true' } : undefined,
+    });
+    return response.data;
+  },
+
+  extractManifest: async (manifestId: number, data?: { llmModelId?: string; promptId?: number }) => {
+    const response = await apiClient.post<{
+      jobId: string;
+      estimatedCost?: { min: number; max: number };
+      currency?: string;
+    }>(`/manifests/${manifestId}/extract`, data ?? {});
+    return response.data;
+  },
+
+  extractBulk: async (data: BulkExtractDto) => {
+    const response = await apiClient.post<{
+      jobId: string;
+      jobIds?: string[];
+      manifestCount: number;
+      estimatedCost: { min: number; max: number };
+      currency: string;
+    }>('/manifests/extract-bulk', data);
+    return response.data;
+  },
+
+  getCostEstimate: async (manifestIds: number[], llmModelId?: string, ocrModelId?: string) => {
+    const params = new URLSearchParams();
+    if (manifestIds.length > 0) {
+      params.append('manifestIds', manifestIds.join(','));
+    }
+    if (llmModelId) params.append('llmModelId', llmModelId);
+    if (ocrModelId) params.append('ocrModelId', ocrModelId);
+    const response = await apiClient.get<CostEstimate>('/manifests/cost-estimate', { params });
+    return response.data;
+  },
+
   // Re-extract specific field
   reExtractField: async (manifestId: number, fieldName: string, llmModelId?: string, promptId?: number) => {
     const response = await apiClient.post<{ jobId: string }>(`/manifests/${manifestId}/re-extract`, {
@@ -172,6 +239,11 @@ export const manifestsApi = {
       llmModelId,
       promptId,
     });
+    return response.data;
+  },
+
+  reExtractFieldWithPreview: async (manifestId: number, data: ReExtractFieldPreviewDto) => {
+    const response = await apiClient.post<ReExtractFieldPreviewResponse>(`/manifests/${manifestId}/re-extract-field`, data);
     return response.data;
   },
 
@@ -187,6 +259,11 @@ export const manifestsApi = {
     humanVerified?: boolean;
     confidenceMin?: number;
     confidenceMax?: number;
+    ocrQualityMin?: number;
+    ocrQualityMax?: number;
+    extractionStatus?: string;
+    costMin?: number;
+    costMax?: number;
   }) => {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
@@ -199,6 +276,11 @@ export const manifestsApi = {
     if (filters?.humanVerified !== undefined) params.append('humanVerified', filters.humanVerified.toString());
     if (filters?.confidenceMin !== undefined) params.append('confidenceMin', filters.confidenceMin.toString());
     if (filters?.confidenceMax !== undefined) params.append('confidenceMax', filters.confidenceMax.toString());
+    if (filters?.ocrQualityMin !== undefined) params.append('ocrQualityMin', filters.ocrQualityMin.toString());
+    if (filters?.ocrQualityMax !== undefined) params.append('ocrQualityMax', filters.ocrQualityMax.toString());
+    if (filters?.extractionStatus) params.append('extractionStatus', filters.extractionStatus);
+    if (filters?.costMin !== undefined) params.append('costMin', filters.costMin.toString());
+    if (filters?.costMax !== undefined) params.append('costMax', filters.costMax.toString());
 
     const response = await apiClient.get<Blob>('/manifests/export/csv', {
       params,

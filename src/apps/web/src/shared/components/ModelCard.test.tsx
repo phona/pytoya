@@ -11,6 +11,11 @@ describe('ModelCard', () => {
     description: 'Production model',
     category: 'llm',
     parameters: { baseUrl: 'https://api.openai.com', apiKey: '********' },
+    pricing: {
+      effectiveDate: '2025-01-01T00:00:00.000Z',
+      llm: { inputPrice: 2.5, outputPrice: 10, currency: 'USD' },
+    },
+    pricingHistory: [],
     isActive: true,
     createdAt: '2025-01-13T00:00:00.000Z',
     updatedAt: '2025-01-13T00:00:00.000Z',

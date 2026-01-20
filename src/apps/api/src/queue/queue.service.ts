@@ -17,6 +17,8 @@ type ExtractionJobData = {
   llmModelId?: string;
   promptId?: number;
   fieldName?: string;
+  customPrompt?: string;
+  ocrContextSnippet?: string;
 };
 
 @Injectable()
@@ -36,11 +38,14 @@ export class QueueService {
     llmModelId?: string,
     promptId?: number,
     fieldName?: string,
+    customPrompt?: string,
+    ocrContextSnippet?: string,
+    estimatedCost?: number,
   ): Promise<string> {
     try {
       const job = await this.extractionQueue.add(
         PROCESS_MANIFEST_JOB,
-        { manifestId, llmModelId, promptId, fieldName },
+        { manifestId, llmModelId, promptId, fieldName, customPrompt, ocrContextSnippet },
         {
           attempts: 3,
           backoff: {
@@ -57,6 +62,7 @@ export class QueueService {
         String(job.id),
         llmModelId,
         promptId,
+        estimatedCost,
       );
       this.logger.log(
         `Queued extraction job ${job.id} for manifest ${manifestId}${
@@ -159,6 +165,8 @@ export class QueueService {
     });
 
     return jobs.map((job) => ({
+      estimatedCost: this.normalizeDecimal(job.estimatedCost),
+      actualCost: this.normalizeDecimal(job.actualCost),
       id: job.id,
       manifestId: job.manifestId,
       status: job.status,
@@ -187,6 +195,17 @@ export class QueueService {
       return progress;
     }
     return 0;
+  }
+
+  private normalizeDecimal(value: number | string | null | undefined): number | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : null;
+    }
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
   }
 
   private formatError(error: unknown): string {

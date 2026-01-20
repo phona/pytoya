@@ -261,6 +261,10 @@ describe('ValidationService', () => {
     department: 'IT',
     humanVerified: false,
     validationResults: null,
+    ocrResult: null,
+    ocrProcessedAt: null,
+    ocrQualityScore: null,
+    extractionCost: null,
     group: {
       id: 1,
       name: 'Test Group',

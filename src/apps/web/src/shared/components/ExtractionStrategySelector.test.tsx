@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ExtractionStrategySelector } from './ExtractionStrategySelector';
+import { ExtractionStrategy } from '@/api/schemas';
 
 describe('ExtractionStrategySelector', () => {
   it('renders all strategy options', () => {
@@ -59,7 +60,7 @@ describe('ExtractionStrategySelector', () => {
 
     await user.click(ocrFirstButton);
 
-    expect(onChange).toHaveBeenCalledWith('ocr-first');
+    expect(onChange).toHaveBeenCalledWith(ExtractionStrategy.OCR_FIRST);
   });
 
   it('disables all options when disabled prop is true', () => {
@@ -71,9 +72,9 @@ describe('ExtractionStrategySelector', () => {
       />
     );
 
-    const buttons = screen.getAllByRole('button');
+    const buttons = screen.getAllByRole('radio');
     buttons.forEach(button => {
-      expect(button).toBeDisabled();
+      expect(button).toHaveClass('pointer-events-none');
     });
   });
 
@@ -91,7 +92,7 @@ describe('ExtractionStrategySelector', () => {
   it('hides helper text when strategy is selected', () => {
     render(
       <ExtractionStrategySelector
-        value="ocr-first"
+        value={ExtractionStrategy.OCR_FIRST}
         onChange={vi.fn()}
       />
     );

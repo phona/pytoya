@@ -92,6 +92,24 @@ export class ManifestEntity {
   @Column({ type: 'jsonb', name: 'validation_results', nullable: true })
   validationResults!: ValidationResult | null;
 
+  @Column({ type: 'jsonb', name: 'ocr_result', nullable: true })
+  ocrResult!: Record<string, unknown> | null;
+
+  @Column({ type: 'timestamp', name: 'ocr_processed_at', nullable: true })
+  ocrProcessedAt!: Date | null;
+
+  @Column({ type: 'integer', name: 'ocr_quality_score', nullable: true })
+  ocrQualityScore!: number | null;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 4,
+    name: 'extraction_cost',
+    nullable: true,
+  })
+  extractionCost!: number | null;
+
   @ManyToOne(() => GroupEntity, (group) => group.manifests)
   @JoinColumn({ name: 'group_id' })
   group!: GroupEntity;

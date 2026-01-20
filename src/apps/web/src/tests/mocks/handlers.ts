@@ -4,9 +4,21 @@ interface ModelRequestBody {
   name?: string;
   adapterType?: string;
   description?: string | null;
+  category?: string | null;
   parameters?: Record<string, unknown>;
+  pricing?: Record<string, unknown>;
+  pricingHistory?: unknown[];
   isActive?: boolean;
 }
+
+const parseJsonBody = async (request: Request) => {
+  try {
+    const body = await request.json();
+    return body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+};
 
 export const handlers = [
   // Auth endpoints
@@ -106,6 +118,7 @@ export const handlers = [
           originalFilename: 'test.pdf',
           storagePath: '/uploads/test.pdf',
           fileSize: 12345,
+          fileType: 'pdf',
           status: 'completed',
           groupId: 1,
           extractedData: {
@@ -120,6 +133,11 @@ export const handlers = [
           invoiceDate: '2025-01-13',
           department: 'PROD',
           humanVerified: false,
+          validationResults: null,
+          ocrResult: null,
+          ocrProcessedAt: null,
+          ocrQualityScore: null,
+          extractionCost: null,
           createdAt: '2025-01-13T00:00:00.000Z',
           updatedAt: '2025-01-13T00:00:00.000Z',
         },
@@ -170,7 +188,7 @@ export const handlers = [
     return HttpResponse.json([]);
   }),
   http.post('/api/schemas/:schemaId/rules', async ({ request, params }) => {
-    const body = (await request.json()) as Record<string, unknown>;
+    const body = await parseJsonBody(request);
     return HttpResponse.json({
       id: 1,
       schemaId: Number(params.schemaId),
@@ -195,6 +213,11 @@ export const handlers = [
           temperature: 0.7,
           maxTokens: 4096,
         },
+        pricing: {
+          effectiveDate: '2025-01-13T00:00:00.000Z',
+          llm: { inputPrice: 0.15, outputPrice: 0.6, currency: 'USD' },
+        },
+        pricingHistory: [],
         isActive: true,
         createdAt: '2025-01-13T00:00:00.000Z',
         updatedAt: '2025-01-13T00:00:00.000Z',
@@ -228,26 +251,41 @@ export const handlers = [
     ]);
   }),
   http.post('/api/models', async ({ request }) => {
-    const body = (await request.json()) as ModelRequestBody;
+    const body = (await parseJsonBody(request)) as ModelRequestBody;
+    const category = body.category ?? (body.adapterType === 'paddlex' ? 'ocr' : 'llm');
+    const pricing = body.pricing ?? (category === 'ocr'
+      ? { effectiveDate: '2025-01-13T00:00:00.000Z', ocr: { pricePerPage: 0.001, currency: 'USD' } }
+      : { effectiveDate: '2025-01-13T00:00:00.000Z', llm: { inputPrice: 0.15, outputPrice: 0.6, currency: 'USD' } });
     return HttpResponse.json({
       id: '22222222-2222-2222-2222-222222222222',
-      ...body,
+      name: body.name ?? 'New Model',
+      adapterType: body.adapterType ?? 'openai',
       description: body.description ?? null,
-      category: body.adapterType === 'paddlex' ? 'ocr' : 'llm',
+      category,
+      parameters: body.parameters ?? {},
+      pricing,
+      pricingHistory: body.pricingHistory ?? [],
       isActive: body.isActive ?? true,
       createdAt: '2025-01-13T00:00:00.000Z',
       updatedAt: '2025-01-13T00:00:00.000Z',
     });
   }),
   http.patch('/api/models/:id', async ({ request, params }) => {
-    const body = (await request.json()) as ModelRequestBody;
+    const body = (await parseJsonBody(request)) as ModelRequestBody;
+    const adapterType = body.adapterType ?? 'openai';
+    const category = body.category ?? (adapterType === 'paddlex' ? 'ocr' : 'llm');
+    const pricing = body.pricing ?? (category === 'ocr'
+      ? { effectiveDate: '2025-01-13T00:00:00.000Z', ocr: { pricePerPage: 0.001, currency: 'USD' } }
+      : { effectiveDate: '2025-01-13T00:00:00.000Z', llm: { inputPrice: 0.15, outputPrice: 0.6, currency: 'USD' } });
     return HttpResponse.json({
       id: params.id,
       name: body.name ?? 'Updated Model',
-      adapterType: body.adapterType ?? 'openai',
+      adapterType,
       description: body.description ?? null,
-      category: (body.adapterType ?? 'openai') === 'paddlex' ? 'ocr' : 'llm',
+      category,
       parameters: body.parameters ?? {},
+      pricing,
+      pricingHistory: body.pricingHistory ?? [],
       isActive: body.isActive ?? true,
       createdAt: '2025-01-13T00:00:00.000Z',
       updatedAt: '2025-01-13T00:00:00.000Z',
@@ -282,7 +320,7 @@ export const handlers = [
     return HttpResponse.json({
       id: Number(params.id),
       name: 'Test Prompt',
-      type: 'invoice',
+      type: 'system',
       content: 'Test content {{field}}',
       variables: ['field'],
       createdAt: '2025-01-13T00:00:00.000Z',
@@ -291,26 +329,27 @@ export const handlers = [
   }),
 
   http.post('/api/prompts', async ({ request }) => {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
+    const type = typeof body.type === 'string' ? body.type : 'system';
     return HttpResponse.json({
       id: 2,
-      name: body.name || 'New Prompt',
-      type: body.type || 'invoice',
-      content: body.content || 'New content',
-      variables: body.variables || [],
+      name: typeof body.name === 'string' ? body.name : 'New Prompt',
+      type,
+      content: typeof body.content === 'string' ? body.content : 'New content',
+      variables: Array.isArray(body.variables) ? body.variables : [],
       createdAt: '2025-01-13T00:00:00.000Z',
       updatedAt: '2025-01-13T00:00:00.000Z',
     });
   }),
 
   http.patch('/api/prompts/:id', async ({ request, params }) => {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     return HttpResponse.json({
       id: Number(params.id),
-      name: body.name || 'Updated Prompt',
-      type: 'invoice',
-      content: body.content || 'Updated content',
-      variables: body.variables || [],
+      name: typeof body.name === 'string' ? body.name : 'Updated Prompt',
+      type: 'system',
+      content: typeof body.content === 'string' ? body.content : 'Updated content',
+      variables: Array.isArray(body.variables) ? body.variables : [],
       createdAt: '2025-01-13T00:00:00.000Z',
       updatedAt: '2025-01-13T00:00:00.000Z',
     });
@@ -322,9 +361,10 @@ export const handlers = [
 
   // Extraction endpoints
   http.post('/api/extraction/optimize-prompt', async ({ request }) => {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
+    const description = typeof body.description === 'string' ? body.description : '';
     return HttpResponse.json({
-      prompt: `Optimized: ${body.description}`,
+      prompt: `Optimized: ${description}`,
     });
   }),
 
@@ -383,9 +423,11 @@ export const handlers = [
       {
         id: 1,
         name: 'Test Script',
-        code: 'return true;',
-        language: 'javascript',
+        description: null,
         projectId: 1,
+        script: 'return true;',
+        severity: 'warning',
+        enabled: true,
         createdAt: '2025-01-13T00:00:00.000Z',
         updatedAt: '2025-01-13T00:00:00.000Z',
       },
@@ -396,29 +438,49 @@ export const handlers = [
     return HttpResponse.json({
       id: 1,
       name: 'Test Script',
-      code: 'return true;',
-      language: 'javascript',
+      description: null,
       projectId: 1,
+      script: 'return true;',
+      severity: 'warning',
+      enabled: true,
       createdAt: '2025-01-13T00:00:00.000Z',
       updatedAt: '2025-01-13T00:00:00.000Z',
     });
   }),
 
   http.post('/api/validation-scripts', async ({ request }) => {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
+    const projectId = typeof body.projectId === 'number'
+      ? body.projectId
+      : Number(body.projectId ?? 1);
     return HttpResponse.json({
       id: 1,
-      ...body,
+      name: typeof body.name === 'string' ? body.name : 'Test Script',
+      description: typeof body.description === 'string' ? body.description : null,
+      projectId,
+      script: typeof body.script === 'string' ? body.script : 'return true;',
+      severity: typeof body.severity === 'string' ? body.severity : 'warning',
+      enabled: typeof body.enabled === 'boolean' ? body.enabled : true,
       createdAt: '2025-01-13T00:00:00.000Z',
       updatedAt: '2025-01-13T00:00:00.000Z',
     });
   }),
 
   http.patch('/api/validation-scripts/:id', async ({ request, params }) => {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
+    const projectId = typeof body.projectId === 'number'
+      ? body.projectId
+      : body.projectId
+      ? Number(body.projectId)
+      : 1;
     return HttpResponse.json({
       id: Number(params.id),
-      ...body,
+      name: typeof body.name === 'string' ? body.name : 'Test Script',
+      description: typeof body.description === 'string' ? body.description : null,
+      projectId,
+      script: typeof body.script === 'string' ? body.script : 'return true;',
+      severity: typeof body.severity === 'string' ? body.severity : 'warning',
+      enabled: typeof body.enabled === 'boolean' ? body.enabled : true,
       updatedAt: '2025-01-13T00:00:00.000Z',
     });
   }),
@@ -427,24 +489,16 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  http.post('/api/validation-scripts/validate-syntax', async ({ request }) => {
-    const body = await request.json();
-    return HttpResponse.json({
-      valid: true,
-      errors: [],
-    });
+  http.post('/api/validation-scripts/validate-syntax', () => {
+    return HttpResponse.json({ valid: true });
   }),
 
-  http.post('/api/validation-scripts/generate', async ({ request }) => {
-    const body = await request.json();
+  http.post('/api/validation-scripts/generate', () => {
     return HttpResponse.json({
-      id: 1,
       name: 'Generated Script',
-      code: 'return true;',
-      language: 'javascript',
-      ...body,
-      createdAt: '2025-01-13T00:00:00.000Z',
-      updatedAt: '2025-01-13T00:00:00.000Z',
+      description: 'Generated validation script',
+      severity: 'warning',
+      script: 'return true;',
     });
   }),
 
@@ -454,9 +508,11 @@ export const handlers = [
       {
         id: 1,
         name: 'Test Script',
-        code: 'return true;',
-        language: 'javascript',
+        description: null,
         projectId: 1,
+        script: 'return true;',
+        severity: 'warning',
+        enabled: true,
         createdAt: '2025-01-13T00:00:00.000Z',
         updatedAt: '2025-01-13T00:00:00.000Z',
       },
@@ -467,9 +523,11 @@ export const handlers = [
     return HttpResponse.json({
       id: 1,
       name: 'Test Script',
-      code: 'return true;',
-      language: 'javascript',
+      description: null,
       projectId: 1,
+      script: 'return true;',
+      severity: 'warning',
+      enabled: true,
       createdAt: '2025-01-13T00:00:00.000Z',
       updatedAt: '2025-01-13T00:00:00.000Z',
     });
@@ -480,42 +538,52 @@ export const handlers = [
   }),
 
   http.post('/api/validation/scripts', async ({ request }) => {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
+    const projectId = typeof body.projectId === 'number'
+      ? body.projectId
+      : Number(body.projectId ?? 1);
     return HttpResponse.json({
       id: 1,
-      ...body,
+      name: typeof body.name === 'string' ? body.name : 'Test Script',
+      description: typeof body.description === 'string' ? body.description : null,
+      projectId,
+      script: typeof body.script === 'string' ? body.script : 'return true;',
+      severity: typeof body.severity === 'string' ? body.severity : 'warning',
+      enabled: typeof body.enabled === 'boolean' ? body.enabled : true,
       createdAt: '2025-01-13T00:00:00.000Z',
       updatedAt: '2025-01-13T00:00:00.000Z',
     });
   }),
 
   // Specific routes must come before :id parameterized routes to avoid matching issues
-  http.post('/api/validation/scripts/validate-syntax', async ({ request }) => {
-    const body = await request.json();
-    return HttpResponse.json({
-      valid: true,
-      errors: [],
-    });
+  http.post('/api/validation/scripts/validate-syntax', () => {
+    return HttpResponse.json({ valid: true });
   }),
 
-  http.post('/api/validation/scripts/generate', async ({ request }) => {
-    const body = await request.json();
+  http.post('/api/validation/scripts/generate', () => {
     return HttpResponse.json({
-      id: 1,
       name: 'Generated Script',
-      code: 'return true;',
-      language: 'javascript',
-      ...body,
-      createdAt: '2025-01-13T00:00:00.000Z',
-      updatedAt: '2025-01-13T00:00:00.000Z',
+      description: 'Generated validation script',
+      severity: 'warning',
+      script: 'return true;',
     });
   }),
 
   http.post('/api/validation/scripts/:id', async ({ request, params }) => {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
+    const projectId = typeof body.projectId === 'number'
+      ? body.projectId
+      : body.projectId
+      ? Number(body.projectId)
+      : 1;
     return HttpResponse.json({
       id: Number(params.id),
-      ...body,
+      name: typeof body.name === 'string' ? body.name : 'Test Script',
+      description: typeof body.description === 'string' ? body.description : null,
+      projectId,
+      script: typeof body.script === 'string' ? body.script : 'return true;',
+      severity: typeof body.severity === 'string' ? body.severity : 'warning',
+      enabled: typeof body.enabled === 'boolean' ? body.enabled : true,
       updatedAt: '2025-01-13T00:00:00.000Z',
     });
   }),
@@ -524,18 +592,29 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  http.post('/api/validation/run', async () => {
+  http.post('/api/validation/run', () => {
     return HttpResponse.json({
-      valid: true,
-      errors: [],
-      warnings: [],
+      issues: [],
+      errorCount: 0,
+      warningCount: 0,
+      validatedAt: '2025-01-13T00:00:00.000Z',
     });
   }),
 
-  http.post('/api/validation/batch', async () => {
+  http.post('/api/validation/batch', () => {
     return HttpResponse.json({
-      1: { errorCount: 0, warningCount: 1 },
-      2: { errorCount: 1, warningCount: 0 },
+      1: {
+        issues: [],
+        errorCount: 0,
+        warningCount: 1,
+        validatedAt: '2025-01-13T00:00:00.000Z',
+      },
+      2: {
+        issues: [],
+        errorCount: 1,
+        warningCount: 0,
+        validatedAt: '2025-01-13T00:00:00.000Z',
+      },
     });
   }),
 
@@ -543,9 +622,11 @@ export const handlers = [
   http.get('/api/manifests/:id', () => {
     return HttpResponse.json({
       id: 1,
+      filename: 'manifest_0000001.pdf',
       originalFilename: 'test.pdf',
       storagePath: '/uploads/test.pdf',
       fileSize: 12345,
+      fileType: 'pdf',
       status: 'completed',
       groupId: 1,
       extractedData: { field: 'value' },
@@ -554,6 +635,11 @@ export const handlers = [
       invoiceDate: '2025-01-13',
       department: 'PROD',
       humanVerified: false,
+      validationResults: null,
+      ocrResult: null,
+      ocrProcessedAt: null,
+      ocrQualityScore: null,
+      extractionCost: null,
       createdAt: '2025-01-13T00:00:00.000Z',
       updatedAt: '2025-01-13T00:00:00.000Z',
     });
@@ -572,7 +658,7 @@ export const handlers = [
   }),
 
   http.patch('/api/manifests/:id', async ({ request, params }) => {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     return HttpResponse.json({
       id: Number(params.id),
       ...body,
@@ -585,7 +671,7 @@ export const handlers = [
   }),
 
   http.post('/api/manifests/:id/re-extract', () => {
-    return HttpResponse.json({ success: true });
+    return HttpResponse.json({ jobId: 'test-job-id' });
   }),
 
   http.post('/api/manifests/:id/extract', () => {
@@ -596,7 +682,3 @@ export const handlers = [
     return HttpResponse.json({ success: true });
   }),
 ];
-
-
-
-

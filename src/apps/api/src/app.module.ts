@@ -26,6 +26,7 @@ import { SchemasModule } from './schemas/schemas.module';
 import { StorageModule } from './storage/storage.module';
 import { ValidationModule } from './validation/validation.module';
 import { WebSocketModule } from './websocket/websocket.module';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { WebSocketModule } from './websocket/websocket.module';
     JobsModule,
     LlmModule,
     ManifestsModule,
+    MetricsModule,
     OcrModule,
     PdfToImageModule,
     PromptsModule,

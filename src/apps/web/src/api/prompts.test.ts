@@ -3,10 +3,12 @@ import { promptsApi, type Prompt, type CreatePromptDto, type UpdatePromptDto } f
 import { server } from '../tests/mocks/server';
 import { http, HttpResponse } from 'msw';
 
+const promptType = 'system' as Prompt['type'];
+
 const mockPrompt: Prompt = {
   id: 1,
   name: 'Test Prompt',
-  type: 'invoice',
+  type: promptType,
   content: 'Test content with {{variable}}',
   variables: ['variable'],
   createdAt: '2024-01-01T00:00:00Z',
@@ -59,7 +61,7 @@ describe('promptsApi', () => {
       expect(result).toEqual({
         id: 1,
         name: 'Test Prompt',
-        type: 'invoice',
+        type: promptType,
         content: 'Test content {{field}}',
         variables: ['field'],
         createdAt: '2025-01-13T00:00:00.000Z',
@@ -76,7 +78,7 @@ describe('promptsApi', () => {
     it('should create new prompt', async () => {
       const createDto: CreatePromptDto = {
         name: 'New Prompt',
-        type: 'invoice',
+        type: promptType,
         content: 'New content {{var}}',
       };
 
@@ -85,7 +87,7 @@ describe('promptsApi', () => {
       expect(result).toEqual({
         id: 2,
         name: 'New Prompt',
-        type: 'invoice',
+        type: promptType,
         content: 'New content {{var}}',
         variables: [],
         createdAt: '2025-01-13T00:00:00.000Z',
@@ -105,7 +107,7 @@ describe('promptsApi', () => {
       expect(result).toEqual({
         id: 1,
         name: 'Updated Prompt',
-        type: 'invoice',
+        type: promptType,
         content: 'Updated content',
         variables: [],
         createdAt: '2025-01-13T00:00:00.000Z',

@@ -107,7 +107,7 @@ describe('ExtractionProgress', () => {
     });
     render(<ExtractionProgress data={data} />);
 
-    expect(screen.getByText('OCR engine failed')).toBeInTheDocument();
+    expect(screen.getAllByText('OCR engine failed').length).toBeGreaterThan(0);
   });
 
   it('displays overall error when no stage errors', () => {
@@ -119,7 +119,7 @@ describe('ExtractionProgress', () => {
     });
     render(<ExtractionProgress data={data} />);
 
-    expect(screen.getByText('Extraction failed: Invalid document format')).toBeInTheDocument();
+    expect(screen.getAllByText('Extraction failed: Invalid document format').length).toBeGreaterThan(0);
   });
 
   it('displays strategy-specific info messages', () => {
@@ -136,6 +136,7 @@ describe('ExtractionProgress', () => {
 
   it('displays stage status badges', () => {
     const data = createMockData({
+      strategy: 'two-stage',
       stages: [
         { name: 'Completed Stage', progress: 100, status: 'completed' },
         { name: 'Processing Stage', progress: 50, status: 'processing' },

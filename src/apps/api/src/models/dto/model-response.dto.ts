@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { adapterRegistry } from '../adapters/adapter-registry';
 import { AdapterSchema } from '../adapters/adapter.interface';
 import { ModelEntity } from '../../entities/model.entity';
+import { ModelPricing, ModelPricingHistoryEntry } from '../../entities/model-pricing.types';
 
 export class ModelResponseDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
@@ -16,6 +17,10 @@ export class ModelResponseDto {
   category!: string | null;
   @ApiProperty({ type: 'object', additionalProperties: true })
   parameters!: Record<string, unknown>;
+  @ApiProperty({ type: 'object', additionalProperties: true })
+  pricing!: ModelPricing;
+  @ApiProperty({ type: 'array', required: false })
+  pricingHistory!: ModelPricingHistoryEntry[];
   @ApiProperty({ example: true })
   isActive!: boolean;
   @ApiProperty({ example: '2025-01-15T10:00:00.000Z' })
@@ -33,6 +38,8 @@ export class ModelResponseDto {
       description: model.description ?? null,
       category: schema?.category ?? null,
       parameters: maskedParameters,
+      pricing: model.pricing,
+      pricingHistory: model.pricingHistory ?? [],
       isActive: model.isActive,
       createdAt: model.createdAt,
       updatedAt: model.updatedAt,

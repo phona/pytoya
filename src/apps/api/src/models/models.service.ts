@@ -7,12 +7,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Repository } from 'typeorm';
 
 import { ModelEntity } from '../entities/model.entity';
+import { ModelPricing, ModelPricingHistoryEntry } from '../entities/model-pricing.types';
 import { LlmService } from '../llm/llm.service';
 import { OcrService } from '../ocr/ocr.service';
 import { adapterRegistry } from './adapters/adapter-registry';
 import { AdapterCategory } from './adapters/adapter.interface';
 import { CreateModelDto } from './dto/create-model.dto';
 import { UpdateModelDto } from './dto/update-model.dto';
+import { ModelPricingDto } from './dto/update-model-pricing.dto';
 
 type ModelFilters = {
   category?: AdapterCategory;
@@ -38,6 +40,13 @@ export class ModelsService {
       description: input.description ?? null,
       isActive: input.isActive ?? true,
     });
+    const seededPricing = this.getDefaultPricingForModel(model);
+    if (seededPricing) {
+      model.pricing = {
+        ...seededPricing,
+        effectiveDate: new Date().toISOString(),
+      } satisfies ModelPricing;
+    }
     return this.modelRepository.save(model);
   }
 
@@ -98,6 +107,75 @@ export class ModelsService {
     });
 
     return this.modelRepository.save(model);
+  }
+
+  async updatePricing(
+    id: string,
+    pricing: ModelPricingDto,
+  ): Promise<ModelEntity> {
+    const model = await this.findOne(id);
+    this.ensurePricingPayload(pricing);
+    this.ensurePricingCategory(model, pricing);
+
+    const now = new Date().toISOString();
+    const nextPricing = this.mergePricing(model.pricing, pricing, now);
+    const history = this.appendPricingHistory(
+      model.pricing,
+      model.pricingHistory,
+      now,
+    );
+
+    Object.assign(model, {
+      pricing: nextPricing,
+      pricingHistory: history,
+    });
+
+    return this.modelRepository.save(model);
+  }
+
+  async seedDefaultPricing(): Promise<{
+    updated: number;
+    skipped: number;
+  }> {
+    const models = await this.modelRepository.find();
+    let updated = 0;
+    let skipped = 0;
+    const updatedModels: ModelEntity[] = [];
+
+    for (const model of models) {
+      const next = this.getDefaultPricingForModel(model);
+      if (!next) {
+        skipped += 1;
+        continue;
+      }
+
+      const hasPricing = this.hasMeaningfulPricing(model.pricing);
+      if (hasPricing) {
+        skipped += 1;
+        continue;
+      }
+
+      const now = new Date().toISOString();
+      const previousPricing = model.pricing;
+      const previousHistory = model.pricingHistory;
+      model.pricingHistory = this.appendPricingHistory(
+        previousPricing,
+        previousHistory,
+        now,
+      );
+      model.pricing = {
+        ...next,
+        effectiveDate: now,
+      } satisfies ModelPricing;
+      updated += 1;
+      updatedModels.push(model);
+    }
+
+    if (updatedModels.length > 0) {
+      await this.modelRepository.save(updatedModels);
+    }
+
+    return { updated, skipped };
   }
 
   async remove(id: string): Promise<ModelEntity> {
@@ -179,6 +257,138 @@ export class ModelsService {
         result.errors.join('; ') || 'Invalid adapter parameters',
       );
     }
+  }
+
+  private ensurePricingPayload(pricing: ModelPricingDto): void {
+    if (!pricing.ocr && !pricing.llm) {
+      throw new BadRequestException('Pricing must include OCR or LLM rates');
+    }
+  }
+
+  private ensurePricingCategory(
+    model: ModelEntity,
+    pricing: ModelPricingDto,
+  ): void {
+    const schema = adapterRegistry.getSchema(model.adapterType);
+    const category = schema?.category;
+    if (category === 'ocr' && pricing.llm) {
+      throw new BadRequestException('OCR models cannot accept LLM pricing');
+    }
+    if (category === 'llm' && pricing.ocr) {
+      throw new BadRequestException('LLM models cannot accept OCR pricing');
+    }
+  }
+
+  private mergePricing(
+    current: ModelPricing,
+    next: ModelPricingDto,
+    effectiveDate: string,
+  ): ModelPricing {
+    return {
+      effectiveDate,
+      ocr: next.ocr ? { ...current.ocr, ...next.ocr } : current.ocr,
+      llm: next.llm ? { ...current.llm, ...next.llm } : current.llm,
+    };
+  }
+
+  private appendPricingHistory(
+    pricing: ModelPricing | undefined,
+    pricingHistory: ModelPricingHistoryEntry[] | undefined,
+    endDate: string,
+  ): ModelPricingHistoryEntry[] {
+    const history = Array.isArray(pricingHistory)
+      ? [...pricingHistory]
+      : [];
+    if (!pricing || !this.hasMeaningfulPricing(pricing)) {
+      return history;
+    }
+    history.push({
+      ...pricing,
+      endDate,
+    });
+    return history;
+  }
+
+  private hasMeaningfulPricing(pricing: ModelPricing | undefined): boolean {
+    if (!pricing) {
+      return false;
+    }
+    const ocr = pricing.ocr?.pricePerPage ?? 0;
+    const llmInput = pricing.llm?.inputPrice ?? 0;
+    const llmOutput = pricing.llm?.outputPrice ?? 0;
+    return ocr > 0 || llmInput > 0 || llmOutput > 0;
+  }
+
+  private getDefaultPricingForModel(model: ModelEntity): ModelPricing | null {
+    const name = model.name.toLowerCase();
+    const adapterType = model.adapterType.toLowerCase();
+
+    if (adapterType === 'paddlex' || name.includes('paddleocr')) {
+      return {
+        effectiveDate: new Date().toISOString(),
+        ocr: {
+          pricePerPage: 0.001,
+          currency: 'USD',
+        },
+      };
+    }
+
+    if (name.includes('gpt-4o-mini')) {
+      return {
+        effectiveDate: new Date().toISOString(),
+        llm: {
+          inputPrice: 0.15,
+          outputPrice: 0.6,
+          currency: 'USD',
+        },
+      };
+    }
+
+    if (name.includes('gpt-4o')) {
+      return {
+        effectiveDate: new Date().toISOString(),
+        llm: {
+          inputPrice: 2.5,
+          outputPrice: 10.0,
+          currency: 'USD',
+        },
+      };
+    }
+
+    if (name.includes('claude') && name.includes('3.5')) {
+      return {
+        effectiveDate: new Date().toISOString(),
+        llm: {
+          inputPrice: 3.0,
+          outputPrice: 15.0,
+          currency: 'USD',
+        },
+      };
+    }
+
+    if (name.includes('qwen')) {
+      return {
+        effectiveDate: new Date().toISOString(),
+        llm: {
+          inputPrice: 0.1,
+          outputPrice: 0.1,
+          currency: 'USD',
+        },
+      };
+    }
+
+    if (name.includes('local') || name.includes('llama')) {
+      return {
+        effectiveDate: new Date().toISOString(),
+        llm: {
+          inputPrice: 0,
+          outputPrice: 0,
+          currency: 'USD',
+        },
+      };
+    }
+
+    return null;
   }
 
   private getStringParam(

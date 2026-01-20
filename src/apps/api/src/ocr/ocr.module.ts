@@ -1,9 +1,12 @@
 import { HttpModule, HttpService } from '@nestjs/axios';
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { OCR_AXIOS_INSTANCE } from './ocr.constants';
 import { OcrService } from './ocr.service';
+import { OcrCacheService } from './ocr-cache.service';
+import { ManifestEntity } from '../entities/manifest.entity';
 
 const DEFAULT_BASE_URL = 'http://localhost:8080';
 const DEFAULT_TIMEOUT_MS = 120000;
@@ -12,6 +15,7 @@ const DEFAULT_TIMEOUT_MS = 120000;
 @Module({
   imports: [
     ConfigModule,
+    TypeOrmModule.forFeature([ManifestEntity]),
     HttpModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -33,6 +37,7 @@ const DEFAULT_TIMEOUT_MS = 120000;
   ],
   providers: [
     OcrService,
+    OcrCacheService,
     {
       provide: OCR_AXIOS_INSTANCE,
       useFactory: (httpService: HttpService) =>
@@ -40,7 +45,7 @@ const DEFAULT_TIMEOUT_MS = 120000;
       inject: [HttpService],
     },
   ],
-  exports: [OcrService],
+  exports: [OcrService, OcrCacheService],
 })
 export class OcrModule {}
 

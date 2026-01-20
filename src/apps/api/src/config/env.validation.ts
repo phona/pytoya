@@ -68,6 +68,11 @@ class LlmConfig {
   apiKey!: string;
 }
 
+class FeaturesConfig {
+  @IsBoolean()
+  manualExtraction!: boolean;
+}
+
 class ServerConfig {
   @IsOptional()
   @IsInt()
@@ -225,6 +230,10 @@ export class AppConfig {
   @ValidateNested()
   @Type(() => LlmConfig)
   llm!: LlmConfig;
+
+  @ValidateNested()
+  @Type(() => FeaturesConfig)
+  features!: FeaturesConfig;
 
   @ValidateNested()
   @Type(() => SecurityConfig)

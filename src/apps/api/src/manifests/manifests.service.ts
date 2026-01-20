@@ -1,16 +1,21 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 
 import { JobEntity, JobStatus } from '../entities/job.entity';
 import { ManifestEntity, ManifestStatus, FileType } from '../entities/manifest.entity';
-import { UserEntity } from '../entities/user.entity';
+import { ModelEntity } from '../entities/model.entity';
+import { UserEntity, UserRole } from '../entities/user.entity';
 import { GroupsService } from '../groups/groups.service';
+import { OcrService } from '../ocr/ocr.service';
+import { buildCachedOcrResult, calculateOcrQualityScore } from '../ocr/ocr-cache.util';
+import { IFileAccessService } from '../file-access/file-access.service';
 import { ProjectOwnershipException } from '../projects/exceptions/project-ownership.exception';
 import { FileNotFoundException } from '../storage/exceptions/file-not-found.exception';
 import { FileTooLargeException } from '../storage/exceptions/file-too-large.exception';
 import { InvalidFileTypeException } from '../storage/exceptions/invalid-file-type.exception';
 import { StorageService } from '../storage/storage.service';
+import { WebSocketService } from '../websocket/websocket.service';
 import { UpdateManifestDto } from './dto/update-manifest.dto';
 import { ManifestNotFoundException } from './exceptions/manifest-not-found.exception';
 import { detectFileType } from './interceptors/pdf-file.interceptor';
@@ -19,6 +24,8 @@ import {
   assertValidJsonPath,
   buildJsonPathQuery,
 } from './utils/json-path.util';
+import { OcrResultDto } from './dto/ocr-result.dto';
+import { OcrContextPreviewDto } from './dto/re-extract-field-preview.dto';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const DEFAULT_PAGE_SIZE = 25;
@@ -48,13 +55,21 @@ export type ManifestListResult = {
 
 @Injectable()
 export class ManifestsService {
+  private readonly logger = new Logger(ManifestsService.name);
+
   constructor(
     @InjectRepository(ManifestEntity)
     private readonly manifestRepository: Repository<ManifestEntity>,
     @InjectRepository(JobEntity)
     private readonly jobRepository: Repository<JobEntity>,
+    @InjectRepository(ModelEntity)
+    private readonly modelRepository: Repository<ModelEntity>,
     private readonly groupsService: GroupsService,
     private readonly storageService: StorageService,
+    private readonly ocrService: OcrService,
+    private readonly webSocketService: WebSocketService,
+    @Inject('IFileAccessService')
+    private readonly fileSystem: IFileAccessService,
   ) {}
 
   async create(
@@ -152,6 +167,38 @@ export class ManifestsService {
     return manifest;
   }
 
+  async findManyByIds(
+    user: UserEntity,
+    ids: number[],
+  ): Promise<ManifestEntity[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const manifests = await this.manifestRepository
+      .createQueryBuilder('manifest')
+      .leftJoinAndSelect('manifest.group', 'group')
+      .leftJoinAndSelect('group.project', 'project')
+      .where('manifest.id IN (:...ids)', { ids })
+      .getMany();
+
+    const foundIds = new Set(manifests.map((manifest) => manifest.id));
+    const missing = ids.filter((id) => !foundIds.has(id));
+    if (missing.length > 0) {
+      throw new ManifestNotFoundException(missing[0]);
+    }
+
+    if (user.role !== UserRole.ADMIN) {
+      for (const manifest of manifests) {
+        if (manifest.group.project.ownerId !== user.id) {
+          throw new ProjectOwnershipException(manifest.group.projectId);
+        }
+      }
+    }
+
+    return manifests;
+  }
+
   async update(
     user: UserEntity,
     id: number,
@@ -201,11 +248,166 @@ export class ManifestsService {
     return this.manifestRepository.save(manifest);
   }
 
+  async getOcrResult(
+    user: UserEntity,
+    id: number,
+  ): Promise<OcrResultDto | null> {
+    const manifest = await this.findOne(user, id);
+    return (manifest.ocrResult as OcrResultDto | null) ?? null;
+  }
+
+  async processOcrForManifest(
+    manifest: ManifestEntity,
+    options: { force?: boolean; ocrModelId?: string } = {},
+  ): Promise<OcrResultDto> {
+    if (manifest.ocrResult && !options.force) {
+      return manifest.ocrResult as unknown as OcrResultDto;
+    }
+
+    const ocrModel = options.ocrModelId
+      ? await this.modelRepository.findOne({
+          where: { id: options.ocrModelId },
+        })
+      : manifest.group?.project?.ocrModelId
+        ? await this.modelRepository.findOne({
+            where: { id: manifest.group.project.ocrModelId },
+          })
+        : null;
+
+    if (options.ocrModelId && !ocrModel) {
+      throw new NotFoundException(
+        `OCR model ${options.ocrModelId} not found`,
+      );
+    }
+
+    const fileBuffer = await this.fileSystem.readFile(manifest.storagePath);
+    const overrides = this.buildOcrOverrides(ocrModel ?? undefined);
+    const start = Date.now();
+    const response = await this.ocrService.processPdf(
+      fileBuffer,
+      overrides,
+    );
+    const processingTimeMs = Date.now() - start;
+    const cachedResult = buildCachedOcrResult(
+      response,
+      processingTimeMs,
+      ocrModel ?? undefined,
+    );
+    const qualityScore = calculateOcrQualityScore(cachedResult);
+
+    manifest.ocrResult = cachedResult as unknown as Record<string, unknown>;
+    manifest.ocrProcessedAt = new Date(
+      cachedResult.metadata?.processedAt ?? new Date().toISOString(),
+    );
+    manifest.ocrQualityScore = qualityScore;
+
+    await this.manifestRepository.save(manifest);
+    this.webSocketService.emitOcrUpdate({
+      manifestId: manifest.id,
+      hasOcr: true,
+      qualityScore: manifest.ocrQualityScore ?? null,
+      processedAt: manifest.ocrProcessedAt ?? null,
+    });
+    return cachedResult;
+  }
+
+  buildOcrContextPreview(
+    manifest: ManifestEntity,
+    fieldName: string,
+  ): OcrContextPreviewDto | undefined {
+    const ocrResult = manifest.ocrResult as OcrResultDto | null;
+    if (!ocrResult || !Array.isArray(ocrResult.pages)) {
+      return undefined;
+    }
+
+    const rawField = fieldName.split('.').pop() ?? fieldName;
+    const normalizedField = rawField.replace(/_/g, ' ').toLowerCase();
+    const candidates = [normalizedField, rawField.toLowerCase()];
+
+    for (const page of ocrResult.pages) {
+      const text = page.text ?? '';
+      const lower = text.toLowerCase();
+      const matchIndex = candidates
+        .map((term) => lower.indexOf(term))
+        .find((index) => index >= 0);
+
+      if (matchIndex !== undefined && matchIndex >= 0) {
+        const start = Math.max(0, matchIndex - 120);
+        const end = Math.min(text.length, matchIndex + 180);
+        return {
+          fieldName,
+          snippet: text.slice(start, end).trim(),
+          pageNumber: page.pageNumber,
+          confidence: page.confidence,
+        };
+      }
+    }
+
+    const fallbackText = ocrResult.pages
+      .map((page) => page.text ?? '')
+      .join('\n')
+      .trim();
+
+    if (!fallbackText) {
+      return undefined;
+    }
+
+    return {
+      fieldName,
+      snippet: fallbackText.slice(0, 300),
+      pageNumber: ocrResult.pages[0]?.pageNumber,
+      confidence: ocrResult.pages[0]?.confidence,
+    };
+  }
+
+  async backfillOcrResults(options?: {
+    limit?: number;
+    concurrency?: number;
+  }): Promise<{ processed: number; skipped: number }> {
+    const limit = Math.min(options?.limit ?? 25, 200);
+    const concurrency = Math.max(1, options?.concurrency ?? 2);
+
+    const manifests = await this.manifestRepository
+      .createQueryBuilder('manifest')
+      .leftJoinAndSelect('manifest.group', 'group')
+      .leftJoinAndSelect('group.project', 'project')
+      .where('manifest.extractedData IS NOT NULL')
+      .andWhere('manifest.ocrResult IS NULL')
+      .take(limit)
+      .getMany();
+
+    let processed = 0;
+    let skipped = 0;
+    const queue = [...manifests];
+
+    const workers = Array.from({ length: concurrency }).map(async () => {
+      while (queue.length > 0) {
+        const target = queue.shift();
+        if (!target) {
+          return;
+        }
+        try {
+          await this.processOcrForManifest(target, { force: true });
+          processed += 1;
+        } catch (error) {
+          skipped += 1;
+          this.logger.warn(
+            `Failed to backfill OCR for manifest ${target.id}: ${this.formatError(error)}`,
+          );
+        }
+      }
+    });
+
+    await Promise.all(workers);
+    return { processed, skipped };
+  }
+
   async createJob(
     manifestId: number,
     queueJobId: string,
     llmModelId?: string,
     promptId?: number,
+    estimatedCost?: number,
   ): Promise<JobEntity> {
     await this.findById(manifestId);
     const job = this.jobRepository.create({
@@ -215,6 +417,7 @@ export class ManifestsService {
       llmModelId: llmModelId ?? null,
       promptId: promptId ?? null,
       progress: 0,
+      estimatedCost: estimatedCost ?? null,
     });
 
     return this.jobRepository.save(job);
@@ -250,6 +453,7 @@ export class ManifestsService {
     queueJobId: string,
     _result?: unknown,
     attemptCount?: number,
+    actualCost?: number,
   ): Promise<JobEntity | null> {
     const job = await this.jobRepository.findOne({
       where: { queueJobId },
@@ -262,6 +466,9 @@ export class ManifestsService {
     job.progress = 100;
     job.completedAt = new Date();
     job.error = null;
+    if (actualCost !== undefined) {
+      job.actualCost = actualCost;
+    }
     if (!job.startedAt) {
       job.startedAt = new Date();
     }
@@ -335,6 +542,45 @@ export class ManifestsService {
     return String(error);
   }
 
+  private buildOcrOverrides(
+    ocrModel?: ModelEntity,
+  ): {
+    baseUrl?: string;
+    apiKey?: string;
+    timeoutMs?: number;
+    maxRetries?: number;
+  } | undefined {
+    if (!ocrModel) {
+      return undefined;
+    }
+
+    const parameters = ocrModel.parameters ?? {};
+    return {
+      baseUrl: this.getStringParam(parameters, 'baseUrl'),
+      apiKey: this.getStringParam(parameters, 'apiKey'),
+      timeoutMs: this.getNumberParam(parameters, 'timeout'),
+      maxRetries: this.getNumberParam(parameters, 'maxRetries'),
+    };
+  }
+
+  private getStringParam(
+    parameters: Record<string, unknown>,
+    key: string,
+  ): string | undefined {
+    const value = parameters[key];
+    return typeof value === 'string' ? value : undefined;
+  }
+
+  private getNumberParam(
+    parameters: Record<string, unknown>,
+    key: string,
+  ): number | undefined {
+    const value = parameters[key];
+    return typeof value === 'number' && Number.isFinite(value)
+      ? value
+      : undefined;
+  }
+
   private applyStandardFilters(
     query: SelectQueryBuilder<ManifestEntity>,
     filters: DynamicFieldFiltersDto,
@@ -385,6 +631,83 @@ export class ManifestsService {
       query.andWhere('manifest.confidence <= :confidenceMax', {
         confidenceMax: filters.confidenceMax,
       });
+    }
+
+    const ocrQualityMin = filters.ocrQualityMin;
+    const ocrQualityMax = filters.ocrQualityMax;
+    const wantsUnprocessed =
+      ocrQualityMin === 0 &&
+      ocrQualityMax === 0 &&
+      ocrQualityMin !== undefined &&
+      ocrQualityMax !== undefined;
+
+    if (wantsUnprocessed) {
+      query.andWhere(
+        '(manifest.ocrQualityScore IS NULL OR manifest.ocrQualityScore = 0)',
+      );
+    } else {
+      if (ocrQualityMin !== undefined) {
+        query.andWhere('manifest.ocrQualityScore >= :ocrQualityMin', {
+          ocrQualityMin,
+        });
+      }
+
+      if (ocrQualityMax !== undefined) {
+        query.andWhere('manifest.ocrQualityScore <= :ocrQualityMax', {
+          ocrQualityMax,
+        });
+      }
+    }
+
+    if (filters.costMin !== undefined) {
+      query.andWhere('manifest.extractionCost >= :costMin', {
+        costMin: filters.costMin,
+      });
+    }
+
+    if (filters.costMax !== undefined) {
+      query.andWhere('manifest.extractionCost <= :costMax', {
+        costMax: filters.costMax,
+      });
+    }
+
+    if (filters.extractionStatus) {
+      const errorCountExpr =
+        "COALESCE((manifest.validationResults ->> 'errorCount')::int, 0)";
+      switch (filters.extractionStatus) {
+        case 'not_extracted':
+          query.andWhere('manifest.extractedData IS NULL');
+          query.andWhere('manifest.status = :statusPending', {
+            statusPending: ManifestStatus.PENDING,
+          });
+          break;
+        case 'extracting':
+          query.andWhere('manifest.status = :statusProcessing', {
+            statusProcessing: ManifestStatus.PROCESSING,
+          });
+          break;
+        case 'failed':
+          query.andWhere('manifest.status = :statusFailed', {
+            statusFailed: ManifestStatus.FAILED,
+          });
+          break;
+        case 'complete':
+          query.andWhere('manifest.status = :statusCompleted', {
+            statusCompleted: ManifestStatus.COMPLETED,
+          });
+          query.andWhere('manifest.extractedData IS NOT NULL');
+          query.andWhere(`${errorCountExpr} = 0`);
+          break;
+        case 'partial':
+          query.andWhere('manifest.status = :statusCompleted', {
+            statusCompleted: ManifestStatus.COMPLETED,
+          });
+          query.andWhere('manifest.extractedData IS NOT NULL');
+          query.andWhere(`${errorCountExpr} > 0`);
+          break;
+        default:
+          break;
+      }
     }
   }
 

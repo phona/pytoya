@@ -20,6 +20,8 @@ import { LlmResponseFormat } from '../llm/llm.types';
 import { LlmService } from '../llm/llm.service';
 import { LlmChatMessage, LlmProviderConfig } from '../llm/llm.types';
 import { OcrService } from '../ocr/ocr.service';
+import { OcrResponse } from '../ocr/types/ocr.types';
+import { buildCachedOcrResult, calculateOcrQualityScore } from '../ocr/ocr-cache.util';
 import { PdfToImageService, ConvertedPage } from '../pdf-to-image/pdf-to-image.service';
 import { PromptBuilderService } from '../prompts/prompt-builder.service';
 import { PromptsService } from '../prompts/prompts.service';
@@ -28,6 +30,8 @@ import { SchemasService } from '../schemas/schemas.service';
 import { IFileAccessService } from '../file-access/file-access.service';
 import { ExtractedData } from '../prompts/types/prompts.types';
 import { adapterRegistry } from '../models/adapters/adapter-registry';
+import { ModelPricingService } from '../models/model-pricing.service';
+import { OcrResultDto } from '../manifests/dto/ocr-result.dto';
 import {
   ExtractionStateResult,
   ExtractionStatus,
@@ -46,6 +50,8 @@ type ExtractionOptions = {
   systemPromptOverride?: string;
   reExtractPromptOverride?: string;
   fieldName?: string;
+  customPrompt?: string;
+  ocrContextSnippet?: string;
 };
 
 const DEFAULT_REQUIRED_FIELDS = [
@@ -74,6 +80,7 @@ export class ExtractionService {
     private readonly promptsService: PromptsService,
     private readonly schemaRulesService: SchemaRulesService,
     private readonly schemasService: SchemasService,
+    private readonly modelPricingService: ModelPricingService,
     private readonly configService: ConfigService,
     @Inject('IFileAccessService')
     private readonly fileSystem: IFileAccessService,
@@ -371,9 +378,18 @@ export class ExtractionService {
         state.strategy === ExtractionStrategy.VISION_FIRST ||
         state.strategy === ExtractionStrategy.TWO_STAGE
       ) {
-        state.ocrResult = await this.executeOcr(fileBuffer, state, ocrModel);
-        reportProgress(40);
-        await this.retryOcrIfNeeded(fileBuffer, state, ocrModel);
+        const cachedOcr = this.buildOcrStateFromCache(manifest);
+        if (cachedOcr) {
+          state.ocrResult = cachedOcr;
+          reportProgress(40);
+        } else {
+          state.ocrResult = await this.executeOcr(fileBuffer, state, ocrModel);
+          reportProgress(40);
+          await this.retryOcrIfNeeded(fileBuffer, state, ocrModel);
+          if (state.ocrResult?.success && state.ocrResult.cachedResult) {
+            await this.persistOcrResult(manifest, state.ocrResult.cachedResult);
+          }
+        }
       } else if (manifest.fileType === FileType.IMAGE) {
         // For images with VISION_ONLY, we don't need OCR
         this.logger.log('Skipping OCR for image file with VISION_ONLY strategy');
@@ -400,6 +416,17 @@ export class ExtractionService {
 
       state.status = ExtractionStatus.SAVING;
       reportProgress(90);
+
+      const costSummary = this.calculateCostSummary(
+        state,
+        ocrModel,
+        llmModel,
+      );
+      const totalCost = costSummary.ocrCost + costSummary.llmCost;
+      state.ocrCost = costSummary.ocrCost;
+      state.llmCost = costSummary.llmCost;
+      state.extractionCost = totalCost;
+      manifest.extractionCost = totalCost;
 
       if (
         isFieldReExtract &&
@@ -443,6 +470,8 @@ export class ExtractionService {
     const systemPrompt = this.getSystemPrompt(schema, options.systemPromptOverride);
     const reExtractSystemPrompt = this.getReExtractPrompt(schema, options.reExtractPromptOverride);
     const activeRules = (rules ?? []).filter((rule) => rule.enabled !== false);
+    const contextOverride = options.ocrContextSnippet?.trim() || undefined;
+    const customPrompt = options.customPrompt?.trim() || undefined;
 
     while (true) {
       state.status =
@@ -458,6 +487,8 @@ export class ExtractionService {
         requiredFields,
         schema,
         activeRules,
+        contextOverride,
+        customPrompt,
       );
       state.extractionResult = extractionResult;
 
@@ -475,6 +506,9 @@ export class ExtractionService {
         await this.delayWithBackoff(state.ocrRetryCount);
         state.ocrResult = await this.executeOcr(fileBuffer, state, options.ocrModel);
         await this.retryOcrIfNeeded(fileBuffer, state, options.ocrModel);
+        if (state.ocrResult?.success && state.ocrResult.cachedResult) {
+          await this.persistOcrResult(manifest, state.ocrResult.cachedResult);
+        }
       } else if (this.canRetryExtraction(state)) {
         await this.delayWithBackoff(state.extractionRetryCount);
       } else {
@@ -538,18 +572,24 @@ export class ExtractionService {
         : ExtractionStatus.OCR_PROCESSING;
 
     try {
-      const overrides = this.buildOcrOverrides(ocrModel);
-      const ocrResult = await this.ocrService.processPdf(
+      const { response, processingTimeMs } = await this.runOcrRequest(
         fileBuffer,
-        overrides,
+        ocrModel,
+      );
+      const cachedResult = buildCachedOcrResult(
+        response,
+        processingTimeMs,
+        ocrModel,
       );
 
       return {
-        rawText: ocrResult.raw_text,
-        markdown: ocrResult.markdown,
-        layout: ocrResult.layout,
+        rawText: response.raw_text,
+        markdown: response.markdown,
+        layout: response.layout,
         success: true,
         retryCount: state.ocrRetryCount,
+        rawResponse: response,
+        cachedResult,
       };
     } catch (error) {
       const errorMessage = `OCR processing failed: ${this.formatError(
@@ -564,6 +604,115 @@ export class ExtractionService {
         retryCount: state.ocrRetryCount,
       };
     }
+  }
+
+  private async runOcrRequest(
+    fileBuffer: Buffer,
+    ocrModel?: ModelEntity,
+  ): Promise<{ response: OcrResponse; processingTimeMs: number }> {
+    const overrides = this.buildOcrOverrides(ocrModel);
+    const start = Date.now();
+    const response = await this.ocrService.processPdf(
+      fileBuffer,
+      overrides,
+    );
+    const processingTimeMs = Date.now() - start;
+    return { response, processingTimeMs };
+  }
+
+  private buildOcrStateFromCache(
+    manifest: ManifestEntity,
+  ): OcrState | null {
+    if (!manifest.ocrResult) {
+      return null;
+    }
+    const cached = manifest.ocrResult as unknown as OcrResultDto;
+    if (!cached || !Array.isArray(cached.pages)) {
+      return null;
+    }
+
+    const rawText = cached.pages.map((page) => page.text).join('\n');
+    const markdown = cached.pages.map((page) => page.markdown).join('\n');
+    const numBlocks = cached.pages.reduce(
+      (sum, page) => sum + (page.layout?.elements?.length ?? 0),
+      0,
+    );
+
+    return {
+      rawText,
+      markdown,
+      layout: {
+        num_pages: cached.pages.length,
+        num_blocks: numBlocks,
+        blocks: [],
+      },
+      success: true,
+      retryCount: 0,
+      cachedResult: cached,
+    };
+  }
+
+  private async persistOcrResult(
+    manifest: ManifestEntity,
+    cachedResult: OcrResultDto,
+  ): Promise<void> {
+    const processedAt =
+      cachedResult.metadata?.processedAt ??
+      new Date().toISOString();
+    const qualityScore = calculateOcrQualityScore(cachedResult);
+
+    manifest.ocrResult = cachedResult as unknown as Record<string, unknown>;
+    manifest.ocrProcessedAt = new Date(processedAt);
+    manifest.ocrQualityScore = qualityScore;
+
+    await this.manifestRepository.save(manifest);
+  }
+
+  async getCachedOcrResult(
+    manifest: ManifestEntity,
+  ): Promise<OcrResultDto | null> {
+    if (!manifest.ocrResult) {
+      return null;
+    }
+    return manifest.ocrResult as unknown as OcrResultDto;
+  }
+
+  async processOcrForManifest(
+    manifest: ManifestEntity,
+    options: { force?: boolean; ocrModelId?: string } = {},
+  ): Promise<OcrResultDto> {
+    if (manifest.ocrResult && !options.force) {
+      return manifest.ocrResult as unknown as OcrResultDto;
+    }
+
+    const ocrModel = options.ocrModelId
+      ? await this.modelRepository.findOne({
+          where: { id: options.ocrModelId },
+        })
+      : manifest.group?.project?.ocrModelId
+        ? await this.modelRepository.findOne({
+            where: { id: manifest.group.project.ocrModelId },
+          })
+        : null;
+
+    if (options.ocrModelId && !ocrModel) {
+      throw new NotFoundException(
+        `OCR model ${options.ocrModelId} not found`,
+      );
+    }
+
+    const fileBuffer = await this.fileSystem.readFile(manifest.storagePath);
+    const { response, processingTimeMs } = await this.runOcrRequest(
+      fileBuffer,
+      ocrModel ?? undefined,
+    );
+    const cachedResult = buildCachedOcrResult(
+      response,
+      processingTimeMs,
+      ocrModel ?? undefined,
+    );
+    await this.persistOcrResult(manifest, cachedResult);
+    return cachedResult;
   }
 
   private async retryOcrIfNeeded(
@@ -593,6 +742,8 @@ export class ExtractionService {
     requiredFields: string[],
     schema: SchemaEntity | null,
     rules: SchemaRuleEntity[],
+    contextOverride?: string,
+    customPrompt?: string,
   ): Promise<ExtractionStateResult> {
     // Check if vision is required and available
     const requiresVision = state.strategy !== ExtractionStrategy.OCR_FIRST;
@@ -637,6 +788,7 @@ export class ExtractionService {
         previousExtraction,
         schema,
         rules,
+        customPrompt,
       );
     } else if (state.strategy === ExtractionStrategy.VISION_FIRST) {
       // Vision-first: use images with OCR as fallback context
@@ -648,6 +800,8 @@ export class ExtractionService {
         previousExtraction,
         schema,
         rules,
+        contextOverride,
+        customPrompt,
       );
     } else if (state.strategy === ExtractionStrategy.TWO_STAGE) {
       // Two-stage: combine vision and OCR
@@ -659,6 +813,8 @@ export class ExtractionService {
         previousExtraction,
         schema,
         rules,
+        contextOverride,
+        customPrompt,
       );
     } else {
       // OCR_FIRST: traditional OCR-based extraction
@@ -670,6 +826,8 @@ export class ExtractionService {
         previousExtraction,
         schema,
         rules,
+        contextOverride,
+        customPrompt,
       );
     }
 
@@ -707,6 +865,7 @@ export class ExtractionService {
         providerConfig,
       );
       const data = this.parseJsonResult(completion.content);
+      const tokenUsage = this.normalizeTokenUsage(completion.usage);
 
       // Use ajv validation if schema is provided, otherwise use basic validation
       let validation: ExtractionValidationResult;
@@ -731,6 +890,7 @@ export class ExtractionService {
           error: validation.errors.join('; '),
           retryCount: state.extractionRetryCount,
           validation,
+          tokenUsage,
         };
       }
 
@@ -739,6 +899,7 @@ export class ExtractionService {
         success: true,
         retryCount: state.extractionRetryCount,
         validation,
+        tokenUsage,
       };
     } catch (error) {
       return {
@@ -758,6 +919,7 @@ export class ExtractionService {
     previousExtraction?: ExtractionStateResult,
     schema?: SchemaEntity | null,
     rules: SchemaRuleEntity[] = [],
+    customPrompt?: string,
   ): LlmChatMessage[] {
     const pages = state.convertedPages ?? [];
     const imageBuffers = pages.map((p) => ({ buffer: p.buffer, mimeType: p.mimeType }));
@@ -782,6 +944,9 @@ export class ExtractionService {
       );
       userPrompt += '\n\nRe-examine the document images and correct missing or incorrect fields.';
     }
+    if (customPrompt) {
+      userPrompt += `\n\nAdditional instructions:\n${customPrompt}`;
+    }
 
     return [
       {
@@ -800,6 +965,8 @@ export class ExtractionService {
     previousExtraction?: ExtractionStateResult,
     schema?: SchemaEntity | null,
     rules: SchemaRuleEntity[] = [],
+    contextOverride?: string,
+    customPrompt?: string,
   ): LlmChatMessage[] {
     const pages = state.convertedPages ?? [];
     const imageBuffers = pages.map((p) => ({ buffer: p.buffer, mimeType: p.mimeType }));
@@ -808,7 +975,9 @@ export class ExtractionService {
       throw new BadRequestException('Schema is required for extraction');
     }
 
-    const ocrMarkdown = state.ocrResult?.success ? state.ocrResult.markdown : '';
+    const ocrMarkdown =
+      contextOverride ??
+      (state.ocrResult?.success ? state.ocrResult.markdown : '');
     let userPrompt = this.promptBuilderService.buildExtractionPrompt(
       ocrMarkdown,
       schema,
@@ -825,6 +994,9 @@ export class ExtractionService {
         rules,
       );
       userPrompt += '\n\nRe-examine the document images and correct missing or incorrect fields.';
+    }
+    if (customPrompt) {
+      userPrompt += `\n\nAdditional instructions:\n${customPrompt}`;
     }
 
     return [
@@ -844,6 +1016,8 @@ export class ExtractionService {
     previousExtraction?: ExtractionStateResult,
     schema?: SchemaEntity | null,
     rules: SchemaRuleEntity[] = [],
+    contextOverride?: string,
+    customPrompt?: string,
   ): LlmChatMessage[] {
     const pages = state.convertedPages ?? [];
     const imageBuffers = pages.map((p) => ({ buffer: p.buffer, mimeType: p.mimeType }));
@@ -852,7 +1026,9 @@ export class ExtractionService {
       throw new BadRequestException('Schema is required for extraction');
     }
 
-    const ocrMarkdown = state.ocrResult?.success ? state.ocrResult.markdown : '';
+    const ocrMarkdown =
+      contextOverride ??
+      (state.ocrResult?.success ? state.ocrResult.markdown : '');
     let userPrompt = this.promptBuilderService.buildExtractionPrompt(
       ocrMarkdown,
       schema,
@@ -869,6 +1045,9 @@ export class ExtractionService {
         rules,
       );
       userPrompt += '\n\nRe-examine both images and OCR text, then correct missing or incorrect fields.';
+    }
+    if (customPrompt) {
+      userPrompt += `\n\nAdditional instructions:\n${customPrompt}`;
     }
 
     return [
@@ -888,6 +1067,8 @@ export class ExtractionService {
     previousExtraction?: ExtractionStateResult,
     schema?: SchemaEntity | null,
     rules: SchemaRuleEntity[] = [],
+    contextOverride?: string,
+    customPrompt?: string,
   ): LlmChatMessage[] {
     const ocrResult = state.ocrResult;
     if (!ocrResult || !ocrResult.success) {
@@ -900,10 +1081,11 @@ export class ExtractionService {
       throw new BadRequestException('Schema is required for extraction');
     }
 
-    const prompt =
+    const ocrMarkdown = contextOverride ?? ocrResult.markdown;
+    let prompt =
       useReExtract && previousExtraction
         ? this.promptBuilderService.buildReExtractPrompt(
-            ocrResult.markdown,
+            ocrMarkdown,
             previousExtraction.data,
             previousExtraction.validation?.missingFields,
             previousExtraction.error,
@@ -911,10 +1093,13 @@ export class ExtractionService {
             rules,
           )
         : this.promptBuilderService.buildExtractionPrompt(
-            ocrResult.markdown,
+            ocrMarkdown,
             schema,
             rules,
           );
+    if (customPrompt) {
+      prompt += `\n\nAdditional instructions:\n${customPrompt}`;
+    }
 
     return [
       {
@@ -1059,6 +1244,64 @@ export class ExtractionService {
     const trimmed = fieldName?.trim();
     if (!trimmed) return undefined;
     return trimmed.endsWith('?') ? trimmed.slice(0, -1) : trimmed;
+  }
+
+  private normalizeTokenUsage(usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  }): { promptTokens: number; completionTokens: number; totalTokens: number } | undefined {
+    if (!usage) {
+      return undefined;
+    }
+    const promptTokens = usage.prompt_tokens ?? 0;
+    const completionTokens = usage.completion_tokens ?? 0;
+    const totalTokens =
+      usage.total_tokens ?? promptTokens + completionTokens;
+    return {
+      promptTokens,
+      completionTokens,
+      totalTokens,
+    };
+  }
+
+  private calculateCostSummary(
+    state: ExtractionWorkflowState,
+    ocrModel?: ModelEntity,
+    llmModel?: ModelEntity,
+  ): { ocrCost: number; llmCost: number } {
+    const pageCount = this.resolvePageCount(state);
+    const tokenUsage = state.extractionResult?.tokenUsage;
+
+    const ocrCost = ocrModel
+      ? this.modelPricingService.calculateOcrCost(
+          pageCount,
+          ocrModel.pricing,
+        )
+      : 0;
+
+    const llmCost = llmModel && tokenUsage
+      ? this.modelPricingService.calculateLlmCost(
+          tokenUsage.promptTokens,
+          tokenUsage.completionTokens,
+          llmModel.pricing,
+        )
+      : 0;
+
+    return { ocrCost, llmCost };
+  }
+
+  private resolvePageCount(state: ExtractionWorkflowState): number {
+    if (state.ocrResult?.layout?.num_pages) {
+      return state.ocrResult.layout.num_pages;
+    }
+    if (state.ocrResult?.cachedResult?.document?.pages) {
+      return state.ocrResult.cachedResult.document.pages;
+    }
+    if (state.convertedPages?.length) {
+      return state.convertedPages.length;
+    }
+    return 0;
   }
 
   private mergeFieldReExtractResult(

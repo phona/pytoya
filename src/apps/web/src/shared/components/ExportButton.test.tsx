@@ -6,9 +6,9 @@ import { server } from '../../tests/mocks/server';
 import { http, HttpResponse } from 'msw';
 
 describe('ExportButton', () => {
-  let createObjectURLSpy: ReturnType<typeof vi.fn>;
-  let revokeObjectURLSpy: ReturnType<typeof vi.fn>;
-  let alertSpy: ReturnType<typeof vi.fn>;
+  const createObjectURLSpy = vi.fn(() => 'blob:mock-url');
+  const revokeObjectURLSpy = vi.fn();
+  const alertSpy = vi.fn();
   let originalCreateObjectURL: typeof URL.createObjectURL;
   let originalRevokeObjectURL: typeof URL.revokeObjectURL;
   let originalAlert: typeof window.alert;
@@ -22,13 +22,14 @@ describe('ExportButton', () => {
     originalAlert = window.alert;
 
     // Mock browser APIs for file download
-    createObjectURLSpy = vi.fn(() => 'blob:mock-url');
-    revokeObjectURLSpy = vi.fn();
-    alertSpy = vi.fn();
+    createObjectURLSpy.mockReset();
+    createObjectURLSpy.mockReturnValue('blob:mock-url');
+    revokeObjectURLSpy.mockReset();
+    alertSpy.mockReset();
 
-    global.URL.createObjectURL = createObjectURLSpy as any;
-    global.URL.revokeObjectURL = revokeObjectURLSpy as any;
-    global.alert = alertSpy as any;
+    global.URL.createObjectURL = createObjectURLSpy as unknown as typeof URL.createObjectURL;
+    global.URL.revokeObjectURL = revokeObjectURLSpy as unknown as typeof URL.revokeObjectURL;
+    global.alert = alertSpy as unknown as typeof window.alert;
   });
 
   afterEach(() => {

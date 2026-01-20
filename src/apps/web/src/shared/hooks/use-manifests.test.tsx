@@ -43,6 +43,7 @@ describe('useManifests', () => {
             originalFilename: 'test.pdf',
             storagePath: '/uploads/test.pdf',
             fileSize: 12345,
+            fileType: 'pdf',
             status: 'completed',
             groupId: 1,
             extractedData: {
@@ -57,6 +58,11 @@ describe('useManifests', () => {
             invoiceDate: '2025-01-13',
             department: 'PROD',
             humanVerified: false,
+            validationResults: null,
+            ocrResult: null,
+            ocrProcessedAt: null,
+            ocrQualityScore: null,
+            extractionCost: null,
             createdAt: '2025-01-13T00:00:00.000Z',
             updatedAt: '2025-01-13T00:00:00.000Z',
           },
@@ -95,9 +101,11 @@ describe('useManifests', () => {
 
       expect(result.current.data).toEqual({
         id: 1,
+        filename: 'manifest_0000001.pdf',
         originalFilename: 'test.pdf',
         storagePath: '/uploads/test.pdf',
         fileSize: 12345,
+        fileType: 'pdf',
         status: 'completed',
         groupId: 1,
         extractedData: { field: 'value' },
@@ -106,6 +114,11 @@ describe('useManifests', () => {
         invoiceDate: '2025-01-13',
         department: 'PROD',
         humanVerified: false,
+        validationResults: null,
+        ocrResult: null,
+        ocrProcessedAt: null,
+        ocrQualityScore: null,
+        extractionCost: null,
         createdAt: '2025-01-13T00:00:00.000Z',
         updatedAt: '2025-01-13T00:00:00.000Z',
       });

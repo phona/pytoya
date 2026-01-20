@@ -6,6 +6,7 @@ import { ModelEntity } from '../entities/model.entity';
 import { PromptEntity } from '../entities/prompt.entity';
 import { SchemaEntity } from '../entities/schema.entity';
 import { LlmModule } from '../llm/llm.module';
+import { ModelsModule } from '../models/models.module';
 import { OcrModule } from '../ocr/ocr.module';
 import { PdfToImageModule } from '../pdf-to-image/pdf-to-image.module';
 import { ManifestsModule } from '../manifests/manifests.module';
@@ -25,6 +26,7 @@ import { ManifestExtractionProcessor } from './processors/manifest-extraction.pr
       SchemaEntity,
     ]),
     LlmModule,
+    ModelsModule,
     OcrModule,
     PdfToImageModule,
     PromptsModule,

@@ -305,7 +305,7 @@ The manifest table SHALL display OCR quality information.
 - **THEN** system shows "Processing..." or "Pending" indicator
 - **AND** row is grayed out until OCR completes
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Manifest List Display
 

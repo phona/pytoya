@@ -42,6 +42,72 @@ export class JobEntity {
   @Column({ type: 'float', default: 0 })
   progress!: number;
 
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 4,
+    name: 'estimated_cost',
+    nullable: true,
+  })
+  estimatedCost!: number | null;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 4,
+    name: 'actual_cost',
+    nullable: true,
+  })
+  actualCost!: number | null;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 4,
+    name: 'ocr_estimated_cost',
+    nullable: true,
+  })
+  ocrEstimatedCost!: number | null;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 4,
+    name: 'ocr_actual_cost',
+    nullable: true,
+  })
+  ocrActualCost!: number | null;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 4,
+    name: 'llm_estimated_cost',
+    nullable: true,
+  })
+  llmEstimatedCost!: number | null;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 4,
+    name: 'llm_actual_cost',
+    nullable: true,
+  })
+  llmActualCost!: number | null;
+
+  @Column({ type: 'int', name: 'llm_input_tokens', nullable: true })
+  llmInputTokens!: number | null;
+
+  @Column({ type: 'int', name: 'llm_output_tokens', nullable: true })
+  llmOutputTokens!: number | null;
+
+  @Column({ type: 'int', name: 'pages_processed', nullable: true })
+  pagesProcessed!: number | null;
+
+  @Column({ type: 'varchar', name: 'model_id', nullable: true })
+  modelId!: string | null;
+
   @Column({ type: 'int', name: 'attempt_count', default: 0 })
   attemptCount!: number;
 

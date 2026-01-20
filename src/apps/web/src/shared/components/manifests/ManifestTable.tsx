@@ -6,7 +6,7 @@ import {
   type SortingState,
   useReactTable,
 } from '@tanstack/react-table';
-import { CheckCircle2, ChevronDown, ChevronUp, Eye, XCircle } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, Eye, Play, RefreshCw, XCircle } from 'lucide-react';
 import { Manifest } from '@/api/manifests';
 import { DataTable } from '@/shared/components/DataTable';
 import { EmptyState } from '@/shared/components/EmptyState';
@@ -26,7 +26,19 @@ interface ManifestTableProps {
   onSelectAll?: () => void;
   selectAll?: boolean;
   manifestProgress?: Record<number, { progress: number; status: string; error?: string }>;
+  onExtract?: (manifestId: number) => void;
+  onReExtract?: (manifestId: number) => void;
+  onPreviewOcr?: (manifestId: number) => void;
 }
+
+const getOcrQualityBadge = (score?: number | null) => {
+  if (score === null || score === undefined) {
+    return { label: 'N/A', className: 'bg-muted text-muted-foreground' };
+  }
+  if (score >= 90) return { label: `${score}%`, className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-100' };
+  if (score >= 70) return { label: `${score}%`, className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100' };
+  return { label: `${score}%`, className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100' };
+};
 
 export function ManifestTable({
   manifests,
@@ -38,6 +50,9 @@ export function ManifestTable({
   onSelectAll,
   selectAll,
   manifestProgress,
+  onExtract,
+  onReExtract,
+  onPreviewOcr,
 }: ManifestTableProps) {
   const sorting = useMemo<SortingState>(
     () => (sort.field ? [{ id: sort.field, desc: sort.order === 'desc' }] : []),
@@ -128,6 +143,25 @@ export function ManifestTable({
           const status = row.original.status;
           return (
             <Badge className={`px-2 py-1 ${getStatusBadgeClasses(status)}`}>{status}</Badge>
+          );
+        },
+      },
+      {
+        id: 'ocrQuality',
+        header: () => (
+          <button
+            type="button"
+            onClick={() => handleSort('ocrQualityScore')}
+            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
+          >
+            OCR
+            {renderSortIcon('ocrQualityScore')}
+          </button>
+        ),
+        cell: ({ row }) => {
+          const qualityBadge = getOcrQualityBadge(row.original.ocrQualityScore);
+          return (
+            <Badge className={`px-2 py-1 ${qualityBadge.className}`}>{qualityBadge.label}</Badge>
           );
         },
       },
@@ -252,20 +286,70 @@ export function ManifestTable({
             Actions
           </span>
         ),
-        cell: ({ row }) => (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(event) => {
-              event.stopPropagation();
-              onSelectManifest(row.original.id);
-            }}
-            className="text-primary hover:text-primary"
-          >
-            <Eye className="mr-1 h-4 w-4" />
-            View
-          </Button>
-        ),
+        cell: ({ row }) => {
+          const manifest = row.original;
+          const isCompleted = manifest.status === 'completed';
+          const canExtract = manifest.status === 'pending' || manifest.status === 'failed';
+
+          return (
+            <div className="flex items-center justify-end gap-2">
+              {onPreviewOcr && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onPreviewOcr(manifest.id);
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                  title="Preview OCR"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              )}
+              {onExtract && canExtract && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onExtract(manifest.id);
+                  }}
+                  className="text-primary hover:text-primary"
+                  title="Extract"
+                >
+                  <Play className="h-4 w-4" />
+                </Button>
+              )}
+              {onReExtract && isCompleted && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onReExtract(manifest.id);
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                  title="Re-extract"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelectManifest(manifest.id);
+                }}
+                className="text-primary hover:text-primary"
+                title="View details"
+              >
+                View
+              </Button>
+            </div>
+          );
+        },
         meta: {
           cellClassName: 'text-right',
           headerClassName: 'text-right',
@@ -277,6 +361,9 @@ export function ManifestTable({
   }, [
     handleSort,
     manifestProgress,
+    onPreviewOcr,
+    onExtract,
+    onReExtract,
     onSelectAll,
     onSelectManifest,
     onSelectToggle,
@@ -318,7 +405,3 @@ export function ManifestTable({
     </div>
   );
 }
-
-
-
-

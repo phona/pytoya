@@ -12,6 +12,7 @@ import { PromptsService } from '../prompts/prompts.service';
 import { SchemaRulesService } from '../schemas/schema-rules.service';
 import { SchemasService } from '../schemas/schemas.service';
 import { IFileAccessService } from '../file-access/file-access.service';
+import { ModelPricingService } from '../models/model-pricing.service';
 import { ManifestEntity, FileType } from '../entities/manifest.entity';
 import { ModelEntity } from '../entities/model.entity';
 import { SchemaEntity } from '../entities/schema.entity';
@@ -57,6 +58,11 @@ describe('ExtractionService - Vision Strategies Integration', () => {
       supportsVision: true,
       supportsStructuredOutput: true,
     },
+    pricing: {
+      effectiveDate: new Date('2025-01-01T00:00:00.000Z'),
+      llm: { inputPrice: 2.5, outputPrice: 10.0, currency: 'USD' },
+    } as any,
+    pricingHistory: [],
     description: null,
     isActive: true,
     createdAt: new Date(),
@@ -70,6 +76,11 @@ describe('ExtractionService - Vision Strategies Integration', () => {
     parameters: {
       baseUrl: 'http://localhost:8080',
     },
+    pricing: {
+      effectiveDate: new Date('2025-01-01T00:00:00.000Z'),
+      ocr: { pricePerPage: 0.001, currency: 'USD' },
+    } as any,
+    pricingHistory: [],
     description: null,
     isActive: true,
     createdAt: new Date(),
@@ -123,38 +134,60 @@ describe('ExtractionService - Vision Strategies Integration', () => {
     updatedAt: new Date(),
   } as SchemaEntity;
 
-	  const mockManifest: ManifestEntity = {
-	    id: 1,
-	    filename: 'test-manifest.pdf',
-	    originalFilename: 'invoice.pdf',
-	    storagePath: '/uploads/test.pdf',
-	    fileSize: 1024000,
-	    fileType: FileType.PDF,
-	    status: 'pending' as any,
-	    groupId: 1,
-	    extractedData: null,
-	    validationResults: null,
-	    confidence: null,
-	    purchaseOrder: null,
-	    invoiceDate: null,
-	    department: null,
-	    humanVerified: false,
-    group: {
+  let mockManifest: ManifestEntity;
+
+  const buildProject = (overrides: Record<string, unknown> = {}) => ({
+    id: 1,
+    name: 'Test Project',
+    defaultSchemaId: 1,
+    ocrModelId: 'ocr-1',
+    llmModelId: '11111111-1111-1111-1111-111111111111',
+    ...overrides,
+  });
+
+  const buildGroup = (overrides: Record<string, unknown> = {}) => ({
+    id: 1,
+    name: 'Test Group',
+    project: buildProject(),
+    ...overrides,
+  });
+
+  const buildManifest = (
+    overrides: Partial<ManifestEntity> = {},
+  ): ManifestEntity => {
+    const base: ManifestEntity = {
       id: 1,
-      name: 'Test Group',
-      project: {
-        id: 1,
-        name: 'Test Project',
-        defaultSchemaId: 1,
-        ocrModelId: 'ocr-1',
-        llmModelId: '11111111-1111-1111-1111-111111111111',
-      } as any,
-    } as any,
-    jobs: [],
-    manifestItems: [],
-    extractionHistory: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
+      filename: 'test-manifest.pdf',
+      originalFilename: 'invoice.pdf',
+      storagePath: '/uploads/test.pdf',
+      fileSize: 1024000,
+      fileType: FileType.PDF,
+      status: 'pending' as any,
+      groupId: 1,
+      extractedData: null,
+      validationResults: null,
+      confidence: null,
+      purchaseOrder: null,
+      invoiceDate: null,
+      department: null,
+      humanVerified: false,
+      ocrResult: null,
+      ocrProcessedAt: null,
+      ocrQualityScore: null,
+      extractionCost: null,
+      group: buildGroup() as any,
+      jobs: [],
+      manifestItems: [],
+      extractionHistory: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    return {
+      ...base,
+      ...overrides,
+      group: overrides.group ?? base.group,
+    };
   };
 
   // Valid extraction response matching required fields
@@ -227,7 +260,15 @@ describe('ExtractionService - Vision Strategies Integration', () => {
       processPdf: jest.fn().mockResolvedValue({
         raw_text: 'Sample OCR text',
         markdown: '# Sample Document\n\nDepartment: IT\nPO: PO123456',
-        layout: null,
+        layout: { num_pages: 1, num_blocks: 0, blocks: [] },
+        ocr_result: {
+          layoutParsingResults: [
+            {
+              markdown: { text: '# Sample Document' },
+              prunedResult: { parsing_res_list: [] },
+            },
+          ],
+        },
       }),
     } as unknown as jest.Mocked<OcrService>;
 
@@ -260,6 +301,8 @@ describe('ExtractionService - Vision Strategies Integration', () => {
     } as unknown as jest.Mocked<ConfigService>;
 
     // Create mock repositories
+    mockManifest = buildManifest();
+
     manifestRepository = {
       findOne: jest.fn().mockResolvedValue(mockManifest),
       save: jest.fn(),
@@ -291,6 +334,7 @@ describe('ExtractionService - Vision Strategies Integration', () => {
         { provide: PromptsService, useValue: promptsService },
         { provide: SchemaRulesService, useValue: schemaRulesService },
         { provide: SchemasService, useValue: schemasService },
+        { provide: ModelPricingService, useValue: { calculateTotalExtractionCost: jest.fn(), calculateLlmCost: jest.fn(), calculateOcrCost: jest.fn(), getCurrency: jest.fn() } },
         { provide: ConfigService, useValue: configService },
         { provide: 'IFileAccessService', useValue: fileSystem },
       ],
@@ -338,7 +382,10 @@ describe('ExtractionService - Vision Strategies Integration', () => {
 
     it('should handle image files directly with VISION_ONLY', async () => {
       // Arrange: Mock manifest as image file
-      const imageManifest = { ...mockManifest, fileType: FileType.IMAGE, originalFilename: 'invoice.png' };
+      const imageManifest = buildManifest({
+        fileType: FileType.IMAGE,
+        originalFilename: 'invoice.png',
+      });
       (manifestRepository.findOne as jest.Mock).mockResolvedValue(imageManifest);
 
       // Mock the file system to return image data for reading
@@ -523,17 +570,15 @@ describe('ExtractionService - Vision Strategies Integration', () => {
       const schemaWithOcrFirst = { ...mockSchema, extractionStrategy: ExtractionStrategy.OCR_FIRST };
       (schemasService.findOne as jest.Mock).mockResolvedValue(schemaWithOcrFirst);
 
-      const manifestWithMissingModel = {
-        ...mockManifest,
+      const manifestWithMissingModel = buildManifest({
         group: {
-          ...mockManifest.group,
-          project: {
-            ...(mockManifest.group as any).project,
+          ...(buildGroup() as any),
+          project: buildProject({
             ocrModelId: null,
             llmModelId: '11111111-1111-1111-1111-111111111111',
-          },
-        },
-      };
+          }) as any,
+        } as any,
+      });
       (manifestRepository.findOne as jest.Mock).mockResolvedValue(manifestWithMissingModel);
       (modelRepository.findOne as jest.Mock).mockResolvedValue(mockLlmModel);
 
@@ -550,7 +595,10 @@ describe('ExtractionService - Vision Strategies Integration', () => {
   describe('Strategy auto-selection', () => {
     it('should auto-select VISION_ONLY for image files when provider supports vision', async () => {
       // Arrange: Mock manifest as image file with no explicit strategy
-      const imageManifest = { ...mockManifest, fileType: FileType.IMAGE, originalFilename: 'invoice.png' };
+      const imageManifest = buildManifest({
+        fileType: FileType.IMAGE,
+        originalFilename: 'invoice.png',
+      });
       (manifestRepository.findOne as jest.Mock).mockResolvedValue(imageManifest);
 
       const schemaWithoutStrategy = { ...mockSchema, extractionStrategy: undefined as any };
@@ -582,16 +630,14 @@ describe('ExtractionService - Vision Strategies Integration', () => {
 
   describe('Error handling', () => {
     it('throws when project LLM model is missing', async () => {
-      const manifestWithoutLlm = {
-        ...mockManifest,
+      const manifestWithoutLlm = buildManifest({
         group: {
-          ...mockManifest.group,
-          project: {
-            ...(mockManifest.group as any).project,
+          ...(buildGroup() as any),
+          project: buildProject({
             llmModelId: null,
-          },
-        },
-      };
+          }) as any,
+        } as any,
+      });
       (manifestRepository.findOne as jest.Mock).mockResolvedValue(manifestWithoutLlm);
 
       await expect(service.runExtraction(1)).rejects.toThrow(
@@ -680,7 +726,15 @@ describe('ExtractionService - Vision Strategies Integration', () => {
       ocrService.processPdf.mockResolvedValue({
         raw_text: 'Invoice Number: INV-001\nDate: 2024-01-15\nAmount: $1000',
         markdown: '# Invoice\n\n**Number:** INV-001\n**Date:** 2024-01-15\n**Amount:** $1000',
-        layout: null,
+        layout: { num_pages: 1, num_blocks: 0, blocks: [] },
+        ocr_result: {
+          layoutParsingResults: [
+            {
+              markdown: { text: '# Invoice' },
+              prunedResult: { parsing_res_list: [] },
+            },
+          ],
+        },
       } as any);
 
       // Mock LLM to return incomplete data, requiring OCR context

@@ -20,12 +20,16 @@ import {
 } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { UserRole } from '../entities/user.entity';
 import { adapterRegistry } from './adapters/adapter-registry';
 import { AdapterCategory } from './adapters/adapter.interface';
 import { CreateModelDto } from './dto/create-model.dto';
 import { ModelResponseDto } from './dto/model-response.dto';
 import { TestModelResponseDto } from './dto/test-model.dto';
 import { UpdateModelDto } from './dto/update-model.dto';
+import { UpdateModelPricingDto } from './dto/update-model-pricing.dto';
 import { ModelsService } from './models.service';
 
 @ApiTags('models')
@@ -86,6 +90,23 @@ export class ModelsController {
   @ApiOkResponse({ type: ModelResponseDto })
   async update(@Param('id') id: string, @Body() body: UpdateModelDto) {
     const model = await this.modelsService.update(id, body);
+    return ModelResponseDto.fromEntity(model);
+  }
+
+  @Patch(':id/pricing')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Update model pricing' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiOkResponse({ type: ModelResponseDto })
+  async updatePricing(
+    @Param('id') id: string,
+    @Body() body: UpdateModelPricingDto,
+  ) {
+    const model = await this.modelsService.updatePricing(
+      id,
+      body.pricing,
+    );
     return ModelResponseDto.fromEntity(model);
   }
 

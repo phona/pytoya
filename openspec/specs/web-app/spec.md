@@ -856,3 +856,126 @@ The web application SHALL use semantic HTML elements and landmark regions to sup
 - **THEN** a "skip to main content" link SHALL be available
 - **AND** the link SHALL be visible when focused
 
+### Requirement: Manifest List Display
+
+The manifest list SHALL display manifests with extraction controls and OCR quality.
+
+#### Scenario: Table columns updated
+
+- **WHEN** manifest table renders
+- **THEN** system shows columns:
+  - Select checkbox
+  - Filename
+  - Status (ready, extracting, extracted, partial)
+  - OCR Quality (badge)
+  - Selected schema fields (configurable)
+  - Confidence
+  - Verified
+  - Actions ([Extract→] or [⟳ Re-extract], [👁️ Preview OCR])
+
+#### Scenario: Row status indicators
+
+- **GIVEN** manifest row is rendered
+- **WHEN** status is "ready" (OCR done, not extracted)
+- **THEN** row shows white/gray background
+- **AND** actions show [Extract→] button
+- **WHEN** status is "extracting"
+- **THEN** row shows blue background
+- **AND** actions show progress spinner
+- **WHEN** status is "extracted" with all fields
+- **THEN** row shows green left border
+- **AND** actions show [⟳ Re-extract] button
+- **WHEN** status is "partial" (some fields missing)
+- **THEN** row shows yellow left border
+- **AND** actions show [⟳ Re-extract] button
+- **WHEN** status is "failed"
+- **THEN** row shows red left border
+- **AND** actions show [👁️ View Error] button
+
+### Requirement: Manifest Detail View
+
+The manifest detail SHALL include OCR result preview and field re-extraction.
+
+#### Scenario: Detail tabs updated
+
+- **GIVEN** user opens manifest detail page
+- **WHEN** page renders
+- **THEN** system shows tabs:
+  - [📄 PDF] - PDF viewer with OCR overlay toggle
+  - [✏️ Data] - Extracted fields with inline edit
+  - [👁️ OCR Raw] - Full OCR result JSON
+  - [📊 History] - Extraction history with costs
+
+#### Scenario: Extracted fields with re-extract
+
+- **GIVEN** user is viewing extracted data tab
+- **WHEN** field has value
+- **THEN** field shows:
+  - Value
+  - Confidence score
+  - [⟳ Re-extract] button
+  - [✏️ Edit] button
+- **WHEN** user clicks [⟳ Re-extract]
+- **THEN** system opens field re-extract dialog with OCR context
+
+### Requirement: Extraction Status Display
+
+The system SHALL display extraction status with quality indicators.
+
+#### Scenario: Extraction complete with quality
+
+- **GIVEN** extraction has completed
+- **WHEN** status is displayed
+- **THEN** system shows:
+  - Overall status badge (Complete, Partial, Failed)
+  - Number of fields extracted vs required
+  - Average confidence score
+  - Extraction cost incurred
+  - Time elapsed
+
+#### Scenario: Partial extraction warning
+
+- **GIVEN** extraction completed with missing fields
+- **WHEN** status is displayed
+- **THEN** system shows warning with:
+  - List of missing required fields
+  - Fields with low confidence
+  - Recommendation to re-extract or edit manually
+
+### Requirement: Manifest Filtering
+
+The manifest filtering SHALL support OCR quality and extraction status filters.
+
+#### Scenario: Filter by OCR quality
+
+- **GIVEN** user is viewing manifest list
+- **WHEN** user applies OCR quality filter
+- **THEN** system shows filter options:
+  - Excellent (≥90)
+  - Good (70-89)
+  - Poor (<70)
+  - Not Processed
+- **AND** table updates to show matching manifests
+
+#### Scenario: Filter by extraction status
+
+- **GIVEN** user is viewing manifest list
+- **WHEN** user applies extraction status filter
+- **THEN** system shows filter options:
+  - Not Extracted
+  - Extracting
+  - Complete
+  - Partial
+  - Failed
+- **AND** table updates to show matching manifests
+
+#### Scenario: Filter by cost range
+
+- **GIVEN** user has extracted manifests with various costs
+- **WHEN** user applies cost filter
+- **THEN** system shows:
+  - Min cost input
+  - Max cost input
+  - Slider for range selection
+- **AND** table updates to show matching manifests
+

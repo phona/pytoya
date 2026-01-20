@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
 import { ModelEntity } from '../entities/model.entity';
 import { ModelsController } from './models.controller';
 import { ModelsService } from './models.service';
@@ -14,6 +15,7 @@ describe('ModelsController', () => {
     create: jest.fn(),
     findOne: jest.fn(),
     update: jest.fn(),
+    updatePricing: jest.fn(),
     remove: jest.fn(),
     testConnection: jest.fn(),
   };
@@ -24,6 +26,8 @@ describe('ModelsController', () => {
       providers: [{ provide: ModelsService, useValue: modelsService }],
     })
       .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -59,6 +63,11 @@ describe('ModelsController', () => {
         apiKey: 'sk-secret',
         modelName: 'gpt-4o',
       },
+      pricing: {
+        effectiveDate: new Date('2025-01-01T00:00:00.000Z'),
+        llm: { inputPrice: 2.5, outputPrice: 10.0, currency: 'USD' },
+      } as any,
+      pricingHistory: [],
       isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -86,6 +95,11 @@ describe('ModelsController', () => {
       adapterType: 'paddlex',
       description: null,
       parameters: { baseUrl: 'http://localhost:8080' },
+      pricing: {
+        effectiveDate: new Date('2025-01-01T00:00:00.000Z'),
+        ocr: { pricePerPage: 0.001, currency: 'USD' },
+      } as any,
+      pricingHistory: [],
       isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -119,5 +133,56 @@ describe('ModelsController', () => {
 
     expect(response.body.ok).toBe(true);
     expect(modelsService.testConnection).toHaveBeenCalledWith('model-3');
+  });
+
+  it('updates model pricing', async () => {
+    const model: ModelEntity = {
+      id: 'model-4',
+      name: 'GPT-4o Mini',
+      adapterType: 'openai',
+      description: null,
+      parameters: {
+        baseUrl: 'https://api.openai.com/v1',
+        apiKey: 'sk-secret',
+        modelName: 'gpt-4o-mini',
+      },
+      pricing: {
+        llm: {
+          inputPrice: 0.15,
+          outputPrice: 0.6,
+          currency: 'USD',
+        },
+        effectiveDate: new Date('2025-01-10T00:00:00.000Z'),
+      } as any,
+      pricingHistory: [],
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as ModelEntity;
+
+    modelsService.updatePricing.mockResolvedValue(model);
+
+    const response = await request(app.getHttpServer())
+      .patch('/models/model-4/pricing')
+      .send({
+        pricing: {
+          llm: {
+            inputPrice: 0.15,
+            outputPrice: 0.6,
+            currency: 'USD',
+          },
+        },
+      })
+      .expect(200);
+
+    expect(modelsService.updatePricing).toHaveBeenCalledWith('model-4', {
+      llm: {
+        inputPrice: 0.15,
+        outputPrice: 0.6,
+        currency: 'USD',
+      },
+    });
+    expect(response.body.id).toBe('model-4');
+    expect(response.body.pricing?.llm?.inputPrice).toBe(0.15);
   });
 });

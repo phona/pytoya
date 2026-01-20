@@ -56,6 +56,15 @@ export function useModelMutations() {
     },
   });
 
+  const updatePricing = useMutation({
+    mutationFn: ({ id, pricing }: { id: string; pricing: Parameters<typeof modelsApi.updateModelPricing>[1] }) =>
+      modelsApi.updateModelPricing(id, pricing),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['models'] });
+      queryClient.invalidateQueries({ queryKey: ['model', variables.id] });
+    },
+  });
+
   const deleteModel = useMutation({
     mutationFn: (id: string) => modelsApi.deleteModel(id),
     onSuccess: () => {
@@ -70,10 +79,12 @@ export function useModelMutations() {
   return {
     createModel: createModel.mutateAsync,
     updateModel: updateModel.mutateAsync,
+    updatePricing: updatePricing.mutateAsync,
     deleteModel: deleteModel.mutateAsync,
     testModel: testModel.mutateAsync,
     isCreating: createModel.isPending,
     isUpdating: updateModel.isPending,
+    isUpdatingPricing: updatePricing.isPending,
     isDeleting: deleteModel.isPending,
     isTesting: testModel.isPending,
   };

@@ -8,6 +8,8 @@ export class JobHistoryDto {
   promptId!: number | null;
   queueJobId!: string | null;
   progress!: number;
+  estimatedCost!: number | null;
+  actualCost!: number | null;
   error!: string | null;
   attemptCount!: number;
   startedAt!: Date | null;

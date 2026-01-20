@@ -188,6 +188,58 @@ Critical for mechanical industry invoices (Chinese):
 - **API Format**: chat.completions
 - **Retry Logic**: Automatic retry with enhanced OCR on validation failure
 
+### OCR Result Caching
+- **Service**: `src/apps/api/src/ocr/ocr-cache.util.ts`
+- **Storage**: OCR results are cached in `ManifestEntity.ocrResult` (JSONB column)
+- **Quality Scoring**: `calculateOcrQualityScore()` computes 0-100 score based on:
+  - Text coverage (30%): detected text vs expected text per page
+  - Average confidence (40%): mean confidence of all detected elements
+  - Layout detection (20%): whether layout elements/tables were detected
+  - Language match (10%): whether expected language was detected
+- **Quality Scores**:
+  - 90+: Excellent (high confidence, good layout)
+  - 70-89: Good (acceptable quality)
+  - <70: Poor (may need manual review or re-processing)
+- **Quality Scoring**: `calculateOcrQualityScore()` in `src/apps/api/src/ocr/ocr-cache.util.ts`
+- **Re-processing**: Use `force=true` query parameter to re-run OCR for existing results
+
+### Cost Tracking (OCR + LLM)
+- **Service**: `src/apps/api/src/models/model-pricing.service.ts`
+- **OCR Cost Calculation**:
+  ```
+  OCR Cost = (Number of Pages) × Price Per Page
+  If minimumCharge is set:
+    OCR Cost = max(calculated cost, minimumCharge)
+  ```
+- **LLM Cost Calculation**:
+  ```
+  Input Cost = (Input Tokens / 1,000,000) × Input Price
+  Output Cost = (Output Tokens / 1,000,000) × Output Price
+  LLM Cost = Input Cost + Output Cost
+  If minimumCharge is set:
+    LLM Cost = max(calculated cost, minimumCharge)
+  ```
+- **Model Pricing Structure** (`ModelEntity.pricing`):
+  ```typescript
+  {
+    ocr?: {
+      pricePerPage: number,        // Cost per page
+      currency: string,            // USD, EUR, GBP
+      minimumCharge?: number      // Optional minimum per operation
+    },
+    llm?: {
+      inputPrice: number,         // Per 1M input tokens
+      outputPrice: number,        // Per 1M output tokens
+      currency: string,
+      minimumCharge?: number
+    }
+  }
+  ```
+- **Pricing History**: All pricing changes are archived in `ModelEntity.pricingHistory` with effectiveDate/endDate
+- **Cost Tracking**: Extractions record `ocrCost`, `llmCost`, and `totalCost` in `JobEntity` and `ManifestEntity.extractionCost`
+- **WebSocket Events**: `job-update` and `manifest-update` events include `costBreakdown` with `ocr`, `llm`, `total` fields
+- **Frontend State**: `src/apps/web/src/shared/stores/extraction.ts` tracks accumulated costs with `addCost(amount, type)` where type is `'ocr'`, `'llm'`, or `'total'`
+
 ## Configuration
 
 ### API Configuration

@@ -25,6 +25,10 @@ describe('ManifestCard', () => {
       department: 'Finance',
       humanVerified: true,
       validationResults: null,
+      ocrResult: null,
+      ocrProcessedAt: null,
+      ocrQualityScore: null,
+      extractionCost: null,
       createdAt: '2025-01-15T00:00:00.000Z',
       updatedAt: '2025-01-15T00:00:00.000Z',
     };

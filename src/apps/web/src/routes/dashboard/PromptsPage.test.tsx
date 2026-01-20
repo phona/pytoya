@@ -7,12 +7,13 @@ import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '@/tests/utils';
 
 describe('PromptsPage', () => {
-  let confirmSpy: ReturnType<typeof vi.fn>;
+  const confirmSpy = vi.fn(() => true);
 
   beforeEach(() => {
     server.listen({ onUnhandledRequest: 'error' });
-    confirmSpy = vi.fn(() => true);
-    global.confirm = confirmSpy as any;
+    confirmSpy.mockReset();
+    confirmSpy.mockReturnValue(true);
+    global.confirm = confirmSpy as unknown as typeof global.confirm;
   });
 
   afterEach(() => {
@@ -32,7 +33,7 @@ describe('PromptsPage', () => {
     // Component shows loading spinner when fetching
     const spinner = screen.getByText((content, element) => {
       // Look for the loading spinner (animated circle)
-      return element?.classList?.contains('animate-spin');
+      return Boolean(element?.classList?.contains('animate-spin'));
     });
     expect(spinner).toBeInTheDocument();
   });
