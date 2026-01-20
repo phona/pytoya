@@ -5,14 +5,14 @@
 The current extraction system tightly couples OCR and vision LLM logic within `ExtractionService`, making it difficult to:
 - Add new text extraction methods (Tesseract, Azure Vision, etc.)
 - Test extraction logic independently from orchestration
-- Configure different extractors per project
+- Configure different extractors per project by selecting a global extractor (no per-project params)
 - Maintain clear separation between text extraction and structured data extraction
 - Allow users to configure extractors through the web UI
 
 This refactoring introduces **text extractors as global resources** (similar to Models), enabling:
 - Reusable extractor configurations created once and shared across projects
 - Dynamic extractor registration and instantiation
-- Project-specific extractor selection
+- Project-specific extractor selection (select only)
 - Easy addition of new extractors without modifying core code
 - Better testability through interface abstraction
 - User-friendly extractor management
@@ -45,10 +45,13 @@ This refactoring introduces **text extractors as global resources** (similar to 
 - **NEW**: Extractor form dialog for creating/editing
   - Include pricing configuration for cost calculation
 - **NEW**: Project Settings → Extractors page for wiring extractor to project
-  - Simple dropdown to select from available extractors
+  - Selection only (pick from existing global extractors)
 - **NEW**: Project cost summary page showing extraction costs
 - **NEW**: Manifest detail shows extraction cost breakdown
-- **MODIFIED**: Sidebar navigation (remove Manifests, Schemas, Validation Scripts, Prompts)
+- **MODIFIED**: Sidebar navigation (add Extractors link; keep existing items)
+- **MODIFIED**: Models page removes OCR configuration (LLM-only)
+  - Vision-capable models do not require OCR config
+  - Text extraction is configured in Extractors
 - **NEW**: Manifests list shows extractor used and cost columns
 
 ### Breaking Changes
@@ -58,6 +61,7 @@ This is a **complete rewrite** of the extraction layer:
 - Old extraction strategy enum removed
 - `OcrService` and `LlmService` vision methods moved to extractors
 - Projects MUST have extractor configured (no fallback to old behavior)
+- Project selection stores only `textExtractorId` (extractor config remains global)
 
 ## Impact
 
@@ -72,6 +76,9 @@ This is a **complete rewrite** of the extraction layer:
   - `src/apps/web/src/routes/dashboard/projects/settings/extractors/` (new page)
   - `src/apps/web/src/shared/components/ExtractorCard.tsx` (new component)
   - `src/apps/web/src/shared/components/SettingsDropdown.tsx` (update)
+  - `src/apps/web/src/routes/dashboard/ModelsPage.tsx` (remove OCR tab)
+  - `src/apps/web/src/shared/components/models/ModelPricingConfig.tsx` (remove OCR pricing UI)
+  - `src/apps/web/src/shared/components/ProjectWizard.tsx` (update step 4 to select extractor + LLM)
 
 ## Implementation Approach
 
@@ -80,7 +87,7 @@ This is a **complete rewrite** of the extraction layer:
 3. Create global Extractors page (`/extractors`)
 4. Create project settings Extractors page (`/projects/:id/settings/extractors`)
 5. Rewrite `ExtractionService` to use new abstraction
-6. Update sidebar navigation
+6. Update sidebar navigation (add Extractors link)
 7. Remove old `OcrService`, `LlmService` vision methods, and strategy enum
 
 ## Benefits
@@ -103,7 +110,7 @@ This is a **complete rewrite** of the extraction layer:
 Each text extraction will calculate and track cost based on the extractor's pricing model:
 - **Vision LLM extractors**: Cost based on token usage (input image tokens, output text tokens)
 - **OCR extractors** (PaddleOCR, Tesseract): Free or fixed infrastructure cost
-- Costs are stored with extraction results and displayed in UI
+- Costs are stored as numeric amounts (project currency) and displayed in UI
 
 ### Cost Data Flow
 ```
@@ -112,19 +119,20 @@ Extraction → Extractor.extract() → TextExtractionResult
   └── metadata
       ├── extractorId
       ├── processingTimeMs
-      └── cost ← NEW
-          ├── currency (USD)
-          ├── amount
-          ├── inputTokens
-          ├── outputTokens
-          └── costPerPage
+      └── textCost (number, actual usage) + token usage (when available)
+
+ExtractionService aggregates:
+- job.ocrActualCost (internal storage for textCost)
+- job.llmActualCost (structured extraction cost)
+- manifest.extractionCost = text + llm (numeric total)
+- WebSocket costBreakdown { text, llm, total }
 ```
 
 ### Pricing Configuration
 Extractors include pricing in their configuration:
 - **Vision LLM**: Input token price, output token price per 1M tokens
 - **OCR**: Fixed cost per page or free
-- Prices stored in `ExtractorEntity.config.pricing`
+- Prices stored in `ExtractorEntity.config.pricing` (currency implied by pricing config)
 
 ### UI Cost Display
 - **Extractor cards**: Show average cost per extraction

@@ -30,7 +30,8 @@ This creates complexity:
 - Support any OpenAI-compatible vision LLM
 - Provide clear interface for adding new extractors
 - **Build user-friendly UI following existing Models pattern**
-- **Clean sidebar navigation**
+- **Keep Models page LLM-only (no OCR config)**
+- **Add Extractors to the sidebar without removing existing items**
 
 ### Non-Goals
 - Replacing LLM structured data extraction (only text extraction is scoped)
@@ -48,6 +49,7 @@ This creates complexity:
 **Rationale**:
 - Create extractor once with API keys, endpoints, etc.
 - Reuse across multiple projects
+- Projects store only `textExtractorId` (selection only)
 - Easier management (centralized configuration)
 - Same pattern as existing Models page
 - Avoids duplicating API keys and configurations
@@ -92,15 +94,14 @@ This creates complexity:
 - Reuses existing components (Card, Dialog, Form)
 - Edit-in-dialog pattern works well
 
-### Decision 6: Clean Sidebar Navigation
+### Decision 6: Sidebar Navigation Additions
 
-**Choice**: Minimal sidebar with only top-level resources.
+**Choice**: Add Extractors to the sidebar without removing existing items.
 
 **Rationale**:
-- Reduce navigation clutter
-- Project-specific items (Manifests, Schemas) accessed within project
-- Simpler mental model for users
-- Focus on global resources in sidebar
+- Keep current navigation stable
+- Surface global extractor management
+- Avoid scope creep in this change
 
 ### Decision 7: Cost Calculation in Extractors
 
@@ -192,22 +193,20 @@ ExtractorEntity.config example:
 ### Frontend Architecture
 
 ```
-Sidebar Navigation
-├── Dashboard
-│   ├── Projects      → /projects
-│   ├── Models        → /models (LLM for JSON)
-│   └── Extractors    → /extractors (NEW - Text extractors)
-└── User
-    └── Profile       → /profile
+Sidebar Navigation (existing items unchanged)
+- Add: Extractors -> /extractors (NEW - Text extractors)
 
-Project-Specific (not in sidebar):
-├── Project Detail
-│   ├── Manifests     → within project
-│   └── Settings
-│       ├── Basic
-│       ├── Models
-│       └── Extractors → /projects/:id/settings/extractors (NEW)
+Project Settings (new)
+- Extractors -> /projects/:id/settings/extractors
 ```
+
+Models remain LLM-only; OCR/text extraction configuration is managed in Extractors.
+Vision-capable models do not require OCR configuration fields.
+
+Models UI cleanup scope (expected files):
+- `src/apps/web/src/routes/dashboard/ModelsPage.tsx` (remove OCR tab)
+- `src/apps/web/src/shared/components/models/ModelPricingConfig.tsx` (remove OCR pricing UI)
+- `src/apps/web/src/shared/components/ProjectWizard.tsx` (step 4 selects text extractor + LLM)
 
 ### Page: Extractors (Global - Sidebar)
 
@@ -380,6 +379,7 @@ PUT    /api/extractors/:id                 # Update extractor
 DELETE /api/extractors/:id                 # Delete extractor
 POST   /api/extractors/:id/test            # Test extractor connection
 GET    /api/extractors/types              # Get available types (with schemas)
+GET    /api/extractors/presets            # List preset configurations
 ```
 
 ### Project Configuration
@@ -393,7 +393,6 @@ PUT    /api/projects/:id/extractor         # Set project's extractor
 ```
 GET    /api/extractors/:id/cost-summary           # Get cost summary for extractor
 GET    /api/projects/:id/cost-summary            # Get project extraction costs
-GET    /api/manifests/:id/cost                   # Get single extraction cost
 GET    /api/projects/:id/cost-by-date-range      # Cost over time with date filtering
 ```
 
@@ -404,19 +403,26 @@ GET    /api/projects/:id/cost-by-date-range      # Cost over time with date filt
 Each text extraction calculates and tracks cost based on the extractor's pricing model:
 - **Vision LLM extractors**: Cost based on token usage (input image tokens + output text tokens)
 - **OCR extractors** (PaddleOCR, Tesseract): Free (infrastructure cost only)
-- Costs are stored with extraction results and displayed throughout the UI
+- Costs are stored as numeric amounts on jobs/manifests and displayed throughout the UI
+- Text extraction cost is exposed as `textCost` (actual usage) regardless of pricing mode
 
 ### Cost Data Types
 
 ```typescript
-// Cost returned in TextExtractionResult.metadata
-interface ExtractionCost {
-  currency: string;              // e.g., "USD"
-  amount: number;                // Total cost in currency
-  inputTokens?: number;          // For vision LLMs only
-  outputTokens?: number;         // For vision LLMs only
+// Cost metadata returned by a text extractor
+interface TextExtractionCostMeta {
+  textCost: number;              // Actual text extractor usage cost
+  currency?: string;             // From extractor pricing config
+  inputTokens?: number;          // For vision LLM text extraction
+  outputTokens?: number;         // For vision LLM text extraction
   pagesProcessed?: number;       // Number of pages/documents
-  costPerPage?: number;          // Cost per page (derived)
+}
+
+// Aggregated cost breakdown (used in UI + WebSocket events)
+interface CostBreakdown {
+  text: number;
+  llm: number;
+  total: number;
 }
 
 // Cost summary for an extractor (aggregate data)
@@ -426,7 +432,7 @@ interface ExtractorCostSummary {
   totalExtractions: number;
   totalCost: number;
   averageCostPerExtraction: number;
-  currency: string;
+  currency?: string; // Derived from extractor pricing config
   costBreakdown: {
     byDate: { date: string; count: number; cost: number }[];
     byProject: { projectId: string; projectName: string; count: number; cost: number }[];
@@ -460,10 +466,12 @@ interface ProjectCostSummary {
 ```typescript
 // Part of ExtractorEntity.config
 interface PricingConfig {
+  mode: 'token' | 'page' | 'fixed' | 'none';
   currency: string;              // "USD", "EUR", etc.
   inputPricePerMillionTokens?: number;  // For vision LLMs only
   outputPricePerMillionTokens?: number; // For vision LLMs only
-  fixedCostPerPage?: number;      // For OCR with fixed costs
+  pricePerPage?: number;          // For page-based OCR
+  fixedCost?: number;             // For fixed-cost extractors
 }
 
 // Example: VisionLLMExtractor config
@@ -503,7 +511,7 @@ async extract(buffer: Buffer): Promise<TextExtractionResult> {
     messages: [...],
   });
 
-  // Calculate cost
+  // Calculate cost (token pricing mode)
   const usage = response.usage;  // { prompt_tokens, completion_tokens, total_tokens }
   const inputCost = (usage.prompt_tokens / 1_000_000) * this.config.pricing.inputPricePerMillionTokens;
   const outputCost = (usage.completion_tokens / 1_000_000) * this.config.pricing.outputPricePerMillionTokens;
@@ -515,14 +523,11 @@ async extract(buffer: Buffer): Promise<TextExtractionResult> {
     metadata: {
       extractorId: VisionLLMExtractor.metadata.id,
       processingTimeMs: Date.now() - startTime,
-      cost: {
-        currency: this.config.pricing.currency,
-        amount: totalCost,
-        inputTokens: usage.prompt_tokens,
-        outputTokens: usage.completion_tokens,
-        totalTokens: usage.total_tokens,
-        pagesProcessed: 1,
-      },
+      textCost: totalCost,
+      currency: this.config.pricing.currency,
+      inputTokens: usage.prompt_tokens,
+      outputTokens: usage.completion_tokens,
+      pagesProcessed: 1,
     },
   };
 }
@@ -533,18 +538,16 @@ async extract(buffer: Buffer): Promise<TextExtractionResult> {
 
   const response = await this.httpClient.post('/layout-parsing', { ... });
 
-  // Cost is zero (free infrastructure)
+  // Cost is zero (pricing mode: none)
   return {
     text: response.data.raw_text,
     markdown: response.data.markdown,
     metadata: {
       extractorId: PaddleOcrExtractor.metadata.id,
       processingTimeMs: Date.now() - startTime,
-      cost: {
-        currency: 'USD',
-        amount: 0,
-        pagesProcessed: response.data.layout?.num_pages ?? 1,
-      },
+      textCost: 0,
+      currency: this.config.pricing.currency,
+      pagesProcessed: response.data.layout?.num_pages ?? 1,
     },
   };
 }
@@ -558,13 +561,16 @@ async extract(buffer: Buffer): Promise<TextExtractionResult> {
 class ManifestEntity {
   // ... existing fields
 
-  @Column('jsonb', { nullable: true })
-  extractionCost: ExtractionCost;  // Store cost with each extraction
+  @Column({ type: 'decimal', nullable: true })
+  extractionCost: number;  // Numeric total (text + llm)
 
   @Column()
   textExtractorId: string;       // Which extractor was used
 }
 ```
+
+Text extraction cost is stored in job-level fields (`ocrActualCost`) and rolled up into `manifest.extractionCost` along with LLM cost.
+The public API uses `textCost` naming and maps it to legacy storage fields.
 
 ## UI: Cost Display
 
@@ -724,16 +730,16 @@ class ManifestEntity {
 
 ```
 1. User creates extractor
-   → Fills in pricing section (currency, input/output prices)
+   → Fills in pricing section (mode, currency, price inputs)
    → System validates pricing > 0
    → Save
 
 2. User runs extraction
-   → Extractor calculates cost from API usage or config
+   → Extractor calculates textCost from API usage or config
    → Cost stored with manifest
 
 3. User views manifest
-   → See extraction cost breakdown
+   → See textCost + llmCost breakdown
    → Compare to average
    → See total project costs
 

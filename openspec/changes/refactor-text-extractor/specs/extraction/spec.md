@@ -4,24 +4,40 @@
 The system SHALL provide a plugin architecture for text extractors with dynamic registration and instantiation.
 
 #### Scenario: List available extractors
-- **GIVEN** the system has registered text extractors
+- **GIVEN** the system has registered extractor types and stored extractor configurations
 - **WHEN** a client calls `GET /api/extractors`
-- **THEN** the system SHALL return an array of extractor metadata
-- **AND** each metadata SHALL include id, name, description, category, and parameter schema
+- **THEN** the system SHALL return an array of extractor configurations
+- **AND** each item SHALL include id, name, description, extractorType, and isActive
 
-#### Scenario: Get extractor parameter schema
-- **GIVEN** an extractor with ID 'vision-llm' is registered
-- **WHEN** a client calls `GET /api/extractors/vision-llm/schema`
-- **THEN** the system SHALL return the parameter schema
-- **AND** the schema SHALL include field names, types, labels, descriptions, and required flags
-- **AND** the schema SHALL include default values where applicable
+#### Scenario: List extractor types and schemas
+- **WHEN** a client calls `GET /api/extractors/types`
+- **THEN** the system SHALL return available extractor types
+- **AND** each type SHALL include id, name, description, category, paramsSchema, and defaults
 
-#### Scenario: Validate extractor configuration
-- **GIVEN** a client wants to configure an extractor before saving
-- **WHEN** a client calls `POST /api/extractors/validate` with `{ extractorId, params }`
-- **THEN** the system SHALL validate params against the extractor's schema
+#### Scenario: Validate extractor configuration on create
+- **WHEN** a client calls `POST /api/extractors` with `{ name, extractorType, config }`
+- **THEN** the system SHALL validate config against the extractor type schema
 - **AND** the system SHALL return validation errors if any parameters are invalid
-- **AND** the system SHALL return success if all parameters are valid
+- **AND** the system SHALL create the extractor if validation succeeds
+
+### Requirement: Extractor Configuration Management
+The system SHALL allow managing global extractor configurations.
+
+#### Scenario: Update extractor configuration
+- **GIVEN** an existing extractor
+- **WHEN** a client calls `PUT /api/extractors/:id` with updated config
+- **THEN** the system SHALL validate and persist the changes
+
+#### Scenario: Test extractor connection
+- **GIVEN** an existing extractor
+- **WHEN** a client calls `POST /api/extractors/:id/test`
+- **THEN** the system SHALL run a lightweight test and return the result
+
+#### Scenario: Delete extractor
+- **GIVEN** an extractor that is not used by any project
+- **WHEN** a client calls `DELETE /api/extractors/:id`
+- **THEN** the system SHALL delete the extractor
+- **AND** if the extractor is in use, the system SHALL return a clear error
 
 ### Requirement: Text Extractor Implementation
 Extractors SHALL be implemented as classes with static metadata and an extract method.
@@ -90,21 +106,26 @@ The system SHALL provide a PaddleOcrExtractor that integrates with the PaddleOCR
 - **AND** the result SHALL contain the markdown field from PaddleOCR
 - **AND** the result SHALL include page count in metadata
 
-### Requirement: Extractor Configuration per Project
-The system SHALL allow each project to configure its preferred text extractor.
+### Requirement: Extractor Selection per Project
+The system SHALL allow each project to select its preferred text extractor from global configurations.
 
-#### Scenario: Project configures extractor
+#### Scenario: Project selects extractor
 - **GIVEN** a project owner
-- **WHEN** configuring a project with extractorId 'vision-llm' and params
-- **THEN** the system SHALL save the configuration to the database
-- **AND** the system SHALL validate the params before saving
-- **AND** subsequent extractions for the project SHALL use the configured extractor
+- **WHEN** a client calls `PUT /api/projects/:id/extractor` with `{ textExtractorId }`
+- **THEN** the system SHALL validate the extractor exists and is active
+- **AND** the system SHALL save textExtractorId on the project
+- **AND** subsequent extractions for the project SHALL use the selected extractor
 
 #### Scenario: Project extractor not found
-- **GIVEN** a project with a configured extractorId
-- **WHEN** the extractor is not registered in the system
+- **GIVEN** a project with a configured textExtractorId
+- **WHEN** the extractor is not found or inactive
 - **THEN** the system SHALL return an error
 - **AND** the system SHALL require the user to select a valid extractor
+
+#### Scenario: Project returns selected extractor
+- **GIVEN** a project with a configured textExtractorId
+- **WHEN** a client calls `GET /api/projects/:id`
+- **THEN** the response SHALL include textExtractorId
 
 #### Scenario: Override extractor per extraction
 - **GIVEN** a project with a default extractor configured
@@ -142,36 +163,14 @@ The system SHALL provide preset configurations for common vision models.
 - **THEN** the system SHALL create the extractor with preset config + API key
 - **AND** the user SHALL not need to specify baseUrl, model, or other defaults
 
-### Requirement: Project Extractor Configuration API
-The system SHALL provide API endpoints for managing project-level extractor configurations.
-
-#### Scenario: Get project extractor config
-- **GIVEN** a project with ID 'project-123'
-- **WHEN** calling `GET /api/projects/project-123/extractor-config`
-- **THEN** the system SHALL return the project's extractor configuration
-- **AND** the response SHALL include extractorId and params
-
-#### Scenario: Update project extractor config
-- **GIVEN** a project with ID 'project-123'
-- **WHEN** calling `PUT /api/projects/project-123/extractor-config` with new config
-- **THEN** the system SHALL validate the configuration
-- **AND** the system SHALL update the project's extractor config in the database
-- **AND** the system SHALL return the updated configuration
-
-#### Scenario: Test extractor configuration
-- **GIVEN** a project with an extractor configuration
-- **WHEN** calling `POST /api/projects/project-123/extractor-config/test`
-- **THEN** the system SHALL run a test extraction with a sample document
-- **AND** the system SHALL return the test result including extracted text and timing
-- **AND** the system SHALL return any errors that occurred
-
 ### Requirement: Text Extraction Flow
-The system SHALL extract text using configured extractors, then extract structured data using LLM.
+The system SHALL extract text using the selected extractor, then extract structured data using LLM.
 
-#### Scenario: Full extraction with configured extractor
+#### Scenario: Full extraction with selected extractor
 - **GIVEN** a project with a configured text extractor
 - **WHEN** an extraction job is triggered for a manifest
-- **THEN** the system SHALL load the project's extractor configuration
+- **THEN** the system SHALL load the project's textExtractorId
+- **AND** the system SHALL load the extractor configuration by id
 - **AND** the system SHALL create an extractor instance from the configuration
 - **AND** the system SHALL extract text using the extractor
 - **AND** the system SHALL pass the extracted text to the LLM for structured data extraction
@@ -191,6 +190,38 @@ The system SHALL extract text using configured extractors, then extract structur
 - **AND** the system SHALL set manifest status to failed
 - **AND** the system SHALL include the error message in the manifest
 
+### Requirement: Extraction Cost Tracking
+The system SHALL calculate and store text extraction cost when pricing configuration is provided.
+
+#### Scenario: Store extraction cost metadata
+- **GIVEN** an extractor returns cost metadata
+- **WHEN** extraction completes
+- **THEN** the manifest SHALL store extractionCost as a numeric total
+- **AND** the API SHALL return extractionCost in manifest responses
+- **AND** the API SHALL return textCost and llmCost breakdown when available
+
+#### Scenario: Text extraction cost uses textCost naming
+- **GIVEN** a text extractor returns a calculated cost
+- **WHEN** the extraction job completes
+- **THEN** the system SHALL expose the value as textCost (actual usage)
+- **AND** the total extractionCost SHALL include textCost + llmCost
+
+#### Scenario: Retrieve extractor cost summary
+- **GIVEN** cost data exists for an extractor
+- **WHEN** a client calls `GET /api/extractors/:id/cost-summary`
+- **THEN** the system SHALL return total cost and average cost per extraction
+- **AND** the response SHALL include textCost + llmCost breakdown when available
+
+#### Scenario: Retrieve project cost summary
+- **GIVEN** a project has extraction cost data
+- **WHEN** a client calls `GET /api/projects/:id/cost-summary`
+- **THEN** the system SHALL return total extraction cost and cost by extractor
+
+#### Scenario: Retrieve project cost over time
+- **GIVEN** a project has extraction cost history
+- **WHEN** a client calls `GET /api/projects/:id/cost-by-date-range`
+- **THEN** the system SHALL return cost totals grouped by date
+
 ### Requirement: Extraction Result Storage
 The system SHALL store extractor information with extraction results.
 
@@ -207,3 +238,57 @@ The system SHALL store extractor information with extraction results.
 - **THEN** the API response SHALL include the extractorId
 - **AND** the response SHALL include extractor metadata
 - **AND** the web UI SHALL display this information
+
+## RENAMED Requirements
+- FROM: `### Requirement: OCR Processing`
+- TO: `### Requirement: Text Extraction Processing`
+
+## MODIFIED Requirements
+### Requirement: Text Extraction Processing
+The system SHALL extract text using the project's selected text extractor before structured data extraction.
+
+#### Scenario: Text extraction uses project-selected extractor
+- **GIVEN** a project with textExtractorId configured
+- **WHEN** an extraction job starts
+- **THEN** the system SHALL load the extractor by id
+- **AND** the system SHALL run text extraction using the extractor configuration
+
+#### Scenario: Missing extractor selection
+- **GIVEN** a project without textExtractorId configured
+- **WHEN** an extraction job starts
+- **THEN** the system SHALL fail the job with a clear error
+- **AND** the system SHALL not fall back to config.yaml for text extraction
+
+### Requirement: Model Selection for Extraction
+The system SHALL use ModelEntity configurations for structured data extraction.
+
+#### Scenario: Extraction uses project LLM model
+- **GIVEN** a project with llmModelId configured
+- **WHEN** an extraction job is created
+- **THEN** the LLM model is loaded from the database
+- **AND** the model's parameters (apiKey, modelName, temperature, etc.) are used
+- **AND** the adapter service executes the LLM completion
+
+#### Scenario: Fallback to config when no LLM model configured
+- **GIVEN** a project without default LLM model configured
+- **WHEN** an extraction job is created
+- **THEN** the system falls back to config.yaml settings
+- **AND** a warning is logged indicating the use of fallback configuration
+
+#### Scenario: Override LLM model per extraction
+- **GIVEN** an extraction request with a specific llmModelId
+- **WHEN** the extraction job is created
+- **THEN** the provided LLM model overrides the project default
+- **AND** the specified model is used for this extraction only
+
+#### Scenario: LLM model not found
+- **GIVEN** a project with an invalid llmModelId (deleted or non-existent)
+- **WHEN** an extraction job is created
+- **THEN** the system falls back to config.yaml settings
+- **AND** an error is logged indicating the invalid model reference
+
+#### Scenario: Vision-capable model does not require OCR config
+- **GIVEN** a vision-capable model is configured for structured extraction
+- **WHEN** the model configuration is validated
+- **THEN** the system SHALL not require OCR/text extraction configuration
+- **AND** text extraction SHALL be configured via the project's selected text extractor

@@ -1,165 +1,135 @@
 ## ADDED Requirements
 
-### Requirement: Text Extraction Settings Page
-The web application SHALL provide a settings page for configuring text extraction per project.
+### Requirement: Global Extractors Page
+The web application SHALL provide a global page for managing text extractors.
 
-#### Scenario: Navigate to text extraction settings
-- **GIVEN** a user is logged in as a project owner
-- **WHEN** the user navigates to `/projects/:id/text-extraction`
-- **THEN** the system SHALL display the Text Extraction Settings page
-- **AND** the page SHALL show the current extractor configuration
-- **AND** the page SHALL allow the user to modify the configuration
+#### Scenario: Navigate to extractors page
+- **GIVEN** a user is logged in
+- **WHEN** the user navigates to `/extractors`
+- **THEN** the system SHALL display the Extractors page
+- **AND** the page SHALL show a list of extractors and a "New Extractor" action
 
-#### Scenario: View current extractor configuration
-- **GIVEN** a project with a configured extractor
-- **WHEN** the text extraction settings page loads
-- **THEN** the system SHALL display the configured extractor name
-- **AND** the system SHALL display the extractor category (OCR/Vision/Hybrid)
-- **AND** the system SHALL display current parameter values (with secrets masked)
+#### Scenario: List extractor cards
+- **GIVEN** extractors exist
+- **WHEN** the page loads
+- **THEN** each extractor card SHALL show name, description, extractor type, and active status
+- **AND** each card SHALL show "Used by X projects" when usage data is available
 
-#### Scenario: Select extractor category
-- **GIVEN** a user is on the text extraction settings page
-- **WHEN** the user clicks on a category tab (OCR, Vision, or Hybrid)
-- **THEN** the system SHALL filter extractors to show only that category
-- **AND** the system SHALL update the extractor dropdown with filtered options
+#### Scenario: Create extractor
+- **GIVEN** a user opens the new extractor dialog
+- **WHEN** the user saves a valid configuration
+- **THEN** the system SHALL call `POST /api/extractors`
+- **AND** the list SHALL refresh with the new extractor
 
-### Requirement: Extractor Selection Component
-The web application SHALL provide a component for selecting and configuring text extractors.
+#### Scenario: Edit extractor
+- **GIVEN** a user opens an existing extractor
+- **WHEN** the user saves changes
+- **THEN** the system SHALL call `PUT /api/extractors/:id`
+- **AND** the list SHALL refresh with updated data
 
-#### Scenario: Search and filter extractors
-- **GIVEN** the extractor selector component is displayed
-- **WHEN** the user types in the search input
-- **THEN** the system SHALL filter extractors by name and description
-- **AND** the system SHALL update the dropdown list with matching results
+#### Scenario: Delete extractor
+- **GIVEN** a user clicks delete on an extractor
+- **WHEN** the system confirms deletion
+- **THEN** the system SHALL call `DELETE /api/extractors/:id`
+- **AND** the extractor SHALL be removed from the list
+- **AND** if the extractor is in use, the system SHALL show a clear error
 
-#### Scenario: Select extractor from dropdown
-- **GIVEN** the extractor dropdown is open
-- **WHEN** the user selects an extractor
-- **THEN** the system SHALL display the extractor's parameter form
-- **AND** the system SHALL pre-fill the form with default values from schema
+#### Scenario: Test extractor connection
+- **GIVEN** a user clicks "Test" on an extractor card
+- **WHEN** the test runs
+- **THEN** the system SHALL call `POST /api/extractors/:id/test`
+- **AND** the system SHALL display success or error details
 
-#### Scenario: View extractor details before selection
-- **GIVEN** the extractor dropdown is open
-- **WHEN** the user hovers over an extractor option
-- **THEN** the system SHALL display a tooltip with the extractor's description
-- **AND** the tooltip SHALL show supported file formats
+### Requirement: Extractor Form with Dynamic Configuration
+The web application SHALL generate extractor configuration forms based on type schemas.
+
+#### Scenario: Load extractor types
+- **WHEN** the extractor dialog opens
+- **THEN** the system SHALL call `GET /api/extractors/types`
+- **AND** the system SHALL populate the type selector from the response
+
+#### Scenario: Generate form from schema
+- **GIVEN** an extractor type is selected
+- **WHEN** the schema is available
+- **THEN** the system SHALL render a field for each parameter
+- **AND** required fields SHALL be marked with an asterisk
+
+#### Scenario: Apply preset configuration
+- **GIVEN** presets are available
+- **WHEN** the user selects a preset
+- **THEN** the system SHALL pre-fill the configuration form
+- **AND** the system SHALL focus the API key field
+
+#### Scenario: Inline validation and save errors
+- **GIVEN** a user edits configuration fields
+- **WHEN** a field value is invalid
+- **THEN** the system SHALL show an inline error message
+- **AND** the system SHALL prevent save until errors are resolved
 
 ### Requirement: Extractor Preset Selection
 The web application SHALL provide preset configurations for common vision models.
 
 #### Scenario: View available presets
-- **GIVEN** the user has selected the Vision category
 - **WHEN** the preset section is displayed
 - **THEN** the system SHALL show preset cards for common models (GPT-4o, Claude, Qwen)
 - **AND** each card SHALL display the model name and provider
 - **AND** each card SHALL have a "Select" button
 
-#### Scenario: Select preset configuration
-- **GIVEN** the preset cards are displayed
-- **WHEN** the user clicks the "Select" button on a preset
-- **THEN** the system SHALL pre-fill the configuration form with preset values
-- **AND** the system SHALL focus the API key input field
-- **AND** the user SHALL only need to provide the API key
+#### Scenario: Load presets from API
+- **WHEN** the preset section loads
+- **THEN** the system SHALL call `GET /api/extractors/presets`
+- **AND** the UI SHALL render the returned preset list
 
-#### Scenario: Configure custom extractor after preset
-- **GIVEN** a user has selected a preset
-- **WHEN** the user modifies any parameter value
-- **THEN** the system SHALL update the form to show "Custom" instead of the preset name
-- **AND** the system SHALL indicate the configuration differs from the preset
+### Requirement: Project Extractor Selection Page
+The web application SHALL allow selecting a global extractor for a project.
 
-### Requirement: Dynamic Configuration Form
-The web application SHALL generate configuration forms dynamically based on extractor parameter schemas.
+#### Scenario: Navigate to project extractor settings
+- **GIVEN** a user is on a project page
+- **WHEN** the user navigates to `/projects/:id/settings/extractors`
+- **THEN** the system SHALL display the Project Extractor Settings page
+- **AND** the page SHALL show the currently selected extractor
 
-#### Scenario: Generate form from schema
-- **GIVEN** an extractor with parameter schema is selected
-- **WHEN** the schema is fetched from `GET /api/extractors/:id/schema`
-- **THEN** the system SHALL generate a form field for each parameter
-- **AND** each field SHALL use the appropriate input type based on parameter type
-- **AND** required fields SHALL be marked with an asterisk
+#### Scenario: Select extractor for project
+- **GIVEN** the selection dialog is open
+- **WHEN** the user selects an extractor and saves
+- **THEN** the system SHALL call `PUT /api/projects/:id/extractor`
+- **AND** the project SHALL update to use the selected extractor
 
-#### Scenario: String parameter input
-- **GIVEN** a parameter with type 'string'
-- **WHEN** rendering the form field
-- **THEN** the system SHALL display a text input
-- **AND** the input SHALL have the parameter's label as placeholder
-- **AND** the input SHALL show the parameter's description as helper text
+#### Scenario: Selection is read-only for config
+- **GIVEN** the project extractor settings page is open
+- **THEN** the page SHALL not expose extractor configuration fields
+- **AND** configuration edits SHALL only be available on the global Extractors page
 
-#### Scenario: Number parameter input
-- **GIVEN** a parameter with type 'number'
-- **WHEN** rendering the form field
-- **THEN** the system SHALL display a number input
-- **AND** the input SHALL enforce numeric validation
-- **AND** the input SHALL show the parameter's description as helper text
+### Requirement: Models Page LLM-Only
+The web application SHALL limit the Models page to structured LLM configuration only.
 
-#### Scenario: Boolean parameter input
-- **GIVEN** a parameter with type 'boolean'
-- **WHEN** rendering the form field
-- **THEN** the system SHALL display a toggle switch
-- **AND** the switch SHALL show the parameter's label
-- **AND** the switch SHALL show the parameter's description as helper text
+#### Scenario: Remove OCR configuration from models
+- **GIVEN** a user opens the Models page
+- **WHEN** the model create/edit dialog is displayed
+- **THEN** the form SHALL not include OCR or text extraction configuration fields
+- **AND** the form SHALL focus on structured LLM settings only
 
-#### Scenario: Enum parameter input
-- **GIVEN** a parameter with type 'enum'
-- **WHEN** rendering the form field
-- **THEN** the system SHALL display a select dropdown
-- **AND** the dropdown SHALL contain options from the parameter's enumValues
-- **AND** the dropdown SHALL display the parameter's label
+#### Scenario: Vision-capable model does not require OCR config
+- **GIVEN** a user configures a vision-capable model
+- **WHEN** the model form is validated
+- **THEN** the UI SHALL not require any OCR/text extraction configuration
+- **AND** the user can save without OCR settings
 
-#### Scenario: API Key parameter input
-- **GIVEN** a parameter with type 'apiKey' and secret=true
-- **WHEN** rendering the form field
-- **THEN** the system SHALL display a password input with masking
-- **AND** the input SHALL have a visibility toggle button (eye icon)
-- **AND** the input SHALL have a copy to clipboard button
-- **AND** existing values SHALL be masked as bullets (•••••••••••••)
+#### Scenario: Direct users to Extractors for text extraction
+- **GIVEN** a user is viewing model configuration help text
+- **THEN** the UI SHALL indicate text extraction is configured in Extractors
 
-### Requirement: Configuration Validation
-The web application SHALL validate extractor configurations inline before submission.
+## MODIFIED Requirements
+### Requirement: Project Wizard
+The web application SHALL provide a multi-step project creation wizard.
 
-#### Scenario: Validate on field change
-- **GIVEN** a user is filling out the configuration form
-- **WHEN** the user changes a field value
-- **THEN** the system SHALL validate the field against the parameter schema
-- **AND** the system SHALL display an inline error if validation fails
-- **AND** the system SHALL clear the error when the value becomes valid
+#### Scenario: Step 4 - Model selection
+- **WHEN** the wizard is at step 4
+- **THEN** the system SHALL display available text extractors
+- **AND** the system SHALL display available LLM models
+- **AND** the system SHALL require selecting one text extractor and one LLM model
+- **AND** the system SHALL show model test status if available
 
-#### Scenario: Show required field errors
-- **GIVEN** a user has not filled a required field
-- **WHEN** the user attempts to save the configuration
-- **THEN** the system SHALL highlight the missing required fields
-- **AND** the system SHALL display error messages below each missing field
-- **AND** the system SHALL prevent saving until all required fields are filled
-
-#### Scenario: Validate via API before save
-- **GIVEN** a user has filled all required fields
-- **WHEN** the user clicks the Save button
-- **THEN** the system SHALL call `POST /api/extractors/validate`
-- **AND** the system SHALL display API validation errors if any
-- **AND** the system SHALL save the configuration only if validation passes
-
-### Requirement: Test Configuration Feature
-The web application SHALL allow users to test their extractor configuration before saving.
-
-#### Scenario: Test extractor configuration
-- **GIVEN** a user has filled in the extractor configuration
-- **WHEN** the user clicks the "Test Configuration" button
-- **THEN** the system SHALL call `POST /api/projects/:id/extractor-config/test`
-- **AND** the system SHALL show a loading state during the test
-- **AND** the system SHALL display the test result when complete
-
-#### Scenario: Display successful test result
-- **GIVEN** the test extraction completed successfully
-- **WHEN** the test result is received
-- **THEN** the system SHALL display a success message
-- **AND** the system SHALL show a sample of extracted text
-- **AND** the system SHALL show the extraction time
-
-#### Scenario: Display failed test result
-- **GIVEN** the test extraction failed
-- **WHEN** the test result is received
-- **THEN** the system SHALL display an error message
-- **AND** the system SHALL show the error details from the API
-- **AND** the system SHALL suggest common fixes (e.g., "Check API key")
 
 ### Requirement: Extractor Information Display
 The web application SHALL display which extractor was used for each manifest extraction.
@@ -185,23 +155,49 @@ The web application SHALL display which extractor was used for each manifest ext
 - **THEN** the system SHALL filter the list to show only manifests processed by that extractor
 - **AND** the filter badge SHALL show the extractor name
 
+### Requirement: Cost Display
+The web application SHALL display extraction costs when cost data is available.
+
+#### Scenario: Show cost on extractor cards
+- **GIVEN** extractor cost summaries are available
+- **WHEN** the Extractors page loads
+- **THEN** each extractor card SHALL show average cost per extraction
+- **AND** each card SHALL show total spend when available
+
+#### Scenario: Show cost in manifest list
+- **GIVEN** manifests include extraction cost data
+- **WHEN** the manifests list loads
+- **THEN** each manifest row SHALL show the extraction cost
+
+#### Scenario: Show cost breakdown in manifest detail
+- **GIVEN** a manifest with extraction cost data
+- **WHEN** the manifest detail panel opens
+- **THEN** the system SHALL display a cost breakdown panel
+- **AND** the panel SHALL show text extraction cost, LLM cost, and total cost when available
+
+#### Scenario: Project cost summary page
+- **GIVEN** a project with extraction cost history
+- **WHEN** the user navigates to `/projects/:id/costs`
+- **THEN** the system SHALL show total extraction costs and cost by extractor
+- **AND** the system SHALL show cost over time
+
 ### Requirement: Secure API Key Handling
-The web application SHALL handle API keys securely in the UI.
+The web application SHALL handle extractor API keys securely in the UI.
 
 #### Scenario: Mask existing API keys
-- **GIVEN** a configuration with an existing API key
+- **GIVEN** an existing extractor configuration with an API key
 - **WHEN** the configuration form loads
 - **THEN** the API key input SHALL show masked bullets instead of the actual key
-- **AND** the input SHALL indicate the key is configured (not empty)
+- **AND** the input SHALL indicate the key is configured
 
 #### Scenario: Toggle API key visibility
-- **GIVEN** an API key input field with masked value
+- **GIVEN** a user has entered a new API key in the current session
 - **WHEN** the user clicks the eye icon
-- **THEN** the system SHALL reveal the actual API key
+- **THEN** the system SHALL reveal the entered API key
 - **AND** the user can click again to mask it
 
 #### Scenario: Copy API key to clipboard
-- **GIVEN** an API key input field
+- **GIVEN** a user has entered a new API key in the current session
 - **WHEN** the user clicks the copy button
 - **THEN** the system SHALL copy the API key to the clipboard
 - **AND** the system SHALL show a "Copied!" confirmation tooltip
@@ -212,35 +208,11 @@ The web application SHALL handle API keys securely in the UI.
 - **THEN** the system SHALL display a "Changed" indicator next to the field
 - **AND** the system SHALL warn the user that the key will be updated on save
 
-### Requirement: Configuration Persistence
-The web application SHALL save and load extractor configurations per project.
-
-#### Scenario: Save extractor configuration
-- **GIVEN** a user has filled and validated the configuration form
-- **WHEN** the user clicks the Save button
-- **THEN** the system SHALL call `PUT /api/projects/:id/extractor-config`
-- **AND** the system SHALL show a success message when saved
-- **AND** the system SHALL update the current configuration display
-
-#### Scenario: Cancel configuration changes
-- **GIVEN** a user has made changes to the configuration form
-- **WHEN** the user clicks the Cancel button
-- **THEN** the system SHALL discard unsaved changes
-- **AND** the system SHALL reload the saved configuration
-- **AND** the system SHALL navigate back to the previous page if confirmation is accepted
-
-#### Scenario: Load configuration on page mount
-- **GIVEN** a user navigates to the text extraction settings page
-- **WHEN** the page component mounts
-- **THEN** the system SHALL call `GET /api/projects/:id/extractor-config`
-- **AND** the system SHALL pre-fill the form with the loaded configuration
-- **AND** the system SHALL show a loading state during the fetch
-
 ### Requirement: Error Handling and Feedback
 The web application SHALL provide clear feedback for errors and loading states.
 
 #### Scenario: Show loading state during fetch
-- **GIVEN** the page is fetching extractor metadata or configuration
+- **GIVEN** the page is fetching extractor data
 - **WHEN** the fetch is in progress
 - **THEN** the system SHALL display a loading spinner
 - **AND** the system SHALL disable form inputs during loading
@@ -253,23 +225,28 @@ The web application SHALL provide clear feedback for errors and loading states.
 - **AND** the system SHALL log the error for debugging
 
 #### Scenario: Show unsaved changes warning
-- **GIVEN** a user has made unsaved changes to the configuration
+- **GIVEN** a user has made unsaved changes to an extractor form
 - **WHEN** the user attempts to navigate away
 - **THEN** the system SHALL display a confirmation dialog
 - **AND** the dialog SHALL warn about unsaved changes
 - **AND** the system SHALL allow the user to stay or discard changes
 
 ### Requirement: Navigation Integration
-The web application SHALL integrate text extraction settings into project settings navigation.
+The web application SHALL integrate extractor management into navigation.
 
-#### Scenario: Access from project settings
-- **GIVEN** a user is on a project-related page
-- **WHEN** the user opens the project settings menu
-- **THEN** the menu SHALL include a "Text Extraction" option
-- **AND** clicking the option SHALL navigate to the text extraction settings page
+#### Scenario: Sidebar includes Extractors
+- **WHEN** the sidebar is rendered
+- **THEN** the menu SHALL include an "Extractors" link
+- **AND** clicking the link SHALL navigate to `/extractors`
+
+#### Scenario: Project settings includes Extractors
+- **GIVEN** a user opens the project settings menu
+- **WHEN** the menu is displayed
+- **THEN** the menu SHALL include an "Extractors" option
+- **AND** clicking the option SHALL navigate to `/projects/:id/settings/extractors`
 
 #### Scenario: Breadcrumb navigation
-- **GIVEN** a user is on the text extraction settings page
+- **GIVEN** a user is on the project extractor settings page
 - **WHEN** the page is displayed
-- **THEN** the breadcrumb SHALL show "Projects > [Project Name] > Settings > Text Extraction"
+- **THEN** the breadcrumb SHALL show "Projects > [Project Name] > Settings > Extractors"
 - **AND** clicking any breadcrumb segment SHALL navigate to that level

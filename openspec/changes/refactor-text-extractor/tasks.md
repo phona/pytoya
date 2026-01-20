@@ -21,14 +21,13 @@
 - [ ] 3.5 Add pricing configuration to extractor parameter schemas
 
 ## 4. Backend - Cost Calculation
-- [ ] 4.1 Create `ExtractionCost` type/interface (currency, amount, tokens, pages)
-- [ ] 4.2 Create `PricingConfig` interface for extractor pricing
+- [ ] 4.1 Expose cost breakdown as `textCost`, `llmCost`, and `total`
+- [ ] 4.2 Map extractor textCost to job `ocrActualCost` (legacy storage)
 - [ ] 4.3 Implement cost calculation in `VisionLLMExtractor` (token-based)
 - [ ] 4.4 Implement cost calculation in `PaddleOcrExtractor` (free/fixed)
 - [ ] 4.5 Implement cost calculation in `TesseractExtractor` (free)
-- [ ] 4.6 Add cost to `TextExtractionResult.metadata`
-- [ ] 4.7 Add `extractionCost` field to `ManifestEntity`
-- [ ] 4.8 Create migration to add cost tracking to manifests table
+- [ ] 4.6 Add cost metadata to `TextExtractionResult` (textCost, currency, tokens, pages)
+- [ ] 4.7 Update manifest total cost aggregation (text + llm)
 
 ## 5. Backend - Project Entity Update
 - [ ] 5.1 Add `textExtractorId` column to `ProjectEntity`
@@ -48,13 +47,14 @@
 - [ ] 6.2 Create DTOs for extractor CRUD operations
 - [ ] 6.3 Create `ExtractorTypesController`:
   - `GET /api/extractors/types` - List available extractor types (with schemas)
+  - `GET /api/extractors/presets` - List preset configurations
 
 ## 7. Backend - Projects & Cost API
 - [ ] 7.1 Update `ProjectsService` to include `textExtractorId` in responses
 - [ ] 7.2 Add `PUT /api/projects/:id/extractor` - Set project's extractor
 - [ ] 7.3 Update project DTOs to include `textExtractorId`
 - [ ] 7.4 Add `GET /api/projects/:id/cost-summary` - Get extraction cost summary
-- [ ] 7.5 Add `GET /api/extractors/:id/cost-by-date-range` - Cost analytics endpoint
+- [ ] 7.5 Add `GET /api/projects/:id/cost-by-date-range` - Cost analytics endpoint
 
 ## 8. Backend - Extraction Service Rewrite
 - [ ] 8.1 Rewrite `ExtractionService` to use `TextExtractorService`
@@ -76,7 +76,7 @@
 - [ ] 10.1 Create `src/apps/web/src/api/extractors.ts` API client
 - [ ] 10.2 Create `src/apps/web/src/api/types/extractors.ts` TypeScript types
 - [ ] 10.3 Update projects API types to include `textExtractorId` and cost summaries
-- [ ] 10.4 Add cost types (ExtractionCost, CostSummary, etc.)
+- [ ] 10.4 Add cost summary types aligned to `text`, `llm`, and total cost fields
 
 ## 11. Frontend - Hooks
 - [ ] 11.1 Create `src/apps/web/src/shared/hooks/use-extractors.ts` (CRUD operations)
@@ -126,7 +126,7 @@
 - [ ] 16.1 Create `ProjectSettingsExtractorsPage.tsx` (following `ProjectSettingsModelsPage` pattern)
   - Route: `/projects/:id/settings/extractors`
   - Display current extractor in Card
-  - Edit button opens selection dialog
+  - Selection only (no config fields)
   - Simple dropdown/list to select from available extractors
   - **Show current extractor's cost information**
 - [ ] 16.2 Add loading state (spinner)
@@ -158,11 +158,7 @@
   - Number of extractions
 
 ## 19. Frontend - Sidebar Update
-- [ ] 19.1 Add "Extractors" to sidebar navigation
-- [ ] 19.2 Remove "Manifests" from sidebar (within project)
-- [ ] 19.3 Remove "Schemas" from sidebar (within project)
-- [ ] 19.4 Remove "Validation Scripts" from sidebar (remove or move to project)
-- [ ] 19.5 Remove "Prompts" from sidebar (remove or move to project)
+- [ ] 19.1 Add "Extractors" to sidebar navigation (keep existing items)
 
 ## 20. Frontend - Router Update
 - [ ] 20.1 Add route for `/extractors` (lazy loaded)
@@ -217,3 +213,12 @@
 - [ ] 26.2 Add extractor development guide
 - [ ] 26.3 Update project context with new patterns
 - [ ] 26.4 Document cost calculation feature
+
+## 27. Frontend - Models Page Cleanup
+- [ ] 27.1 Remove OCR model configuration UI from the Models page (Models are for structured LLM only)
+- [ ] 27.2 When a model is vision-capable, do not require OCR configuration fields
+- [ ] 27.3 Update helper text to direct OCR/text extraction setup to the Extractors page
+
+## 28. Backend - Model Validation Cleanup
+- [ ] 28.1 Remove OCR model config requirements from model DTO validation (if any)
+- [ ] 28.2 Ensure vision-capable models do not require OCR-related fields
