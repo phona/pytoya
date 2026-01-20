@@ -7,7 +7,7 @@ This document describes the API surface for the adapter-based models system.
 ### List Models
 
 ```http
-GET /api/models?category=ocr&adapterType=openai&isActive=true
+GET /api/models?category=llm&adapterType=openai&isActive=true
 ```
 
 Response:
@@ -43,14 +43,16 @@ Response:
 ```json
 [
   {
-    "type": "paddlex",
-    "name": "PaddleX OCR",
-    "description": "PaddleOCR-VL adapter",
-    "category": "ocr",
+    "type": "openai",
+    "name": "OpenAI-Compatible",
+    "description": "OpenAI-compatible LLM adapter",
+    "category": "llm",
     "parameters": {
-      "baseUrl": { "type": "string", "required": true, "label": "Base URL" }
+      "baseUrl": { "type": "string", "required": true, "label": "Base URL" },
+      "apiKey": { "type": "string", "required": true, "label": "API Key", "secret": true },
+      "modelName": { "type": "string", "required": true, "label": "Model Name" }
     },
-    "capabilities": ["ocr"]
+    "capabilities": ["llm"]
   }
 ]
 ```
@@ -62,14 +64,14 @@ POST /api/models
 Content-Type: application/json
 
 {
-  "name": "PaddleX OCR",
-  "adapterType": "paddlex",
+  "name": "OpenAI GPT-4o",
+  "adapterType": "openai",
   "parameters": {
-    "baseUrl": "http://localhost:8080",
-    "timeout": 60000,
-    "maxRetries": 3
+    "baseUrl": "https://api.openai.com/v1",
+    "apiKey": "sk-...",
+    "modelName": "gpt-4o"
   },
-  "description": "Local OCR server",
+  "description": "OpenAI GPT-4o",
   "isActive": true
 }
 ```
@@ -113,4 +115,4 @@ Response:
 
 - Secret parameters (like API keys) are masked in list responses.
 - `category` is derived from the adapter type.
-- Set `ocrModelId` and `llmModelId` on projects to choose default models.
+- Projects use `llmModelId` for structured extraction and `textExtractorId` for text extraction (managed via the Extractors API).

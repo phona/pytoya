@@ -12,7 +12,7 @@ describe('ExtractionProgressView', () => {
       progress: 100,
       startedAt: new Date(Date.now() - 60000),
       completedAt: new Date(Date.now() - 30000),
-      cost: { ocr: 0.003, llm: 0.067, total: 0.07 },
+      cost: { text: 0.003, llm: 0.067, total: 0.07 },
       pages: 3,
     },
     {
@@ -22,7 +22,7 @@ describe('ExtractionProgressView', () => {
       status: 'running' as const,
       progress: 45,
       startedAt: new Date(Date.now() - 10000),
-      cost: { ocr: 0, llm: 0, total: 0 },
+      cost: { text: 0, llm: 0, total: 0 },
     },
     {
       id: '3',
@@ -77,7 +77,7 @@ describe('ExtractionProgressView', () => {
         progress: 100,
         startedAt: new Date(Date.now() - 120000),
         completedAt: new Date(Date.now() - 60000),
-        cost: { ocr: 0.003, llm: 0.067, total: 0.07 },
+        cost: { text: 0.003, llm: 0.067, total: 0.07 },
         pages: 3,
       },
       {
@@ -88,7 +88,7 @@ describe('ExtractionProgressView', () => {
         progress: 100,
         startedAt: new Date(Date.now() - 60000),
         completedAt: new Date(Date.now() - 30000),
-        cost: { ocr: 0.003, llm: 0.047, total: 0.05 },
+        cost: { text: 0.003, llm: 0.047, total: 0.05 },
         pages: 2,
       },
     ];
@@ -99,11 +99,11 @@ describe('ExtractionProgressView', () => {
     expect(screen.getByText(/ETA:/)).toBeInTheDocument();
   });
 
-  it('shows cost tracker with OCR and LLM breakdown', () => {
+  it('shows cost tracker with text and LLM breakdown', () => {
     render(<ExtractionProgressView {...defaultProps} />);
 
     expect(screen.getByText('Cost Tracker')).toBeInTheDocument();
-    expect(screen.getByText('OCR')).toBeInTheDocument();
+    expect(screen.getByText('Text')).toBeInTheDocument();
     expect(screen.getByText('LLM')).toBeInTheDocument();
     expect(screen.getByText('Total')).toBeInTheDocument();
   });
@@ -125,7 +125,7 @@ describe('ExtractionProgressView', () => {
         progress: 100,
         startedAt: new Date(),
         completedAt: new Date(),
-        cost: { ocr: 0.003, llm: 0.067, total: 0.07 },
+        cost: { text: 0.003, llm: 0.067, total: 0.07 },
         pages: 3,
       },
     ];

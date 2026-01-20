@@ -21,24 +21,7 @@ const setupHandlers = () => {
     http.get('/api/projects', () => HttpResponse.json([])),
     http.get('/api/schemas', () => HttpResponse.json([])),
     http.get('/api/validation/scripts', () => HttpResponse.json([])),
-    http.get('/api/models', ({ request }) => {
-      const url = new URL(request.url);
-      const category = url.searchParams.get('category');
-      if (category === 'ocr') {
-        return HttpResponse.json([
-          {
-            id: 'ocr-1',
-            name: 'OCR Model',
-            adapterType: 'paddlex',
-            description: null,
-            category: 'ocr',
-            parameters: {},
-            isActive: true,
-            createdAt: '2025-01-15T00:00:00.000Z',
-            updatedAt: '2025-01-15T00:00:00.000Z',
-          },
-        ]);
-      }
+    http.get('/api/models', () => {
       return HttpResponse.json([
         {
           id: 'llm-1',
@@ -53,6 +36,20 @@ const setupHandlers = () => {
         },
       ]);
     }),
+    http.get('/api/extractors', () =>
+      HttpResponse.json([
+        {
+          id: 'extractor-1',
+          name: 'Vision LLM - GPT-4o',
+          description: 'OpenAI GPT-4o vision',
+          extractorType: 'vision-llm',
+          config: {},
+          isActive: true,
+          createdAt: '2025-01-15T00:00:00.000Z',
+          updatedAt: '2025-01-15T00:00:00.000Z',
+        },
+      ]),
+    ),
     http.post('/api/projects', async ({ request }) => {
       const body = (await request.json()) as Record<string, unknown>;
       return HttpResponse.json({
@@ -61,7 +58,7 @@ const setupHandlers = () => {
         description: body.description ?? null,
         ownerId: 1,
         userId: 1,
-        ocrModelId: body.ocrModelId ?? null,
+        textExtractorId: body.textExtractorId ?? null,
         llmModelId: body.llmModelId ?? null,
         defaultSchemaId: body.defaultSchemaId ?? null,
         createdAt: '2025-01-15T00:00:00.000Z',
@@ -77,7 +74,6 @@ const setupHandlers = () => {
         jsonSchema: body.jsonSchema ?? {},
         requiredFields: body.requiredFields ?? [],
         description: body.description ?? null,
-        extractionStrategy: body.extractionStrategy ?? 'ocr-first',
         systemPromptTemplate: null,
         validationSettings: null,
         createdAt: '2025-01-15T00:00:00.000Z',
@@ -92,7 +88,7 @@ const setupHandlers = () => {
         description: null,
         ownerId: 1,
         userId: 1,
-        ocrModelId: body.ocrModelId ?? null,
+        textExtractorId: body.textExtractorId ?? null,
         llmModelId: body.llmModelId ?? null,
         defaultSchemaId: body.defaultSchemaId ?? null,
         createdAt: '2025-01-15T00:00:00.000Z',
@@ -135,6 +131,16 @@ describe('ProjectsPage', () => {
 
     await act(async () => {
       await user.type(screen.getByLabelText(/Project Name/i), 'New Project');
+    });
+
+    await act(async () => {
+      await user.click(screen.getByLabelText(/Text Extractor/i));
+    });
+    const extractorListbox = await screen.findByRole('listbox');
+    await act(async () => {
+      const option = within(extractorListbox).getByRole('option', { name: /Vision LLM - GPT-4o/i });
+      fireEvent.pointerDown(option);
+      fireEvent.click(option);
     });
 
     await act(async () => {

@@ -14,11 +14,10 @@ import {
   DialogTitle,
 } from '@/shared/components/ui/dialog';
 import { Skeleton } from '@/shared/components/ui/skeleton';
-
-type ModelCategory = 'ocr' | 'llm';
+import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 
 export function ModelsPage() {
-  const [activeTab, setActiveTab] = useState<ModelCategory>('ocr');
+  const { confirm, alert, ModalDialog } = useModalDialog();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<Model | null>(null);
   const [selectedAdapterType, setSelectedAdapterType] = useState<string>('');
@@ -31,13 +30,13 @@ export function ModelsPage() {
     useModelMutations();
 
   const availableAdapters = useMemo(
-    () => adapters.filter((adapter) => adapter.category === activeTab),
-    [adapters, activeTab],
+    () => adapters.filter((adapter) => adapter.category === 'llm'),
+    [adapters],
   );
 
   const filteredModels = useMemo(
-    () => models.filter((model) => model.category === activeTab),
-    [models, activeTab],
+    () => models.filter((model) => model.category === 'llm'),
+    [models],
   );
 
   const activeAdapter: AdapterSchema | undefined = useMemo(() => {
@@ -67,7 +66,13 @@ export function ModelsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this model?')) return;
+    const confirmed = await confirm({
+      title: 'Delete model',
+      message: 'Delete this model?',
+      confirmText: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) return;
     await deleteModel(id);
   };
 
@@ -75,9 +80,12 @@ export function ModelsPage() {
     setTestingId(id);
     try {
       const result = await testModel(id);
-      alert(result.message);
+      void alert({ title: 'Model test', message: result.message });
     } catch (error) {
-      alert(getApiErrorMessage(error, 'Connection test failed. Please try again.'));
+      void alert({
+        title: 'Model test failed',
+        message: getApiErrorMessage(error, 'Connection test failed. Please try again.'),
+      });
     } finally {
       setTestingId(null);
     }
@@ -100,6 +108,9 @@ export function ModelsPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               {filteredModels.length} {filteredModels.length === 1 ? 'model' : 'models'}
             </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Models power structured extraction. Configure text extraction in the Extractors page.
+            </p>
           </div>
           <Button
             type="button"
@@ -107,25 +118,6 @@ export function ModelsPage() {
           >
             New Model
           </Button>
-        </div>
-
-        <div className="mb-6 flex gap-3">
-          {(['ocr', 'llm'] as ModelCategory[]).map((category) => (
-            <Button
-              type="button"
-              key={category}
-              onClick={() => {
-                setActiveTab(category);
-                setEditingModel(null);
-                setIsDialogOpen(false);
-              }}
-              variant={activeTab === category ? 'default' : 'outline'}
-              size="sm"
-              className="rounded-full"
-            >
-              {category === 'ocr' ? 'OCR Models' : 'LLM Models'}
-            </Button>
-          ))}
         </div>
 
         <Dialog
@@ -273,6 +265,8 @@ export function ModelsPage() {
           </div>
         )}
       </div>
+
+      <ModalDialog />
     </div>
   );
 }

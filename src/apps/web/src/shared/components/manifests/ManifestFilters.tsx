@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSchemas } from '@/shared/hooks/use-schemas';
+import { useExtractors, useExtractorTypes } from '@/shared/hooks/use-extractors';
 import {
   DynamicManifestFilter,
   ManifestFilterValues,
@@ -23,6 +24,10 @@ interface ManifestFiltersProps {
 
 export function ManifestFilters({ values, onChange, manifestCount }: ManifestFiltersProps) {
   const { schemas } = useSchemas();
+  const { types: extractorTypes } = useExtractorTypes();
+  const { extractors } = useExtractors(
+    values.extractorType ? { extractorType: values.extractorType } : undefined,
+  );
   const [dynamicField, setDynamicField] = useState('');
   const [dynamicValue, setDynamicValue] = useState('');
   const [confidenceRange, setConfidenceRange] = useState({
@@ -141,6 +146,22 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
     onChange({ ...values, ocrQualityMin: undefined, ocrQualityMax: undefined });
   };
 
+  const handleExtractorTypeChange = (type: string) => {
+    const nextType = type === 'all' ? undefined : type;
+    onChange({
+      ...values,
+      extractorType: nextType,
+      textExtractorId: nextType ? undefined : values.textExtractorId,
+    });
+  };
+
+  const handleExtractorChange = (id: string) => {
+    onChange({
+      ...values,
+      textExtractorId: id === 'all' ? undefined : id,
+    });
+  };
+
   const handleAddDynamicFilter = () => {
     const field = dynamicField.trim();
     const value = dynamicValue.trim();
@@ -189,6 +210,8 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
 
   const statusValue = values.status ?? 'all';
   const extractionStatusValue = values.extractionStatus ?? 'all';
+  const extractorTypeValue = values.extractorType ?? 'all';
+  const extractorValue = values.textExtractorId ?? 'all';
 
   const resolveOcrQualitySelection = () => {
     if (values.ocrQualityMin === 90 && values.ocrQualityMax === 100) return 'excellent';
@@ -271,6 +294,45 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
             <SelectItem value="good">Good (70-89)</SelectItem>
             <SelectItem value="poor">Poor (&lt;70)</SelectItem>
             <SelectItem value="unprocessed">Not Processed</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Extractor Filters */}
+      <div className="mb-4">
+        <label htmlFor="filter-extractor-type" className="block text-sm font-medium text-foreground mb-2">
+          Extractor Type
+        </label>
+        <Select value={extractorTypeValue} onValueChange={handleExtractorTypeChange}>
+          <SelectTrigger id="filter-extractor-type">
+            <SelectValue placeholder="Any extractor type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Any type</SelectItem>
+            {extractorTypes.map((type) => (
+              <SelectItem key={type.id} value={type.id}>
+                {type.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="mb-4">
+        <label htmlFor="filter-extractor" className="block text-sm font-medium text-foreground mb-2">
+          Extractor
+        </label>
+        <Select value={extractorValue} onValueChange={handleExtractorChange}>
+          <SelectTrigger id="filter-extractor">
+            <SelectValue placeholder="Any extractor" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Any extractor</SelectItem>
+            {extractors.map((extractor) => (
+              <SelectItem key={extractor.id} value={extractor.id}>
+                {extractor.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -489,7 +551,4 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
     </div>
   );
 }
-
-
-
 

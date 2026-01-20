@@ -22,7 +22,7 @@ interface CostLogEntry {
   manifestId: number;
   manifestName: string;
   model: string;
-  ocrCost: number;
+  textCost: number;
   llmCost: number;
   totalCost: number;
   status: 'success' | 'partial' | 'failed';
@@ -45,7 +45,7 @@ export function ExtractionCostTracker({ budget = 50, onViewDetails }: Extraction
       manifestId: 1,
       manifestName: 'invoice_001.pdf',
       model: 'GPT-4o',
-      ocrCost: 0.003,
+      textCost: 0.003,
       llmCost: 0.067,
       totalCost: 0.07,
       status: 'success',
@@ -55,7 +55,7 @@ export function ExtractionCostTracker({ budget = 50, onViewDetails }: Extraction
       manifestId: 2,
       manifestName: 'invoice_002.pdf',
       model: 'GPT-4o',
-      ocrCost: 0.003,
+      textCost: 0.003,
       llmCost: 0.047,
       totalCost: 0.05,
       status: 'success',
@@ -65,7 +65,7 @@ export function ExtractionCostTracker({ budget = 50, onViewDetails }: Extraction
       manifestId: 3,
       manifestName: 'invoice_003.pdf',
       model: 'GPT-4o',
-      ocrCost: 0.003,
+      textCost: 0.003,
       llmCost: 0.087,
       totalCost: 0.09,
       status: 'partial',
@@ -74,7 +74,7 @@ export function ExtractionCostTracker({ budget = 50, onViewDetails }: Extraction
 
   const averageCost = spent > 0 ? spent / recentLogs.length : 0;
 
-  const ocrPercentage = spent > 0 ? (cost.ocr / spent) * 100 : 0;
+  const textPercentage = spent > 0 ? (cost.text / spent) * 100 : 0;
   const llmPercentage = spent > 0 ? (cost.llm / spent) * 100 : 0;
 
   return (
@@ -131,11 +131,11 @@ export function ExtractionCostTracker({ budget = 50, onViewDetails }: Extraction
             <div className="text-lg font-semibold">${spent.toFixed(2)}</div>
           </div>
           <div>
-            <div className="text-xs text-muted-foreground mb-1">OCR</div>
+            <div className="text-xs text-muted-foreground mb-1">Text</div>
             <div className="flex items-center gap-1">
-              <div className="text-lg font-semibold">${cost.ocr.toFixed(2)}</div>
+              <div className="text-lg font-semibold">${cost.text.toFixed(2)}</div>
               <Badge variant="outline" className="text-xs">
-                {ocrPercentage.toFixed(0)}%
+                {textPercentage.toFixed(0)}%
               </Badge>
             </div>
           </div>

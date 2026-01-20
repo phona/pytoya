@@ -13,6 +13,7 @@ import { ExtractionHistoryEntity } from './extraction-history.entity';
 import { GroupEntity } from './group.entity';
 import { JobEntity } from './job.entity';
 import { ManifestItemEntity } from './manifest-item.entity';
+import { ExtractorEntity } from './extractor.entity';
 
 export interface ValidationIssue {
   field: string;
@@ -110,12 +111,19 @@ export class ManifestEntity {
   })
   extractionCost!: number | null;
 
+  @Column({ type: 'uuid', nullable: true, name: 'text_extractor_id' })
+  textExtractorId!: string | null;
+
   @ManyToOne(() => GroupEntity, (group) => group.manifests)
   @JoinColumn({ name: 'group_id' })
   group!: GroupEntity;
 
   @OneToMany(() => JobEntity, (job) => job.manifest)
   jobs!: JobEntity[];
+
+  @ManyToOne(() => ExtractorEntity, { nullable: true })
+  @JoinColumn({ name: 'text_extractor_id' })
+  textExtractor!: ExtractorEntity | null;
 
   @OneToMany(() => ManifestItemEntity, (item) => item.manifest)
   manifestItems!: ManifestItemEntity[];

@@ -1,5 +1,4 @@
 import { SchemaEntity } from '../../entities/schema.entity';
-import { ExtractionStrategy } from '../../extraction/extraction.types';
 
 export class SchemaResponseDto {
   id!: number;
@@ -8,7 +7,6 @@ export class SchemaResponseDto {
   requiredFields!: string[];
   projectId!: number;
   description!: string | null;
-  extractionStrategy!: ExtractionStrategy;
   systemPromptTemplate!: string | null;
   validationSettings!: Record<string, unknown> | null;
   createdAt!: Date;
@@ -22,7 +20,6 @@ export class SchemaResponseDto {
       requiredFields: schema.requiredFields,
       projectId: schema.projectId,
       description: schema.description,
-      extractionStrategy: schema.extractionStrategy,
       systemPromptTemplate: schema.systemPromptTemplate ?? null,
       validationSettings: schema.validationSettings ?? null,
       createdAt: schema.createdAt,

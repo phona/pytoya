@@ -4,9 +4,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JobEntity } from '../entities/job.entity';
 import { ManifestEntity } from '../entities/manifest.entity';
 import { ModelEntity } from '../entities/model.entity';
+import { ExtractorEntity } from '../entities/extractor.entity';
 import { GroupsModule } from '../groups/groups.module';
 import { ModelsModule } from '../models/models.module';
-import { OcrModule } from '../ocr/ocr.module';
+import { TextExtractorModule } from '../text-extractor/text-extractor.module';
 import { StorageModule } from '../storage/storage.module';
 import { WebSocketModule } from '../websocket/websocket.module';
 import { CsvExportService } from './csv-export.service';
@@ -20,10 +21,10 @@ import {
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ManifestEntity, JobEntity, ModelEntity]),
+    TypeOrmModule.forFeature([ManifestEntity, JobEntity, ModelEntity, ExtractorEntity]),
     GroupsModule,
     ModelsModule,
-    OcrModule,
+    TextExtractorModule,
     StorageModule,
     WebSocketModule,
   ],

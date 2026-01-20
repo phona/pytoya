@@ -10,8 +10,10 @@ import { SettingsDropdown } from '@/shared/components/SettingsDropdown';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { Button } from '@/shared/components/ui/button';
 import { Group, CreateGroupDto, UpdateGroupDto } from '@/api/projects';
+import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 
 export function ProjectDetailPage() {
+  const { confirm, ModalDialog } = useModalDialog();
   const navigate = useNavigate();
   const params = useParams();
   const projectId = Number(params.id);
@@ -63,9 +65,13 @@ export function ProjectDetailPage() {
 
   const handleDeleteProject = async () => {
     if (!project) return;
-    if (!confirm(`Delete project "${project.name}"? This will remove all groups and manifests.`)) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Delete project',
+      message: `Delete project "${project.name}"? This will remove all groups and manifests.`,
+      confirmText: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) return;
     await deleteProject(project.id);
     navigate('/projects');
   };
@@ -207,6 +213,7 @@ export function ProjectDetailPage() {
           )}
         </div>
 
+        <ModalDialog />
       </div>
     </div>
   );

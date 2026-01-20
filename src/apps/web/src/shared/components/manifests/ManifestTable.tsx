@@ -21,6 +21,7 @@ interface ManifestTableProps {
   sort: { field: string; order: 'asc' | 'desc' };
   onSortChange: (sort: { field: string; order: 'asc' | 'desc' }) => void;
   onSelectManifest: (manifestId: number) => void;
+  extractorLookup?: Record<string, { name: string; type?: string }>;
   selectedIds?: Set<number>;
   onSelectToggle?: (id: number) => void;
   onSelectAll?: () => void;
@@ -45,6 +46,7 @@ export function ManifestTable({
   sort,
   onSortChange,
   onSelectManifest,
+  extractorLookup,
   selectedIds,
   onSelectToggle,
   onSelectAll,
@@ -147,6 +149,31 @@ export function ManifestTable({
         },
       },
       {
+        id: 'extractor',
+        header: () => (
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Extractor
+          </span>
+        ),
+        cell: ({ row }) => {
+          const extractorId = row.original.textExtractorId ?? '';
+          const extractorInfo = extractorId ? extractorLookup?.[extractorId] : undefined;
+          if (!extractorId) {
+            return <span className="text-xs text-muted-foreground">Unassigned</span>;
+          }
+          return (
+            <div className="flex flex-col gap-1">
+              <Badge className="w-fit bg-primary/10 text-primary">
+                {extractorInfo?.type ?? 'Extractor'}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {extractorInfo?.name ?? extractorId}
+              </span>
+            </div>
+          );
+        },
+      },
+      {
         id: 'ocrQuality',
         header: () => (
           <button
@@ -240,6 +267,30 @@ export function ManifestTable({
             {row.original.department ?? 'N/A'}
           </span>
         ),
+      },
+      {
+        id: 'cost',
+        header: () => (
+          <button
+            type="button"
+            onClick={() => handleSort('extractionCost')}
+            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
+          >
+            Cost
+            {renderSortIcon('extractionCost')}
+          </button>
+        ),
+        cell: ({ row }) => {
+          const cost = row.original.extractionCost;
+          if (cost === null || cost === undefined) {
+            return <span className="text-xs text-muted-foreground">-</span>;
+          }
+          return (
+            <span className="text-sm font-medium text-foreground">
+              ${Number(cost).toFixed(4)}
+            </span>
+          );
+        },
       },
       {
         id: 'confidence',
@@ -359,6 +410,7 @@ export function ManifestTable({
 
     return cols;
   }, [
+    extractorLookup,
     handleSort,
     manifestProgress,
     onPreviewOcr,

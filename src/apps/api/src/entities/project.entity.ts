@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { GroupEntity } from './group.entity';
 import { ModelEntity } from './model.entity';
+import { ExtractorEntity } from './extractor.entity';
 import { SchemaEntity } from './schema.entity';
 import { UserEntity } from './user.entity';
 import { ValidationScriptEntity } from './validation-script.entity';
@@ -28,6 +29,9 @@ export class ProjectEntity {
   @Column({ type: 'uuid', nullable: true, name: 'ocr_model_id' })
   ocrModelId!: string | null;
 
+  @Column({ type: 'uuid', nullable: true, name: 'text_extractor_id' })
+  textExtractorId!: string | null;
+
   @Column({ type: 'uuid', name: 'llm_model_id' })
   llmModelId!: string;
 
@@ -44,6 +48,10 @@ export class ProjectEntity {
   @ManyToOne(() => ModelEntity, { nullable: true })
   @JoinColumn({ name: 'ocr_model_id' })
   ocrModel!: ModelEntity | null;
+
+  @ManyToOne(() => ExtractorEntity, { nullable: true })
+  @JoinColumn({ name: 'text_extractor_id' })
+  textExtractor!: ExtractorEntity | null;
 
   @ManyToOne(() => ModelEntity)
   @JoinColumn({ name: 'llm_model_id' })

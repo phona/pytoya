@@ -133,7 +133,9 @@ export class ManifestsController {
       query.ocrQualityMax !== undefined ||
       query.extractionStatus !== undefined ||
       query.costMin !== undefined ||
-      query.costMax !== undefined;
+      query.costMax !== undefined ||
+      query.textExtractorId ||
+      query.extractorType;
 
     if (hasFilters) {
       return {
@@ -174,7 +176,7 @@ export class ManifestsController {
     const shouldForce = this.parseOptionalBoolean(force) === true;
     const result = await this.manifestsService.processOcrForManifest(
       manifest,
-      { force: shouldForce, ocrModelId: body?.ocrModelId },
+      { force: shouldForce, textExtractorId: body?.textExtractorId },
     );
 
     return {
@@ -347,7 +349,7 @@ export class ManifestsController {
     const estimate = await this.costEstimateService.estimateCost({
       manifests,
       llmModelId: body.llmModelId,
-      ocrModelId: body.ocrModelId,
+      textExtractorId: body.textExtractorId,
     });
 
     if (body.dryRun) {
@@ -396,7 +398,7 @@ export class ManifestsController {
     @CurrentUser() user: UserEntity,
     @Query('manifestIds') manifestIds?: string,
     @Query('llmModelId') llmModelId?: string,
-    @Query('ocrModelId') ocrModelId?: string,
+    @Query('textExtractorId') textExtractorId?: string,
   ) {
     const parsedIds = this.parseManifestIds(manifestIds);
     const manifests = await this.manifestsService.findManyByIds(
@@ -406,7 +408,7 @@ export class ManifestsController {
     return this.costEstimateService.estimateCost({
       manifests,
       llmModelId,
-      ocrModelId,
+      textExtractorId,
     });
   }
 

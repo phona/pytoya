@@ -17,6 +17,8 @@ export type ManifestFilterValues = {
   costMin?: number;
   costMax?: number;
   humanVerified?: boolean;
+  textExtractorId?: string;
+  extractorType?: string;
   dynamicFilters?: DynamicManifestFilter[];
 };
 

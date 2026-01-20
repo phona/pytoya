@@ -8,10 +8,8 @@ import { http, HttpResponse } from 'msw';
 describe('ExportButton', () => {
   const createObjectURLSpy = vi.fn(() => 'blob:mock-url');
   const revokeObjectURLSpy = vi.fn();
-  const alertSpy = vi.fn();
   let originalCreateObjectURL: typeof URL.createObjectURL;
   let originalRevokeObjectURL: typeof URL.revokeObjectURL;
-  let originalAlert: typeof window.alert;
 
   beforeEach(() => {
     server.listen({ onUnhandledRequest: 'error' });
@@ -19,17 +17,14 @@ describe('ExportButton', () => {
     // Save original functions
     originalCreateObjectURL = URL.createObjectURL;
     originalRevokeObjectURL = URL.revokeObjectURL;
-    originalAlert = window.alert;
 
     // Mock browser APIs for file download
     createObjectURLSpy.mockReset();
     createObjectURLSpy.mockReturnValue('blob:mock-url');
     revokeObjectURLSpy.mockReset();
-    alertSpy.mockReset();
 
     global.URL.createObjectURL = createObjectURLSpy as unknown as typeof URL.createObjectURL;
     global.URL.revokeObjectURL = revokeObjectURLSpy as unknown as typeof URL.revokeObjectURL;
-    global.alert = alertSpy as unknown as typeof window.alert;
   });
 
   afterEach(() => {
@@ -38,7 +33,6 @@ describe('ExportButton', () => {
     // Restore original functions
     global.URL.createObjectURL = originalCreateObjectURL;
     global.URL.revokeObjectURL = originalRevokeObjectURL;
-    global.alert = originalAlert;
   });
 
   it('renders export button', () => {
@@ -143,11 +137,8 @@ describe('ExportButton', () => {
     const button = screen.getByRole('button');
     await user.click(button);
 
-    // Wait for error to be handled
-    await new Promise(resolve => setTimeout(resolve, 50));
-
     expect(consoleSpy).toHaveBeenCalled();
-    expect(alertSpy).toHaveBeenCalledWith('Export failed. Please try again.');
+    await screen.findByText('Export failed. Please try again.');
 
     consoleSpy.mockRestore();
   });

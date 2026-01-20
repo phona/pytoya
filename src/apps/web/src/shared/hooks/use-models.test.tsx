@@ -37,10 +37,10 @@ describe('useModels', () => {
     const mockModels = [
       {
         id: 'model-1',
-        name: 'OCR Model',
-        adapterType: 'paddlex',
+        name: 'LLM Model',
+        adapterType: 'openai',
         description: null,
-        category: 'ocr',
+        category: 'llm',
         parameters: {},
         isActive: true,
         createdAt: '2025-01-13T00:00:00.000Z',

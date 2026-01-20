@@ -30,12 +30,14 @@ describe('ExtractConfirmationModal', () => {
     manifestCount: 5,
     pageCount: 15,
     costEstimate: {
-      min: 0.02,
-      max: 0.035,
       currency: 'USD',
-      ocrCost: 0.005,
-      llmCostMin: 0.015,
-      llmCostMax: 0.03,
+      estimatedCostMin: 0.02,
+      estimatedCostMax: 0.035,
+      estimatedTextCost: 0.005,
+      estimatedLlmCostMin: 0.015,
+      estimatedLlmCostMax: 0.03,
+      estimatedTokensMin: 100000,
+      estimatedTokensMax: 150000,
     },
     llmModels: [
       {
@@ -85,7 +87,7 @@ describe('ExtractConfirmationModal', () => {
     render(<ExtractConfirmationModal {...defaultProps} />);
 
     expect(screen.getByText('Cost Estimate')).toBeInTheDocument();
-    expect(screen.getByText(/\$0\.0050/)).toBeInTheDocument(); // OCR cost
+    expect(screen.getByText(/\$0\.0050/)).toBeInTheDocument(); // Text cost
     expect(screen.getByText(/\$0\.0150 - \$0\.0300/)).toBeInTheDocument(); // LLM cost
     expect(screen.getByText(/\$0\.0200 - \$0\.0350/)).toBeInTheDocument(); // Total
   });
@@ -206,6 +208,7 @@ describe('ExtractConfirmationModal', () => {
 
     expect(screen.getByText(/Estimated tokens/i)).toBeInTheDocument();
     expect(screen.getByText(/100,000/)).toBeInTheDocument();
+    expect(screen.getByText(/150,000/)).toBeInTheDocument();
   });
 
   it('handles single manifest', () => {

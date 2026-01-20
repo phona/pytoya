@@ -1,20 +1,11 @@
-import { LayoutSummary, OcrResponse } from '../ocr/types/ocr.types';
 import { OcrResultDto } from '../manifests/dto/ocr-result.dto';
 import { ExtractedData } from '../prompts/types/prompts.types';
-import { ConvertedPage } from '../pdf-to-image/pdf-to-image.service';
-
-export enum ExtractionStrategy {
-  OCR_FIRST = 'ocr-first',
-  VISION_FIRST = 'vision-first',
-  VISION_ONLY = 'vision-only',
-  TWO_STAGE = 'two-stage',
-}
+import { TextExtractionMetadata } from '../text-extractor/types/extractor.types';
 
 export enum ExtractionStatus {
   PENDING = 'PENDING',
   VALIDATING = 'VALIDATING',
-  OCR_PROCESSING = 'OCR_PROCESSING',
-  OCR_RETRY = 'OCR_RETRY',
+  TEXT_EXTRACTING = 'TEXT_EXTRACTING',
   EXTRACTING = 'EXTRACTING',
   EXTRACTION_RETRY = 'EXTRACTION_RETRY',
   SAVING = 'SAVING',
@@ -22,15 +13,11 @@ export enum ExtractionStatus {
   FAILED = 'FAILED',
 }
 
-export interface OcrState {
-  rawText: string;
+export interface TextExtractionState {
+  text: string;
   markdown: string;
-  layout?: LayoutSummary;
-  success: boolean;
-  error?: string;
-  retryCount: number;
-  rawResponse?: OcrResponse;
-  cachedResult?: OcrResultDto;
+  metadata: TextExtractionMetadata;
+  ocrResult?: OcrResultDto;
 }
 
 export interface ExtractionValidationResult {
@@ -58,13 +45,10 @@ export interface ExtractionWorkflowState {
   errors: string[];
   currentError?: string;
   maxRetries: number;
-  ocrRetryCount: number;
   extractionRetryCount: number;
-  strategy: ExtractionStrategy;
-  ocrResult?: OcrState;
+  textResult?: TextExtractionState;
   extractionResult?: ExtractionStateResult;
-  convertedPages?: ConvertedPage[];
-  ocrCost?: number;
+  textCost?: number;
   llmCost?: number;
   extractionCost?: number;
 }

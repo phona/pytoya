@@ -27,7 +27,6 @@ export class SchemasService {
     const schema = this.schemaRepository.create({
       jsonSchema: input.jsonSchema,
       projectId: input.projectId,
-      extractionStrategy: input.extractionStrategy,
       name,
       description,
       requiredFields,
@@ -77,7 +76,6 @@ export class SchemasService {
       name,
       jsonSchema: nextJsonSchema,
       projectId: nextProjectId,
-      extractionStrategy: input.extractionStrategy ?? schema.extractionStrategy,
       description,
       requiredFields,
       systemPromptTemplate:

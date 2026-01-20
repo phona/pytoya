@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   useValidationScripts,
   useValidationScript,
-  useProjectValidationScripts,
   useValidateScriptSyntax,
   useGenerateValidationScript,
   useRunValidation,

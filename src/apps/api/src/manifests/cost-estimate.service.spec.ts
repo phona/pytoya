@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ModelEntity } from '../entities/model.entity';
 import { ManifestEntity } from '../entities/manifest.entity';
+import { ExtractorEntity } from '../entities/extractor.entity';
 import { ModelPricingService } from '../models/model-pricing.service';
 import { CostEstimateService } from './cost-estimate.service';
 import { OcrResultDto } from './dto/ocr-result.dto';
@@ -11,6 +12,7 @@ import { OcrResultDto } from './dto/ocr-result.dto';
 describe('CostEstimateService', () => {
   let service: CostEstimateService;
   let modelRepository: jest.Mocked<Repository<ModelEntity>>;
+  let extractorRepository: jest.Mocked<Repository<ExtractorEntity>>;
   let modelPricingService: jest.Mocked<ModelPricingService>;
 
   const mockLlmModel: ModelEntity = {
@@ -33,20 +35,18 @@ describe('CostEstimateService', () => {
     updatedAt: new Date(),
   };
 
-  const mockOcrModel: ModelEntity = {
-    id: 'ocr-model-1',
+  const mockExtractor: ExtractorEntity = {
+    id: 'extractor-1',
     name: 'PaddleOCR-VL',
-    adapterType: 'paddlex',
-    parameters: { baseUrl: 'http://localhost:8080' },
-    pricing: {
-      ocr: {
-        pricePerPage: 0.001,
-        currency: 'USD',
-      },
-      effectiveDate: new Date().toISOString(),
-    },
-    pricingHistory: [],
     description: null,
+    extractorType: 'paddleocr',
+    config: {
+      pricing: {
+        mode: 'page',
+        currency: 'USD',
+        pricePerPage: 0.001,
+      },
+    },
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -72,8 +72,10 @@ describe('CostEstimateService', () => {
     ocrProcessedAt: null,
     ocrQualityScore: null,
     extractionCost: null,
+    textExtractorId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
+    textExtractor: null,
     ...overrides,
   } as ManifestEntity);
 
@@ -106,10 +108,13 @@ describe('CostEstimateService', () => {
       find: jest.fn(),
     } as unknown as jest.Mocked<Repository<ModelEntity>>;
 
+    extractorRepository = {
+      findOne: jest.fn(),
+      find: jest.fn(),
+    } as unknown as jest.Mocked<Repository<ExtractorEntity>>;
+
     modelPricingService = {
-      calculateOcrCost: jest.fn(),
       calculateLlmCost: jest.fn(),
-      calculateTotalExtractionCost: jest.fn(),
       getCurrency: jest.fn(),
     } as unknown as jest.Mocked<ModelPricingService>;
 
@@ -117,6 +122,7 @@ describe('CostEstimateService', () => {
       providers: [
         CostEstimateService,
         { provide: getRepositoryToken(ModelEntity), useValue: modelRepository },
+        { provide: getRepositoryToken(ExtractorEntity), useValue: extractorRepository },
         { provide: ModelPricingService, useValue: modelPricingService },
       ],
     }).compile();
@@ -124,7 +130,6 @@ describe('CostEstimateService', () => {
     service = module.get<CostEstimateService>(CostEstimateService);
 
     // Set up default mock returns
-    modelPricingService.calculateOcrCost.mockImplementation((pages: number) => pages * 0.001);
     modelPricingService.calculateLlmCost.mockImplementation((input: number, output: number) =>
       (input / 1_000_000) * 2.5 + (output / 1_000_000) * 10.0,
     );
@@ -153,20 +158,19 @@ describe('CostEstimateService', () => {
         createMockManifest({ ocrResult: ocrResult as unknown as ManifestEntity['ocrResult'] }),
       ];
 
-      modelRepository.findOne
-        .mockResolvedValueOnce(mockLlmModel)
-        .mockResolvedValueOnce(mockOcrModel);
+      modelRepository.findOne.mockResolvedValue(mockLlmModel);
+      extractorRepository.findOne.mockResolvedValue(mockExtractor);
 
       const result = await service.estimateCost({
         manifests,
         llmModelId: 'llm-model-1',
-        ocrModelId: 'ocr-model-1',
+        textExtractorId: 'extractor-1',
       });
 
       expect(result.manifestCount).toBe(1);
       expect(result.estimatedTokensMin).toBeGreaterThan(0);
       expect(result.estimatedTokensMax).toBeGreaterThan(0);
-      expect(result.estimatedOcrCost).toBe(0.003); // 3 pages * 0.001
+      expect(result.estimatedTextCost).toBe(0.003); // 3 pages * 0.001
       expect(result.currency).toBe('USD');
     });
 
@@ -174,6 +178,7 @@ describe('CostEstimateService', () => {
       const manifests = [createMockManifest({ ocrResult: null })];
 
       modelRepository.findOne.mockResolvedValue(mockLlmModel);
+      extractorRepository.findOne.mockResolvedValue(mockExtractor);
 
       const result = await service.estimateCost({
         manifests,
@@ -183,7 +188,7 @@ describe('CostEstimateService', () => {
       expect(result.manifestCount).toBe(1);
       expect(result.estimatedTokensMin).toBe(0);
       expect(result.estimatedTokensMax).toBe(0);
-      expect(result.estimatedOcrCost).toBe(0);
+      expect(result.estimatedTextCost).toBe(0);
     });
 
     it('calculates cost estimate for multiple manifests', async () => {
@@ -194,36 +199,37 @@ describe('CostEstimateService', () => {
         createMockManifest({ ocrResult: ocrResult2 as unknown as ManifestEntity['ocrResult'] }),
       ];
 
-      modelRepository.findOne
-        .mockResolvedValueOnce(mockLlmModel)
-        .mockResolvedValueOnce(mockOcrModel);
+      modelRepository.findOne.mockResolvedValue(mockLlmModel);
+      extractorRepository.findOne.mockResolvedValue(mockExtractor);
 
       const result = await service.estimateCost({
         manifests,
         llmModelId: 'llm-model-1',
-        ocrModelId: 'ocr-model-1',
+        textExtractorId: 'extractor-1',
       });
 
       expect(result.manifestCount).toBe(2);
-      expect(result.estimatedOcrCost).toBe(0.005); // 5 pages * 0.001
+      expect(result.estimatedTextCost).toBe(0.005); // 5 pages * 0.001
       expect(result.estimatedTokensMin).toBeGreaterThan(0);
     });
 
-    it('handles missing OCR model', async () => {
+    it('handles missing text extractor', async () => {
       const ocrResult = createMockOcrResult(2000, 2);
       const manifests = [
         createMockManifest({ ocrResult: ocrResult as unknown as ManifestEntity['ocrResult'] }),
       ];
 
       modelRepository.findOne.mockResolvedValue(mockLlmModel);
+      extractorRepository.findOne.mockResolvedValue(null);
 
       const result = await service.estimateCost({
         manifests,
         llmModelId: 'llm-model-1',
+        textExtractorId: 'extractor-1',
       });
 
-      expect(result.estimatedOcrCost).toBe(0);
-      expect(modelRepository.findOne).toHaveBeenCalledTimes(1);
+      expect(result.estimatedTextCost).toBe(0);
+      expect(extractorRepository.findOne).toHaveBeenCalledTimes(1);
     });
 
     it('uses pricing service for currency detection', async () => {

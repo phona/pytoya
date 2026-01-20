@@ -20,6 +20,103 @@ const parseJsonBody = async (request: Request) => {
   }
 };
 
+const mockExtractors = [
+  {
+    id: 'extractor-1',
+    name: 'Vision LLM - GPT-4o',
+    description: 'OpenAI GPT-4o vision',
+    extractorType: 'vision-llm',
+    config: {
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: '********',
+      model: 'gpt-4o',
+      pricing: {
+        mode: 'token',
+        currency: 'USD',
+        inputPricePerMillionTokens: 2.5,
+        outputPricePerMillionTokens: 10,
+      },
+    },
+    isActive: true,
+    usageCount: 2,
+    createdAt: '2025-01-13T00:00:00.000Z',
+    updatedAt: '2025-01-13T00:00:00.000Z',
+  },
+  {
+    id: 'extractor-2',
+    name: 'PaddleOCR VL',
+    description: 'Layout-aware OCR',
+    extractorType: 'paddleocr',
+    config: {
+      baseUrl: 'http://ocr.local',
+      pricing: {
+        mode: 'page',
+        currency: 'USD',
+        pricePerPage: 0.001,
+      },
+    },
+    isActive: true,
+    usageCount: 1,
+    createdAt: '2025-01-13T00:00:00.000Z',
+    updatedAt: '2025-01-13T00:00:00.000Z',
+  },
+];
+
+const mockExtractorTypes = [
+  {
+    id: 'vision-llm',
+    name: 'Vision LLM',
+    description: 'OpenAI-compatible vision LLM',
+    version: '1.0.0',
+    category: 'vision',
+    supportedFormats: ['pdf', 'image'],
+    paramsSchema: {
+      baseUrl: { type: 'string', required: true, label: 'Base URL' },
+      apiKey: { type: 'string', required: true, label: 'API Key', secret: true },
+      model: { type: 'string', required: true, label: 'Model' },
+    },
+    pricingSchema: {
+      inputPricePerMillionTokens: {
+        type: 'number',
+        required: true,
+        label: 'Input Price (per 1M tokens)',
+      },
+      outputPricePerMillionTokens: {
+        type: 'number',
+        required: true,
+        label: 'Output Price (per 1M tokens)',
+      },
+    },
+  },
+  {
+    id: 'paddleocr',
+    name: 'PaddleOCR VL',
+    description: 'Layout-aware OCR',
+    version: '1.0.0',
+    category: 'ocr',
+    supportedFormats: ['pdf', 'image'],
+    paramsSchema: {
+      baseUrl: { type: 'string', required: true, label: 'Base URL' },
+    },
+    pricingSchema: {
+      pricePerPage: { type: 'number', required: false, label: 'Price per Page' },
+    },
+  },
+];
+
+const mockExtractorPresets = [
+  {
+    id: 'preset-gpt-4o',
+    name: 'GPT-4o Vision',
+    description: 'OpenAI GPT-4o vision preset',
+    extractorType: 'vision-llm',
+    config: {
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'gpt-4o',
+    },
+  },
+];
+
 export const handlers = [
   // Auth endpoints
   http.post('/api/auth/register', () => {
@@ -60,7 +157,7 @@ export const handlers = [
         name: 'Test Project',
         description: 'Test project description',
         userId: 1,
-        ocrModelId: null,
+        textExtractorId: 'extractor-1',
         llmModelId: '11111111-1111-1111-1111-111111111111',
         createdAt: '2025-01-13T00:00:00.000Z',
         updatedAt: '2025-01-13T00:00:00.000Z',
@@ -81,7 +178,7 @@ export const handlers = [
       name: 'Test Project',
       description: 'Test project description',
       userId: 1,
-      ocrModelId: null,
+      textExtractorId: 'extractor-1',
       llmModelId: '11111111-1111-1111-1111-111111111111',
       createdAt: '2025-01-13T00:00:00.000Z',
       updatedAt: '2025-01-13T00:00:00.000Z',
@@ -89,6 +186,59 @@ export const handlers = [
         groups: 2,
         manifests: 5,
       },
+    });
+  }),
+  http.put('/api/projects/:id/extractor', async ({ request, params }) => {
+    const body = await parseJsonBody(request);
+    return HttpResponse.json({
+      id: Number(params.id),
+      name: 'Test Project',
+      description: 'Test project description',
+      userId: 1,
+      textExtractorId: body.textExtractorId ?? 'extractor-1',
+      llmModelId: '11111111-1111-1111-1111-111111111111',
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+      _count: {
+        groups: 2,
+        manifests: 5,
+      },
+    });
+  }),
+  http.get('/api/projects/:id/cost-summary', ({ params }) => {
+    return HttpResponse.json({
+      projectId: Number(params.id),
+      totalExtractionCost: 0.25,
+      costByExtractor: [
+        {
+          extractorId: 'extractor-1',
+          extractorName: 'Vision LLM - GPT-4o',
+          totalCost: 0.2,
+          extractionCount: 4,
+          averageCost: 0.05,
+        },
+      ],
+      costOverTime: [{ date: '2025-01-13', extractionCost: 0.25 }],
+    });
+  }),
+  http.get('/api/projects/:id/cost-by-date-range', ({ request, params }) => {
+    const url = new URL(request.url);
+    const from = url.searchParams.get('from') ?? '2025-01-01';
+    const to = url.searchParams.get('to') ?? '2025-01-13';
+    return HttpResponse.json({
+      projectId: Number(params.id),
+      totalExtractionCost: 0.12,
+      costByExtractor: [
+        {
+          extractorId: 'extractor-1',
+          extractorName: 'Vision LLM - GPT-4o',
+          totalCost: 0.12,
+          extractionCount: 2,
+          averageCost: 0.06,
+        },
+      ],
+      costOverTime: [{ date: from, extractionCost: 0.12 }],
+      dateRange: { from, to },
     });
   }),
 
@@ -138,6 +288,7 @@ export const handlers = [
           ocrProcessedAt: null,
           ocrQualityScore: null,
           extractionCost: null,
+          textExtractorId: 'extractor-1',
           createdAt: '2025-01-13T00:00:00.000Z',
           updatedAt: '2025-01-13T00:00:00.000Z',
         },
@@ -223,6 +374,73 @@ export const handlers = [
         updatedAt: '2025-01-13T00:00:00.000Z',
       },
     ]);
+  }),
+  // Extractors endpoints
+  http.get('/api/extractors', ({ request }) => {
+    const url = new URL(request.url);
+    const extractorType = url.searchParams.get('extractorType');
+    const isActive = url.searchParams.get('isActive');
+    let results = [...mockExtractors];
+    if (extractorType) {
+      results = results.filter((extractor) => extractor.extractorType === extractorType);
+    }
+    if (isActive !== null && isActive !== undefined) {
+      const active = isActive === 'true';
+      results = results.filter((extractor) => extractor.isActive === active);
+    }
+    return HttpResponse.json(results);
+  }),
+  http.get('/api/extractors/types', () => {
+    return HttpResponse.json(mockExtractorTypes);
+  }),
+  http.get('/api/extractors/presets', () => {
+    return HttpResponse.json(mockExtractorPresets);
+  }),
+  http.post('/api/extractors', async ({ request }) => {
+    const body = await parseJsonBody(request);
+    return HttpResponse.json({
+      id: 'extractor-new',
+      name: body.name ?? 'New Extractor',
+      description: body.description ?? null,
+      extractorType: body.extractorType ?? 'vision-llm',
+      config: body.config ?? {},
+      isActive: body.isActive ?? true,
+      usageCount: 0,
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+  http.patch('/api/extractors/:id', async ({ request, params }) => {
+    const body = await parseJsonBody(request);
+    return HttpResponse.json({
+      id: params.id,
+      name: body.name ?? 'Updated Extractor',
+      description: body.description ?? null,
+      extractorType: body.extractorType ?? 'vision-llm',
+      config: body.config ?? {},
+      isActive: body.isActive ?? true,
+      usageCount: 0,
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+  http.delete('/api/extractors/:id', () => new HttpResponse(null, { status: 204 })),
+  http.post('/api/extractors/:id/test', () => {
+    return HttpResponse.json({ ok: true, message: 'ok' });
+  }),
+  http.get('/api/extractors/:id/cost-summary', ({ params }) => {
+    return HttpResponse.json({
+      extractorId: params.id,
+      extractorName: 'Vision LLM - GPT-4o',
+      totalExtractions: 3,
+      totalCost: 0.12,
+      averageCostPerExtraction: 0.04,
+      currency: 'USD',
+      costBreakdown: {
+        byDate: [{ date: '2025-01-13', count: 3, cost: 0.12 }],
+        byProject: [{ projectId: 1, projectName: 'Test Project', count: 3, cost: 0.12 }],
+      },
+    });
   }),
   http.get('/api/models/adapters', () => {
     return HttpResponse.json([
@@ -640,6 +858,7 @@ export const handlers = [
       ocrProcessedAt: null,
       ocrQualityScore: null,
       extractionCost: null,
+      textExtractorId: 'extractor-1',
       createdAt: '2025-01-13T00:00:00.000Z',
       updatedAt: '2025-01-13T00:00:00.000Z',
     });

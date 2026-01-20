@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { AlertCircle, CheckCircle2, Copy, Download, Eye, EyeOff, RefreshCw, X } from 'lucide-react';
+import { AlertCircle, Copy, Eye, EyeOff, RefreshCw, X } from 'lucide-react';
 import { useReExtractFieldPreview } from '@/shared/hooks/use-manifests';
 import { useModels } from '@/shared/hooks/use-models';
 import { usePrompts } from '@/shared/hooks/use-prompts';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Badge } from '@/shared/components/ui/badge';
@@ -129,6 +128,9 @@ export function FieldReExtractDialog({
               <X className="h-4 w-4" />
             </Button>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Preview and re-extract a single field using the selected model and prompt.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

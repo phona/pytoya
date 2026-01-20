@@ -11,7 +11,7 @@
 - The route guard waits for auth hydration before deciding.
 
 ## Navigation
-- Dashboard pages render a sidebar with links to Projects and Models.
+- Dashboard pages render a sidebar with links to Projects, Models, and Extractors.
 - Active routes are highlighted based on the current pathname.
 - The sidebar is collapsible on mobile with a hamburger toggle.
 - Sign out is handled from the sidebar and clears auth state before redirecting to login.
@@ -64,13 +64,13 @@ Schema access is project-scoped and available from the project settings dropdown
 
 ## Project Creation Wizard
 Project creation offers two paths:
-1. **Quick Create**: name + LLM selection only, used for fast setup.
-2. **Guided Setup**: multi-step wizard for full configuration (basics, models, schema, rules, review).
+1. **Quick Create**: name + text extractor + LLM selection, used for fast setup.
+2. **Guided Setup**: multi-step wizard for full configuration (basics, extractors, models, schema, rules, review).
 
 See `docs/PROJECT_CREATION.md` for a step-by-step guide.
 
 ## Project Detail Enhancements
-- Project settings use a dropdown menu and dedicated settings pages for basic info and model selection.
+- Project settings use a dropdown menu and dedicated settings pages for basic info, extractor selection, model selection, and cost summaries.
 - Schema and Rules open the schema detail view, with Rules landing on the Rules tab.
 - Validation scripts are accessed from the Settings dropdown and remain project-scoped.
 - Validation scripts can be created, edited, enabled/disabled, and deleted inline.

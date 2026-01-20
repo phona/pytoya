@@ -128,4 +128,12 @@ export class DynamicFieldFiltersDto {
   @Min(0)
   @Type(() => Number)
   costMax?: number;
+
+  @IsOptional()
+  @IsString()
+  textExtractorId?: string;
+
+  @IsOptional()
+  @IsString()
+  extractorType?: string;
 }

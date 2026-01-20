@@ -1,12 +1,10 @@
 import {
-  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsObject,
   IsOptional,
   IsString,
 } from 'class-validator';
-import { ExtractionStrategy } from '../../extraction/extraction.types';
 
 export class CreateSchemaDto {
   @IsObject()
@@ -24,7 +22,4 @@ export class CreateSchemaDto {
   @IsObject()
   validationSettings?: Record<string, unknown>;
 
-  @IsOptional()
-  @IsEnum(ExtractionStrategy)
-  extractionStrategy?: ExtractionStrategy;
 }

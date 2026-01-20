@@ -9,6 +9,7 @@ type SidebarNavProps = {
 
 const navItems = [
   { label: 'Projects', to: '/projects' },
+  { label: 'Extractors', to: '/extractors' },
   { label: 'Models', to: '/models' },
 ];
 

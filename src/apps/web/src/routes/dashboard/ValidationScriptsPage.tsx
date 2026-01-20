@@ -10,8 +10,10 @@ import {
 } from '@/api/validation';
 import { ValidationScriptForm } from '@/shared/components/ValidationScriptForm';
 import { Button } from '@/shared/components/ui/button';
+import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 
 export function ValidationScriptsPage() {
+  const { confirm, ModalDialog } = useModalDialog();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const {
@@ -51,9 +53,14 @@ export function ValidationScriptsPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm('Are you sure you want to delete this validation script?')) {
-      await deleteScript(id);
-    }
+    const confirmed = await confirm({
+      title: 'Delete validation script',
+      message: 'Are you sure you want to delete this validation script?',
+      confirmText: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) return;
+    await deleteScript(id);
   };
 
   const handleEdit = (script: ValidationScript) => {
@@ -219,6 +226,8 @@ export function ValidationScriptsPage() {
           </div>
         )}
       </div>
+
+      <ModalDialog />
     </div>
   );
 }

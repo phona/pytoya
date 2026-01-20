@@ -4,14 +4,16 @@ import { Repository } from 'typeorm';
 
 import { ManifestEntity } from '../entities/manifest.entity';
 import { ModelEntity } from '../entities/model.entity';
+import { ExtractorEntity } from '../entities/extractor.entity';
 import { OcrResultDto } from './dto/ocr-result.dto';
 import { CostEstimateDto } from './dto/cost-estimate.dto';
 import { ModelPricingService } from '../models/model-pricing.service';
+import { PricingConfig } from '../text-extractor/types/extractor.types';
 
 type CostEstimateInput = {
   manifests: ManifestEntity[];
   llmModelId?: string;
-  ocrModelId?: string;
+  textExtractorId?: string;
 };
 
 type FieldCostEstimateInput = {
@@ -26,11 +28,13 @@ export class CostEstimateService {
   constructor(
     @InjectRepository(ModelEntity)
     private readonly modelRepository: Repository<ModelEntity>,
+    @InjectRepository(ExtractorEntity)
+    private readonly extractorRepository: Repository<ExtractorEntity>,
     private readonly modelPricingService: ModelPricingService,
   ) {}
 
   async estimateCost(input: CostEstimateInput): Promise<CostEstimateDto> {
-    const { manifests, llmModelId, ocrModelId } = input;
+    const { manifests, llmModelId, textExtractorId } = input;
     if (manifests.length === 0) {
       throw new BadRequestException('No manifests provided for cost estimate');
     }
@@ -41,16 +45,16 @@ export class CostEstimateService {
       throw new BadRequestException('LLM model is required for cost estimation');
     }
 
-    const resolvedOcrModelId =
-      ocrModelId ?? manifests[0].group?.project?.ocrModelId ?? undefined;
+    const resolvedExtractorId =
+      textExtractorId ?? manifests[0].group?.project?.textExtractorId ?? undefined;
 
-    const [llmModel, ocrModel] = await Promise.all([
+    const [llmModel, extractor] = await Promise.all([
       this.modelRepository.findOne({
         where: { id: resolvedLlmModelId },
       }),
-      resolvedOcrModelId
-        ? this.modelRepository.findOne({
-            where: { id: resolvedOcrModelId },
+      resolvedExtractorId
+        ? this.extractorRepository.findOne({
+            where: { id: resolvedExtractorId },
           })
         : Promise.resolve(null),
     ]);
@@ -78,8 +82,12 @@ export class CostEstimateService {
       0,
     );
 
-    const ocrCost = ocrModel
-      ? this.modelPricingService.calculateOcrCost(pagesTotal, ocrModel.pricing)
+    const textCost = extractor
+      ? this.calculateTextCostEstimate(
+          extractor.config?.pricing as PricingConfig | undefined,
+          pagesTotal,
+          tokensMax,
+        )
       : 0;
     const llmCostMin = this.modelPricingService.calculateLlmCost(
       tokensMin,
@@ -96,14 +104,12 @@ export class CostEstimateService {
       manifestCount: manifests.length,
       estimatedTokensMin: tokensMin,
       estimatedTokensMax: tokensMax,
-      estimatedCostMin: ocrCost + llmCostMin,
-      estimatedCostMax: ocrCost + llmCostMax,
-      estimatedOcrCost: ocrCost,
+      estimatedCostMin: textCost + llmCostMin,
+      estimatedCostMax: textCost + llmCostMax,
+      estimatedTextCost: textCost,
       estimatedLlmCostMin: llmCostMin,
       estimatedLlmCostMax: llmCostMax,
-      currency: this.modelPricingService.getCurrency(
-        llmModel.pricing ?? ocrModel?.pricing,
-      ),
+      currency: (extractor?.config?.pricing as PricingConfig | undefined)?.currency ?? this.modelPricingService.getCurrency(llmModel.pricing),
     };
   }
 
@@ -200,6 +206,39 @@ export class CostEstimateService {
     if (Array.isArray(layoutParsingResults)) {
       return layoutParsingResults.length;
     }
+    return 0;
+  }
+
+  private calculateTextCostEstimate(
+    pricing: PricingConfig | undefined,
+    pagesTotal: number,
+    tokensMax: number,
+  ): number {
+    if (!pricing || pricing.mode === 'none') {
+      return 0;
+    }
+
+    if (pricing.mode === 'page') {
+      const cost = (pricing.pricePerPage ?? 0) * pagesTotal;
+      return pricing.minimumCharge ? Math.max(cost, pricing.minimumCharge) : cost;
+    }
+
+    if (pricing.mode === 'fixed') {
+      const cost = pricing.fixedCost ?? 0;
+      return pricing.minimumCharge ? Math.max(cost, pricing.minimumCharge) : cost;
+    }
+
+    if (pricing.mode === 'token') {
+      const inputCost = pricing.inputPricePerMillionTokens
+        ? (tokensMax / 1_000_000) * pricing.inputPricePerMillionTokens
+        : 0;
+      const outputCost = pricing.outputPricePerMillionTokens
+        ? (Math.round(tokensMax * 0.2) / 1_000_000) * pricing.outputPricePerMillionTokens
+        : 0;
+      const total = inputCost + outputCost;
+      return pricing.minimumCharge ? Math.max(total, pricing.minimumCharge) : total;
+    }
+
     return 0;
   }
 }

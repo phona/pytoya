@@ -84,6 +84,12 @@ export const manifestsApi = {
     if (filters?.costMax !== undefined) {
       searchParams.append('costMax', String(filters.costMax));
     }
+    if (filters?.textExtractorId) {
+      searchParams.append('textExtractorId', filters.textExtractorId);
+    }
+    if (filters?.extractorType) {
+      searchParams.append('extractorType', filters.extractorType);
+    }
     if (filters?.dynamicFilters) {
       filters.dynamicFilters.forEach(({ field, value }) => {
         if (field && value) {
@@ -221,13 +227,13 @@ export const manifestsApi = {
     return response.data;
   },
 
-  getCostEstimate: async (manifestIds: number[], llmModelId?: string, ocrModelId?: string) => {
+  getCostEstimate: async (manifestIds: number[], llmModelId?: string, textExtractorId?: string) => {
     const params = new URLSearchParams();
     if (manifestIds.length > 0) {
       params.append('manifestIds', manifestIds.join(','));
     }
     if (llmModelId) params.append('llmModelId', llmModelId);
-    if (ocrModelId) params.append('ocrModelId', ocrModelId);
+    if (textExtractorId) params.append('textExtractorId', textExtractorId);
     const response = await apiClient.get<CostEstimate>('/manifests/cost-estimate', { params });
     return response.data;
   },

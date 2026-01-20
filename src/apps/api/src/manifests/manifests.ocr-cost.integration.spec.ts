@@ -79,6 +79,7 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
     ocrProcessedAt: null,
     ocrQualityScore: null,
     extractionCost: null,
+    textExtractorId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     group: {
@@ -93,6 +94,7 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
     jobs: [],
     manifestItems: [],
     extractionHistory: [],
+    textExtractor: null,
     ...overrides,
   });
 
@@ -251,7 +253,7 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
       expect(result.ocrResult).toBe(ocrResult);
       expect(manifestsService.processOcrForManifest).toHaveBeenCalledWith(manifest, {
         force: true,
-        ocrModelId: undefined,
+        textExtractorId: undefined,
       });
     });
 
@@ -267,7 +269,7 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
       expect(result.ocrResult).toBe(ocrResult);
       expect(manifestsService.processOcrForManifest).toHaveBeenCalledWith(manifest, {
         force: false,
-        ocrModelId: undefined,
+        textExtractorId: undefined,
       });
     });
 
@@ -286,7 +288,7 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
 
       expect(manifestsService.processOcrForManifest).toHaveBeenCalledWith(manifest, {
         force: false,
-        ocrModelId: undefined,
+        textExtractorId: undefined,
       });
     });
 
@@ -298,19 +300,19 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
       await controller.triggerOcr(mockUser, 1, 'true');
       expect(manifestsService.processOcrForManifest).toHaveBeenCalledWith(manifest, {
         force: true,
-        ocrModelId: undefined,
+        textExtractorId: undefined,
       });
 
       await controller.triggerOcr(mockUser, 1, 'false');
       expect(manifestsService.processOcrForManifest).toHaveBeenCalledWith(manifest, {
         force: false,
-        ocrModelId: undefined,
+        textExtractorId: undefined,
       });
 
       await controller.triggerOcr(mockUser, 1);
       expect(manifestsService.processOcrForManifest).toHaveBeenCalledWith(manifest, {
         force: false,
-        ocrModelId: undefined,
+        textExtractorId: undefined,
       });
     });
   });
@@ -322,7 +324,7 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
       estimatedTokensMax: 1500,
       estimatedCostMin: 0.02,
       estimatedCostMax: 0.03,
-      estimatedOcrCost: 0.005,
+      estimatedTextCost: 0.005,
       estimatedLlmCostMin: 0.015,
       estimatedLlmCostMax: 0.025,
       currency: 'USD',
@@ -337,14 +339,14 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
       manifestsService.findManyByIds.mockResolvedValue(manifests);
       costEstimateService.estimateCost.mockResolvedValue(mockCostEstimate);
 
-      const result = await controller.getCostEstimate(mockUser, '1,2', 'llm-model-1', 'ocr-model-1');
+      const result = await controller.getCostEstimate(mockUser, '1,2', 'llm-model-1', 'extractor-1');
 
       expect(result).toEqual(mockCostEstimate);
       expect(manifestsService.findManyByIds).toHaveBeenCalledWith(mockUser, [1, 2]);
       expect(costEstimateService.estimateCost).toHaveBeenCalledWith({
         manifests,
         llmModelId: 'llm-model-1',
-        ocrModelId: 'ocr-model-1',
+        textExtractorId: 'extractor-1',
       });
     });
 
@@ -359,7 +361,7 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
       expect(costEstimateService.estimateCost).toHaveBeenCalledWith({
         manifests: [],
         llmModelId: 'llm-model-1',
-        ocrModelId: undefined,
+        textExtractorId: undefined,
       });
     });
 
@@ -373,7 +375,7 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
       expect(costEstimateService.estimateCost).toHaveBeenCalledWith({
         manifests,
         llmModelId: undefined,
-        ocrModelId: undefined,
+        textExtractorId: undefined,
       });
     });
 
@@ -487,7 +489,7 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
       estimatedTokensMax: 1500,
       estimatedCostMin: 0.02,
       estimatedCostMax: 0.03,
-      estimatedOcrCost: 0.005,
+      estimatedTextCost: 0.005,
       estimatedLlmCostMin: 0.015,
       estimatedLlmCostMax: 0.025,
       currency: 'USD',
@@ -510,7 +512,7 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
       const result = await controller.extractBulk(mockUser, {
         manifestIds: [1, 2],
         llmModelId: 'llm-model-1',
-        ocrModelId: 'ocr-model-1',
+        textExtractorId: 'extractor-1',
         dryRun: true,
       });
 

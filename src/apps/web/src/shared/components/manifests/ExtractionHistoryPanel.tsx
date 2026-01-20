@@ -3,7 +3,6 @@ import { format } from 'date-fns';
 import {
   Clock,
   DollarSign,
-  FileText,
   CheckCircle2,
   XCircle,
   AlertTriangle,
@@ -15,7 +14,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
-import { Separator } from '@/shared/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import {
   Collapsible,
@@ -37,7 +35,7 @@ export interface ExtractionHistoryEntry {
   model: string;
   modelId: string;
   promptId?: number;
-  ocrCost: number;
+  textCost: number;
   llmCost: number;
   totalCost: number;
   status: 'success' | 'partial' | 'failed';
@@ -73,7 +71,7 @@ export function ExtractionHistoryPanel({
 
   const stats = useMemo(() => {
     const totalCost = history.reduce((sum, entry) => sum + entry.totalCost, 0);
-    const totalOcrCost = history.reduce((sum, entry) => sum + entry.ocrCost, 0);
+    const totalTextCost = history.reduce((sum, entry) => sum + entry.textCost, 0);
     const totalLlmCost = history.reduce((sum, entry) => sum + entry.llmCost, 0);
     const successCount = history.filter((e) => e.status === 'success').length;
     const partialCount = history.filter((e) => e.status === 'partial').length;
@@ -88,7 +86,7 @@ export function ExtractionHistoryPanel({
 
     return {
       totalCost,
-      totalOcrCost,
+      totalTextCost,
       totalLlmCost,
       successCount,
       partialCount,
@@ -144,7 +142,7 @@ export function ExtractionHistoryPanel({
   };
 
   const downloadExtractedData = (entry: ExtractionHistoryEntry) => {
-    const data = {
+      const data = {
       manifestId,
       manifestName,
       extractionId: entry.id,
@@ -152,7 +150,7 @@ export function ExtractionHistoryPanel({
       model: entry.model,
       data: entry.extractedData,
       costs: {
-        ocr: entry.ocrCost,
+        text: entry.textCost,
         llm: entry.llmCost,
         total: entry.totalCost,
       },
@@ -221,8 +219,8 @@ export function ExtractionHistoryPanel({
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center gap-1">
                 <DollarSign className="h-3 w-3 text-blue-500" />
-                <span className="text-muted-foreground">OCR:</span>
-                <span className="font-medium">${stats.totalOcrCost.toFixed(4)}</span>
+                <span className="text-muted-foreground">Text:</span>
+                <span className="font-medium">${stats.totalTextCost.toFixed(4)}</span>
               </div>
               <div className="flex items-center gap-1">
                 <DollarSign className="h-3 w-3 text-purple-500" />
@@ -341,12 +339,12 @@ export function ExtractionHistoryPanel({
                               ${entry.totalCost.toFixed(4)}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {entry.ocrCost > 0 && (
+                              {entry.textCost > 0 && (
                                 <span className="text-blue-600 dark:text-blue-400">
-                                  ${entry.ocrCost.toFixed(4)} OCR
+                                  ${entry.textCost.toFixed(4)} Text
                                 </span>
                               )}
-                              {entry.llmCost > 0 && entry.ocrCost > 0 && ' + '}
+                              {entry.llmCost > 0 && entry.textCost > 0 && ' + '}
                               {entry.llmCost > 0 && (
                                 <span className="text-purple-600 dark:text-purple-400">
                                   ${entry.llmCost.toFixed(4)} LLM
@@ -478,7 +476,7 @@ export function ExtractionHistoryPanel({
                   <TableHead>Time</TableHead>
                   <TableHead>Model</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">OCR</TableHead>
+                  <TableHead className="text-right">Text</TableHead>
                   <TableHead className="text-right">LLM</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                 </TableRow>
@@ -492,7 +490,7 @@ export function ExtractionHistoryPanel({
                     <TableCell className="text-sm">{entry.model}</TableCell>
                     <TableCell>{getStatusBadge(entry.status)}</TableCell>
                     <TableCell className="text-sm text-right">
-                      ${entry.ocrCost.toFixed(4)}
+                      ${entry.textCost.toFixed(4)}
                     </TableCell>
                     <TableCell className="text-sm text-right">
                       ${entry.llmCost.toFixed(4)}

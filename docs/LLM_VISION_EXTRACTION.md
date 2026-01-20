@@ -1,5 +1,9 @@
 # LLM Vision Support - Extraction Strategies
 
+> Deprecated (January 2026): Extraction strategies like `OCR_FIRST` and `VISION_ONLY` have been removed.
+> Use global text extractors configured in the Extractors page, and select a text extractor per project.
+> This document is preserved for historical context and may not reflect current behavior.
+
 This document describes the extraction strategies available for processing PDF and image files using vision-enabled LLM models.
 
 ## Overview

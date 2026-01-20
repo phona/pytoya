@@ -4,6 +4,7 @@ import { JobEntity } from './job.entity';
 import { ManifestEntity } from './manifest.entity';
 import { ManifestItemEntity } from './manifest-item.entity';
 import { ModelEntity } from './model.entity';
+import { ExtractorEntity } from './extractor.entity';
 import { ProjectEntity } from './project.entity';
 import { PromptEntity } from './prompt.entity';
 import { SchemaEntity } from './schema.entity';
@@ -18,6 +19,7 @@ export {
   ManifestEntity,
   ManifestItemEntity,
   ModelEntity,
+  ExtractorEntity,
   ProjectEntity,
   PromptEntity,
   SchemaEntity,
@@ -40,6 +42,7 @@ export const entities = [
   ManifestEntity,
   ManifestItemEntity,
   ModelEntity,
+  ExtractorEntity,
   PromptEntity,
   JobEntity,
   ExtractionHistoryEntity,

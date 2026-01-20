@@ -17,6 +17,8 @@ interface ManifestUpdatePayload {
   progress: number;
   error?: string;
   cost?: number;
+  costBreakdown?: { text: number; llm: number; total: number };
+  extractorId?: string | null;
 }
 
 interface JobUpdatePayload {
@@ -26,6 +28,8 @@ interface JobUpdatePayload {
   status: string;
   error?: string;
   cost?: number;
+  costBreakdown?: { text: number; llm: number; total: number };
+  extractorId?: string | null;
 }
 
 interface OcrUpdatePayload {
@@ -110,7 +114,7 @@ export class ManifestGateway implements OnGatewayConnection, OnGatewayDisconnect
    * Called by BullMQ processor to broadcast job progress updates
    */
   emitJobUpdate(payload: JobUpdatePayload) {
-    const { manifestId, progress, status, error, cost } = payload;
+    const { manifestId, progress, status, error, cost, costBreakdown, extractorId } = payload;
     this.logger.debug(`Emitting job update for manifest ${manifestId}: ${progress}%`);
 
     this.server.to(`manifest:${manifestId}`).emit('job-update', {
@@ -119,6 +123,8 @@ export class ManifestGateway implements OnGatewayConnection, OnGatewayDisconnect
       status,
       error,
       cost,
+      costBreakdown,
+      extractorId,
     });
   }
 
@@ -126,7 +132,7 @@ export class ManifestGateway implements OnGatewayConnection, OnGatewayDisconnect
    * Called when manifest status changes
    */
   emitManifestUpdate(payload: ManifestUpdatePayload) {
-    const { manifestId, status, progress, error, cost } = payload;
+    const { manifestId, status, progress, error, cost, costBreakdown, extractorId } = payload;
     this.logger.debug(`Emitting manifest update for manifest ${manifestId}: ${status}`);
 
     this.server.to(`manifest:${manifestId}`).emit('manifest-update', {
@@ -135,6 +141,8 @@ export class ManifestGateway implements OnGatewayConnection, OnGatewayDisconnect
       progress,
       error,
       cost,
+      costBreakdown,
+      extractorId,
     });
   }
 

@@ -5,16 +5,6 @@ import { http, HttpResponse } from 'msw';
 
 const promptType = 'system' as Prompt['type'];
 
-const mockPrompt: Prompt = {
-  id: 1,
-  name: 'Test Prompt',
-  type: promptType,
-  content: 'Test content with {{variable}}',
-  variables: ['variable'],
-  createdAt: '2024-01-01T00:00:00Z',
-  updatedAt: '2024-01-01T00:00:00Z',
-};
-
 describe('promptsApi', () => {
   beforeEach(() => {
     server.listen({ onUnhandledRequest: 'error' });

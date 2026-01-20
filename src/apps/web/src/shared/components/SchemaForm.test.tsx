@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 import { SchemaForm } from './SchemaForm';
-import { Schema, ExtractionStrategy } from '@/api/schemas';
+import { Schema } from '@/api/schemas';
 
 // Mock the projects hook
 vi.mock('@/shared/hooks/use-projects', () => ({
@@ -133,7 +133,6 @@ describe('SchemaForm', () => {
       jsonSchema: { type: 'object', properties: { field: { type: 'string' } } },
       requiredFields: ['field'],
       description: 'Test schema',
-      extractionStrategy: ExtractionStrategy.OCR_FIRST,
       systemPromptTemplate: null,
       validationSettings: null,
       createdAt: '2025-01-13T00:00:00.000Z',

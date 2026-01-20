@@ -4,7 +4,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProjectEntity } from '../entities/project.entity';
 import { PromptEntity } from '../entities/prompt.entity';
 import { ModelEntity } from '../entities/model.entity';
+import { ManifestEntity } from '../entities/manifest.entity';
 import { UsersModule } from '../users/users.module';
+import { TextExtractorModule } from '../text-extractor/text-extractor.module';
 import { ProjectsController } from './projects.controller';
 import { ProjectsService } from './projects.service';
 
@@ -14,8 +16,10 @@ import { ProjectsService } from './projects.service';
       ProjectEntity,
       ModelEntity,
       PromptEntity,
+      ManifestEntity,
     ]),
     UsersModule,
+    TextExtractorModule,
   ],
   controllers: [ProjectsController],
   providers: [ProjectsService],

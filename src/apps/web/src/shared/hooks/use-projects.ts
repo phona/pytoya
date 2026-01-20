@@ -25,6 +25,15 @@ export function useProjects() {
     },
   });
 
+  const updateProjectExtractor = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: { textExtractorId: string } }) =>
+      projectsApi.updateProjectExtractor(id, { textExtractorId: data.textExtractorId }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project', variables.id] });
+    },
+  });
+
   const deleteProject = useMutation({
     mutationFn: (id: number) => projectsApi.deleteProject(id),
     onSuccess: () => {
@@ -38,9 +47,11 @@ export function useProjects() {
     error: projects.error,
     createProject: createProject.mutateAsync,
     updateProject: updateProject.mutateAsync,
+    updateProjectExtractor: updateProjectExtractor.mutateAsync,
     deleteProject: deleteProject.mutateAsync,
     isCreating: createProject.isPending,
     isUpdating: updateProject.isPending,
+    isUpdatingExtractor: updateProjectExtractor.isPending,
     isDeleting: deleteProject.isPending,
   };
 }

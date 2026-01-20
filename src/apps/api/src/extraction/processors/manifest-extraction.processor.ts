@@ -17,7 +17,7 @@ type ManifestExtractionJob = {
   promptId?: number;
   fieldName?: string;
   customPrompt?: string;
-  ocrContextSnippet?: string;
+  textContextSnippet?: string;
 };
 
 @Processor(EXTRACTION_QUEUE)
@@ -37,7 +37,7 @@ export class ManifestExtractionProcessor extends WorkerHost {
       this.logger.warn(`Unhandled job name ${job.name}`);
       return;
     }
-    const { manifestId, llmModelId, promptId, fieldName, customPrompt, ocrContextSnippet } = job.data;
+    const { manifestId, llmModelId, promptId, fieldName, customPrompt, textContextSnippet } = job.data;
     this.logger.log(
       `Starting extraction job ${job.id} for manifest ${manifestId}`,
     );
@@ -66,16 +66,28 @@ export class ManifestExtractionProcessor extends WorkerHost {
           promptId,
           fieldName,
           customPrompt,
-          ocrContextSnippet,
+          textContextSnippet,
         },
         reportProgress,
       );
       reportProgress(100);
+      const costBreakdown = {
+        text: result.textCost ?? 0,
+        llm: result.llmCost ?? 0,
+        total: result.extractionCost ?? 0,
+      };
       await this.manifestsService.updateJobCompleted(
         String(job.id),
         result,
         job.attemptsMade,
-        result.extractionCost,
+        {
+          total: costBreakdown.total,
+          text: costBreakdown.text,
+          llm: costBreakdown.llm,
+          pagesProcessed: result.textResult?.metadata.pagesProcessed,
+          llmInputTokens: result.extractionResult?.tokenUsage?.promptTokens,
+          llmOutputTokens: result.extractionResult?.tokenUsage?.completionTokens,
+        },
       );
       // Emit WebSocket completion update
       this.webSocketService.emitJobUpdate({
@@ -84,12 +96,16 @@ export class ManifestExtractionProcessor extends WorkerHost {
         progress: 100,
         status: 'completed',
         cost: result.extractionCost,
+        costBreakdown,
+        extractorId: result.textResult?.metadata.extractorId ?? null,
       });
       this.webSocketService.emitManifestUpdate({
         manifestId,
         status: ManifestStatus.COMPLETED,
         progress: 100,
         cost: result.extractionCost,
+        costBreakdown,
+        extractorId: result.textResult?.metadata.extractorId ?? null,
       });
       this.logger.log(
         `Completed extraction job ${job.id} for manifest ${manifestId}`,

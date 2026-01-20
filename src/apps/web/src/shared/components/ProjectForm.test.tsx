@@ -6,13 +6,16 @@ import { vi } from 'vitest';
 import { server } from '@/tests/mocks/server';
 import { ProjectForm } from './ProjectForm';
 
-const ocrModel = {
-  id: 'ocr-1',
-  name: 'PaddleX OCR',
-  adapterType: 'paddlex',
-  description: null,
-  category: 'ocr',
-  parameters: { baseUrl: 'http://localhost:8080' },
+const textExtractor = {
+  id: 'extractor-1',
+  name: 'Vision LLM - GPT-4o',
+  description: 'OpenAI GPT-4o vision',
+  extractorType: 'vision-llm',
+  config: {
+    baseUrl: 'https://api.openai.com/v1',
+    apiKey: '********',
+    model: 'gpt-4o',
+  },
   isActive: true,
   createdAt: '2025-01-13T00:00:00.000Z',
   updatedAt: '2025-01-13T00:00:00.000Z',
@@ -30,19 +33,17 @@ const llmModel = {
   updatedAt: '2025-01-13T00:00:00.000Z',
 };
 
-const setupModelHandlers = () => {
+const setupHandlers = () => {
   server.use(
     http.get('/api/models', ({ request }) => {
       const url = new URL(request.url);
       const category = url.searchParams.get('category');
-      if (category === 'ocr') {
-        return HttpResponse.json([ocrModel]);
-      }
       if (category === 'llm') {
         return HttpResponse.json([llmModel]);
       }
-      return HttpResponse.json([ocrModel, llmModel]);
+      return HttpResponse.json([llmModel]);
     }),
+    http.get('/api/extractors', () => HttpResponse.json([textExtractor])),
   );
 };
 
@@ -91,7 +92,7 @@ describe('ProjectForm', () => {
   });
 
   it('submits create payload with selected models', async () => {
-    setupModelHandlers();
+    setupHandlers();
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     const user = userEvent.setup({ pointerEventsCheck: 0 });
 
@@ -103,7 +104,7 @@ describe('ProjectForm', () => {
 
     await type(user, screen.getByLabelText(/Project Name/i), 'New Project');
 
-    await selectOption(user, /OCR model/i, 'PaddleX OCR');
+    await selectOption(user, /Text Extractor/i, 'Vision LLM - GPT-4o');
     await selectOption(user, /LLM model/i, 'OpenAI GPT-4o');
 
     await click(user, screen.getByRole('button', { name: /Create/i }));
@@ -112,14 +113,14 @@ describe('ProjectForm', () => {
       expect(onSubmit).toHaveBeenCalledWith({
         name: 'New Project',
         description: undefined,
-        ocrModelId: 'ocr-1',
+        textExtractorId: 'extractor-1',
         llmModelId: 'llm-1',
       });
     });
   });
 
   it('populates selection in edit mode', async () => {
-    setupModelHandlers();
+    setupHandlers();
     const user = userEvent.setup({ pointerEventsCheck: 0 });
 
     await act(async () => {
@@ -131,7 +132,7 @@ describe('ProjectForm', () => {
             description: 'Desc',
             ownerId: 1,
             userId: 1,
-            ocrModelId: 'ocr-1',
+            textExtractorId: 'extractor-1',
             llmModelId: 'llm-1',
             defaultSchemaId: null,
             createdAt: '2025-01-13T00:00:00.000Z',
@@ -145,10 +146,10 @@ describe('ProjectForm', () => {
     });
 
     await act(async () => {
-      await user.click(screen.getByLabelText(/OCR model/i));
+      await user.click(screen.getByLabelText(/Text Extractor/i));
     });
     expect(
-      within(screen.getByRole('listbox')).getByRole('option', { name: 'PaddleX OCR' })
+      within(screen.getByRole('listbox')).getByRole('option', { name: 'Vision LLM - GPT-4o' })
     ).toHaveAttribute('aria-selected', 'true');
 
     await act(async () => {

@@ -38,7 +38,6 @@ describe('SchemasController', () => {
     jsonSchema: { type: 'object', properties: {} },
     requiredFields: [],
     projectId: 1,
-    extractionStrategy: 'ocr-first' as any,
     description: null,
     systemPromptTemplate: null,
     validationSettings: null,

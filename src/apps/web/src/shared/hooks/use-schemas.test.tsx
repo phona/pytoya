@@ -9,7 +9,6 @@ import {
   type GenerateSchemaDto,
   type ImportSchemaDto,
   type ValidateSchemaDto,
-  ExtractionStrategy,
   SchemaRuleOperator,
   SchemaRuleType,
 } from '@/api/schemas';
@@ -69,7 +68,6 @@ const baseSchema = {
   jsonSchema: { type: 'object', required: ['invoice_number'], properties: {} },
   requiredFields: ['invoice_number'],
   description: 'Invoice extraction schema',
-  extractionStrategy: ExtractionStrategy.OCR_FIRST,
   systemPromptTemplate: null,
   validationSettings: null,
   createdAt: '2025-01-13T00:00:00.000Z',
@@ -113,7 +111,6 @@ describe('useSchemas', () => {
       const newSchema: CreateSchemaDto = {
         projectId: 1,
         jsonSchema: { type: 'object', required: ['total'], properties: {} },
-        extractionStrategy: ExtractionStrategy.OCR_FIRST,
       };
 
       const createdSchema = {
@@ -139,7 +136,6 @@ describe('useSchemas', () => {
     it('should update schema successfully', async () => {
       const updateData = {
         jsonSchema: { type: 'object', properties: { updated: true } },
-        extractionStrategy: ExtractionStrategy.VISION_ONLY,
       };
 
       const updatedSchema = {

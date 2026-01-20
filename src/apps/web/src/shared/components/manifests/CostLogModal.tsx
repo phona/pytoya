@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { Download, FileText, RefreshCw, X, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Download, FileText, X, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
 import { Separator } from '@/shared/components/ui/separator';
@@ -14,7 +14,7 @@ interface CostLogEntry {
   manifestId: number;
   manifestName: string;
   model: string;
-  ocrCost: number;
+  textCost: number;
   llmCost: number;
   totalCost: number;
   status: 'success' | 'partial' | 'failed';
@@ -36,7 +36,7 @@ const MOCK_COST_LOGS: CostLogEntry[] = [
     manifestId: 1,
     manifestName: 'invoice_001.pdf',
     model: 'GPT-4o',
-    ocrCost: 0.003,
+    textCost: 0.003,
     llmCost: 0.067,
     totalCost: 0.07,
     status: 'success',
@@ -50,7 +50,7 @@ const MOCK_COST_LOGS: CostLogEntry[] = [
     manifestId: 2,
     manifestName: 'invoice_002.pdf',
     model: 'GPT-4o',
-    ocrCost: 0.003,
+    textCost: 0.003,
     llmCost: 0.047,
     totalCost: 0.05,
     status: 'success',
@@ -64,7 +64,7 @@ const MOCK_COST_LOGS: CostLogEntry[] = [
     manifestId: 3,
     manifestName: 'invoice_003.pdf',
     model: 'GPT-4o',
-    ocrCost: 0.003,
+    textCost: 0.003,
     llmCost: 0.087,
     totalCost: 0.09,
     status: 'partial',
@@ -78,7 +78,7 @@ const MOCK_COST_LOGS: CostLogEntry[] = [
     manifestId: 4,
     manifestName: 'invoice_004.pdf',
     model: 'GPT-4o',
-    ocrCost: 0.002,
+    textCost: 0.002,
     llmCost: 0.062,
     totalCost: 0.064,
     status: 'success',
@@ -92,7 +92,7 @@ const MOCK_COST_LOGS: CostLogEntry[] = [
     manifestId: 5,
     manifestName: 'invoice_005.pdf',
     model: 'GPT-4o',
-    ocrCost: 0.003,
+    textCost: 0.003,
     llmCost: 0.08,
     totalCost: 0.083,
     status: 'success',
@@ -106,7 +106,7 @@ const MOCK_COST_LOGS: CostLogEntry[] = [
     manifestId: 6,
     manifestName: 'invoice_006.pdf',
     model: 'GPT-4o',
-    ocrCost: 0.003,
+    textCost: 0.003,
     llmCost: 0.055,
     totalCost: 0.058,
     status: 'failed',
@@ -153,12 +153,12 @@ export function CostLogModal({ open, onClose, budget = 50 }: CostLogModalProps) 
   }, [searchTerm]);
 
   const handleExportCsv = () => {
-    const headers = ['Time', 'Document', 'Model', 'OCR Cost', 'LLM Cost', 'Total', 'Status'];
+    const headers = ['Time', 'Document', 'Model', 'Text Cost', 'LLM Cost', 'Total', 'Status'];
     const rows = filteredLogs.map((log) => [
       format(log.timestamp, 'PPp'),
       log.manifestName,
       log.model,
-      log.ocrCost.toFixed(4),
+      log.textCost.toFixed(4),
       log.llmCost.toFixed(4),
       log.totalCost.toFixed(4),
       log.status,
@@ -201,6 +201,9 @@ export function CostLogModal({ open, onClose, budget = 50 }: CostLogModalProps) 
               <X className="h-4 w-4" />
             </Button>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            View recent extraction costs and export the cost log as CSV.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4">
@@ -279,7 +282,7 @@ export function CostLogModal({ open, onClose, budget = 50 }: CostLogModalProps) 
                     <th className="px-3 py-2 text-left font-medium text-xs">Model</th>
                     <th className="px-3 py-2 text-right font-medium text-xs">Pages</th>
                     <th className="px-3 py-2 text-right font-medium text-xs">Tokens</th>
-                    <th className="px-3 py-2 text-right font-medium text-xs">OCR</th>
+                    <th className="px-3 py-2 text-right font-medium text-xs">Text</th>
                     <th className="px-3 py-2 text-right font-medium text-xs">LLM</th>
                     <th className="px-3 py-2 text-right font-medium text-xs">Total</th>
                     <th className="px-3 py-2 text-center font-medium text-xs">Status</th>
@@ -302,7 +305,7 @@ export function CostLogModal({ open, onClose, budget = 50 }: CostLogModalProps) 
                       <td className="px-3 py-2 text-xs text-right text-muted-foreground">
                         {log.inputTokens?.toLocaleString()} / {log.outputTokens?.toLocaleString()}
                       </td>
-                      <td className="px-3 py-2 text-xs text-right">${log.ocrCost.toFixed(4)}</td>
+                      <td className="px-3 py-2 text-xs text-right">${log.textCost.toFixed(4)}</td>
                       <td className="px-3 py-2 text-xs text-right">${log.llmCost.toFixed(4)}</td>
                       <td className="px-3 py-2 text-xs text-right font-medium">${log.totalCost.toFixed(4)}</td>
                       <td className="px-3 py-2 text-center">{getStatusBadge(log.status)}</td>

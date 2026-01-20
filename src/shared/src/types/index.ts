@@ -1,5 +1,6 @@
 export * from './auth';
 export * from './extraction';
+export * from './extractors';
 export * from './manifests';
 export * from './models';
 export * from './projects';

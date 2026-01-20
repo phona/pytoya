@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { CreateSchemaDto, UpdateSchemaDto, Schema, ExtractionStrategy } from '@/api/schemas';
+import { CreateSchemaDto, UpdateSchemaDto, Schema } from '@/api/schemas';
 import { useProjects } from '@/shared/hooks/use-projects';
 import { JSONSchemaEditor } from '@/shared/components/JSONSchemaEditor';
 import { SchemaVisualBuilder } from '@/shared/components/SchemaVisualBuilder';
-import { ExtractionStrategySelector } from '@/shared/components/ExtractionStrategySelector';
 import { schemaFormSchema, type SchemaFormValues } from '@/shared/schemas/schema.schema';
 import { Button } from '@/shared/components/ui/button';
 import {
@@ -52,7 +51,6 @@ export function SchemaForm({ schema, onSubmit, onCancel, isLoading }: SchemaForm
     defaultValues: {
       projectId: schema?.projectId?.toString() ?? '',
       jsonSchema: schema?.jsonSchema ? JSON.stringify(schema.jsonSchema, null, 2) : DEFAULT_SCHEMA,
-      extractionStrategy: schema?.extractionStrategy ?? null,
     },
   });
 
@@ -60,7 +58,6 @@ export function SchemaForm({ schema, onSubmit, onCancel, isLoading }: SchemaForm
     form.reset({
       projectId: schema?.projectId?.toString() ?? '',
       jsonSchema: schema?.jsonSchema ? JSON.stringify(schema.jsonSchema, null, 2) : DEFAULT_SCHEMA,
-      extractionStrategy: schema?.extractionStrategy ?? null,
     });
   }, [form, schema]);
 
@@ -83,7 +80,6 @@ export function SchemaForm({ schema, onSubmit, onCancel, isLoading }: SchemaForm
     if (schema) {
       const updateData: UpdateSchemaDto = {
         jsonSchema: parsedJsonSchema,
-        extractionStrategy: values.extractionStrategy || undefined,
       };
       await onSubmit(updateData);
       return;
@@ -92,7 +88,6 @@ export function SchemaForm({ schema, onSubmit, onCancel, isLoading }: SchemaForm
     const data: CreateSchemaDto = {
       jsonSchema: parsedJsonSchema,
       projectId: parseInt(values.projectId, 10),
-      extractionStrategy: values.extractionStrategy || undefined,
     };
     await onSubmit(data);
   };
@@ -129,20 +124,6 @@ export function SchemaForm({ schema, onSubmit, onCancel, isLoading }: SchemaForm
             </FormItem>
           )}
         />
-
-
-        <div>
-          <ExtractionStrategySelector
-            value={form.watch('extractionStrategy') as ExtractionStrategy | null}
-            onChange={(value) =>
-              form.setValue('extractionStrategy', value, {
-                shouldDirty: true,
-                shouldValidate: true,
-              })
-            }
-            showCostEstimate={true}
-          />
-        </div>
 
         <FormField
           control={form.control}

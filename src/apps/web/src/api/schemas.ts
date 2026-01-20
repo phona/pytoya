@@ -13,7 +13,6 @@ import type {
   ValidateSchemaDto,
 } from '@pytoya/shared/types/schemas';
 import { SchemaRuleOperator, SchemaRuleType } from '@pytoya/shared/types/schemas';
-import { ExtractionStrategy } from '@pytoya/shared/types/extraction';
 
 export type Schema = Jsonify<SchemaResponseDto>;
 export type SchemaRule = Jsonify<SchemaRuleResponseDto>;
@@ -31,7 +30,7 @@ export type {
   UpdateSchemaRuleDto,
   ValidateSchemaDto,
 };
-export { ExtractionStrategy, SchemaRuleOperator, SchemaRuleType };
+export { SchemaRuleOperator, SchemaRuleType };
 
 export interface ValidationResult {
   valid: boolean;

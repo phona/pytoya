@@ -18,7 +18,7 @@ type ExtractionJobData = {
   promptId?: number;
   fieldName?: string;
   customPrompt?: string;
-  ocrContextSnippet?: string;
+  textContextSnippet?: string;
 };
 
 @Injectable()
@@ -39,13 +39,13 @@ export class QueueService {
     promptId?: number,
     fieldName?: string,
     customPrompt?: string,
-    ocrContextSnippet?: string,
+    textContextSnippet?: string,
     estimatedCost?: number,
   ): Promise<string> {
     try {
       const job = await this.extractionQueue.add(
         PROCESS_MANIFEST_JOB,
-        { manifestId, llmModelId, promptId, fieldName, customPrompt, ocrContextSnippet },
+        { manifestId, llmModelId, promptId, fieldName, customPrompt, textContextSnippet },
         {
           attempts: 3,
           backoff: {

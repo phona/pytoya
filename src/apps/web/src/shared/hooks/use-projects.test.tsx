@@ -40,7 +40,7 @@ describe('useProjects', () => {
           name: 'Test Project',
           description: 'Test project description',
           userId: 1,
-          ocrModelId: null,
+          textExtractorId: 'extractor-1',
           llmModelId: 'llm-1',
           defaultSchemaId: null,
           createdAt: '2025-01-13T00:00:00.000Z',
@@ -84,7 +84,7 @@ describe('useProjects', () => {
         name: 'New Project',
         description: 'New description',
         userId: 1,
-        ocrModelId: null,
+        textExtractorId: 'extractor-1',
         llmModelId: 'llm-1',
         defaultSchemaId: null,
         createdAt: '2025-01-13T00:00:00.000Z',
@@ -100,12 +100,14 @@ describe('useProjects', () => {
       await result.current.createProject({
         name: 'New Project',
         description: 'New description',
+        textExtractorId: 'extractor-1',
         llmModelId: 'llm-1',
       });
 
       expect(projectsApi.createProject).toHaveBeenCalledWith({
         name: 'New Project',
         description: 'New description',
+        textExtractorId: 'extractor-1',
         llmModelId: 'llm-1',
       });
     });
@@ -118,7 +120,7 @@ describe('useProjects', () => {
         name: 'Updated Project',
         description: 'Updated description',
         userId: 1,
-        ocrModelId: null,
+        textExtractorId: 'extractor-1',
         llmModelId: 'llm-1',
         defaultSchemaId: null,
         createdAt: '2025-01-13T00:00:00.000Z',
@@ -132,10 +134,14 @@ describe('useProjects', () => {
 
       await result.current.updateProject({
         id: 1,
-        data: { name: 'Updated Project', llmModelId: 'llm-1' },
+        data: { name: 'Updated Project', llmModelId: 'llm-1', textExtractorId: 'extractor-1' },
       });
 
-      expect(projectsApi.updateProject).toHaveBeenCalledWith(1, { name: 'Updated Project', llmModelId: 'llm-1' });
+      expect(projectsApi.updateProject).toHaveBeenCalledWith(1, {
+        name: 'Updated Project',
+        llmModelId: 'llm-1',
+        textExtractorId: 'extractor-1',
+      });
     });
   });
 

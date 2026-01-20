@@ -10,29 +10,15 @@ The system SHALL allow users to create, read, update, and delete projects, inclu
 - **WHEN** an authenticated user creates a project via the wizard with schema-based extraction
 - **THEN** the system SHALL create a new project entity
 - **AND** the system SHALL associate selected schema with the project
-- **AND** the system SHALL associate selected OCR and LLM models with the project
+- **AND** the system SHALL associate selected text extractor and LLM model with the project
 - **AND** the system SHALL set the extraction strategy to "schema"
 
 #### Scenario: Create project with prompt-based extraction
 - **WHEN** an authenticated user creates a project via the wizard with prompt-based extraction
 - **THEN** the system SHALL create a new project entity
 - **AND** the system SHALL store the optimized prompt with the project
-- **AND** the system SHALL associate selected OCR and LLM models with the project
+- **AND** the system SHALL associate selected text extractor and LLM model with the project
 - **AND** the system SHALL set the extraction strategy to "prompt"
-
-#### Scenario: List projects
-- **WHEN** an authenticated user navigates to the projects page
-- **THEN** all user's projects are displayed
-- **AND** projects show group count and manifest count
-
-#### Scenario: Update project
-- **WHEN** an authenticated user edits project name or description
-- **THEN** the project is updated in the database
-- **AND** the UI reflects changes
-
-#### Scenario: Delete project
-- **WHEN** an authenticated user deletes a project
-- **THEN** the project and all associated data (groups, manifests) are deleted
 
 ### Requirement: Group Management
 The system SHALL allow users to create, read, update, and delete groups within projects.
@@ -52,15 +38,13 @@ The system SHALL allow users to create, read, update, and delete groups within p
 - **AND** project remains intact
 
 ### Requirement: Project-level Model Configuration
+The system SHALL allow configuring default text extractor and LLM model per project.
 
-The system SHALL allow configuring default OCR and LLM models per project.
-
-#### Scenario: Set project OCR model
-- **GIVEN** an authenticated user and at least one OCR model exists
-- **WHEN** updating project.ocrModelId with a valid model UUID
-- **THEN** the model reference is saved
-- **AND** the model must have 'ocr' capability
-- **AND** the model is used as the default for OCR operations in this project
+#### Scenario: Set project text extractor
+- **GIVEN** an authenticated user and at least one text extractor exists
+- **WHEN** updating project.textExtractorId with a valid extractor UUID
+- **THEN** the extractor reference is saved
+- **AND** the extractor is used as the default for text extraction in this project
 
 #### Scenario: Set project LLM model
 - **GIVEN** an authenticated user and at least one LLM model exists
@@ -70,29 +54,29 @@ The system SHALL allow configuring default OCR and LLM models per project.
 - **AND** the model is used as the default for LLM operations in this project
 
 #### Scenario: Clear project model reference
-- **GIVEN** a project with a default model configured
-- **WHEN** setting the model reference to null
+- **GIVEN** a project with a default configuration
+- **WHEN** setting the text extractor or LLM model reference to null
 - **THEN** the reference is cleared
 - **AND** the system falls back to global defaults or config.yaml
 - **AND** existing extractions are not affected
 
 #### Scenario: Validate model capability
 - **GIVEN** a project update request
-- **WHEN** setting ocrModelId to a model without 'ocr' capability
+- **WHEN** setting llmModelId to a model without 'llm' capability
 - **THEN** the update is rejected
 - **AND** a validation error indicates the model type mismatch
 
 #### Scenario: Validate model existence
 - **GIVEN** a project update request
-- **WHEN** setting ocrModelId or llmModelId to a non-existent UUID
+- **WHEN** setting textExtractorId or llmModelId to a non-existent UUID
 - **THEN** the update is rejected
-- **AND** a validation error indicates the model was not found
+- **AND** a validation error indicates the reference was not found
 
-#### Scenario: Model deletion affects project
-- **GIVEN** a project with default models configured
-- **WHEN** one of the models is deleted
-- **THEN** the project's model reference is automatically set to null
-- **AND** the project continues to function with fallback models
+#### Scenario: Deletion affects project
+- **GIVEN** a project with default extractor/model configured
+- **WHEN** one of them is deleted
+- **THEN** the project's reference is automatically set to null
+- **AND** the project continues to function with fallback configuration
 
 ### Requirement: Per-Project Validation Scripts
 The system SHALL allow validation scripts to be configured at the project level rather than globally.

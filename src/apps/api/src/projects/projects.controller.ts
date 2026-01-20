@@ -7,6 +7,8 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
@@ -16,6 +18,8 @@ import { UserEntity } from '../entities/user.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { ProjectResponseDto } from './dto/project-response.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { UpdateProjectExtractorDto } from './dto/update-project-extractor.dto';
+import { ProjectCostSummaryDto } from './dto/project-cost-summary.dto';
 import { ProjectsService } from './projects.service';
 
 @UseGuards(JwtAuthGuard)
@@ -62,6 +66,37 @@ export class ProjectsController {
       updateProjectDto,
     );
     return ProjectResponseDto.fromEntity(project);
+  }
+
+  @Put(':id/extractor')
+  async updateExtractor(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: UpdateProjectExtractorDto,
+  ) {
+    const project = await this.projectsService.updateExtractor(user, id, body.textExtractorId);
+    return ProjectResponseDto.fromEntity(project);
+  }
+
+  @Get(':id/cost-summary')
+  async costSummary(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<ProjectCostSummaryDto> {
+    return this.projectsService.getCostSummary(user, id);
+  }
+
+  @Get(':id/cost-by-date-range')
+  async costByDateRange(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ): Promise<ProjectCostSummaryDto> {
+    return this.projectsService.getCostSummary(user, id, {
+      from,
+      to,
+    });
   }
 
   @Delete(':id')

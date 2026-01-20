@@ -16,11 +16,12 @@ import { HealthModule } from './health/health.module';
 import { JobsModule } from './jobs/jobs.module';
 import { ManifestsModule } from './manifests/manifests.module';
 import { LlmModule } from './llm/llm.module';
-import { OcrModule } from './ocr/ocr.module';
 import { PdfToImageModule } from './pdf-to-image/pdf-to-image.module';
 import { PromptsModule } from './prompts/prompts.module';
 import { ModelsModule } from './models/models.module';
 import { ProjectsModule } from './projects/projects.module';
+import { TextExtractorModule } from './text-extractor/text-extractor.module';
+import { ExtractorsModule } from './extractors/extractors.module';
 import { QueueModule } from './queue/queue.module';
 import { SchemasModule } from './schemas/schemas.module';
 import { StorageModule } from './storage/storage.module';
@@ -81,11 +82,12 @@ import { MetricsModule } from './metrics/metrics.module';
     LlmModule,
     ManifestsModule,
     MetricsModule,
-    OcrModule,
     PdfToImageModule,
     PromptsModule,
     ModelsModule,
     ProjectsModule,
+    TextExtractorModule,
+    ExtractorsModule,
     QueueModule,
     SchemasModule,
     StorageModule,

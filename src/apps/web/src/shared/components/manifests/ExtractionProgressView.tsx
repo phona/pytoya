@@ -1,11 +1,9 @@
-import { useMemo, useState, useEffect } from 'react';
-import { Pause, Play, Square, X, Zap, FileText, Clock, TrendingUp, DollarSign } from 'lucide-react';
+import { useMemo } from 'react';
+import { Pause, Play, Square, X, Zap, FileText, DollarSign } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
 import { Progress } from '@/shared/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { Separator } from '@/shared/components/ui/separator';
-import { useExtractionStore } from '@/shared/stores/extraction';
 
 interface ExtractionJob {
   id: string;
@@ -17,7 +15,7 @@ interface ExtractionJob {
   completedAt?: Date;
   error?: string;
   cost?: {
-    ocr: number;
+    text: number;
     llm: number;
     total: number;
   };
@@ -50,8 +48,6 @@ export function ExtractionProgressView({
   onRunInBackground,
   budget,
 }: ExtractionProgressViewProps) {
-  const cost = useExtractionStore((state) => state.cost);
-
   // Calculate progress stats
   const stats = useMemo(() => {
     const completed = jobs.filter((j) => j.status === 'completed').length;
@@ -104,12 +100,12 @@ export function ExtractionProgressView({
 
   // Accumulated cost from jobs
   const accumulatedCost = useMemo(() => {
-    const ocrCost = jobs.reduce((sum, job) => sum + (job.cost?.ocr || 0), 0);
+    const textCost = jobs.reduce((sum, job) => sum + (job.cost?.text || 0), 0);
     const llmCost = jobs.reduce((sum, job) => sum + (job.cost?.llm || 0), 0);
     return {
-      ocr: ocrCost,
+      text: textCost,
       llm: llmCost,
-      total: ocrCost + llmCost,
+      total: textCost + llmCost,
     };
   }, [jobs]);
 
@@ -218,9 +214,9 @@ export function ExtractionProgressView({
           {/* Cost Breakdown */}
           <div className="grid grid-cols-3 gap-3 text-sm">
             <div>
-              <div className="text-xs text-muted-foreground mb-1">OCR</div>
-              <div className="font-semibold">${accumulatedCost.ocr.toFixed(4)}</div>
-            </div>
+            <div className="text-xs text-muted-foreground mb-1">Text</div>
+            <div className="font-semibold">${accumulatedCost.text.toFixed(4)}</div>
+          </div>
             <div>
               <div className="text-xs text-muted-foreground mb-1">LLM</div>
               <div className="font-semibold">${accumulatedCost.llm.toFixed(4)}</div>

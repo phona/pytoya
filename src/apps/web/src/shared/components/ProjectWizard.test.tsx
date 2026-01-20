@@ -20,6 +20,19 @@ const llmModels = [
   },
 ];
 
+const textExtractors = [
+  {
+    id: 'extractor-1',
+    name: 'Vision LLM - GPT-4o',
+    description: 'OpenAI GPT-4o vision',
+    extractorType: 'vision-llm',
+    config: {},
+    isActive: true,
+    createdAt: '2025-01-15T00:00:00.000Z',
+    updatedAt: '2025-01-15T00:00:00.000Z',
+  },
+];
+
 const setupHandlers = () => {
   server.use(
     http.get('/api/models', ({ request }) => {
@@ -30,6 +43,7 @@ const setupHandlers = () => {
       }
       return HttpResponse.json([]);
     }),
+    http.get('/api/extractors', () => HttpResponse.json(textExtractors)),
     http.post('/api/projects', async ({ request }) => {
       const body = (await request.json()) as Record<string, unknown>;
       return HttpResponse.json({
@@ -38,7 +52,7 @@ const setupHandlers = () => {
         description: body.description ?? null,
         ownerId: 1,
         userId: 1,
-        ocrModelId: body.ocrModelId ?? null,
+        textExtractorId: body.textExtractorId ?? null,
         llmModelId: body.llmModelId ?? null,
         defaultSchemaId: body.defaultSchemaId ?? null,
         createdAt: '2025-01-15T00:00:00.000Z',
@@ -74,6 +88,16 @@ describe('ProjectWizard', () => {
 
     await act(async () => {
       await user.type(screen.getByLabelText(/Project Name/i), 'New Project');
+    });
+
+    await act(async () => {
+      await user.click(screen.getByLabelText(/Text Extractor/i));
+    });
+    const extractorListbox = await screen.findByRole('listbox');
+    await act(async () => {
+      const option = within(extractorListbox).getByRole('option', { name: /Vision LLM - GPT-4o/i });
+      fireEvent.pointerDown(option);
+      fireEvent.click(option);
     });
 
     await act(async () => {
@@ -120,6 +144,18 @@ describe('ProjectWizard', () => {
     const listbox = await screen.findByRole('listbox');
     await act(async () => {
       const option = within(listbox).getByRole('option', { name: /LLM Model/i });
+      fireEvent.pointerDown(option);
+      fireEvent.click(option);
+    });
+
+    expect(createButton).toBeDisabled();
+
+    await act(async () => {
+      await user.click(screen.getByLabelText(/Text Extractor/i));
+    });
+    const extractorListbox = await screen.findByRole('listbox');
+    await act(async () => {
+      const option = within(extractorListbox).getByRole('option', { name: /Vision LLM - GPT-4o/i });
       fireEvent.pointerDown(option);
       fireEvent.click(option);
     });

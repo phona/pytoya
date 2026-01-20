@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { promptsApi, Prompt, CreatePromptDto, UpdatePromptDto } from '@/api/prompts';
 import { PromptEditor } from '@/shared/components/PromptEditor';
 import { Button } from '@/shared/components/ui/button';
+import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 
 export function PromptsPage() {
+  const { confirm, ModalDialog } = useModalDialog();
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -55,7 +57,13 @@ export function PromptsPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Delete this prompt?')) return;
+    const confirmed = await confirm({
+      title: 'Delete prompt',
+      message: 'Delete this prompt?',
+      confirmText: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) return;
     try {
       await promptsApi.deletePrompt(id);
       loadPrompts();
@@ -167,6 +175,8 @@ export function PromptsPage() {
           </div>
         )}
       </div>
+
+      <ModalDialog />
     </div>
   );
 }

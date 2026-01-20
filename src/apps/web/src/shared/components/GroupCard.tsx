@@ -2,6 +2,7 @@ import { ArrowUpRight, FileText } from 'lucide-react';
 import { Group } from '@/api/projects';
 import { Button } from '@/shared/components/ui/button';
 import { getGroupStatusBadgeClasses } from '@/shared/styles/status-badges';
+import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 
 interface GroupCardProps {
   group: Group;
@@ -11,6 +12,7 @@ interface GroupCardProps {
 }
 
 export function GroupCard({ group, onClick, onDelete, onEdit }: GroupCardProps) {
+  const { confirm, ModalDialog } = useModalDialog();
   const statusCounts = group.statusCounts ?? {
     pending: 0,
     failed: 0,
@@ -68,9 +70,16 @@ export function GroupCard({ group, onClick, onDelete, onEdit }: GroupCardProps) 
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              if (confirm(`Delete group "${group.name}"? This will delete all manifests.`)) {
+              void (async () => {
+                const confirmed = await confirm({
+                  title: 'Delete group',
+                  message: `Delete group "${group.name}"? This will delete all manifests.`,
+                  confirmText: 'Delete',
+                  destructive: true,
+                });
+                if (!confirmed) return;
                 onDelete(group.id);
-              }
+              })();
             }}
             variant="ghost"
             size="sm"
@@ -99,6 +108,8 @@ export function GroupCard({ group, onClick, onDelete, onEdit }: GroupCardProps) 
           <ArrowUpRight className="h-3 w-3" />
         </div>
       ) : null}
+
+      <ModalDialog />
     </div>
   );
 }

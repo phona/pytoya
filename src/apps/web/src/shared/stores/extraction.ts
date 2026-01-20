@@ -3,7 +3,7 @@ import type { OcrResultDto } from '@pytoya/shared/types/manifests';
 
 type CostBreakdown = {
   total: number;
-  ocr: number;
+  text: number;
   llm: number;
 };
 
@@ -16,7 +16,7 @@ interface ExtractionState {
   setExtractionQueue: (ids: number[]) => void;
 
   cost: CostBreakdown;
-  addCost: (amount: number, type?: 'ocr' | 'llm' | 'total') => void;
+  addCost: (amount: number, type?: 'text' | 'llm' | 'total') => void;
   resetCost: () => void;
 
   schemaTestMode: boolean;
@@ -27,7 +27,7 @@ interface ExtractionState {
   clearTestResults: () => void;
 }
 
-const initialCost: CostBreakdown = { total: 0, ocr: 0, llm: 0 };
+const initialCost: CostBreakdown = { total: 0, text: 0, llm: 0 };
 
 export const useExtractionStore = create<ExtractionState>((set) => ({
   ocrResults: {},
@@ -54,15 +54,15 @@ export const useExtractionStore = create<ExtractionState>((set) => ({
   addCost: (amount, type = 'total') =>
     set((state) => {
       const next = { ...state.cost };
-      if (type === 'ocr') {
-        next.ocr += amount;
+      if (type === 'text') {
+        next.text += amount;
       } else if (type === 'llm') {
         next.llm += amount;
       } else {
         next.total += amount;
       }
       if (type !== 'total') {
-        next.total = next.ocr + next.llm;
+        next.total = next.text + next.llm;
       }
       return { cost: next };
     }),

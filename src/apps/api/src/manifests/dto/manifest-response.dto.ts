@@ -26,6 +26,7 @@ export class ManifestResponseDto {
   ocrProcessedAt!: Date | null;
   ocrQualityScore!: number | null;
   extractionCost!: number | null;
+  textExtractorId!: string | null;
   createdAt!: Date;
   updatedAt!: Date;
 
@@ -60,6 +61,7 @@ export class ManifestResponseDto {
       ocrProcessedAt: manifest.ocrProcessedAt ?? null,
       ocrQualityScore: manifest.ocrQualityScore ?? null,
       extractionCost,
+      textExtractorId: manifest.textExtractorId ?? null,
       createdAt: manifest.createdAt,
       updatedAt: manifest.updatedAt,
     };

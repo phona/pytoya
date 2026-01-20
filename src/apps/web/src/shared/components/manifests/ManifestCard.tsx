@@ -5,10 +5,11 @@ import { getStatusBadgeClasses } from '@/shared/styles/status-badges';
 
 interface ManifestCardProps {
   manifest: Manifest;
+  extractorInfo?: { name: string; type?: string };
   onClick: () => void;
 }
 
-export function ManifestCard({ manifest, onClick }: ManifestCardProps) {
+export function ManifestCard({ manifest, extractorInfo, onClick }: ManifestCardProps) {
   const getConfidenceColor = (confidence: number | null) => {
     if (confidence === null) return 'border-border';
     if (confidence >= 0.9) return 'border-[color:var(--status-completed-text)]';
@@ -46,6 +47,14 @@ export function ManifestCard({ manifest, onClick }: ManifestCardProps) {
         </div>
 
         <div className="space-y-2 text-sm">
+          {manifest.textExtractorId && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Extractor:</span>
+              <span className="text-foreground">
+                {extractorInfo?.name ?? manifest.textExtractorId}
+              </span>
+            </div>
+          )}
           {manifest.purchaseOrder && (
             <div className="flex justify-between">
               <span className="text-muted-foreground">PO:</span>
@@ -81,6 +90,14 @@ export function ManifestCard({ manifest, onClick }: ManifestCardProps) {
           <div className="flex justify-between">
             <span className="text-muted-foreground">Size:</span>
             <span className="text-foreground">{formatFileSize(manifest.fileSize)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Cost:</span>
+            <span className="text-foreground">
+              {manifest.extractionCost !== null && manifest.extractionCost !== undefined
+                ? `$${Number(manifest.extractionCost).toFixed(4)}`
+                : 'N/A'}
+            </span>
           </div>
         </div>
 

@@ -9,7 +9,6 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { ProjectEntity } from './project.entity';
-import { ExtractionStrategy } from '../extraction/extraction.types';
 import { SchemaRuleEntity } from './schema-rule.entity';
 
 @Entity('schemas')
@@ -28,14 +27,6 @@ export class SchemaEntity {
 
   @Column({ type: 'int', name: 'project_id' })
   projectId!: number;
-
-  @Column({
-    type: 'enum',
-    enum: ExtractionStrategy,
-    default: ExtractionStrategy.OCR_FIRST,
-    name: 'extractionStrategy',
-  })
-  extractionStrategy!: ExtractionStrategy;
 
   @Column({ type: 'varchar', nullable: true })
   description!: string | null;

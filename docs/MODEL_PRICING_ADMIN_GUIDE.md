@@ -1,30 +1,30 @@
-# Admin Guide: Model Pricing Configuration
+# Admin Guide: Pricing Configuration
 
 ## Overview
 
-As an administrator, you can configure pricing for OCR and LLM models used in document extraction. This guide explains how to set up, update, and manage model pricing.
+As an administrator, you can configure pricing for text extractors and LLM models used in document extraction. This guide explains how to set up, update, and manage pricing.
 
 ---
 
 ## Table of Contents
 
-1. [Understanding Model Pricing](#understanding-model-pricing)
+1. [Understanding Pricing](#understanding-pricing)
 2. [Accessing Pricing Configuration](#accessing-pricing-configuration)
-3. [Configuring OCR Model Pricing](#configuring-ocr-model-pricing)
+3. [Configuring Text Extractor Pricing](#configuring-text-extractor-pricing)
 4. [Configuring LLM Model Pricing](#configuring-llm-model-pricing)
 5. [Managing Pricing History](#managing-pricing-history)
 6. [Best Practices](#best-practices)
 
 ---
 
-## Understanding Model Pricing
+## Understanding Pricing
 
-### OCR Model Pricing
+### Text Extractor Pricing
 
-OCR models charge **per page processed**:
+Text extractors can charge **per page processed** (or other modes depending on the extractor):
 
 ```
-OCR Cost = (Number of Pages) × Price Per Page
+Text Cost = (Number of Pages) × Price Per Page
 ```
 
 **Example**: 10 pages at $0.001/page = $0.010
@@ -43,8 +43,8 @@ Total LLM Cost = Input Cost + Output Cost
 
 ### Minimum Charges
 
-Both model types support optional minimum charges:
-- **OCR**: Charged when page count is very low
+Both pricing types support optional minimum charges:
+- **Text Extractor**: Charged when page count is very low
 - **LLM**: Charged when token count is very low
 - Ensures small operations still cover base costs
 
@@ -55,9 +55,9 @@ Both model types support optional minimum charges:
 ### Navigation
 
 1. Log in as an **admin user**
-2. Go to **Projects** → **Select a Project**
-3. Click **Settings** → **Models**
-4. Find **Model Pricing Configuration** section
+2. For text extractor pricing, go to **Extractors** in the sidebar
+3. For LLM pricing, go to **Models** in the sidebar
+4. Open the pricing section for the resource you want to edit
 
 ### Permissions
 
@@ -69,21 +69,21 @@ Only users with **admin role** can:
 
 ---
 
-## Configuring OCR Model Pricing
+## Configuring Text Extractor Pricing
 
 ### Step-by-Step Guide
 
-1. **Locate the OCR Model**:
-   - Find models with **[OCR]** badge
-   - Example: "PaddleOCR-VL"
+1. **Locate the Text Extractor**:
+   - Go to the **Extractors** page
+   - Example: "PaddleOCR-VL" or "Vision LLM - GPT-4o"
 
 2. **Click Edit Button**:
-   - Expand the model's pricing section
-   - Edit form appears below the model row
+   - Open the extractor's edit dialog
+   - Pricing fields appear in the extractor form
 
 3. **Configure Pricing Fields**:
 
-   **Price Per Page** (required):
+   **Price Per Page** (page-based extractors only):
    - Enter cost per page in decimal format
    - Example: `0.001` = $0.001 per page
    - Typical range: $0.0005 - $0.005 per page
@@ -101,13 +101,12 @@ Only users with **admin role** can:
 
 4. **Save Changes**:
    - Click **Save** button
-   - Old pricing is archived to history
    - New pricing takes effect immediately for new extractions
 
-### Example OCR Pricing Configuration
+### Example Text Extractor Pricing Configuration
 
 ```
-Model: PaddleOCR-VL
+Extractor: PaddleOCR-VL
 Price Per Page: 0.001
 Currency: USD
 Minimum Charge: 0.01 (optional)
@@ -215,7 +214,7 @@ When you update pricing:
 ### Example Pricing History Timeline
 
 ```
-PaddleOCR-VL Pricing:
+PaddleOCR-VL Extractor Pricing:
 
 2024-01-01 - 2024-01-15:
   Price: $0.0008 per page
@@ -261,7 +260,7 @@ PaddleOCR-VL Pricing:
 
 ### Pricing Recommendations
 
-#### OCR Models
+#### Text Extractors
 
 | Model Type | Recommended Price Range |
 |------------|------------------------|
@@ -285,7 +284,7 @@ PaddleOCR-VL Pricing:
 - Want to discourage tiny extraction jobs
 
 **Recommended minimums**:
-- OCR: $0.01 - $0.05 per document
+- Text Extractor: $0.01 - $0.05 per document
 - LLM: $0.03 - $0.10 per extraction
 
 ---
@@ -340,19 +339,27 @@ PaddleOCR-VL Pricing:
 Admins can also update pricing via API:
 
 ```http
-PATCH /api/models/:id/pricing
+PATCH /api/extractors/:id
 Authorization: Bearer <admin-token>
 Content-Type: application/json
 
 {
-  "ocr": {
-    "pricePerPage": 0.001,
-    "currency": "USD",
-    "minimumCharge": 0.01
+  "config": {
+    "pricing": {
+      "mode": "page",
+      "pricePerPage": 0.001,
+      "currency": "USD",
+      "minimumCharge": 0.01
+    }
   }
 }
+```
 
-// OR for LLM:
+```http
+PATCH /api/models/:id/pricing
+Authorization: Bearer <admin-token>
+Content-Type: application/json
+
 {
   "llm": {
     "inputPrice": 2.50,

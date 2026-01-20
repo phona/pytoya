@@ -161,15 +161,7 @@ The system SHALL allow models to be activated or deactivated without deletion.
 - **AND** it appears in filtered queries for active models
 
 ### Requirement: Model Selection for Projects
-
-The system SHALL allow projects to select default models for OCR and LLM operations.
-
-#### Scenario: Project selects OCR model
-- **GIVEN** a project and at least one OCR model (category='ocr')
-- **WHEN** setting project.ocrModelId
-- **THEN** only models with 'ocr' capability can be selected
-- **AND** the reference is stored as a UUID
-- **AND** extraction operations use this model by default
+The system SHALL allow projects to select default models for LLM operations.
 
 #### Scenario: Project selects LLM model
 - **GIVEN** a project and at least one LLM model (category='llm')
@@ -179,7 +171,7 @@ The system SHALL allow projects to select default models for OCR and LLM operati
 - **AND** extraction operations use this model by default
 
 #### Scenario: Model deletion affects projects
-- **GIVEN** a project with a default model configured
+- **GIVEN** a project with a default LLM model configured
 - **WHEN** that model is deleted
 - **THEN** the project's default model reference is set to null
 - **AND** the system falls back to a global default or config.yaml

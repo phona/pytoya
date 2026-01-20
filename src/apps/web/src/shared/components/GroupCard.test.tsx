@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { within } from '@testing-library/react';
 import { vi } from 'vitest';
 import { Group } from '@/api/projects';
 import { GroupCard } from './GroupCard';
@@ -30,7 +31,6 @@ describe('GroupCard', () => {
     const onClick = vi.fn();
     const onEdit = vi.fn();
     const onDelete = vi.fn();
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
 
     render(
       <GroupCard
@@ -46,10 +46,10 @@ describe('GroupCard', () => {
     expect(onClick).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: /^Delete$/i }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /^Delete$/i }));
     expect(onDelete).toHaveBeenCalledTimes(1);
     expect(onClick).not.toHaveBeenCalled();
-
-    confirmSpy.mockRestore();
   });
 });
 

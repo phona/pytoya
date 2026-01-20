@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { FileText, LayoutGrid, List } from 'lucide-react';
 import { Manifest } from '@/api/manifests';
 import { ManifestTable } from './ManifestTable';
@@ -7,6 +7,7 @@ import { Pagination } from './Pagination';
 import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/shared/hooks/use-websocket';
 import { useRunBatchValidation } from '@/shared/hooks/use-validation-scripts';
 import { ManifestSort } from '@/shared/types/manifests';
+import { useExtractorTypes, useExtractors } from '@/shared/hooks/use-extractors';
 import {
   Tooltip,
   TooltipContent,
@@ -14,6 +15,7 @@ import {
   TooltipTrigger,
 } from '@/shared/components/ui/tooltip';
 import { Button } from '@/shared/components/ui/button';
+import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 
 interface ManifestListProps {
   manifests: Manifest[];
@@ -53,6 +55,7 @@ export function ManifestList({
   onPageChange,
   onPageSizeChange,
 }: ManifestListProps) {
+  const { alert, ModalDialog } = useModalDialog();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [manifestProgress, setManifestProgress] = useState<Record<number, { progress: number; status: string; error?: string }>>({});
@@ -63,6 +66,25 @@ export function ManifestList({
   }>({ completed: 0, total: 0, results: {} });
 
   const runBatchValidation = useRunBatchValidation();
+  const { extractors } = useExtractors();
+  const { types: extractorTypes } = useExtractorTypes();
+
+  const extractorTypeLookup = useMemo(() => {
+    return extractorTypes.reduce<Record<string, string>>((acc, type) => {
+      acc[type.id] = type.name;
+      return acc;
+    }, {});
+  }, [extractorTypes]);
+
+  const extractorLookup = useMemo(() => {
+    return extractors.reduce<Record<string, { name: string; type?: string }>>((acc, extractor) => {
+      acc[extractor.id] = {
+        name: extractor.name,
+        type: extractorTypeLookup[extractor.extractorType] ?? extractor.extractorType,
+      };
+      return acc;
+    }, {});
+  }, [extractorTypeLookup, extractors]);
 
   // Handle WebSocket updates
   const handleJobUpdate = useCallback((data: JobUpdateEvent) => {
@@ -125,7 +147,10 @@ export function ManifestList({
     // Filter manifests that are completed
     const completedManifests = manifests.filter(m => selectedIds.has(m.id) && m.status === 'completed');
     if (completedManifests.length === 0) {
-      alert('Only completed manifests can be validated. Please select manifests with status "completed".');
+      void alert({
+        title: 'Batch validation',
+        message: 'Only completed manifests can be validated. Please select manifests with status "completed".',
+      });
       return;
     }
 
@@ -152,7 +177,7 @@ export function ManifestList({
 
       // Show summary
       const message = `Validation complete!\n\n${manifestIdsToValidate.length} manifests validated\n${totalErrors} errors\n${totalWarnings} warnings`;
-      alert(message);
+      void alert({ title: 'Batch validation complete', message });
 
       // Clear selection and progress after a delay
       setTimeout(() => {
@@ -162,7 +187,7 @@ export function ManifestList({
       }, 3000);
     } catch (error) {
       console.error('Batch validation failed:', error);
-      alert('Batch validation failed. Please try again.');
+      void alert({ title: 'Batch validation failed', message: 'Batch validation failed. Please try again.' });
       setValidationProgress({ completed: 0, total: 0, results: {} });
     }
   };
@@ -276,6 +301,8 @@ export function ManifestList({
         </div>
       </div>
 
+      <ModalDialog />
+
       {/* Content */}
       {manifests.length === 0 ? (
         <div className="p-12 text-center">
@@ -293,6 +320,7 @@ export function ManifestList({
               sort={sort}
               onSortChange={onSortChange}
               onSelectManifest={onSelectManifest}
+              extractorLookup={extractorLookup}
               selectedIds={selectedIds}
               onSelectToggle={handleToggleSelect}
               onSelectAll={handleToggleSelectAll}
@@ -305,6 +333,7 @@ export function ManifestList({
                 <ManifestCard
                   key={manifest.id}
                   manifest={manifest}
+                  extractorInfo={manifest.textExtractorId ? extractorLookup[manifest.textExtractorId] : undefined}
                   onClick={() => onSelectManifest(manifest.id)}
                 />
               ))}

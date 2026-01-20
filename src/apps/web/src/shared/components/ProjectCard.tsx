@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { FileText, Folder } from 'lucide-react';
 import { Project } from '@/api/projects';
 import { Button } from '@/shared/components/ui/button';
+import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 
 interface ProjectCardProps {
   project: Project;
@@ -10,6 +11,7 @@ interface ProjectCardProps {
 }
 
 export function ProjectCard({ project, onDelete, onEdit }: ProjectCardProps) {
+  const { confirm, ModalDialog } = useModalDialog();
   return (
     <div className="bg-card rounded-lg shadow-sm border border-border p-6 hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start">
@@ -46,16 +48,16 @@ export function ProjectCard({ project, onDelete, onEdit }: ProjectCardProps) {
 
       <div className="mt-4 grid gap-2 text-xs text-muted-foreground">
         <div className="flex items-center justify-between">
-          <span className="font-medium text-foreground">OCR Model</span>
-          <span>{project.ocrModelId ? project.ocrModelId : 'Not set'}</span>
+          <span className="font-medium text-foreground">Text Extractor</span>
+          <span>{project.textExtractorId ? project.textExtractorId : 'Not set'}</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="font-medium text-foreground">LLM Model</span>
           <span>{project.llmModelId ? project.llmModelId : 'Not set'}</span>
         </div>
-        {(!project.ocrModelId || !project.llmModelId) && (
+        {(!project.textExtractorId || !project.llmModelId) && (
           <div className="rounded-md border border-border bg-[color:var(--status-warning-bg)] px-2 py-1 text-[color:var(--status-warning-text)]">
-            Models not fully configured
+            Extractor or LLM not configured
           </div>
         )}
       </div>
@@ -68,9 +70,16 @@ export function ProjectCard({ project, onDelete, onEdit }: ProjectCardProps) {
           <Button
             type="button"
             onClick={() => {
-              if (confirm(`Delete project "${project.name}"? This will delete all groups and manifests.`)) {
+              void (async () => {
+                const confirmed = await confirm({
+                  title: 'Delete project',
+                  message: `Delete project "${project.name}"? This will delete all groups and manifests.`,
+                  confirmText: 'Delete',
+                  destructive: true,
+                });
+                if (!confirmed) return;
                 onDelete(project.id);
-              }
+              })();
             }}
             aria-label={`Delete project ${project.name}`}
             variant="ghost"
@@ -81,6 +90,8 @@ export function ProjectCard({ project, onDelete, onEdit }: ProjectCardProps) {
           </Button>
         )}
       </div>
+
+      <ModalDialog />
     </div>
   );
 }

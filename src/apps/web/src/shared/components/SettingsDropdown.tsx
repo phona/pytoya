@@ -39,6 +39,9 @@ export function SettingsDropdown({ projectId, schemaId, onDelete }: SettingsDrop
         <DropdownMenuItem onClick={() => navigate(`/projects/${projectId}/settings/models`)}>
           Models
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate(`/projects/${projectId}/settings/extractors`)}>
+          Extractors
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Data</DropdownMenuLabel>
         <DropdownMenuItem
@@ -60,6 +63,9 @@ export function SettingsDropdown({ projectId, schemaId, onDelete }: SettingsDrop
         )}
         <DropdownMenuItem onClick={() => navigate(scriptsLink)}>
           Validation Scripts
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate(`/projects/${projectId}/costs`)}>
+          Cost Summary
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Danger Zone</DropdownMenuLabel>

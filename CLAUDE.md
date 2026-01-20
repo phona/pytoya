@@ -23,7 +23,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 ## Project Overview
 
-PyToYa is a hybrid invoice processing system combining a Python CLI tool (legacy) with a modern TypeScript web application. The system uses PaddleOCR-VL for OCR and adapter-based LLM models (OpenAI-compatible endpoints) for structured data extraction from PDF invoices.
+PyToYa is a hybrid invoice processing system combining a Python CLI tool (legacy) with a modern TypeScript web application. The system uses pluggable text extractors (PaddleOCR-VL, vision LLMs, etc.) to produce raw text and adapter-based LLM models (OpenAI-compatible endpoints) for structured data extraction from PDF invoices.
 
 **Architecture**: Monorepo with npm workspaces (`src/apps/api` for NestJS backend, `src/apps/web` for Vite frontend).
 
@@ -117,6 +117,7 @@ openspec/                # Spec-driven development
 - **Job Queue**: BullMQ with Redis for async extraction jobs
 - **WebSocket**: Gateway at `src/websocket/websocket.gateway.ts` for real-time progress updates
 - **Schemas**: Name/description derived from JSON Schema `title`/`description`; required fields derived from JSON Schema `required`
+- **Text Extractor Development**: See `docs/TEXT_EXTRACTOR_DEVELOPMENT.md` for adding new extractors
 
 ### Backend Guardrails (NestJS)
 - See `docs/nestjs-coding-agent-guardrails.md` for required patterns (validation, config, errors, DTOs)
@@ -131,11 +132,11 @@ openspec/                # Spec-driven development
 - **Status Badges**: Use `src/apps/web/src/shared/styles/status-badges.ts` for manifest status colors
 - **Empty States**: Use `src/apps/web/src/shared/components/EmptyState.tsx`
 - **Theme**: Use `src/apps/web/src/shared/providers/ThemeProvider.tsx` and `ThemeToggle` for light/dark mode
-- **Project Settings**: Settings dropdown + pages live under `src/apps/web/src/routes/dashboard` (basic/models)
-- **Project Creation**: Quick Create uses `ProjectWizard`; Guided Setup uses `GuidedSetupWizard`
+- **Project Settings**: Settings dropdown + pages live under `src/apps/web/src/routes/dashboard` (basic/models/extractors/costs)
+- **Project Creation**: Quick Create uses `ProjectWizard`; Guided Setup uses `GuidedSetupWizard` (select text extractor + LLM)
 - **Routing & UX**: Route protection, error boundaries, and accessibility basics in `docs/WEB_APP.md`
 
-### Database Schema (11 Entities)
+### Database Schema (12 Entities)
 ```
 UserEntity → ProjectEntity → GroupEntity → ManifestEntity → ManifestItemEntity
                                   ↓
@@ -144,6 +145,7 @@ UserEntity → ProjectEntity → GroupEntity → ManifestEntity → ManifestItem
                     ExtractionHistoryEntity (audit trail)
 
 ModelEntity → ProjectEntity
+ExtractorEntity → ProjectEntity → ManifestEntity
 PromptEntity
 JobEntity (BullMQ jobs)
 ```
@@ -203,13 +205,15 @@ Critical for mechanical industry invoices (Chinese):
 - **Quality Scoring**: `calculateOcrQualityScore()` in `src/apps/api/src/ocr/ocr-cache.util.ts`
 - **Re-processing**: Use `force=true` query parameter to re-run OCR for existing results
 
-### Cost Tracking (OCR + LLM)
-- **Service**: `src/apps/api/src/models/model-pricing.service.ts`
-- **OCR Cost Calculation**:
+### Cost Tracking (Text + LLM)
+- **Services**:
+  - Text extractor pricing: `src/apps/api/src/text-extractor/`
+  - LLM pricing: `src/apps/api/src/models/model-pricing.service.ts`
+- **Text Cost Calculation**:
   ```
-  OCR Cost = (Number of Pages) × Price Per Page
+  Text Cost = (Number of Pages) × Price Per Page
   If minimumCharge is set:
-    OCR Cost = max(calculated cost, minimumCharge)
+    Text Cost = max(calculated cost, minimumCharge)
   ```
 - **LLM Cost Calculation**:
   ```
@@ -219,14 +223,9 @@ Critical for mechanical industry invoices (Chinese):
   If minimumCharge is set:
     LLM Cost = max(calculated cost, minimumCharge)
   ```
-- **Model Pricing Structure** (`ModelEntity.pricing`):
+- **LLM Pricing Structure** (`ModelEntity.pricing.llm`):
   ```typescript
   {
-    ocr?: {
-      pricePerPage: number,        // Cost per page
-      currency: string,            // USD, EUR, GBP
-      minimumCharge?: number      // Optional minimum per operation
-    },
     llm?: {
       inputPrice: number,         // Per 1M input tokens
       outputPrice: number,        // Per 1M output tokens
@@ -235,10 +234,22 @@ Critical for mechanical industry invoices (Chinese):
     }
   }
   ```
+- **Extractor Pricing Structure** (`ExtractorEntity.config.pricing`):
+  ```typescript
+  {
+    mode: 'token' | 'page' | 'fixed' | 'none',
+    currency: string,
+    inputPricePerMillionTokens?: number,
+    outputPricePerMillionTokens?: number,
+    pricePerPage?: number,
+    fixedCost?: number,
+    minimumCharge?: number
+  }
+  ```
 - **Pricing History**: All pricing changes are archived in `ModelEntity.pricingHistory` with effectiveDate/endDate
-- **Cost Tracking**: Extractions record `ocrCost`, `llmCost`, and `totalCost` in `JobEntity` and `ManifestEntity.extractionCost`
-- **WebSocket Events**: `job-update` and `manifest-update` events include `costBreakdown` with `ocr`, `llm`, `total` fields
-- **Frontend State**: `src/apps/web/src/shared/stores/extraction.ts` tracks accumulated costs with `addCost(amount, type)` where type is `'ocr'`, `'llm'`, or `'total'`
+- **Cost Tracking**: Extractions record text + LLM costs in `JobEntity` and `ManifestEntity.extractionCost`
+- **WebSocket Events**: `job-update` and `manifest-update` events include `costBreakdown` with `text`, `llm`, `total` fields
+- **Frontend State**: `src/apps/web/src/shared/stores/extraction.ts` tracks accumulated costs with `addCost(amount, type)` where type is `'text'`, `'llm'`, or `'total'`
 
 ## Configuration
 

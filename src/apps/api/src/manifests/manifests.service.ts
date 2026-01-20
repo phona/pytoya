@@ -1,14 +1,11 @@
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 
 import { JobEntity, JobStatus } from '../entities/job.entity';
 import { ManifestEntity, ManifestStatus, FileType } from '../entities/manifest.entity';
-import { ModelEntity } from '../entities/model.entity';
 import { UserEntity, UserRole } from '../entities/user.entity';
 import { GroupsService } from '../groups/groups.service';
-import { OcrService } from '../ocr/ocr.service';
-import { buildCachedOcrResult, calculateOcrQualityScore } from '../ocr/ocr-cache.util';
 import { IFileAccessService } from '../file-access/file-access.service';
 import { ProjectOwnershipException } from '../projects/exceptions/project-ownership.exception';
 import { FileNotFoundException } from '../storage/exceptions/file-not-found.exception';
@@ -16,6 +13,7 @@ import { FileTooLargeException } from '../storage/exceptions/file-too-large.exce
 import { InvalidFileTypeException } from '../storage/exceptions/invalid-file-type.exception';
 import { StorageService } from '../storage/storage.service';
 import { WebSocketService } from '../websocket/websocket.service';
+import { TextExtractorService } from '../text-extractor/text-extractor.service';
 import { UpdateManifestDto } from './dto/update-manifest.dto';
 import { ManifestNotFoundException } from './exceptions/manifest-not-found.exception';
 import { detectFileType } from './interceptors/pdf-file.interceptor';
@@ -62,11 +60,9 @@ export class ManifestsService {
     private readonly manifestRepository: Repository<ManifestEntity>,
     @InjectRepository(JobEntity)
     private readonly jobRepository: Repository<JobEntity>,
-    @InjectRepository(ModelEntity)
-    private readonly modelRepository: Repository<ModelEntity>,
     private readonly groupsService: GroupsService,
     private readonly storageService: StorageService,
-    private readonly ocrService: OcrService,
+    private readonly textExtractorService: TextExtractorService,
     private readonly webSocketService: WebSocketService,
     @Inject('IFileAccessService')
     private readonly fileSystem: IFileAccessService,
@@ -258,48 +254,37 @@ export class ManifestsService {
 
   async processOcrForManifest(
     manifest: ManifestEntity,
-    options: { force?: boolean; ocrModelId?: string } = {},
+    options: { force?: boolean; textExtractorId?: string } = {},
   ): Promise<OcrResultDto> {
     if (manifest.ocrResult && !options.force) {
       return manifest.ocrResult as unknown as OcrResultDto;
     }
 
-    const ocrModel = options.ocrModelId
-      ? await this.modelRepository.findOne({
-          where: { id: options.ocrModelId },
-        })
-      : manifest.group?.project?.ocrModelId
-        ? await this.modelRepository.findOne({
-            where: { id: manifest.group.project.ocrModelId },
-          })
-        : null;
-
-    if (options.ocrModelId && !ocrModel) {
-      throw new NotFoundException(
-        `OCR model ${options.ocrModelId} not found`,
-      );
+    const extractorId =
+      options.textExtractorId ?? manifest.group?.project?.textExtractorId ?? null;
+    if (!extractorId) {
+      throw new BadRequestException('Text extractor is required for OCR preview');
     }
 
     const fileBuffer = await this.fileSystem.readFile(manifest.storagePath);
-    const overrides = this.buildOcrOverrides(ocrModel ?? undefined);
-    const start = Date.now();
-    const response = await this.ocrService.processPdf(
-      fileBuffer,
-      overrides,
-    );
-    const processingTimeMs = Date.now() - start;
-    const cachedResult = buildCachedOcrResult(
-      response,
-      processingTimeMs,
-      ocrModel ?? undefined,
-    );
-    const qualityScore = calculateOcrQualityScore(cachedResult);
+    const { result } = await this.textExtractorService.extract(extractorId, {
+      buffer: fileBuffer,
+      fileType: manifest.fileType,
+      filePath: manifest.storagePath,
+      originalFilename: manifest.originalFilename,
+    });
+
+    const cachedResult = result.metadata.ocrResult;
+    if (!cachedResult) {
+      throw new BadRequestException('Text extractor did not return OCR result');
+    }
 
     manifest.ocrResult = cachedResult as unknown as Record<string, unknown>;
     manifest.ocrProcessedAt = new Date(
       cachedResult.metadata?.processedAt ?? new Date().toISOString(),
     );
-    manifest.ocrQualityScore = qualityScore;
+    manifest.ocrQualityScore = result.metadata.qualityScore ?? null;
+    manifest.textExtractorId = extractorId;
 
     await this.manifestRepository.save(manifest);
     this.webSocketService.emitOcrUpdate({
@@ -453,7 +438,15 @@ export class ManifestsService {
     queueJobId: string,
     _result?: unknown,
     attemptCount?: number,
-    actualCost?: number,
+    cost?: {
+      total?: number;
+      text?: number;
+      llm?: number;
+      textExtractorId?: string;
+      pagesProcessed?: number;
+      llmInputTokens?: number;
+      llmOutputTokens?: number;
+    },
   ): Promise<JobEntity | null> {
     const job = await this.jobRepository.findOne({
       where: { queueJobId },
@@ -466,8 +459,23 @@ export class ManifestsService {
     job.progress = 100;
     job.completedAt = new Date();
     job.error = null;
-    if (actualCost !== undefined) {
-      job.actualCost = actualCost;
+    if (cost?.total !== undefined) {
+      job.actualCost = cost.total;
+    }
+    if (cost?.text !== undefined) {
+      job.ocrActualCost = cost.text;
+    }
+    if (cost?.llm !== undefined) {
+      job.llmActualCost = cost.llm;
+    }
+    if (cost?.pagesProcessed !== undefined) {
+      job.pagesProcessed = cost.pagesProcessed;
+    }
+    if (cost?.llmInputTokens !== undefined) {
+      job.llmInputTokens = cost.llmInputTokens;
+    }
+    if (cost?.llmOutputTokens !== undefined) {
+      job.llmOutputTokens = cost.llmOutputTokens;
     }
     if (!job.startedAt) {
       job.startedAt = new Date();
@@ -542,44 +550,6 @@ export class ManifestsService {
     return String(error);
   }
 
-  private buildOcrOverrides(
-    ocrModel?: ModelEntity,
-  ): {
-    baseUrl?: string;
-    apiKey?: string;
-    timeoutMs?: number;
-    maxRetries?: number;
-  } | undefined {
-    if (!ocrModel) {
-      return undefined;
-    }
-
-    const parameters = ocrModel.parameters ?? {};
-    return {
-      baseUrl: this.getStringParam(parameters, 'baseUrl'),
-      apiKey: this.getStringParam(parameters, 'apiKey'),
-      timeoutMs: this.getNumberParam(parameters, 'timeout'),
-      maxRetries: this.getNumberParam(parameters, 'maxRetries'),
-    };
-  }
-
-  private getStringParam(
-    parameters: Record<string, unknown>,
-    key: string,
-  ): string | undefined {
-    const value = parameters[key];
-    return typeof value === 'string' ? value : undefined;
-  }
-
-  private getNumberParam(
-    parameters: Record<string, unknown>,
-    key: string,
-  ): number | undefined {
-    const value = parameters[key];
-    return typeof value === 'number' && Number.isFinite(value)
-      ? value
-      : undefined;
-  }
 
   private applyStandardFilters(
     query: SelectQueryBuilder<ManifestEntity>,
@@ -668,6 +638,19 @@ export class ManifestsService {
     if (filters.costMax !== undefined) {
       query.andWhere('manifest.extractionCost <= :costMax', {
         costMax: filters.costMax,
+      });
+    }
+
+    if (filters.textExtractorId) {
+      query.andWhere('manifest.textExtractorId = :textExtractorId', {
+        textExtractorId: filters.textExtractorId,
+      });
+    }
+
+    if (filters.extractorType) {
+      query.leftJoin('manifest.textExtractor', 'extractor');
+      query.andWhere('extractor.extractorType = :extractorType', {
+        extractorType: filters.extractorType,
       });
     }
 

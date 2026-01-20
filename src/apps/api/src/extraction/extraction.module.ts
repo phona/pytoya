@@ -7,8 +7,7 @@ import { PromptEntity } from '../entities/prompt.entity';
 import { SchemaEntity } from '../entities/schema.entity';
 import { LlmModule } from '../llm/llm.module';
 import { ModelsModule } from '../models/models.module';
-import { OcrModule } from '../ocr/ocr.module';
-import { PdfToImageModule } from '../pdf-to-image/pdf-to-image.module';
+import { TextExtractorModule } from '../text-extractor/text-extractor.module';
 import { ManifestsModule } from '../manifests/manifests.module';
 import { PromptsModule } from '../prompts/prompts.module';
 import { SchemasModule } from '../schemas/schemas.module';
@@ -27,8 +26,7 @@ import { ManifestExtractionProcessor } from './processors/manifest-extraction.pr
     ]),
     LlmModule,
     ModelsModule,
-    OcrModule,
-    PdfToImageModule,
+    TextExtractorModule,
     PromptsModule,
     SchemasModule,
     ManifestsModule,

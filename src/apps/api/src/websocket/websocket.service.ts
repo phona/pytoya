@@ -12,6 +12,8 @@ export class WebSocketService {
     status: string;
     error?: string;
     cost?: number;
+    costBreakdown?: { text: number; llm: number; total: number };
+    extractorId?: string | null;
   }) {
     this.manifestGateway.emitJobUpdate(data);
   }
@@ -22,6 +24,8 @@ export class WebSocketService {
     progress: number;
     error?: string;
     cost?: number;
+    costBreakdown?: { text: number; llm: number; total: number };
+    extractorId?: string | null;
   }) {
     this.manifestGateway.emitManifestUpdate(data);
   }

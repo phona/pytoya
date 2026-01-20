@@ -163,7 +163,7 @@ describe('use-manifests - Cost and OCR Integration', () => {
         estimatedTokensMax: 4500,
         estimatedCostMin: 0.03,
         estimatedCostMax: 0.045,
-        estimatedOcrCost: 0.009,
+        estimatedTextCost: 0.009,
         estimatedLlmCostMin: 0.021,
         estimatedLlmCostMax: 0.036,
         currency: 'USD',
@@ -174,6 +174,7 @@ describe('use-manifests - Cost and OCR Integration', () => {
           const url = new URL(request.url);
           expect(url.searchParams.get('manifestIds')).toBe('1,2,3');
           expect(url.searchParams.get('llmModelId')).toBe('gpt-4o');
+          expect(url.searchParams.get('textExtractorId')).toBe('extractor-1');
           return HttpResponse.json(mockEstimate);
         }),
       );
@@ -188,21 +189,22 @@ describe('use-manifests - Cost and OCR Integration', () => {
         const response = await result.current.mutateAsync({
           manifestIds: [1, 2, 3],
           llmModelId: 'gpt-4o',
+          textExtractorId: 'extractor-1',
         });
         expect(response).toEqual(mockEstimate);
         expect(response.manifestCount).toBe(3);
-        expect(response.estimatedOcrCost).toBe(0.009);
+        expect(response.estimatedTextCost).toBe(0.009);
       });
     });
 
-    it('separates OCR and LLM costs', async () => {
+    it('separates text and LLM costs', async () => {
       const mockEstimate = {
         manifestCount: 1,
         estimatedTokensMin: 1000,
         estimatedTokensMax: 1500,
         estimatedCostMin: 0.02,
         estimatedCostMax: 0.03,
-        estimatedOcrCost: 0.003, // OCR cost
+        estimatedTextCost: 0.003, // text cost
         estimatedLlmCostMin: 0.017, // LLM cost min
         estimatedLlmCostMax: 0.027, // LLM cost max
         currency: 'USD',
@@ -222,9 +224,9 @@ describe('use-manifests - Cost and OCR Integration', () => {
         const data = await result.current.mutateAsync({
           manifestIds: [1],
           llmModelId: 'llm-model-1',
-          ocrModelId: 'ocr-model-1',
+          textExtractorId: 'extractor-1',
         });
-        expect(data.estimatedOcrCost).toBe(0.003);
+        expect(data.estimatedTextCost).toBe(0.003);
         expect(data.estimatedLlmCostMin).toBe(0.017);
         expect(data.estimatedLlmCostMax).toBe(0.027);
         expect(data.estimatedCostMin).toBeCloseTo(0.02, 2);

@@ -11,7 +11,7 @@ interface JobUpdateEvent {
   error?: string;
   cost?: number;
   costBreakdown?: {
-    ocr?: number;
+    text?: number;
     llm?: number;
     total?: number;
   };
@@ -24,7 +24,7 @@ interface ManifestUpdateEvent {
   error?: string;
   cost?: number;
   costBreakdown?: {
-    ocr?: number;
+    text?: number;
     llm?: number;
     total?: number;
   };
@@ -111,8 +111,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         // Update extraction store with cost breakdown
         if (data.costBreakdown) {
           const addCost = useExtractionStore.getState().addCost;
-          if (data.costBreakdown.ocr !== undefined) {
-            addCost(data.costBreakdown.ocr, 'ocr');
+          if (data.costBreakdown.text !== undefined) {
+            addCost(data.costBreakdown.text, 'text');
           }
           if (data.costBreakdown.llm !== undefined) {
             addCost(data.costBreakdown.llm, 'llm');
@@ -127,8 +127,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         // Update extraction store with cost breakdown
         if (data.costBreakdown) {
           const addCost = useExtractionStore.getState().addCost;
-          if (data.costBreakdown.ocr !== undefined) {
-            addCost(data.costBreakdown.ocr, 'ocr');
+          if (data.costBreakdown.text !== undefined) {
+            addCost(data.costBreakdown.text, 'text');
           }
           if (data.costBreakdown.llm !== undefined) {
             addCost(data.costBreakdown.llm, 'llm');

@@ -6,7 +6,7 @@ import { ExtractionCostTracker } from './ExtractionCostTracker';
 const mockState = {
   cost: {
     total: 3,
-    ocr: 1,
+    text: 1,
     llm: 2,
   },
 };
@@ -33,10 +33,10 @@ describe('ExtractionCostTracker', () => {
     expect(screen.getByText(/\$3\.00 \/ \$50\.00/)).toBeInTheDocument();
   });
 
-  it('shows cost breakdown for OCR, LLM, and total', () => {
+  it('shows cost breakdown for text, LLM, and total', () => {
     render(<ExtractionCostTracker budget={50} />);
 
-    expect(screen.getByText('OCR')).toBeInTheDocument();
+    expect(screen.getByText('Text')).toBeInTheDocument();
     expect(screen.getByText(/^\$1\.00$/)).toBeInTheDocument();
     expect(screen.getByText('LLM')).toBeInTheDocument();
     expect(screen.getByText(/^\$2\.00$/)).toBeInTheDocument();

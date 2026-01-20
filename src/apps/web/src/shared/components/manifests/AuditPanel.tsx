@@ -3,11 +3,13 @@ import { ChevronLeft, ChevronRight, X, Eye } from 'lucide-react';
 import { useManifest, useManifestItems, useUpdateManifest, useReExtractField } from '@/shared/hooks/use-manifests';
 import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/shared/hooks/use-websocket';
 import { useRunValidation } from '@/shared/hooks/use-validation-scripts';
+import { useExtractors } from '@/shared/hooks/use-extractors';
 import { PdfViewer } from './PdfViewer';
 import { EditableForm } from './EditableForm';
 import { OcrViewer } from './OcrViewer';
 import { ProgressBar } from './ProgressBar';
 import { ValidationResultsPanel } from '@/shared/components/ValidationResultsPanel';
+import { CostBreakdownPanel } from '@/shared/components/CostBreakdownPanel';
 import { OcrPreviewModal } from './OcrPreviewModal';
 import { ExtractionHistoryPanel, ExtractionHistoryEntry } from './ExtractionHistoryPanel';
 import { Manifest } from '@/api/manifests';
@@ -25,8 +27,9 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
   const updateManifest = useUpdateManifest();
   const reExtractField = useReExtractField();
   const runValidation = useRunValidation();
+  const { extractors } = useExtractors();
 
-  const [activeTab, setActiveTab] = useState<'form' | 'ocr' | 'validation' | 'ocrPreview' | 'history'>('form');
+  const [activeTab, setActiveTab] = useState<'form' | 'extraction' | 'ocr' | 'validation' | 'ocrPreview' | 'history'>('form');
   const [currentIndex, setCurrentIndex] = useState(allManifestIds.indexOf(manifestId));
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
@@ -186,6 +189,11 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
         : 'Passed'
     : '';
 
+  const currentExtractor = manifest.textExtractorId
+    ? extractors.find((extractor) => extractor.id === manifest.textExtractorId)
+    : undefined;
+  const extractorCurrency = (currentExtractor?.config as { pricing?: { currency?: string } } | undefined)?.pricing?.currency;
+
   return (
     <div className="bg-card rounded-lg shadow-sm border border-border">
       {/* Header */}
@@ -255,6 +263,16 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
               }`}
             >
               Invoice Form
+            </button>
+            <button
+              onClick={() => setActiveTab('extraction')}
+              className={`pb-2 px-1 text-sm font-medium border-b-2 whitespace-nowrap ${
+                activeTab === 'extraction'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Extraction
             </button>
             <button
               onClick={() => setActiveTab('ocr')}
@@ -357,6 +375,35 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
               onSave={handleAutoSave}
               onReExtractField={handleReExtractField}
             />
+          ) : activeTab === 'extraction' ? (
+            <div className="p-6 space-y-4">
+              <div className="rounded-md border border-border p-4">
+                <div className="text-sm font-medium text-foreground">Extractor</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {currentExtractor?.name ?? manifest.textExtractorId ?? 'Not selected'}
+                </div>
+                {currentExtractor && (
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Type: {currentExtractor.extractorType} • {currentExtractor.isActive ? 'Active' : 'Inactive'}
+                  </div>
+                )}
+              </div>
+              <div className="rounded-md border border-border p-4">
+                <div className="text-sm font-medium text-foreground">Processing</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Text processed: {manifest.ocrProcessedAt ? new Date(manifest.ocrProcessedAt).toLocaleString() : 'N/A'}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  OCR quality score: {manifest.ocrQualityScore ?? 'N/A'}
+                </div>
+              </div>
+              <CostBreakdownPanel
+                textCost={undefined}
+                llmCost={undefined}
+                totalCost={manifest.extractionCost ?? undefined}
+                currency={extractorCurrency}
+              />
+            </div>
           ) : activeTab === 'ocrPreview' ? (
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -399,7 +446,3 @@ export function AuditPanel({ manifestId, onClose, allManifestIds }: AuditPanelPr
     </div>
   );
 }
-
-
-
-

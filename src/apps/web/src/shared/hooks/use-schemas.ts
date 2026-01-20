@@ -6,10 +6,15 @@ import {
   GenerateRulesDto,
   GenerateSchemaDto,
   ImportSchemaDto,
+  type Schema,
+  type SchemaRule,
   UpdateSchemaDto,
   UpdateSchemaRuleDto,
   ValidateSchemaDto,
 } from '@/api/schemas';
+
+const EMPTY_SCHEMAS: Schema[] = [];
+const EMPTY_SCHEMA_RULES: SchemaRule[] = [];
 
 export function useSchemas() {
   const queryClient = useQueryClient();
@@ -43,7 +48,7 @@ export function useSchemas() {
   });
 
   return {
-    schemas: schemas.data ?? [],
+    schemas: schemas.data ?? EMPTY_SCHEMAS,
     isLoading: schemas.isLoading,
     error: schemas.error,
     createSchema: createSchema.mutateAsync,
@@ -77,7 +82,7 @@ export function useProjectSchemas(projectId: number) {
   });
 
   return {
-    schemas: schemas.data ?? [],
+    schemas: schemas.data ?? EMPTY_SCHEMAS,
     isLoading: schemas.isLoading,
     error: schemas.error,
   };
@@ -114,7 +119,7 @@ export function useSchemaRules(schemaId: number) {
   });
 
   return {
-    rules: rules.data ?? [],
+    rules: rules.data ?? EMPTY_SCHEMA_RULES,
     isLoading: rules.isLoading,
     error: rules.error,
     createRule: createRule.mutateAsync,

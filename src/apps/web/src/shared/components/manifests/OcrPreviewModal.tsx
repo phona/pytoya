@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Download, FileText, RefreshCw } from 'lucide-react';
 import { useOcrResult, useTriggerOcr } from '@/shared/hooks/use-manifests';
 import { useExtractionStore } from '@/shared/stores/extraction';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
@@ -89,6 +89,9 @@ export function OcrPreviewModal({ manifestId, open, onClose, onExtract }: OcrPre
               )}
             </div>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Preview OCR output and quality metrics for this manifest.
+          </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="pdf" className="mt-2">

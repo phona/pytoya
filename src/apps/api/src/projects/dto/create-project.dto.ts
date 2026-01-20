@@ -9,9 +9,8 @@ export class CreateProjectDto {
   @IsString()
   description?: string;
 
-  @IsOptional()
   @IsString()
-  ocrModelId?: string;
+  textExtractorId!: string;
 
   @IsString()
   llmModelId!: string;

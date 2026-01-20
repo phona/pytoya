@@ -32,6 +32,7 @@ const buildManifest = (overrides?: Partial<Manifest>): Manifest => ({
   ocrProcessedAt: null,
   ocrQualityScore: null,
   extractionCost: null,
+  textExtractorId: 'extractor-1',
   createdAt: '2025-01-01T00:00:00.000Z',
   updatedAt: '2025-01-01T00:00:00.000Z',
   ...overrides,

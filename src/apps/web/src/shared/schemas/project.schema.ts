@@ -8,7 +8,7 @@ export const projectSchema = z.object({
     .min(1, 'Project name is required')
     .max(100, 'Project name is too long'),
   description: z.string().max(500, 'Description is too long').optional(),
-  ocrModelId: z.string().optional(),
+  textExtractorId: z.string().min(1, 'Text extractor is required'),
   llmModelId: z.string().min(1, 'LLM model is required'),
 });
 

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { CheckCircle2, ChevronDown, ChevronRight, Clock, DollarSign, Save, X } from 'lucide-react';
+import { Fragment, useState } from 'react';
+import { CheckCircle2, ChevronDown, ChevronRight, Clock, DollarSign, Save } from 'lucide-react';
 import { Model } from '@/api/models';
 import { modelsApi } from '@/api/models';
 import { Button } from '@/shared/components/ui/button';
@@ -13,7 +13,6 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select';
 import { Badge } from '@/shared/components/ui/badge';
-import { Separator } from '@/shared/components/ui/separator';
 import {
   Table,
   TableBody,
@@ -22,12 +21,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/shared/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/shared/components/ui/dialog';
 
 interface ModelPricingConfigProps {
   models: Model[];
@@ -35,7 +28,6 @@ interface ModelPricingConfigProps {
 }
 
 interface PricingFormState {
-  ocrPricePerPage: string;
   llmInputPrice: string;
   llmOutputPrice: string;
   currency: string;
@@ -43,7 +35,6 @@ interface PricingFormState {
 }
 
 const initialFormState: PricingFormState = {
-  ocrPricePerPage: '',
   llmInputPrice: '',
   llmOutputPrice: '',
   currency: 'USD',
@@ -51,6 +42,12 @@ const initialFormState: PricingFormState = {
 };
 
 type PricingHistoryEntry = Model['pricingHistory'][number];
+
+const formatTokenPrice = (price: number) => {
+  const safePrice = Number.isFinite(price) ? price : 0;
+  const precision = safePrice > 0 && safePrice < 0.01 ? 4 : 2;
+  return safePrice.toFixed(precision);
+};
 
 export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -73,24 +70,12 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
 
   const handleEdit = (model: Model) => {
     setEditingModel(model);
-
-    if (model.adapterType === 'paddlex') {
-      setFormData({
-        ocrPricePerPage: model.pricing?.ocr?.pricePerPage?.toString() || '0.001',
-        llmInputPrice: '',
-        llmOutputPrice: '',
-        currency: model.pricing?.ocr?.currency || 'USD',
-        minimumCharge: model.pricing?.ocr?.minimumCharge?.toString() || '',
-      });
-    } else {
-      setFormData({
-        ocrPricePerPage: '',
-        llmInputPrice: model.pricing?.llm?.inputPrice?.toString() || '0',
-        llmOutputPrice: model.pricing?.llm?.outputPrice?.toString() || '0',
-        currency: model.pricing?.llm?.currency || 'USD',
-        minimumCharge: model.pricing?.llm?.minimumCharge?.toString() || '',
-      });
-    }
+    setFormData({
+      llmInputPrice: model.pricing?.llm?.inputPrice?.toString() || '0',
+      llmOutputPrice: model.pricing?.llm?.outputPrice?.toString() || '0',
+      currency: model.pricing?.llm?.currency || 'USD',
+      minimumCharge: model.pricing?.llm?.minimumCharge?.toString() || '',
+    });
   };
 
   const handleCancel = () => {
@@ -104,38 +89,21 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
     setIsSaving(true);
     try {
       const pricingData: Record<string, unknown> = {};
-
-      if (editingModel.adapterType === 'paddlex') {
-        const pricePerPage = Number.parseFloat(formData.ocrPricePerPage);
-        if (formData.minimumCharge) {
-          pricingData.ocr = {
-            pricePerPage,
-            currency: formData.currency,
-            minimumCharge: Number.parseFloat(formData.minimumCharge),
-          };
-        } else {
-          pricingData.ocr = {
-            pricePerPage,
-            currency: formData.currency,
-          };
-        }
+      const inputPrice = Number.parseFloat(formData.llmInputPrice);
+      const outputPrice = Number.parseFloat(formData.llmOutputPrice);
+      if (formData.minimumCharge) {
+        pricingData.llm = {
+          inputPrice,
+          outputPrice,
+          currency: formData.currency,
+          minimumCharge: Number.parseFloat(formData.minimumCharge),
+        };
       } else {
-        const inputPrice = Number.parseFloat(formData.llmInputPrice);
-        const outputPrice = Number.parseFloat(formData.llmOutputPrice);
-        if (formData.minimumCharge) {
-          pricingData.llm = {
-            inputPrice,
-            outputPrice,
-            currency: formData.currency,
-            minimumCharge: Number.parseFloat(formData.minimumCharge),
-          };
-        } else {
-          pricingData.llm = {
-            inputPrice,
-            outputPrice,
-            currency: formData.currency,
-          };
-        }
+        pricingData.llm = {
+          inputPrice,
+          outputPrice,
+          currency: formData.currency,
+        };
       }
 
       await modelsApi.updateModelPricing(editingModel.id, pricingData);
@@ -155,27 +123,20 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
 
   const getModelTypeBadge = (adapterType: string) => {
     if (adapterType === 'paddlex') {
-      return <Badge className="bg-blue-100 text-blue-800">OCR</Badge>;
+      return <Badge className="bg-amber-100 text-amber-800">Legacy OCR</Badge>;
     }
     return <Badge className="bg-purple-100 text-purple-800">LLM</Badge>;
   };
 
   const formatPricing = (model: Model) => {
-    if (model.adapterType === 'paddlex') {
-      const price = model.pricing?.ocr?.pricePerPage ?? 0;
-      return `$${price.toFixed(4)}/page`;
-    }
     const inputPrice = model.pricing?.llm?.inputPrice ?? 0;
     const outputPrice = model.pricing?.llm?.outputPrice ?? 0;
-    return `$${inputPrice.toFixed(2)} in / $${outputPrice.toFixed(2)} out per 1M`;
+    return `$${formatTokenPrice(inputPrice)} in / $${formatTokenPrice(outputPrice)} out per 1M`;
   };
 
   const formatHistoryEntry = (entry: PricingHistoryEntry) => {
-    if (entry.ocr?.pricePerPage !== undefined) {
-      return `$${entry.ocr.pricePerPage.toFixed(4)}/page`;
-    }
     if (entry.llm?.inputPrice !== undefined && entry.llm?.outputPrice !== undefined) {
-      return `$${entry.llm.inputPrice.toFixed(2)} in / $${entry.llm.outputPrice.toFixed(2)} out`;
+      return `$${formatTokenPrice(entry.llm.inputPrice)} in / $${formatTokenPrice(entry.llm.outputPrice)} out`;
     }
     return 'Not set';
   };
@@ -186,7 +147,7 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
         <div>
           <h3 className="text-lg font-semibold">Model Pricing Configuration</h3>
           <p className="text-sm text-muted-foreground">
-            Configure pricing for OCR and LLM models used in extraction
+            Configure pricing for LLM models used in extraction
           </p>
         </div>
       </div>
@@ -209,8 +170,8 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
               const isExpanded = expandedIds.has(model.id);
 
               return (
-                <>
-                  <TableRow key={model.id}>
+                <Fragment key={model.id}>
+                  <TableRow>
                     <TableCell className="w-8">
                       <Button
                         variant="ghost"
@@ -282,85 +243,47 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
                           </div>
 
                           <div className="grid gap-4 md:grid-cols-2">
-                            {/* OCR Pricing */}
-                            {model.adapterType === 'paddlex' && (
-                              <>
-                                <div>
-                                  <Label htmlFor="ocr-price">Price Per Page</Label>
-                                  <Input
-                                    id="ocr-price"
-                                    type="number"
-                                    step="0.0001"
-                                    min="0"
-                                    value={formData.ocrPricePerPage}
-                                    onChange={(e) => setFormData({ ...formData, ocrPricePerPage: e.target.value })}
-                                    className="mt-1"
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="currency">Currency</Label>
-                                  <Select
-                                    value={formData.currency}
-                                    onValueChange={(value) => setFormData({ ...formData, currency: value })}
-                                  >
-                                    <SelectTrigger id="currency" className="mt-1">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="USD">USD</SelectItem>
-                                      <SelectItem value="EUR">EUR</SelectItem>
-                                      <SelectItem value="GBP">GBP</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </>
-                            )}
-
-                            {/* LLM Pricing */}
-                            {model.adapterType !== 'paddlex' && (
-                              <>
-                                <div>
-                                  <Label htmlFor="llm-input-price">Input Price (per 1M tokens)</Label>
-                                  <Input
-                                    id="llm-input-price"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={formData.llmInputPrice}
-                                    onChange={(e) => setFormData({ ...formData, llmInputPrice: e.target.value })}
-                                    className="mt-1"
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="llm-output-price">Output Price (per 1M tokens)</Label>
-                                  <Input
-                                    id="llm-output-price"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={formData.llmOutputPrice}
-                                    onChange={(e) => setFormData({ ...formData, llmOutputPrice: e.target.value })}
-                                    className="mt-1"
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="llm-currency">Currency</Label>
-                                  <Select
-                                    value={formData.currency}
-                                    onValueChange={(value) => setFormData({ ...formData, currency: value })}
-                                  >
-                                    <SelectTrigger id="llm-currency" className="mt-1">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="USD">USD</SelectItem>
-                                      <SelectItem value="EUR">EUR</SelectItem>
-                                      <SelectItem value="GBP">GBP</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </>
-                            )}
+                            <div>
+                              <Label htmlFor="llm-input-price">Input Price (per 1M tokens)</Label>
+                              <Input
+                                id="llm-input-price"
+                                type="number"
+                                step="0.0001"
+                                min="0"
+                                value={formData.llmInputPrice}
+                                onChange={(e) => setFormData({ ...formData, llmInputPrice: e.target.value })}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="llm-output-price">Output Price (per 1M tokens)</Label>
+                              <Input
+                                id="llm-output-price"
+                                type="number"
+                                step="0.0001"
+                                min="0"
+                                value={formData.llmOutputPrice}
+                                onChange={(e) => setFormData({ ...formData, llmOutputPrice: e.target.value })}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="llm-currency">Currency</Label>
+                              <Select
+                                value={formData.currency}
+                                onValueChange={(value) => setFormData({ ...formData, currency: value })}
+                              >
+                                <SelectTrigger id="llm-currency" className="mt-1">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="USD">USD</SelectItem>
+                                  <SelectItem value="EUR">EUR</SelectItem>
+                                  <SelectItem value="GBP">GBP</SelectItem>
+                                  <SelectItem value="CNY">CNY</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
 
                             {/* Minimum Charge (both) */}
                             <div>
@@ -368,7 +291,7 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
                               <Input
                                 id="min-charge"
                                 type="number"
-                                step="0.01"
+                                step="0.0001"
                                 min="0"
                                 value={formData.minimumCharge}
                                 onChange={(e) => setFormData({ ...formData, minimumCharge: e.target.value })}
@@ -429,7 +352,7 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
                       </TableCell>
                     </TableRow>
                   )}
-                </>
+                </Fragment>
               );
             })}
           </TableBody>
@@ -447,9 +370,9 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
         <div className="flex-1 text-sm text-blue-800 dark:text-blue-200">
           <p className="font-medium mb-1">About Model Pricing</p>
           <p className="text-xs">
-            OCR pricing is charged per page processed. LLM pricing is charged per 1M tokens (input and output).
-            When you update pricing, the old pricing is saved to history for reference.
-            Costs are calculated using the pricing effective at the time of extraction.
+            LLM pricing is charged per 1M tokens (input and output). When you update pricing,
+            the old pricing is saved to history for reference. Costs are calculated using the
+            pricing effective at the time of extraction.
           </p>
         </div>
       </div>

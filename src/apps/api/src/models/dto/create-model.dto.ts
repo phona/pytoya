@@ -19,11 +19,12 @@ export class AdapterTypeConstraint implements ValidatorConstraintInterface {
     if (!value) {
       return false;
     }
-    return Boolean(adapterRegistry.getSchema(value));
+    const schema = adapterRegistry.getSchema(value);
+    return Boolean(schema && schema.category === 'llm');
   }
 
   defaultMessage(args: ValidationArguments): string {
-    return `Unknown adapter type: ${args.value}`;
+    return `Unsupported adapter type: ${args.value}`;
   }
 }
 
@@ -34,6 +35,10 @@ export class AdapterParametersConstraint implements ValidatorConstraintInterface
     if (!adapterType) {
       return true;
     }
+    const schema = adapterRegistry.getSchema(adapterType);
+    if (!schema || schema.category !== 'llm') {
+      return false;
+    }
     return adapterRegistry.validateParameters(adapterType, value).valid;
   }
 
@@ -41,6 +46,10 @@ export class AdapterParametersConstraint implements ValidatorConstraintInterface
     const adapterType = (args.object as { adapterType?: string }).adapterType;
     if (!adapterType) {
       return 'Adapter type is required to validate parameters';
+    }
+    const schema = adapterRegistry.getSchema(adapterType);
+    if (!schema || schema.category !== 'llm') {
+      return `Unsupported adapter type: ${adapterType}`;
     }
     const result = adapterRegistry.validateParameters(adapterType, args.value);
     return result.errors.join('; ') || 'Invalid adapter parameters';

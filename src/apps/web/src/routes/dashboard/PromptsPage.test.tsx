@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { PromptsPage } from './PromptsPage';
@@ -7,13 +7,8 @@ import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '@/tests/utils';
 
 describe('PromptsPage', () => {
-  const confirmSpy = vi.fn(() => true);
-
   beforeEach(() => {
     server.listen({ onUnhandledRequest: 'error' });
-    confirmSpy.mockReset();
-    confirmSpy.mockReturnValue(true);
-    global.confirm = confirmSpy as unknown as typeof global.confirm;
   });
 
   afterEach(() => {
@@ -76,8 +71,6 @@ describe('PromptsPage', () => {
   });
 
   it('opens edit form when Edit button is clicked', async () => {
-    const user = userEvent.setup();
-
     renderWithProviders(<PromptsPage />);
 
     await waitFor(() => {
@@ -88,27 +81,82 @@ describe('PromptsPage', () => {
 
   it('calls deletePrompt when Delete button is clicked', async () => {
     const user = userEvent.setup();
+    let deleted = false;
+
+    server.use(
+      http.get('/api/prompts', () => {
+        if (deleted) return HttpResponse.json([]);
+        return HttpResponse.json([
+          {
+            id: 1,
+            name: 'System Prompt',
+            type: 'system',
+            content: 'Test prompt content with {{variable}}',
+            variables: ['variable'],
+            createdAt: '2025-01-13T00:00:00.000Z',
+            updatedAt: '2025-01-13T00:00:00.000Z',
+          },
+        ]);
+      }),
+      http.delete('/api/prompts/:id', () => {
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
 
     renderWithProviders(<PromptsPage />);
 
-    await waitFor(async () => {
-      const deleteButton = screen.getAllByRole('button', { name: 'Delete' })[0];
-      await user.click(deleteButton);
-      expect(confirmSpy).toHaveBeenCalledWith('Delete this prompt?');
+    await screen.findByText('System Prompt');
+    const deleteButton = screen.getAllByRole('button', { name: 'Delete' })[0];
+    await user.click(deleteButton);
+
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /^Delete$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('0 prompts')).toBeInTheDocument();
     });
+    expect(deleted).toBe(true);
   });
 
   it('does not delete when confirm is cancelled', async () => {
     const user = userEvent.setup();
-    confirmSpy.mockReturnValue(false);
+    let deleted = false;
+
+    server.use(
+      http.get('/api/prompts', () => {
+        if (deleted) return HttpResponse.json([]);
+        return HttpResponse.json([
+          {
+            id: 1,
+            name: 'System Prompt',
+            type: 'system',
+            content: 'Test prompt content with {{variable}}',
+            variables: ['variable'],
+            createdAt: '2025-01-13T00:00:00.000Z',
+            updatedAt: '2025-01-13T00:00:00.000Z',
+          },
+        ]);
+      }),
+      http.delete('/api/prompts/:id', () => {
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
 
     renderWithProviders(<PromptsPage />);
 
-    await waitFor(async () => {
-      const deleteButton = screen.getAllByRole('button', { name: 'Delete' })[0];
-      await user.click(deleteButton);
-      expect(confirmSpy).toHaveBeenCalled();
+    await screen.findByText('System Prompt');
+    const deleteButton = screen.getAllByRole('button', { name: 'Delete' })[0];
+    await user.click(deleteButton);
+
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /^Cancel$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('1 prompt')).toBeInTheDocument();
     });
+    expect(deleted).toBe(false);
   });
 
   it('handles listPrompts error gracefully', async () => {

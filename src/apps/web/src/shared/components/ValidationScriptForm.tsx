@@ -8,6 +8,7 @@ import {
 import { useProjects } from '@/shared/hooks/use-projects';
 import { useValidateScriptSyntax, useGenerateValidationScript } from '@/shared/hooks/use-validation-scripts';
 import { useModels } from '@/shared/hooks/use-models';
+import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 
 interface ValidationScriptFormProps {
   script?: ValidationScript;
@@ -46,6 +47,7 @@ export function ValidationScriptForm({
   onCancel,
   isLoading,
 }: ValidationScriptFormProps) {
+  const { confirm, alert, ModalDialog } = useModalDialog();
   const { projects } = useProjects();
   const { models } = useModels({ category: 'llm' });
   const validateSyntax = useValidateScriptSyntax();
@@ -103,12 +105,12 @@ export function ValidationScriptForm({
 
   const handleGenerate = async () => {
     if (!llmModelId) {
-      alert('Please select an LLM model');
+      void alert({ title: 'Generate script', message: 'Please select an LLM model.' });
       return;
     }
 
     if (!promptText.trim()) {
-      alert('Please enter a prompt');
+      void alert({ title: 'Generate script', message: 'Please enter a prompt.' });
       return;
     }
 
@@ -117,7 +119,7 @@ export function ValidationScriptForm({
       try {
         structured = JSON.parse(structuredInput);
       } catch (error) {
-        alert('Structured input must be valid JSON');
+        void alert({ title: 'Generate script', message: 'Structured input must be valid JSON.' });
         return;
       }
     }
@@ -126,7 +128,12 @@ export function ValidationScriptForm({
       name.trim() || description.trim() || scriptCode.trim() !== DEFAULT_SCRIPT.trim();
 
     if (hasExisting) {
-      const confirmed = confirm('Replace the current script with the generated result?');
+      const confirmed = await confirm({
+        title: 'Replace current script?',
+        message: 'Replace the current script with the generated result?',
+        confirmText: 'Replace',
+        destructive: true,
+      });
       if (!confirmed) {
         return;
       }
@@ -145,7 +152,10 @@ export function ValidationScriptForm({
       setScriptCode(result.script);
       setSyntaxError(null);
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to generate script');
+      void alert({
+        title: 'Generate script failed',
+        message: error instanceof Error ? error.message : 'Failed to generate script',
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -157,7 +167,7 @@ export function ValidationScriptForm({
       const result = await validateSyntax.mutateAsync({ script: scriptCode });
       if (result.valid) {
         setSyntaxError(null);
-        alert('Syntax is valid!');
+        void alert({ title: 'Syntax check', message: 'Syntax is valid!' });
       } else {
         setSyntaxError(result.error ?? 'Unknown syntax error');
       }
@@ -174,7 +184,7 @@ export function ValidationScriptForm({
     // Validate project selection
     const effectiveProjectId = fixedProjectIdValue || projectId;
     if (!effectiveProjectId && !allowDraft) {
-      alert('Please select a project');
+      void alert({ title: 'Validation script', message: 'Please select a project.' });
       return;
     }
 
@@ -428,6 +438,8 @@ export function ValidationScriptForm({
           {isLoading ? 'Saving...' : isEditing ? 'Update' : 'Create'}
         </button>
       </div>
+
+      <ModalDialog />
     </form>
   );
 }

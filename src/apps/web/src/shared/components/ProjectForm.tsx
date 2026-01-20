@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { CreateProjectDto, UpdateProjectDto, Project } from '@/api/projects';
 import { useModels } from '@/shared/hooks/use-models';
+import { useExtractors } from '@/shared/hooks/use-extractors';
 import { projectSchema, type ProjectFormValues } from '@/shared/schemas/project.schema';
 import { Button } from '@/shared/components/ui/button';
 import {
@@ -31,7 +32,7 @@ interface ProjectFormProps {
 }
 
 export function ProjectForm({ project, onSubmit, onCancel, isLoading }: ProjectFormProps) {
-  const { models: ocrModels } = useModels({ category: 'ocr' });
+  const { extractors } = useExtractors();
   const { models: llmModels } = useModels({ category: 'llm' });
 
   const form = useForm<ProjectFormValues>({
@@ -39,7 +40,7 @@ export function ProjectForm({ project, onSubmit, onCancel, isLoading }: ProjectF
     defaultValues: {
       name: project?.name ?? '',
       description: project?.description ?? '',
-      ocrModelId: project?.ocrModelId ?? '',
+      textExtractorId: project?.textExtractorId ?? '',
       llmModelId: project?.llmModelId ?? '',
     },
   });
@@ -48,7 +49,7 @@ export function ProjectForm({ project, onSubmit, onCancel, isLoading }: ProjectF
     form.reset({
       name: project?.name ?? '',
       description: project?.description ?? '',
-      ocrModelId: project?.ocrModelId ?? '',
+      textExtractorId: project?.textExtractorId ?? '',
       llmModelId: project?.llmModelId ?? '',
     });
   }, [form, project]);
@@ -56,14 +57,14 @@ export function ProjectForm({ project, onSubmit, onCancel, isLoading }: ProjectF
   const handleSubmit = async (values: ProjectFormValues) => {
     const name = values.name.trim();
     const description = values.description?.trim() || undefined;
-    const ocrModelId = values.ocrModelId || undefined;
+    const textExtractorId = values.textExtractorId;
     const llmModelId = values.llmModelId;
 
     if (project) {
       const updateData: UpdateProjectDto = {
         name,
         description,
-        ocrModelId,
+        textExtractorId,
         llmModelId,
       };
       await onSubmit(updateData);
@@ -71,7 +72,7 @@ export function ProjectForm({ project, onSubmit, onCancel, isLoading }: ProjectF
       const data: CreateProjectDto = {
         name,
         description,
-        ocrModelId,
+        textExtractorId,
         llmModelId,
       };
       await onSubmit(data);
@@ -123,26 +124,23 @@ export function ProjectForm({ project, onSubmit, onCancel, isLoading }: ProjectF
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
-            name="ocrModelId"
+            name="textExtractorId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>OCR Model</FormLabel>
+                <FormLabel>Text Extractor *</FormLabel>
                 <Select
-                  value={field.value || 'none'}
-                  onValueChange={(value) =>
-                    field.onChange(value === 'none' ? '' : value)
-                  }
+                  value={field.value || ''}
+                  onValueChange={(value) => field.onChange(value)}
                 >
                   <FormControl>
-                    <SelectTrigger aria-label="OCR model">
-                      <SelectValue placeholder="No OCR model" />
+                    <SelectTrigger aria-label="Text extractor">
+                      <SelectValue placeholder="Select text extractor..." />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="none">No OCR model</SelectItem>
-                    {ocrModels.map((model) => (
-                      <SelectItem key={model.id} value={model.id}>
-                        {model.name}
+                    {extractors.map((extractor) => (
+                      <SelectItem key={extractor.id} value={extractor.id}>
+                        {extractor.name} {extractor.isActive ? '' : '(Inactive)'}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -5,8 +5,10 @@ import type {
   CreateProjectDto,
   GroupResponseDto,
   ProjectResponseDto,
+  ProjectCostSummaryDto,
   UpdateGroupDto,
   UpdateProjectDto,
+  UpdateProjectExtractorDto,
 } from '@pytoya/shared/types/projects';
 
 export type Project = Jsonify<ProjectResponseDto> & {
@@ -33,6 +35,7 @@ export type {
   CreateGroupDto,
   UpdateGroupDto,
 };
+export type ProjectCostSummary = Jsonify<ProjectCostSummaryDto>;
 
 export const projectsApi = {
   // Projects
@@ -53,6 +56,23 @@ export const projectsApi = {
 
   updateProject: async (id: number, data: UpdateProjectDto) => {
     const response = await apiClient.patch<Project>(`/projects/${id}`, data);
+    return response.data;
+  },
+
+  updateProjectExtractor: async (id: number, data: UpdateProjectExtractorDto) => {
+    const response = await apiClient.put<Project>(`/projects/${id}/extractor`, data);
+    return response.data;
+  },
+
+  getProjectCostSummary: async (id: number, dateRange?: { from?: string; to?: string }) => {
+    if (dateRange?.from || dateRange?.to) {
+      const response = await apiClient.get<ProjectCostSummary>(
+        `/projects/${id}/cost-by-date-range`,
+        { params: dateRange },
+      );
+      return response.data;
+    }
+    const response = await apiClient.get<ProjectCostSummary>(`/projects/${id}/cost-summary`);
     return response.data;
   },
 

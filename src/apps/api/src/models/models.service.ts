@@ -9,7 +9,6 @@ import { FindOptionsWhere, Repository } from 'typeorm';
 import { ModelEntity } from '../entities/model.entity';
 import { ModelPricing, ModelPricingHistoryEntry } from '../entities/model-pricing.types';
 import { LlmService } from '../llm/llm.service';
-import { OcrService } from '../ocr/ocr.service';
 import { adapterRegistry } from './adapters/adapter-registry';
 import { AdapterCategory } from './adapters/adapter.interface';
 import { CreateModelDto } from './dto/create-model.dto';
@@ -28,7 +27,6 @@ export class ModelsService {
     @InjectRepository(ModelEntity)
     private readonly modelRepository: Repository<ModelEntity>,
     private readonly llmService: LlmService,
-    private readonly ocrService: OcrService,
   ) {}
 
   async create(input: CreateModelDto): Promise<ModelEntity> {
@@ -199,17 +197,9 @@ export class ModelsService {
 
     const start = Date.now();
     if (schema.category === 'ocr') {
-      const baseUrl = this.getStringParam(model.parameters, 'baseUrl');
-      const apiKey = this.getStringParam(model.parameters, 'apiKey');
-      const timeoutMs = this.getNumberParam(model.parameters, 'timeout');
-      const result = await this.ocrService.testConnection({
-        baseUrl,
-        apiKey,
-        timeoutMs,
-      });
       return {
-        ok: result.ok,
-        message: result.ok ? 'OCR connection ok' : result.error ?? 'OCR connection failed',
+        ok: false,
+        message: 'OCR models are deprecated. Configure text extractors instead.',
         latencyMs: Date.now() - start,
       };
     }

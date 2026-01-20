@@ -1,0 +1,210 @@
+import { INestApplication } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import request from 'supertest';
+
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { ExtractorsController } from './extractors.controller';
+import { ExtractorsService } from './extractors.service';
+import { TextExtractorRegistry } from '../text-extractor/text-extractor.registry';
+import { ExtractorCostService } from './extractor-cost.service';
+
+describe('ExtractorsController', () => {
+  let app: INestApplication;
+  const extractorsService = {
+    findAll: jest.fn(),
+    create: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+    getUsageCounts: jest.fn(),
+    testConnection: jest.fn(),
+  };
+  const extractorRegistry = {
+    list: jest.fn(),
+  };
+  const extractorCostService = {
+    getCostSummary: jest.fn(),
+  };
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      controllers: [ExtractorsController],
+      providers: [
+        { provide: ExtractorsService, useValue: extractorsService },
+        { provide: TextExtractorRegistry, useValue: extractorRegistry },
+        { provide: ExtractorCostService, useValue: extractorCostService },
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
+
+    app = moduleRef.createNestApplication();
+    await app.init();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('lists extractor types', async () => {
+    extractorRegistry.list.mockReturnValue([
+      {
+        id: 'vision-llm',
+        name: 'Vision LLM',
+        description: 'Vision extractor',
+        version: '1.0.0',
+        category: 'vision',
+        paramsSchema: {},
+        supportedFormats: ['image'],
+        pricingSchema: {},
+      },
+    ]);
+
+    const response = await request(app.getHttpServer())
+      .get('/extractors/types')
+      .expect(200);
+
+    expect(response.body).toHaveLength(1);
+    expect(response.body[0].id).toBe('vision-llm');
+  });
+
+  it('lists extractors with usage counts', async () => {
+    const extractor = {
+      id: 'extractor-1',
+      name: 'Vision LLM',
+      description: null,
+      extractorType: 'vision-llm',
+      config: { pricing: { mode: 'token', currency: 'USD' } },
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    extractorsService.findAll.mockResolvedValue([extractor]);
+    extractorsService.getUsageCounts.mockResolvedValue({ 'extractor-1': 3 });
+
+    const response = await request(app.getHttpServer())
+      .get('/extractors?extractorType=vision-llm&isActive=true')
+      .expect(200);
+
+    expect(response.body).toHaveLength(1);
+    expect(response.body[0].id).toBe('extractor-1');
+    expect(response.body[0].usageCount).toBe(3);
+    expect(extractorsService.findAll).toHaveBeenCalledWith({
+      extractorType: 'vision-llm',
+      isActive: true,
+    });
+  });
+
+  it('creates an extractor', async () => {
+    extractorsService.create.mockResolvedValue({
+      id: 'extractor-2',
+      name: 'New Extractor',
+      description: null,
+      extractorType: 'vision-llm',
+      config: { pricing: { mode: 'token', currency: 'USD' } },
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const response = await request(app.getHttpServer())
+      .post('/extractors')
+      .send({ name: 'New Extractor', extractorType: 'vision-llm' })
+      .expect(201);
+
+    expect(response.body.id).toBe('extractor-2');
+    expect(extractorsService.create).toHaveBeenCalled();
+  });
+
+  it('updates an extractor', async () => {
+    extractorsService.update.mockResolvedValue({
+      id: 'extractor-3',
+      name: 'Updated Extractor',
+      description: null,
+      extractorType: 'vision-llm',
+      config: { pricing: { mode: 'token', currency: 'USD' } },
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    extractorsService.getUsageCounts.mockResolvedValue({ 'extractor-3': 1 });
+
+    const response = await request(app.getHttpServer())
+      .patch('/extractors/extractor-3')
+      .send({ name: 'Updated Extractor' })
+      .expect(200);
+
+    expect(response.body.id).toBe('extractor-3');
+    expect(extractorsService.update).toHaveBeenCalledWith('extractor-3', { name: 'Updated Extractor' });
+  });
+
+  it('deletes an extractor', async () => {
+    extractorsService.remove.mockResolvedValue({
+      id: 'extractor-4',
+      name: 'Deleted Extractor',
+      description: null,
+      extractorType: 'vision-llm',
+      config: { pricing: { mode: 'token', currency: 'USD' } },
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const response = await request(app.getHttpServer())
+      .delete('/extractors/extractor-4')
+      .expect(200);
+
+    expect(response.body.id).toBe('extractor-4');
+    expect(extractorsService.remove).toHaveBeenCalledWith('extractor-4');
+  });
+
+  it('tests extractor connection', async () => {
+    extractorsService.testConnection.mockResolvedValue({
+      ok: true,
+      message: 'ok',
+      latencyMs: 120,
+    });
+
+    const response = await request(app.getHttpServer())
+      .post('/extractors/extractor-5/test')
+      .expect(201);
+
+    expect(response.body.ok).toBe(true);
+    expect(response.body.message).toBe('ok');
+    expect(extractorsService.testConnection).toHaveBeenCalledWith('extractor-5');
+  });
+
+  it('returns extractor cost summary', async () => {
+    extractorsService.findOne.mockResolvedValue({
+      id: 'extractor-6',
+      name: 'Costed Extractor',
+      description: null,
+      extractorType: 'vision-llm',
+      config: { pricing: { mode: 'token', currency: 'USD' } },
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    extractorCostService.getCostSummary.mockResolvedValue({
+      extractorId: 'extractor-6',
+      extractorName: 'Costed Extractor',
+      totalExtractions: 2,
+      totalCost: 0.12,
+      averageCostPerExtraction: 0.06,
+      currency: 'USD',
+      costBreakdown: { byDate: [], byProject: [] },
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/extractors/extractor-6/cost-summary')
+      .expect(200);
+
+    expect(response.body.totalCost).toBe(0.12);
+    expect(extractorCostService.getCostSummary).toHaveBeenCalled();
+  });
+});

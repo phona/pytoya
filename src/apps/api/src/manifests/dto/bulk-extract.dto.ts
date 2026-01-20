@@ -21,7 +21,7 @@ export class BulkExtractDto {
 
   @IsOptional()
   @IsString()
-  ocrModelId?: string;
+  textExtractorId?: string;
 
   @IsOptional()
   @IsInt()

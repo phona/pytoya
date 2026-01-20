@@ -4,7 +4,7 @@ export class CostEstimateDto {
   estimatedTokensMax!: number;
   estimatedCostMin!: number;
   estimatedCostMax!: number;
-  estimatedOcrCost!: number;
+  estimatedTextCost!: number;
   estimatedLlmCostMin!: number;
   estimatedLlmCostMax!: number;
   currency!: string;

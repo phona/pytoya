@@ -16,6 +16,7 @@ import { RuleEditor, RuleDraft } from '@/shared/components/RuleEditor';
 import { SchemaJsonEditor } from '@/shared/components/SchemaJsonEditor';
 import { ValidationScriptForm } from '@/shared/components/ValidationScriptForm';
 import { useModels } from '@/shared/hooks/use-models';
+import { useExtractors } from '@/shared/hooks/use-extractors';
 import { useProjects } from '@/shared/hooks/use-projects';
 import { useSchemas } from '@/shared/hooks/use-schemas';
 import { useValidationScripts } from '@/shared/hooks/use-validation-scripts';
@@ -28,7 +29,6 @@ import {
   DialogTitle,
 } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
-import { Checkbox } from '@/shared/components/ui/checkbox';
 import { Input } from '@/shared/components/ui/input';
 import {
   Select,
@@ -99,14 +99,13 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
   const { createSchema } = useSchemas();
   const { createScript } = useValidationScripts();
   const queryClient = useQueryClient();
-  const { models: ocrModels } = useModels({ category: 'ocr' });
+  const { extractors } = useExtractors();
   const { models: llmModels } = useModels({ category: 'llm' });
 
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [useOcr, setUseOcr] = useState(false);
-  const [ocrModelId, setOcrModelId] = useState('');
+  const [textExtractorId, setTextExtractorId] = useState('');
   const [llmModelId, setLlmModelId] = useState('');
   const [schemaDraft, setSchemaDraft] = useState<SchemaDraft>({
     jsonSchema: DEFAULT_SCHEMA_TEXT,
@@ -124,15 +123,14 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
   const [isGeneratingRules, setIsGeneratingRules] = useState(false);
 
   const stepLabels = useMemo(() => {
-    return ['Basics', 'Models', 'Schema', 'Rules', 'Validation Scripts', 'Review'];
+    return ['Basics', 'Extractor + LLM', 'Schema', 'Rules', 'Validation Scripts', 'Review'];
   }, []);
 
   const resetWizard = () => {
     setStep(1);
     setName('');
     setDescription('');
-    setUseOcr(false);
-    setOcrModelId('');
+    setTextExtractorId('');
     setLlmModelId('');
     setSchemaDraft({
       jsonSchema: DEFAULT_SCHEMA_TEXT,
@@ -161,11 +159,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
       return name.trim().length > 0;
     }
     if (step === 2) {
-      if (!llmModelId) return false;
-      if (useOcr) {
-        return Boolean(ocrModelId);
-      }
-      return true;
+      return Boolean(textExtractorId) && Boolean(llmModelId);
     }
     if (step === 3) {
       return !schemaJsonError;
@@ -185,7 +179,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
     return {
       name: name.trim(),
       description: description.trim() || undefined,
-      ocrModelId: useOcr ? ocrModelId || undefined : undefined,
+      textExtractorId,
       llmModelId: llmModelId,
     };
   };
@@ -395,10 +389,30 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
       return (
         <div className="space-y-4">
           <div>
+            <label htmlFor="text-extractor" className="block text-sm font-medium text-foreground">
+              Text Extractor *
+            </label>
+            <Select value={textExtractorId} onValueChange={setTextExtractorId}>
+              <SelectTrigger id="text-extractor" className="mt-1">
+                <SelectValue placeholder="Select text extractor..." />
+              </SelectTrigger>
+              <SelectContent>
+                {extractors.map((extractor) => (
+                  <SelectItem key={extractor.id} value={extractor.id}>
+                    {extractor.name} {extractor.isActive ? '' : '(Inactive)'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Choose the extractor used to turn documents into text.
+            </p>
+          </div>
+          <div>
             <label htmlFor="llm-model" className="block text-sm font-medium text-foreground">
               LLM Model *
             </label>
-            <Select value={llmModelId || undefined} onValueChange={setLlmModelId}>
+            <Select value={llmModelId} onValueChange={setLlmModelId}>
               <SelectTrigger id="llm-model" className="mt-1">
                 <SelectValue placeholder="Select LLM model..." />
               </SelectTrigger>
@@ -414,47 +428,6 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
               The selected LLM will generate schema and rules.
             </p>
           </div>
-          <div>
-            <label htmlFor="use-ocr" className="flex items-center gap-2 text-sm text-foreground">
-              <Checkbox
-                id="use-ocr"
-                checked={useOcr}
-                onCheckedChange={(checked) => {
-                  const isChecked = checked === true;
-                  setUseOcr(isChecked);
-                  if (!isChecked) {
-                    setOcrModelId('');
-                  }
-                }}
-              />
-              Use OCR before LLM (optional)
-            </label>
-          </div>
-          {useOcr && (
-            <div>
-              <label htmlFor="ocr-model" className="block text-sm font-medium text-foreground">
-                OCR Model
-              </label>
-              <Select
-                value={ocrModelId || 'none'}
-                onValueChange={(value) => {
-                  setOcrModelId(value === 'none' ? '' : value);
-                }}
-              >
-                <SelectTrigger id="ocr-model" className="mt-1">
-                  <SelectValue placeholder="Select OCR model..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No OCR model</SelectItem>
-                  {ocrModels.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      {model.name} {model.isActive ? '' : '(Inactive)'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
         </div>
       );
     }
@@ -640,8 +613,8 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
           {description && <div className="mt-1 text-muted-foreground">{description}</div>}
         </div>
         <div className="rounded-md border border-border p-4">
-          <div className="font-semibold">Models</div>
-          <div className="mt-1 text-muted-foreground">OCR: {useOcr ? ocrModelId || 'None' : 'None'}</div>
+          <div className="font-semibold">Extraction Setup</div>
+          <div className="mt-1 text-muted-foreground">Extractor: {textExtractorId || 'None'}</div>
           <div className="text-muted-foreground">LLM: {llmModelId || 'None'}</div>
         </div>
         <div className="rounded-md border border-border p-4">

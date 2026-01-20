@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle, DollarSign, FileText, Info } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { AlertTriangle, DollarSign, Info } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
 import { Separator } from '@/shared/components/ui/separator';
-import { Progress } from '@/shared/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -21,12 +20,14 @@ interface ExtractConfirmationModalProps {
   manifestCount: number;
   pageCount: number;
   costEstimate: {
-    min: number;
-    max: number;
+    estimatedCostMin: number;
+    estimatedCostMax: number;
     currency: string;
-    ocrCost: number;
-    llmCostMin: number;
-    llmCostMax: number;
+    estimatedTextCost: number;
+    estimatedLlmCostMin: number;
+    estimatedLlmCostMax: number;
+    estimatedTokensMin: number;
+    estimatedTokensMax: number;
   };
   llmModels?: Array<{ id: string; name: string; pricing?: { llm?: { inputPrice: number; outputPrice: number; currency: string } } }>;
   prompts?: Array<{ id: number; name: string }>;
@@ -58,12 +59,9 @@ export function ExtractConfirmationModal({
   const [agreedToCost, setAgreedToCost] = useState(false);
   const defaultPromptValue = '__default__';
 
-  const remainingBudget = budget - costEstimate.max;
+  const remainingBudget = budget - costEstimate.estimatedCostMax;
   const isOverBudget = remainingBudget < 0;
   const isNearBudget = remainingBudget >= 0 && remainingBudget < budget * 0.2;
-
-  const selectedModel = llmModels.find((m) => m.id === selectedModelId);
-  const modelPricing = selectedModel?.pricing?.llm;
 
   const handleConfirm = () => {
     if (!agreedToCost) return;
@@ -74,10 +72,16 @@ export function ExtractConfirmationModal({
     });
   };
 
+  const formatTokenPrice = (price: number) => {
+    const safePrice = Number.isFinite(price) ? price : 0;
+    const precision = safePrice > 0 && safePrice < 0.01 ? 4 : 2;
+    return safePrice.toFixed(precision);
+  };
+
   const formatModelPricing = (model: typeof llmModels[0]) => {
     if (!model.pricing?.llm) return 'Pricing not set';
     const { inputPrice, outputPrice, currency } = model.pricing.llm;
-    return `$${inputPrice.toFixed(2)} in / $${outputPrice.toFixed(2)} out per 1M ${currency}`;
+    return `$${formatTokenPrice(inputPrice)} in / $${formatTokenPrice(outputPrice)} out per 1M ${currency}`;
   };
 
   const sortedModels = useMemo(() => {
@@ -88,8 +92,8 @@ export function ExtractConfirmationModal({
     });
   }, [llmModels]);
 
-  const estimatedTokensMin = Math.round((costEstimate.llmCostMin / (modelPricing?.inputPrice || 1)) * 1_000_000);
-  const estimatedTokensMax = Math.round((costEstimate.llmCostMax / (modelPricing?.inputPrice || 1)) * 1_000_000);
+  const estimatedTokensMin = costEstimate.estimatedTokensMin;
+  const estimatedTokensMax = costEstimate.estimatedTokensMax;
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && !isExtracting && onClose()}>
@@ -98,6 +102,9 @@ export function ExtractConfirmationModal({
           <DialogTitle>
             {manifestCount === 1 ? 'Extract Document' : `Extract ${manifestCount} Documents`}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Review extraction settings and estimated costs before starting.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -198,13 +205,13 @@ export function ExtractConfirmationModal({
               {/* Cost Breakdown */}
               <div className="pt-2 border-t border-border space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">OCR Cost</span>
-                  <span className="font-medium">${costEstimate.ocrCost.toFixed(4)}</span>
+                  <span className="text-muted-foreground">Text Cost</span>
+                  <span className="font-medium">${costEstimate.estimatedTextCost.toFixed(4)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">LLM Cost (min-max)</span>
                   <span className="font-medium">
-                    ${costEstimate.llmCostMin.toFixed(4)} - ${costEstimate.llmCostMax.toFixed(4)}
+                    ${costEstimate.estimatedLlmCostMin.toFixed(4)} - ${costEstimate.estimatedLlmCostMax.toFixed(4)}
                   </span>
                 </div>
                 <Separator className="my-2" />
@@ -212,7 +219,7 @@ export function ExtractConfirmationModal({
                   <span className="text-sm font-medium">Total Estimated</span>
                   <div className="flex items-center gap-1">
                     <span className="text-lg font-semibold">
-                      ${costEstimate.min.toFixed(4)} - ${costEstimate.max.toFixed(4)}
+                      ${costEstimate.estimatedCostMin.toFixed(4)} - ${costEstimate.estimatedCostMax.toFixed(4)}
                     </span>
                     <Badge variant="outline" className="text-xs">
                       {costEstimate.currency}
@@ -238,7 +245,7 @@ export function ExtractConfirmationModal({
                   <span>
                     {isOverBudget
                       ? `Warning: This will exceed your budget by $${Math.abs(remainingBudget).toFixed(2)}.`
-                      : `Note: This will use ${((costEstimate.max / budget) * 100).toFixed(0)}% of your budget. Remaining budget: $${remainingBudget.toFixed(2)}.`}
+                      : `Note: This will use ${((costEstimate.estimatedCostMax / budget) * 100).toFixed(0)}% of your budget. Remaining budget: $${remainingBudget.toFixed(2)}.`}
                   </span>
                 </div>
               )}
@@ -296,8 +303,9 @@ export function ExtractConfirmationModal({
             <div className="text-xs text-blue-800 dark:text-blue-200">
               <p className="font-medium mb-1">Cost Breakdown</p>
               <p className="text-xs">
-                OCR costs are calculated per page processed. LLM costs are based on the number of tokens used (input and output).
-                The final cost may vary depending on the actual document complexity and model response length.
+                Text extraction costs depend on the configured extractor. LLM costs are based on the
+                number of tokens used (input and output). The final cost may vary depending on the
+                document complexity and model response length.
               </p>
             </div>
           </div>

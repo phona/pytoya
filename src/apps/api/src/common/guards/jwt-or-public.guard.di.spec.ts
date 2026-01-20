@@ -9,7 +9,6 @@ import { ManifestsModule } from '../../manifests/manifests.module';
 import { QueueService } from '../../queue/queue.service';
 import { UsersModule } from '../../users/users.module';
 import { LlmService } from '../../llm/llm.service';
-import { OcrService } from '../../ocr/ocr.service';
 import { JwtOrPublicGuard } from './jwt-or-public.guard';
 
 @Global()
@@ -46,7 +45,6 @@ class TestQueueModule {}
 @Module({
   providers: [
     { provide: LlmService, useValue: { createChatCompletion: jest.fn() } },
-    { provide: OcrService, useValue: { processPdf: jest.fn() } },
     {
       provide: 'IFileAccessService',
       useValue: {
@@ -60,7 +58,7 @@ class TestQueueModule {}
       },
     },
   ],
-  exports: [LlmService, OcrService, 'IFileAccessService'],
+  exports: [LlmService, 'IFileAccessService'],
 })
 class TestModelDepsModule {}
 

@@ -150,12 +150,12 @@ export function useCostEstimate() {
     mutationFn: ({
       manifestIds,
       llmModelId,
-      ocrModelId,
+      textExtractorId,
     }: {
       manifestIds: number[];
       llmModelId?: string;
-      ocrModelId?: string;
-    }) => manifestsApi.getCostEstimate(manifestIds, llmModelId, ocrModelId),
+      textExtractorId?: string;
+    }) => manifestsApi.getCostEstimate(manifestIds, llmModelId, textExtractorId),
   });
 }
 

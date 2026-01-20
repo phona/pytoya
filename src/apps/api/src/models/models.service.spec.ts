@@ -5,14 +5,12 @@ import { Repository } from 'typeorm';
 
 import { ModelEntity } from '../entities/model.entity';
 import { LlmService } from '../llm/llm.service';
-import { OcrService } from '../ocr/ocr.service';
 import { ModelsService } from './models.service';
 
 describe('ModelsService', () => {
   let service: ModelsService;
   let modelRepository: jest.Mocked<Repository<ModelEntity>>;
   let llmService: jest.Mocked<LlmService>;
-  let ocrService: jest.Mocked<OcrService>;
 
   beforeEach(async () => {
     modelRepository = {
@@ -27,17 +25,11 @@ describe('ModelsService', () => {
       createChatCompletion: jest.fn(),
     } as unknown as jest.Mocked<LlmService>;
 
-    ocrService = {
-      testConnection: jest.fn(),
-      processPdf: jest.fn(),
-    } as unknown as jest.Mocked<OcrService>;
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ModelsService,
         { provide: getRepositoryToken(ModelEntity), useValue: modelRepository },
         { provide: LlmService, useValue: llmService },
-        { provide: OcrService, useValue: ocrService },
       ],
     }).compile();
 
@@ -130,7 +122,7 @@ describe('ModelsService', () => {
     expect(result.model).toBe('gpt-4o');
   });
 
-  it('tests OCR connection', async () => {
+  it('rejects OCR connection tests with deprecation message', async () => {
     modelRepository.findOne.mockResolvedValue({
       id: 'id-2',
       name: 'PaddleX OCR',
@@ -146,11 +138,9 @@ describe('ModelsService', () => {
       updatedAt: new Date(),
     } as ModelEntity);
 
-    ocrService.testConnection.mockResolvedValue({ ok: true });
-
     const result = await service.testConnection('id-2');
-    expect(result.ok).toBe(true);
-    expect(result.message).toBe('OCR connection ok');
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe('OCR models are deprecated. Configure text extractors instead.');
   });
 
   it('filters models by category', async () => {
@@ -181,9 +171,9 @@ describe('ModelsService', () => {
       },
     ]);
 
-    const result = await service.findAll({ category: 'ocr' });
+    const result = await service.findAll({ category: 'llm' });
 
     expect(result).toHaveLength(1);
-    expect(result[0].adapterType).toBe('paddlex');
+    expect(result[0].adapterType).toBe('openai');
   });
 });

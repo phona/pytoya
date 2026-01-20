@@ -1,4 +1,4 @@
-import { renderWithProviders, screen } from '@/tests/utils';
+import { renderWithProviders, screen, waitFor, within } from '@/tests/utils';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { ProjectCard } from './ProjectCard';
@@ -9,7 +9,7 @@ const mockProject = {
   description: 'Test project description',
   ownerId: 1,
   userId: 1,
-  ocrModelId: null,
+  textExtractorId: 'extractor-1',
   llmModelId: 'llm-1',
   defaultSchemaId: null,
   createdAt: '2025-01-13T00:00:00.000Z',
@@ -57,28 +57,32 @@ describe('ProjectCard', () => {
   it('should call onDelete after confirmation', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
-    global.confirm = vi.fn(() => true);
 
     renderWithProviders(<ProjectCard project={mockProject} onDelete={onDelete} />);
 
     const deleteButton = screen.getByRole('button', { name: /delete/i });
     await user.click(deleteButton);
 
-    expect(global.confirm).toHaveBeenCalledWith(expect.stringContaining('Delete project'));
-    expect(onDelete).toHaveBeenCalledWith(1);
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /^Delete$/i }));
+
+    await waitFor(() => {
+      expect(onDelete).toHaveBeenCalledWith(1);
+    });
   });
 
   it('should not call onDelete when confirmation is cancelled', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
-    global.confirm = vi.fn(() => false);
 
     renderWithProviders(<ProjectCard project={mockProject} onDelete={onDelete} />);
 
     const deleteButton = screen.getByRole('button', { name: /delete/i });
     await user.click(deleteButton);
 
-    expect(global.confirm).toHaveBeenCalled();
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /^Cancel$/i }));
+
     expect(onDelete).not.toHaveBeenCalled();
   });
 

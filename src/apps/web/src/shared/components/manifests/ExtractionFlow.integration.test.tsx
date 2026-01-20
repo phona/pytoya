@@ -50,21 +50,23 @@ describe('Extraction Flow Integration Tests', () => {
   ];
 
   const baseCostEstimate = {
-    min: 0.015,
-    max: 0.03,
+    estimatedCostMin: 0.015,
+    estimatedCostMax: 0.03,
     currency: 'USD',
-    ocrCost: 0.005,
-    llmCostMin: 0.01,
-    llmCostMax: 0.025,
+    estimatedTextCost: 0.005,
+    estimatedLlmCostMin: 0.01,
+    estimatedLlmCostMax: 0.025,
+    estimatedTokensMin: 1000,
+    estimatedTokensMax: 1500,
   };
 
   const mockExtractionState = {
-    cost: { ocr: 0.005, llm: 0, total: 0.005 },
+    cost: { text: 0.005, llm: 0, total: 0.005 },
   } as any;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockExtractionState.cost = { ocr: 0.005, llm: 0, total: 0.005 };
+    mockExtractionState.cost = { text: 0.005, llm: 0, total: 0.005 };
     mockUseExtractionStore.mockImplementation((selector) => selector(mockExtractionState));
   });
 
@@ -97,7 +99,7 @@ describe('Extraction Flow Integration Tests', () => {
       expect(screen.getByText(/3 pages/i)).toBeInTheDocument();
 
       // Show cost breakdown
-      expect(screen.getAllByText(/OCR Cost/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Text Cost/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/\$0.0050/)).toBeInTheDocument();
       expect(screen.getAllByText(/LLM Cost/i).length).toBeGreaterThan(0);
 
@@ -186,12 +188,14 @@ describe('Extraction Flow Integration Tests', () => {
 
     it('shows budget warning if estimate exceeds budget', async () => {
       const highCostEstimate = {
-        min: 100,
-        max: 150,
+        estimatedCostMin: 100,
+        estimatedCostMax: 150,
         currency: 'USD',
-        ocrCost: 0.01,
-        llmCostMin: 99.99,
-        llmCostMax: 149.99,
+        estimatedTextCost: 0.01,
+        estimatedLlmCostMin: 99.99,
+        estimatedLlmCostMax: 149.99,
+        estimatedTokensMin: 1000,
+        estimatedTokensMax: 1500,
       };
 
       render(
@@ -216,7 +220,7 @@ describe('Extraction Flow Integration Tests', () => {
   });
 
   describe('Extraction Progress with Cost Tracking', () => {
-    it('tracks OCR and LLM costs separately during extraction', () => {
+    it('tracks text and LLM costs separately during extraction', () => {
       const jobs = [
         {
           id: 'job-1',
@@ -225,7 +229,7 @@ describe('Extraction Flow Integration Tests', () => {
           status: 'running' as const,
           progress: 50,
           cost: {
-            ocr: 0.003,
+            text: 0.003,
             llm: 0,
             total: 0.003,
           },
@@ -242,7 +246,7 @@ describe('Extraction Flow Integration Tests', () => {
         { wrapper },
       );
 
-      expect(screen.getByText(/OCR/i)).toBeInTheDocument();
+      expect(screen.getByText(/Text/i)).toBeInTheDocument();
       expect(screen.getAllByText(/\$0.0030/).length).toBeGreaterThan(0);
     });
 
@@ -256,7 +260,7 @@ describe('Extraction Flow Integration Tests', () => {
       expect(screen.getByText(/\$0.01 \/ \$10.00/)).toBeInTheDocument();
 
       // Simulate WebSocket update
-      mockExtractionState.cost = { ocr: 0.01, llm: 0.02, total: 0.03 };
+      mockExtractionState.cost = { text: 0.01, llm: 0.02, total: 0.03 };
       rerender(<ExtractionCostTracker budget={10} />);
 
       await waitFor(() => {
@@ -296,7 +300,7 @@ describe('Extraction Flow Integration Tests', () => {
           status: 'completed' as const,
           progress: 100,
           cost: {
-            ocr: 0.003,
+            text: 0.003,
             llm: 0.018,
             total: 0.021,
           },
