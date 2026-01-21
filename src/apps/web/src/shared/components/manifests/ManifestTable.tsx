@@ -15,8 +15,10 @@ import { Button } from '@/shared/components/ui/button';
 import { Checkbox } from '@/shared/components/ui/checkbox';
 import { getStatusBadgeClasses } from '@/shared/styles/status-badges';
 import { ProgressBar } from './ProgressBar';
+import { ExtractionActionsMenu } from './ExtractionActionsMenu';
 
 interface ManifestTableProps {
+  projectId?: number;
   manifests: Manifest[];
   sort: { field: string; order: 'asc' | 'desc' };
   onSortChange: (sort: { field: string; order: 'asc' | 'desc' }) => void;
@@ -42,6 +44,7 @@ const getOcrQualityBadge = (score?: number | null) => {
 };
 
 export function ManifestTable({
+  projectId,
   manifests,
   sort,
   onSortChange,
@@ -181,7 +184,7 @@ export function ManifestTable({
             onClick={() => handleSort('ocrQualityScore')}
             className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
           >
-            OCR
+            Text
             {renderSortIcon('ocrQualityScore')}
           </button>
         ),
@@ -353,38 +356,52 @@ export function ManifestTable({
                     onPreviewOcr(manifest.id);
                   }}
                   className="text-muted-foreground hover:text-foreground"
-                  title="Preview OCR"
+                  title="Preview Text"
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
               )}
               {onExtract && canExtract && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onExtract(manifest.id);
-                  }}
-                  className="text-primary hover:text-primary"
-                  title="Extract"
-                >
-                  <Play className="h-4 w-4" />
-                </Button>
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onExtract(manifest.id);
+                    }}
+                    className="text-primary hover:text-primary"
+                    title="Extract"
+                  >
+                    <Play className="h-4 w-4" />
+                  </Button>
+                  <ExtractionActionsMenu
+                    projectId={projectId}
+                    manifestId={manifest.id}
+                    manifestName={manifest.originalFilename}
+                  />
+                </>
               )}
               {onReExtract && isCompleted && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onReExtract(manifest.id);
-                  }}
-                  className="text-muted-foreground hover:text-foreground"
-                  title="Re-extract"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onReExtract(manifest.id);
+                    }}
+                    className="text-muted-foreground hover:text-foreground"
+                    title="Re-extract"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                  <ExtractionActionsMenu
+                    projectId={projectId}
+                    manifestId={manifest.id}
+                    manifestName={manifest.originalFilename}
+                  />
+                </>
               )}
               <Button
                 variant="ghost"
@@ -413,6 +430,7 @@ export function ManifestTable({
     extractorLookup,
     handleSort,
     manifestProgress,
+    projectId,
     onPreviewOcr,
     onExtract,
     onReExtract,

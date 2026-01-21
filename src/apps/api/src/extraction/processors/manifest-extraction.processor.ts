@@ -42,7 +42,31 @@ export class ManifestExtractionProcessor extends WorkerHost {
       `Starting extraction job ${job.id} for manifest ${manifestId}`,
     );
 
+    let cancelRequested = false;
+    let cancelReason: string | undefined;
+    let lastProgress = 0;
+    const startCancelPolling = () => {
+      const timer = setInterval(() => {
+        void this.manifestsService
+          .getJobCancelRequest(String(job.id))
+          .then((result) => {
+            cancelRequested = result.requested;
+            cancelReason = result.reason;
+          })
+          .catch(() => {
+            // Ignore polling errors; cancellation is best-effort.
+          });
+      }, 750);
+      return () => clearInterval(timer);
+    };
+
+    const stopCancelPolling = startCancelPolling();
+
     const reportProgress = (progress: number) => {
+      if (cancelRequested) {
+        throw new JobCanceledError(cancelReason);
+      }
+      lastProgress = progress;
       void job.updateProgress(progress);
       void this.manifestsService.updateJobProgress(
         manifestId,
@@ -63,6 +87,7 @@ export class ManifestExtractionProcessor extends WorkerHost {
         manifestId,
         {
           llmModelId,
+          queueJobId: String(job.id),
           promptId,
           fieldName,
           customPrompt,
@@ -110,8 +135,35 @@ export class ManifestExtractionProcessor extends WorkerHost {
       this.logger.log(
         `Completed extraction job ${job.id} for manifest ${manifestId}`,
       );
+      stopCancelPolling();
       return result;
     } catch (error) {
+      stopCancelPolling();
+
+      if (error instanceof JobCanceledError) {
+        const message = error.message;
+        this.logger.warn(`Extraction job ${job.id} canceled: ${message}`);
+
+        await job.discard();
+        await this.manifestsService.updateStatus(manifestId, ManifestStatus.FAILED);
+        await this.manifestsService.markJobCanceled(String(job.id), error.reason, job.attemptsMade);
+
+        this.webSocketService.emitJobUpdate({
+          jobId: String(job.id),
+          manifestId,
+          progress: lastProgress,
+          status: 'canceled',
+          error: message,
+        });
+        this.webSocketService.emitManifestUpdate({
+          manifestId,
+          status: ManifestStatus.FAILED,
+          progress: lastProgress,
+          error: message,
+        });
+        throw error;
+      }
+
       this.logger.error(
         `Extraction job ${job.id} failed: ${this.formatError(error)}`,
       );
@@ -148,5 +200,11 @@ export class ManifestExtractionProcessor extends WorkerHost {
       return error.message;
     }
     return String(error);
+  }
+}
+
+class JobCanceledError extends Error {
+  constructor(public readonly reason?: string) {
+    super(reason ? `Canceled: ${reason}` : 'Canceled');
   }
 }

@@ -30,7 +30,7 @@ describe('OcrPreviewModal', () => {
     mockUseExtractionStore.mockReturnValue(setOcrResult);
   });
 
-  it('renders OCR quality and raw text when available', async () => {
+  it('renders text quality and raw text when available', async () => {
     mockUseOcrResult.mockReturnValue({
       data: {
         ocrResult: {
@@ -59,7 +59,7 @@ describe('OcrPreviewModal', () => {
       <OcrPreviewModal manifestId={1} open={true} onClose={vi.fn()} />,
     );
 
-    expect(screen.getByText('OCR Preview')).toBeInTheDocument();
+    expect(screen.getByText('Text Preview')).toBeInTheDocument();
     expect(screen.getByText('Excellent')).toBeInTheDocument();
 
     const user = userEvent.setup({ pointerEventsCheck: 0 });
@@ -68,7 +68,7 @@ describe('OcrPreviewModal', () => {
     expect(screen.getByText('Line 2')).toBeInTheDocument();
   });
 
-  it('triggers OCR when not processed', async () => {
+  it('triggers text extraction when not processed', async () => {
     const mutateAsync = vi.fn().mockResolvedValue({
       ocrResult: { pages: [], metadata: { processedAt: '', modelVersion: '', processingTimeMs: 0 } },
     });
@@ -90,7 +90,7 @@ describe('OcrPreviewModal', () => {
 
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     await user.click(screen.getByRole('tab', { name: /Raw Text/i }));
-    const button = screen.getByRole('button', { name: /Run OCR/i });
+    const button = screen.getByRole('button', { name: /Run Text Extraction/i });
     fireEvent.click(button);
 
     await waitFor(() => {

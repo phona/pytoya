@@ -11,9 +11,7 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
   const extractionInfo = extractedData._extraction_info ?? {};
 
   return (
-    <div className="p-6">
-      <h3 className="text-lg font-semibold text-foreground mb-4">OCR Extraction Results</h3>
-
+    <div>
       {/* Overall Confidence */}
       {extractionInfo.confidence !== undefined && (
         <div className="mb-6 p-4 bg-background rounded-lg">
@@ -61,10 +59,10 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
         </div>
       )}
 
-      {/* OCR Issues */}
+      {/* Text Issues */}
       {extractionInfo.ocr_issues && extractionInfo.ocr_issues.length > 0 && (
         <div className="mb-6">
-          <h4 className="text-sm font-medium text-foreground mb-3">OCR Issues Detected</h4>
+          <h4 className="text-sm font-medium text-foreground mb-3">Text Issues Detected</h4>
           <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
             <ul className="space-y-2">
               {extractionInfo.ocr_issues.map((issue: string, i: number) => (
@@ -95,10 +93,10 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
         </div>
       )}
 
-      {/* Raw OCR Data */}
+      {/* Raw Text */}
       {extractionInfo.raw_ocr_text && (
         <div>
-          <h4 className="text-sm font-medium text-foreground mb-3">Raw OCR Text</h4>
+          <h4 className="text-sm font-medium text-foreground mb-3">Raw Text</h4>
           <div className="bg-background border border-border rounded-lg p-4 max-h-64 overflow-y-auto">
             <pre className="text-xs text-foreground whitespace-pre-wrap font-mono">
               {extractionInfo.raw_ocr_text}
@@ -115,7 +113,7 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
         !extractionInfo.raw_ocr_text && (
           <div className="text-center py-12 text-muted-foreground">
             <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <p>No OCR data available for this manifest.</p>
+            <p>No extraction diagnostics available.</p>
           </div>
         )}
     </div>

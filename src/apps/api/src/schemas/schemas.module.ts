@@ -6,6 +6,7 @@ import { SchemaEntity } from '../entities/schema.entity';
 import { SchemaRuleEntity } from '../entities/schema-rule.entity';
 import { SchemasController } from './schemas.controller';
 import { SchemaRulesController } from './schema-rules.controller';
+import { PromptRulesGeneratorService } from './prompt-rules-generator.service';
 import { RuleGeneratorService } from './rule-generator.service';
 import { SchemaGeneratorService } from './schema-generator.service';
 import { SchemaRulesService } from './schema-rules.service';
@@ -20,6 +21,7 @@ import { SchemasService } from './schemas.service';
     SchemaRulesService,
     SchemaGeneratorService,
     RuleGeneratorService,
+    PromptRulesGeneratorService,
   ],
   exports: [SchemasService, SchemaRulesService],
 })

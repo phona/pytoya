@@ -3,10 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/tests/mocks/server';
-import { SchemaDetailPage } from './SchemaDetailPage';
+import { ProjectSettingsSchemaPage } from './ProjectSettingsSchemaPage';
 
 const navigateMock = vi.fn();
-const setSearchParamsMock = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -14,11 +13,10 @@ vi.mock('react-router-dom', async () => {
     ...actual,
     useNavigate: () => navigateMock,
     useParams: () => ({ id: '1' }),
-    useSearchParams: () => [new URLSearchParams(''), setSearchParamsMock],
   };
 });
 
-describe('SchemaDetailPage', () => {
+describe('ProjectSettingsSchemaPage', () => {
   beforeAll(() => {
     server.listen({ onUnhandledRequest: 'error' });
   });
@@ -26,7 +24,6 @@ describe('SchemaDetailPage', () => {
   afterEach(() => {
     server.resetHandlers();
     navigateMock.mockClear();
-    setSearchParamsMock.mockClear();
   });
 
   afterAll(() => {
@@ -50,9 +47,8 @@ describe('SchemaDetailPage', () => {
     let patched: Record<string, unknown> | null = null;
 
     server.use(
-      http.get('/api/schemas', () => HttpResponse.json([schema])),
+      http.get('/api/schemas/project/1', () => HttpResponse.json([schema])),
       http.get('/api/schemas/:id', () => HttpResponse.json(schema)),
-      http.get('/api/schemas/:id/rules', () => HttpResponse.json([])),
       http.patch('/api/schemas/:id', async ({ request }) => {
         patched = (await request.json()) as Record<string, unknown>;
         schema = {
@@ -65,7 +61,7 @@ describe('SchemaDetailPage', () => {
     );
 
     await act(async () => {
-      renderWithProviders(<SchemaDetailPage />, { route: '/schemas/1' });
+      renderWithProviders(<ProjectSettingsSchemaPage />, { route: '/projects/1/settings/schema' });
     });
 
     await screen.findByText('Invoice Schema');
@@ -88,3 +84,4 @@ describe('SchemaDetailPage', () => {
     });
   });
 });
+

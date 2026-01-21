@@ -120,6 +120,24 @@ export class JobEntity {
   @Column({ type: 'timestamp', name: 'completed_at', nullable: true })
   completedAt!: Date | null;
 
+  @Column({ type: 'timestamp', name: 'cancel_requested_at', nullable: true })
+  cancelRequestedAt!: Date | null;
+
+  @Column({ type: 'text', name: 'cancel_reason', nullable: true })
+  cancelReason!: string | null;
+
+  @Column({ type: 'timestamp', name: 'canceled_at', nullable: true })
+  canceledAt!: Date | null;
+
+  @Column({ type: 'text', name: 'system_prompt', nullable: true })
+  systemPrompt!: string | null;
+
+  @Column({ type: 'text', name: 'user_prompt', nullable: true })
+  userPrompt!: string | null;
+
+  @Column({ type: 'text', name: 'assistant_response', nullable: true })
+  assistantResponse!: string | null;
+
   @ManyToOne(() => ManifestEntity, (manifest) => manifest.jobs)
   @JoinColumn({ name: 'manifest_id' })
   manifest!: ManifestEntity;

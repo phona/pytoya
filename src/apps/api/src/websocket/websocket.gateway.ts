@@ -114,10 +114,11 @@ export class ManifestGateway implements OnGatewayConnection, OnGatewayDisconnect
    * Called by BullMQ processor to broadcast job progress updates
    */
   emitJobUpdate(payload: JobUpdatePayload) {
-    const { manifestId, progress, status, error, cost, costBreakdown, extractorId } = payload;
+    const { jobId, manifestId, progress, status, error, cost, costBreakdown, extractorId } = payload;
     this.logger.debug(`Emitting job update for manifest ${manifestId}: ${progress}%`);
 
     this.server.to(`manifest:${manifestId}`).emit('job-update', {
+      jobId,
       manifestId,
       progress,
       status,

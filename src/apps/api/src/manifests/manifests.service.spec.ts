@@ -4,7 +4,9 @@ import { Repository } from 'typeorm';
 
 import { JobEntity } from '../entities/job.entity';
 import { ManifestEntity } from '../entities/manifest.entity';
+import { ManifestItemEntity } from '../entities/manifest-item.entity';
 import { ModelEntity } from '../entities/model.entity';
+import { PromptEntity } from '../entities/prompt.entity';
 import { GroupsService } from '../groups/groups.service';
 import { TextExtractorService } from '../text-extractor/text-extractor.service';
 import { StorageService } from '../storage/storage.service';
@@ -45,8 +47,10 @@ describe('ManifestsService', () => {
       providers: [
         ManifestsService,
         { provide: getRepositoryToken(ManifestEntity), useValue: manifestRepository },
+        { provide: getRepositoryToken(ManifestItemEntity), useValue: {} },
         { provide: getRepositoryToken(JobEntity), useValue: jobRepository },
         { provide: getRepositoryToken(ModelEntity), useValue: {} },
+        { provide: getRepositoryToken(PromptEntity), useValue: {} },
         { provide: GroupsService, useValue: groupsService },
         { provide: StorageService, useValue: {} },
         { provide: TextExtractorService, useValue: {} },

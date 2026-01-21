@@ -30,7 +30,7 @@ describe('ProjectCostSummaryPage', () => {
 
   it('renders cost summary data', async () => {
     await act(async () => {
-      renderWithProviders(<ProjectCostSummaryPage />, { route: '/projects/1/costs' });
+      renderWithProviders(<ProjectCostSummaryPage />, { route: '/projects/1/settings/costs' });
     });
 
     await waitFor(() => {

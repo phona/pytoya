@@ -17,12 +17,14 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
+import { createReadStream } from 'fs';
+import * as path from 'path';
 
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { ManifestStatus } from '../entities/manifest.entity';
+import { FileType, ManifestStatus } from '../entities/manifest.entity';
 import { UserRole } from '../entities/user.entity';
 import { UserEntity } from '../entities/user.entity';
 import { StorageService } from '../storage/storage.service';
@@ -34,12 +36,15 @@ import { ExportBulkDto } from './dto/export-bulk.dto';
 import { ExtractDto } from './dto/extract.dto';
 import { ExportManifestsDto } from './dto/export-manifests.dto';
 import { ManifestResponseDto } from './dto/manifest-response.dto';
+import { ManifestItemResponseDto } from './dto/manifest-item-response.dto';
 import { OcrResultResponseDto } from './dto/ocr-result.dto';
 import { ReExtractFieldPreviewDto, ReExtractFieldPreviewResponseDto } from './dto/re-extract-field-preview.dto';
 import { ReExtractFieldDto } from './dto/re-extract-field.dto';
 import { TriggerOcrDto } from './dto/trigger-ocr.dto';
 import { UpdateManifestDto } from './dto/update-manifest.dto';
 import { DynamicFieldFiltersDto } from './dto/dynamic-field-filters.dto';
+import { ManifestExtractionHistoryEntryDto } from './dto/manifest-extraction-history.dto';
+import { ManifestExtractionHistoryEntryDetailsDto } from './dto/manifest-extraction-history-details.dto';
 import { ManifestsService } from './manifests.service';
 import { QueueService } from '../queue/queue.service';
 import {
@@ -163,6 +168,15 @@ export class ManifestsController {
       ocrProcessedAt: manifest.ocrProcessedAt ?? null,
       qualityScore: manifest.ocrQualityScore ?? null,
     };
+  }
+
+  @Get('manifests/:id/items')
+  async getManifestItems(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    const items = await this.manifestsService.findItems(user, id);
+    return items.map(ManifestItemResponseDto.fromEntity);
   }
 
   @Post('manifests/:id/ocr')
@@ -489,6 +503,27 @@ export class ManifestsController {
     return ManifestResponseDto.fromEntity(manifest);
   }
 
+  @Get('manifests/:id/extraction-history')
+  async getExtractionHistory(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('limit') limit?: string,
+  ): Promise<ManifestExtractionHistoryEntryDto[]> {
+    const parsedLimit = this.parseOptionalNumber(limit ?? undefined);
+    return this.manifestsService.listExtractionHistory(user, id, {
+      limit: parsedLimit ?? undefined,
+    });
+  }
+
+  @Get('manifests/:id/extraction-history/:jobId')
+  async getExtractionHistoryEntry(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('jobId', ParseIntPipe) jobId: number,
+  ): Promise<ManifestExtractionHistoryEntryDetailsDto> {
+    return this.manifestsService.getExtractionHistoryEntry(user, id, jobId);
+  }
+
   @Get('manifests/:id/pdf')
   @Redirect()
   async viewPdf(
@@ -497,6 +532,38 @@ export class ManifestsController {
   ) {
     const manifest = await this.manifestsService.findOne(user, id);
     return { url: this.storageService.getPublicPath(manifest.storagePath) };
+  }
+
+  @Get('manifests/:id/pdf-file')
+  async downloadPdfFile(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Res() res: Response,
+  ) {
+    const manifest = await this.manifestsService.findOne(user, id);
+
+    const filename = manifest.originalFilename || manifest.filename || `manifest-${manifest.id}`;
+    const ext = path.extname(filename).toLowerCase();
+    const contentType = (() => {
+      if (manifest.fileType === FileType.PDF || ext === '.pdf') return 'application/pdf';
+      if (ext === '.png') return 'image/png';
+      if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
+      if (ext === '.webp') return 'image/webp';
+      if (ext === '.gif') return 'image/gif';
+      if (ext === '.bmp') return 'image/bmp';
+      return 'application/octet-stream';
+    })();
+
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${filename.split('"').join('')}"`);
+
+    const stream = createReadStream(manifest.storagePath);
+    stream.on('error', () => {
+      res.status(404).json({ message: 'File not found' });
+    });
+
+    stream.pipe(res);
   }
 
   @Patch('manifests/:id')

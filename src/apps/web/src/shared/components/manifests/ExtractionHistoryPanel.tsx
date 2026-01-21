@@ -1,25 +1,24 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
-  Clock,
-  DollarSign,
+  Ban,
   CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  GitCompare,
   ChevronDown,
   ChevronUp,
+  Clock,
   Copy,
+  DollarSign,
   Download,
+  GitCompare,
+  Loader2,
+  XCircle,
 } from 'lucide-react';
-import { Button } from '@/shared/components/ui/button';
+import type { ManifestExtractionHistoryEntry } from '@/api/manifests';
+import { useManifestExtractionHistoryEntry } from '@/shared/hooks/use-manifests';
 import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/shared/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/shared/components/ui/collapsible';
 import {
   Table,
   TableBody,
@@ -29,32 +28,13 @@ import {
   TableRow,
 } from '@/shared/components/ui/table';
 
-export interface ExtractionHistoryEntry {
-  id: string;
-  timestamp: Date;
-  model: string;
-  modelId: string;
-  promptId?: number;
-  textCost: number;
-  llmCost: number;
-  totalCost: number;
-  status: 'success' | 'partial' | 'failed';
-  pages?: number;
-  inputTokens?: number;
-  outputTokens?: number;
-  duration?: number; // in milliseconds
-  extractedData?: Record<string, unknown>;
-  errorMessage?: string;
-  fieldsAttempted?: number;
-  fieldsSuccessful?: number;
-}
+export type ExtractionHistoryEntry = ManifestExtractionHistoryEntry;
 
 interface ExtractionHistoryPanelProps {
   manifestId: number;
   manifestName: string;
   history: ExtractionHistoryEntry[];
   onCompare?: (entryIds: string[]) => void;
-  onReRun?: (entryId: string) => void;
   loading?: boolean;
 }
 
@@ -63,37 +43,42 @@ export function ExtractionHistoryPanel({
   manifestName,
   history,
   onCompare,
-  onReRun,
   loading = false,
 }: ExtractionHistoryPanelProps) {
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
+  const expandedJobId = expandedEntryId ? Number(expandedEntryId) : null;
+
+  const entryDetails = useManifestExtractionHistoryEntry(manifestId, expandedJobId, {
+    enabled: expandedJobId !== null,
+  });
 
   const stats = useMemo(() => {
-    const totalCost = history.reduce((sum, entry) => sum + entry.totalCost, 0);
-    const totalTextCost = history.reduce((sum, entry) => sum + entry.textCost, 0);
-    const totalLlmCost = history.reduce((sum, entry) => sum + entry.llmCost, 0);
-    const successCount = history.filter((e) => e.status === 'success').length;
-    const partialCount = history.filter((e) => e.status === 'partial').length;
+    const totalCost = history.reduce((sum, entry) => sum + (entry.actualCost ?? entry.estimatedCost ?? 0), 0);
+    const totalTextCost = history.reduce((sum, entry) => sum + (entry.textActualCost ?? entry.textEstimatedCost ?? 0), 0);
+    const totalLlmCost = history.reduce((sum, entry) => sum + (entry.llmActualCost ?? entry.llmEstimatedCost ?? 0), 0);
+    const completedCount = history.filter((e) => e.status === 'completed').length;
     const failedCount = history.filter((e) => e.status === 'failed').length;
-    const totalTokens = history.reduce(
-      (sum, entry) => sum + (entry.inputTokens || 0) + (entry.outputTokens || 0),
-      0
-    );
-    const avgDuration =
-      history.filter((e) => e.duration).reduce((sum, entry) => sum + (entry.duration || 0), 0) /
-      history.filter((e) => e.duration).length;
+    const canceledCount = history.filter((e) => e.status === 'canceled').length;
+    const runningCount = history.filter((e) => e.status === 'running').length;
+    const pendingCount = history.filter((e) => e.status === 'pending').length;
+    const totalTokens = history.reduce((sum, entry) => sum + (entry.llmInputTokens ?? 0) + (entry.llmOutputTokens ?? 0), 0);
+    const avgDurationMs =
+      history.filter((e) => e.durationMs).reduce((sum, entry) => sum + (entry.durationMs ?? 0), 0) /
+      Math.max(1, history.filter((e) => e.durationMs).length);
 
     return {
       totalCost,
       totalTextCost,
       totalLlmCost,
-      successCount,
-      partialCount,
+      completedCount,
       failedCount,
+      canceledCount,
+      runningCount,
+      pendingCount,
       totalRuns: history.length,
       totalTokens,
-      avgDuration,
+      avgDurationMs,
     };
   }, [history]);
 
@@ -103,7 +88,6 @@ export function ExtractionHistoryPanel({
       if (next.has(entryId)) {
         next.delete(entryId);
       } else if (next.size < 2) {
-        // Allow max 2 entries for comparison
         next.add(entryId);
       }
       return next;
@@ -112,21 +96,36 @@ export function ExtractionHistoryPanel({
 
   const getStatusBadge = (status: ExtractionHistoryEntry['status']) => {
     switch (status) {
-      case 'success':
+      case 'completed':
         return (
           <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-100">
             <CheckCircle2 className="h-3 w-3 mr-1" />
-            Success
+            Completed
           </Badge>
         );
-      case 'partial':
+      case 'running':
         return (
           <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100">
-            <AlertTriangle className="h-3 w-3 mr-1" />
-            Partial
+            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            Running
+          </Badge>
+        );
+      case 'pending':
+        return (
+          <Badge className="bg-muted text-muted-foreground">
+            <Clock className="h-3 w-3 mr-1" />
+            Pending
+          </Badge>
+        );
+      case 'canceled':
+        return (
+          <Badge className="bg-slate-200 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
+            <Ban className="h-3 w-3 mr-1" />
+            Canceled
           </Badge>
         );
       case 'failed':
+      default:
         return (
           <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100">
             <XCircle className="h-3 w-3 mr-1" />
@@ -136,30 +135,21 @@ export function ExtractionHistoryPanel({
     }
   };
 
-  const copyExtractedData = (data: Record<string, unknown>) => {
-    const json = JSON.stringify(data, null, 2);
-    navigator.clipboard.writeText(json);
+  const copyRunDetails = (entry: ExtractionHistoryEntry) => {
+    navigator.clipboard.writeText(JSON.stringify(entry, null, 2));
   };
 
-  const downloadExtractedData = (entry: ExtractionHistoryEntry) => {
-      const data = {
-      manifestId,
-      manifestName,
-      extractionId: entry.id,
-      timestamp: entry.timestamp.toISOString(),
-      model: entry.model,
-      data: entry.extractedData,
-      costs: {
-        text: entry.textCost,
-        llm: entry.llmCost,
-        total: entry.totalCost,
-      },
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const copyText = (value: string | null) => {
+    if (!value) return;
+    navigator.clipboard.writeText(value);
+  };
+
+  const downloadRunDetails = (entry: ExtractionHistoryEntry) => {
+    const blob = new Blob([JSON.stringify({ manifestId, manifestName, ...entry }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `extraction-${entry.id}.json`;
+    link.download = `extraction-run-${entry.jobId}.json`;
     document.body.appendChild(link);
     link.click();
     URL.revokeObjectURL(url);
@@ -170,7 +160,7 @@ export function ExtractionHistoryPanel({
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12">
-          <div className="h-8 w-8 border-2 border-current border-t-transparent rounded-full animate-spin" />
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
@@ -178,7 +168,6 @@ export function ExtractionHistoryPanel({
 
   return (
     <div className="space-y-4">
-      {/* Summary Stats */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
@@ -199,10 +188,10 @@ export function ExtractionHistoryPanel({
             <div>
               <div className="text-xs text-muted-foreground">Success Rate</div>
               <div className="text-2xl font-semibold">
-                {stats.totalRuns > 0
-                  ? Math.round(((stats.successCount + stats.partialCount) / stats.totalRuns) * 100)
-                  : 0}
-                %
+                {stats.totalRuns > 0 ? Math.round((stats.completedCount / stats.totalRuns) * 100) : 0}%
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {stats.completedCount} completed • {stats.runningCount} running • {stats.pendingCount} pending • {stats.canceledCount} canceled • {stats.failedCount} failed
               </div>
             </div>
             <div>
@@ -213,7 +202,6 @@ export function ExtractionHistoryPanel({
             </div>
           </div>
 
-          {/* Cost Breakdown */}
           <div className="mt-4 pt-4 border-t border-border">
             <div className="text-sm font-medium mb-2">Cost Breakdown</div>
             <div className="flex items-center gap-4 text-sm">
@@ -227,235 +215,249 @@ export function ExtractionHistoryPanel({
                 <span className="text-muted-foreground">LLM:</span>
                 <span className="font-medium">${stats.totalLlmCost.toFixed(4)}</span>
               </div>
-              {stats.avgDuration && (
+              {stats.avgDurationMs ? (
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-muted-foreground">Avg Duration:</span>
-                  <span className="font-medium">{(stats.avgDuration / 1000).toFixed(1)}s</span>
+                  <span className="text-muted-foreground">Avg time:</span>
+                  <span className="font-medium">{(stats.avgDurationMs / 1000).toFixed(1)}s</span>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Compare Button */}
-      {selectedEntries.size === 2 && onCompare && (
-        <Card className="border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950">
-          <CardContent className="py-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-blue-800 dark:text-blue-200">
-                2 extractions selected for comparison
-              </span>
-              <Button size="sm" onClick={() => onCompare(Array.from(selectedEntries))}>
-                <GitCompare className="h-4 w-4 mr-2" />
-                Compare Runs
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* History Timeline */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Timeline</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Extraction Runs</CardTitle>
+            {selectedEntries.size === 2 && onCompare && (
+              <Button variant="outline" size="sm" onClick={() => onCompare(Array.from(selectedEntries))}>
+                <GitCompare className="h-4 w-4 mr-1" />
+                Compare Selected
+              </Button>
+            )}
+          </div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-2">
           {history.length === 0 ? (
-            <div className="text-center py-8 text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground text-center py-8">
               No extraction history found for this document.
-            </div>
+            </p>
           ) : (
-            history.map((entry, index) => {
-              const isExpanded = expandedEntryId === entry.id;
-              const isSelected = selectedEntries.has(entry.id);
+            history.map((entry) => {
+              const entryId = String(entry.jobId);
+              const isExpanded = expandedEntryId === entryId;
+              const isSelected = selectedEntries.has(entryId);
+
+              const createdAt = new Date(entry.createdAt);
+              const modelLabel = entry.llmModelName ?? entry.llmModelId ?? 'Default model';
+              const promptLabel = entry.promptName ?? (entry.promptId ? `Prompt #${entry.promptId}` : 'Default prompt');
+
+              const totalCost = entry.actualCost ?? entry.estimatedCost ?? 0;
+              const textCost = entry.textActualCost ?? entry.textEstimatedCost ?? 0;
+              const llmCost = entry.llmActualCost ?? entry.llmEstimatedCost ?? 0;
 
               return (
                 <Collapsible
-                  key={entry.id}
+                  key={entryId}
                   open={isExpanded}
-                  onOpenChange={(open) => setExpandedEntryId(open ? entry.id : null)}
+                  onOpenChange={() => setExpandedEntryId(isExpanded ? null : entryId)}
+                  className="border border-border rounded-lg overflow-hidden"
                 >
-                  <div
-                    className={`rounded-md border transition-colors ${
-                      isSelected
-                        ? 'border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950'
-                        : 'border-border bg-card'
-                    }`}
-                  >
-                    {/* Summary Row */}
+                  <div className="flex items-center gap-3 p-3 bg-card hover:bg-muted/50 transition-colors">
+                    {onCompare && (
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleEntrySelection(entryId)}
+                        className="rounded border-border"
+                      />
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-medium truncate">{format(createdAt, 'PPp')}</span>
+                        {getStatusBadge(entry.status)}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {modelLabel} • {promptLabel} • {entry.pagesProcessed ?? '—'} pages • {(entry.llmInputTokens ?? 0)}→{(entry.llmOutputTokens ?? 0)} tokens
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="flex items-center gap-1 text-sm font-medium">
+                        <DollarSign className="h-4 w-4" />
+                        {totalCost.toFixed(4)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Text: ${textCost.toFixed(4)} • LLM: ${llmCost.toFixed(4)}
+                      </div>
+                    </div>
+
                     <CollapsibleTrigger asChild>
-                      <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50">
-                        <div className="flex items-center gap-3 flex-1">
-                          {/* Select for comparison */}
-                          {onCompare && (
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                toggleEntrySelection(entry.id);
-                              }}
-                              className="h-4 w-4"
-                            />
-                          )}
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
 
-                          {/* Status icon */}
-                          <div className="flex-shrink-0">
-                            {entry.status === 'success' ? (
-                              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                            ) : entry.status === 'partial' ? (
-                              <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                            ) : (
-                              <XCircle className="h-4 w-4 text-red-500" />
-                            )}
+                  <CollapsibleContent>
+                    <div className="p-4 bg-muted/30 border-t border-border space-y-3">
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div>
+                          <span className="text-muted-foreground">Job</span>
+                          <div className="font-medium">
+                            ID: {entry.jobId}{entry.queueJobId ? ` (queue: ${entry.queueJobId})` : ''}
                           </div>
-
-                          {/* Main info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium">
-                                Run {history.length - index}
-                              </span>
-                              {getStatusBadge(entry.status)}
-                            </div>
-                            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                              <span>{format(entry.timestamp, 'PPp')}</span>
-                              <span>•</span>
-                              <span>{entry.model}</span>
-                              {entry.duration && (
-                                <>
-                                  <span>•</span>
-                                  <span>{(entry.duration / 1000).toFixed(1)}s</span>
-                                </>
-                              )}
-                            </div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Duration</span>
+                          <div className="font-medium">
+                            {entry.durationMs ? `${(entry.durationMs / 1000).toFixed(1)}s` : 'N/A'}
                           </div>
-
-                          {/* Cost */}
-                          <div className="text-right flex-shrink-0">
-                            <div className="text-sm font-semibold">
-                              ${entry.totalCost.toFixed(4)}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {entry.textCost > 0 && (
-                                <span className="text-blue-600 dark:text-blue-400">
-                                  ${entry.textCost.toFixed(4)} Text
-                                </span>
-                              )}
-                              {entry.llmCost > 0 && entry.textCost > 0 && ' + '}
-                              {entry.llmCost > 0 && (
-                                <span className="text-purple-600 dark:text-purple-400">
-                                  ${entry.llmCost.toFixed(4)} LLM
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Expand button */}
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 flex-shrink-0">
-                            {isExpanded ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            )}
-                          </Button>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Model</span>
+                          <div className="font-medium">{modelLabel}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Prompt</span>
+                          <div className="font-medium">{promptLabel}</div>
                         </div>
                       </div>
-                    </CollapsibleTrigger>
 
-                    {/* Expanded Details */}
-                    <CollapsibleContent>
-                      <div className="px-3 pb-3 pt-0 border-t border-border mt-2">
-                        <div className="pt-3 space-y-3">
-                          {/* Token Usage */}
-                          {(entry.inputTokens || entry.outputTokens) && (
-                            <div className="grid grid-cols-2 gap-3 text-sm">
-                              {entry.inputTokens && (
-                                <div>
-                                  <span className="text-muted-foreground">Input Tokens:</span>{' '}
-                                  <span className="font-medium">{entry.inputTokens.toLocaleString()}</span>
-                                </div>
-                              )}
-                              {entry.outputTokens && (
-                                <div>
-                                  <span className="text-muted-foreground">Output Tokens:</span>{' '}
-                                  <span className="font-medium">{entry.outputTokens.toLocaleString()}</span>
-                                </div>
-                              )}
-                              {entry.pages && (
-                                <div>
-                                  <span className="text-muted-foreground">Pages:</span>{' '}
-                                  <span className="font-medium">{entry.pages}</span>
-                                </div>
-                              )}
-                              {entry.fieldsAttempted && (
-                                <div>
-                                  <span className="text-muted-foreground">Fields:</span>{' '}
-                                  <span className="font-medium">
-                                    {entry.fieldsSuccessful}/{entry.fieldsAttempted} successful
-                                  </span>
-                                </div>
-                              )}
+                      {(entry.error || entry.cancelReason) ? (
+                        <div className="rounded-md bg-red-50 border border-red-200 p-2 text-xs text-red-800 dark:bg-red-950 dark:border-red-900 dark:text-red-200">
+                          {entry.cancelReason ? `Canceled: ${entry.cancelReason}` : entry.error}
+                        </div>
+                      ) : null}
+
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => copyRunDetails(entry)}>
+                          <Copy className="h-3 w-3 mr-1" />
+                          Copy details
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => downloadRunDetails(entry)}>
+                          <Download className="h-3 w-3 mr-1" />
+                          Download JSON
+                        </Button>
+                      </div>
+
+                      {/* Prompt I/O (lazy-loaded) */}
+                      {isExpanded && (
+                        <div className="space-y-3">
+                          {entryDetails.isLoading ? (
+                            <div className="text-xs text-muted-foreground flex items-center gap-2">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Loading prompt details…
                             </div>
-                          )}
-
-                          {/* Error Message */}
-                          {entry.errorMessage && (
-                            <div className="rounded-md bg-red-50 border border-red-200 p-2 text-xs text-red-800 dark:bg-red-950 dark:border-red-900 dark:text-red-200">
-                              {entry.errorMessage}
+                          ) : entryDetails.isError ? (
+                            <div className="text-xs text-destructive">
+                              Failed to load prompt details.
                             </div>
-                          )}
+                          ) : (
+                            <>
+                              {entryDetails.data?.promptTemplateContent ? (
+                                <div className="rounded-md border border-border bg-background p-2">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-medium">Prompt Template</span>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 px-2 text-xs"
+                                      onClick={() => copyText(entryDetails.data?.promptTemplateContent ?? null)}
+                                    >
+                                      <Copy className="h-3 w-3 mr-1" />
+                                      Copy
+                                    </Button>
+                                  </div>
+                                  <pre className="text-xs font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
+                                    {entryDetails.data.promptTemplateContent}
+                                  </pre>
+                                </div>
+                              ) : null}
 
-                          {/* Extracted Data Preview */}
-                          {entry.extractedData && Object.keys(entry.extractedData).length > 0 && (
-                            <div>
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-medium">Extracted Data</span>
-                                <div className="flex items-center gap-1">
+                              <div className="rounded-md border border-border bg-background p-2">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-xs font-medium">System Prompt (input)</span>
                                   <Button
                                     variant="ghost"
                                     size="sm"
                                     className="h-6 px-2 text-xs"
-                                    onClick={() => copyExtractedData(entry.extractedData!)}
+                                    onClick={() => copyText(entryDetails.data?.systemPrompt ?? null)}
+                                    disabled={!entryDetails.data?.systemPrompt}
                                   >
                                     <Copy className="h-3 w-3 mr-1" />
                                     Copy
                                   </Button>
+                                </div>
+                                {entryDetails.data?.systemPrompt ? (
+                                  <pre className="text-xs font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
+                                    {entryDetails.data.systemPrompt}
+                                  </pre>
+                                ) : (
+                                  <div className="text-xs text-muted-foreground">
+                                    Not recorded for this run (run extraction again to capture it).
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="rounded-md border border-border bg-background p-2">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-xs font-medium">User Prompt (input)</span>
                                   <Button
                                     variant="ghost"
                                     size="sm"
                                     className="h-6 px-2 text-xs"
-                                    onClick={() => downloadExtractedData(entry)}
+                                    onClick={() => copyText(entryDetails.data?.userPrompt ?? null)}
+                                    disabled={!entryDetails.data?.userPrompt}
                                   >
-                                    <Download className="h-3 w-3 mr-1" />
-                                    Download
+                                    <Copy className="h-3 w-3 mr-1" />
+                                    Copy
                                   </Button>
                                 </div>
+                                {entryDetails.data?.userPrompt ? (
+                                  <pre className="text-xs font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
+                                    {entryDetails.data.userPrompt}
+                                  </pre>
+                                ) : (
+                                  <div className="text-xs text-muted-foreground">
+                                    Not recorded for this run (run extraction again to capture it).
+                                  </div>
+                                )}
                               </div>
-                              <div className="rounded-md border border-border bg-muted p-2 max-h-48 overflow-y-auto">
-                                <pre className="text-xs font-mono">
-                                  {JSON.stringify(entry.extractedData, null, 2)}
-                                </pre>
-                              </div>
-                            </div>
-                          )}
 
-                          {/* Actions */}
-                          {onReRun && entry.status !== 'success' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => onReRun(entry.id)}
-                            >
-                              Re-run with Same Settings
-                            </Button>
+                              <div className="rounded-md border border-border bg-background p-2">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-xs font-medium">Assistant Output (raw)</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 text-xs"
+                                    onClick={() => copyText(entryDetails.data?.assistantResponse ?? null)}
+                                    disabled={!entryDetails.data?.assistantResponse}
+                                  >
+                                    <Copy className="h-3 w-3 mr-1" />
+                                    Copy
+                                  </Button>
+                                </div>
+                                {entryDetails.data?.assistantResponse ? (
+                                  <pre className="text-xs font-mono whitespace-pre-wrap max-h-64 overflow-y-auto">
+                                    {entryDetails.data.assistantResponse}
+                                  </pre>
+                                ) : (
+                                  <div className="text-xs text-muted-foreground">
+                                    Not recorded for this run (run extraction again to capture it).
+                                  </div>
+                                )}
+                              </div>
+                            </>
                           )}
                         </div>
-                      </div>
-                    </CollapsibleContent>
-                  </div>
+                      )}
+                    </div>
+                  </CollapsibleContent>
                 </Collapsible>
               );
             })
@@ -463,8 +465,7 @@ export function ExtractionHistoryPanel({
         </CardContent>
       </Card>
 
-      {/* Cost Summary Table */}
-      {history.length > 0 && (
+      {history.length > 0 ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Cost Summary</CardTitle>
@@ -483,20 +484,18 @@ export function ExtractionHistoryPanel({
               </TableHeader>
               <TableBody>
                 {history.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {format(entry.timestamp, 'PPp')}
-                    </TableCell>
-                    <TableCell className="text-sm">{entry.model}</TableCell>
+                  <TableRow key={entry.jobId}>
+                    <TableCell className="text-xs text-muted-foreground">{format(new Date(entry.createdAt), 'PPp')}</TableCell>
+                    <TableCell className="text-sm">{entry.llmModelName ?? entry.llmModelId ?? 'Default model'}</TableCell>
                     <TableCell>{getStatusBadge(entry.status)}</TableCell>
                     <TableCell className="text-sm text-right">
-                      ${entry.textCost.toFixed(4)}
+                      ${(entry.textActualCost ?? entry.textEstimatedCost ?? 0).toFixed(4)}
                     </TableCell>
                     <TableCell className="text-sm text-right">
-                      ${entry.llmCost.toFixed(4)}
+                      ${(entry.llmActualCost ?? entry.llmEstimatedCost ?? 0).toFixed(4)}
                     </TableCell>
                     <TableCell className="text-sm text-right font-medium">
-                      ${entry.totalCost.toFixed(4)}
+                      ${(entry.actualCost ?? entry.estimatedCost ?? 0).toFixed(4)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -504,7 +503,7 @@ export function ExtractionHistoryPanel({
             </Table>
           </CardContent>
         </Card>
-      )}
+      ) : null}
     </div>
   );
 }

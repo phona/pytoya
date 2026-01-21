@@ -16,6 +16,7 @@ import {
   LlmChatCompletionRequest,
   LlmChatCompletionResult,
   LlmChatCompletionResponse,
+  LlmChatCompletionStreamChunk,
   LlmChatMessage,
   LlmChatOptions,
   LlmProviderConfig,
@@ -156,6 +157,120 @@ export class LlmService {
       throw new InternalServerErrorException(
         `LLM request failed: ${errorMessage}`,
       );
+    }
+  }
+
+  async *createChatCompletionStream(
+    messages: LlmChatMessage[],
+    options: LlmChatOptions = {},
+    provider?: LlmProviderConfig,
+  ): AsyncGenerator<string, void, void> {
+    if (!messages.length) {
+      throw new BadRequestException(
+        'LLM chat completion requires at least one message',
+      );
+    }
+
+    const apiKey = options.apiKey ?? provider?.apiKey ?? this.apiKey;
+    if (!apiKey) {
+      throw new InternalServerErrorException('LLM API key is missing');
+    }
+
+    const baseUrl = this.normalizeBaseUrl(
+      provider?.baseUrl ?? this.baseUrl,
+    );
+    const model = options.model ?? provider?.modelName ?? this.model;
+    const temperature =
+      options.temperature ??
+      provider?.temperature ??
+      this.temperature;
+    const maxTokens =
+      options.maxTokens ?? provider?.maxTokens ?? this.maxTokens;
+    const timeoutMs = options.timeoutMs ?? this.timeoutMs;
+
+    const payload: LlmChatCompletionRequest = {
+      model,
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+      stream: true,
+    };
+
+    // Streaming + response_format is provider-specific; omit for now to avoid incompatibilities.
+
+    this.logger.debug(
+      `LLM stream request prepared (model=${model}, messages=${messages.length})`,
+    );
+
+    let upstream: NodeJS.ReadableStream | null = null;
+    try {
+      const response =
+        await this.axiosInstance.post<NodeJS.ReadableStream>(
+          LLM_CHAT_COMPLETIONS_ENDPOINT,
+          payload,
+          {
+            baseURL: baseUrl,
+            timeout: timeoutMs,
+            responseType: 'stream',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+          },
+        );
+
+      upstream = response.data;
+
+      let buffer = '';
+      for await (const chunk of upstream) {
+        buffer += chunk.toString();
+
+        while (true) {
+          const sepIndex = buffer.indexOf('\n\n');
+          if (sepIndex === -1) {
+            break;
+          }
+
+          const eventBlock = buffer.slice(0, sepIndex);
+          buffer = buffer.slice(sepIndex + 2);
+
+          const dataLines = eventBlock
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line.startsWith('data:'))
+            .map((line) => line.slice('data:'.length).trim());
+
+          for (const dataLine of dataLines) {
+            if (!dataLine) continue;
+            if (dataLine === '[DONE]') {
+              return;
+            }
+
+            let parsed: LlmChatCompletionStreamChunk | null = null;
+            try {
+              parsed = JSON.parse(dataLine) as LlmChatCompletionStreamChunk;
+            } catch {
+              // Ignore malformed chunks (some providers may send keep-alives)
+              continue;
+            }
+
+            const delta = parsed.choices?.[0]?.delta?.content ?? null;
+            if (typeof delta === 'string' && delta.length > 0) {
+              yield delta;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      const errorMessage = this.formatError(error);
+      this.logger.warn(`LLM stream request failed: ${errorMessage}`);
+      throw new InternalServerErrorException(
+        `LLM request failed: ${errorMessage}`,
+      );
+    } finally {
+      if (upstream && typeof (upstream as any).destroy === 'function') {
+        (upstream as any).destroy();
+      }
     }
   }
 

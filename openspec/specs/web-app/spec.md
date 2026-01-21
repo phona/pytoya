@@ -90,7 +90,7 @@ The web application SHALL provide a simplified sidebar navigation in the dashboa
 - **AND** these items SHALL be accessible through the project creation wizard or project settings
 
 ### Requirement: Dialog-Based Create and Edit
-The web application SHALL use a shared centered dialog component for Models and Manifests create/edit flows.
+The web application SHALL use a shared centered dialog component for Models create/edit and Manifests upload flows, and SHALL use a dedicated route page for the Manifests audit/edit flow.
 
 #### Scenario: Models create dialog
 - **WHEN** a user creates a model
@@ -106,12 +106,14 @@ The web application SHALL use a shared centered dialog component for Models and 
 - **WHEN** a user uploads manifests
 - **THEN** the system SHALL present the upload flow inside a centered dialog
 
-#### Scenario: Manifests audit dialog
+#### Scenario: Manifests audit page
 - **WHEN** a user audits or edits a manifest
-- **THEN** the system SHALL present the audit panel inside a centered dialog
+- **THEN** the system SHALL navigate to a dedicated audit page route
+- **AND** the system SHALL render the audit panel as page content (not a modal dialog)
+- **AND** the audit page SHALL be deep-linkable and refresh-safe
 
 ### Requirement: Dialog-Based Forms
-The web application SHALL use modal dialogs for all entity creation and editing forms, overlaying the current list page without navigation.
+The web application SHALL use modal dialogs for entity creation and editing forms that do not require deep-linking, and SHALL use a dedicated route page for the Manifests audit/edit flow.
 
 #### Scenario: Open form dialog
 - **WHEN** a user clicks "New [Entity]" or "Edit" on a list page
@@ -141,6 +143,11 @@ The web application SHALL use modal dialogs for all entity creation and editing 
 - **WHEN** a user creates or edits a model
 - **THEN** the system SHALL display the form in a dialog
 - **AND** the system SHALL NOT use a separate page for forms
+
+#### Scenario: Manifest audit navigation
+- **WHEN** a user clicks a manifest row/card to audit or edit
+- **THEN** the system SHALL navigate to the manifest audit page route
+- **AND** the system SHALL NOT open a modal dialog for this flow
 
 ### Requirement: Multi-Step Project Creation Wizard
 The web application SHALL provide a multi-step wizard for creating projects with inline schema and prompt configuration.
@@ -1217,4 +1224,3 @@ The web application SHALL integrate extractor management into navigation.
 - **WHEN** the page is displayed
 - **THEN** the breadcrumb SHALL show "Projects > [Project Name] > Settings > Extractors"
 - **AND** clicking any breadcrumb segment SHALL navigate to that level
-

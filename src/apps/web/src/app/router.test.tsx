@@ -59,8 +59,9 @@ describe('router configuration', () => {
 
   it('should redirect schemas to projects', () => {
     const schemasRoute = findRouteByPath('schemas');
-    expect(schemasRoute).toBeDefined();
-    // Note: The actual element check would require accessing the Navigate component
+    const schemaDetailRoute = findRouteByPath('schemas/:id');
+    expect(schemasRoute).toBeUndefined();
+    expect(schemaDetailRoute).toBeUndefined();
   });
 
   it('should have manifest route with parameters', () => {
@@ -71,6 +72,7 @@ describe('router configuration', () => {
   it('should have models route', () => {
     const modelsRoute = findRouteByPath('models');
     expect(modelsRoute).toBeDefined();
+    expect(modelsRoute?.element?.type?.name).toBe('AdminRoute');
   });
 
   it('should have prompts route with admin protection', () => {
@@ -80,24 +82,33 @@ describe('router configuration', () => {
     // Should have AdminRoute wrapper
   });
 
-  it('should have validation-scripts route with admin protection', () => {
-    const validationScriptsRoute = findRouteByPath('validation-scripts');
-    expect(validationScriptsRoute).toBeDefined();
-    expect(validationScriptsRoute?.element?.type?.name).toBe('AdminRoute');
-  });
-
   it('should have project settings routes', () => {
     const basicSettingsRoute = findRouteByPath('projects/:id/settings/basic');
     const modelsSettingsRoute = findRouteByPath('projects/:id/settings/models');
+    const extractorsSettingsRoute = findRouteByPath('projects/:id/settings/extractors');
+    const costsSettingsRoute = findRouteByPath('projects/:id/settings/costs');
+    const schemaSettingsRoute = findRouteByPath('projects/:id/settings/schema');
+    const rulesSettingsRoute = findRouteByPath('projects/:id/settings/rules');
+    const validationScriptsSettingsRoute = findRouteByPath('projects/:id/settings/validation-scripts');
 
     expect(basicSettingsRoute).toBeDefined();
     expect(modelsSettingsRoute).toBeDefined();
+    expect(modelsSettingsRoute?.element?.type?.name).toBe('AdminRoute');
+    expect(extractorsSettingsRoute).toBeDefined();
+    expect(extractorsSettingsRoute?.element?.type?.name).toBe('AdminRoute');
+    expect(costsSettingsRoute).toBeDefined();
+    expect(schemaSettingsRoute).toBeDefined();
+    expect(schemaSettingsRoute?.element?.type?.name).toBe('AdminRoute');
+    expect(rulesSettingsRoute).toBeDefined();
+    expect(rulesSettingsRoute?.element?.type?.name).toBe('AdminRoute');
+    expect(validationScriptsSettingsRoute).toBeDefined();
+    expect(validationScriptsSettingsRoute?.element?.type?.name).toBe('AdminRoute');
   });
 
-  it('should have schema detail route with admin protection', () => {
-    const schemaDetailRoute = findRouteByPath('schemas/:id');
-    expect(schemaDetailRoute).toBeDefined();
-    expect(schemaDetailRoute?.element?.type?.name).toBe('AdminRoute');
+  it('should have extractors route with admin protection', () => {
+    const extractorsRoute = findRouteByPath('extractors');
+    expect(extractorsRoute).toBeDefined();
+    expect(extractorsRoute?.element?.type?.name).toBe('AdminRoute');
   });
 });
 

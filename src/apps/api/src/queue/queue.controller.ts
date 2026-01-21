@@ -9,8 +9,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
+import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { UserEntity } from '../entities/user.entity';
 import { CreateJobDto } from './dto/create-job.dto';
+import { CancelJobDto } from './dto/cancel-job.dto';
 import { QueueService } from './queue.service';
 
 @UseGuards(JwtAuthGuard)
@@ -61,6 +64,15 @@ export class QueueController {
   async removeJob(@Param('id') jobId: string) {
     await this.queueService.removeJob(jobId);
     return { removed: true };
+  }
+
+  @Post(':id/cancel')
+  async cancelJob(
+    @CurrentUser() user: UserEntity,
+    @Param('id') jobId: string,
+    @Body() body: CancelJobDto,
+  ) {
+    return this.queueService.requestCancelJob(user, jobId, body.reason);
   }
 
   private parseOptionalNumber(value?: string): number | null {

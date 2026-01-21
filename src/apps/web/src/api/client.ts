@@ -8,8 +8,19 @@ const API_BASE_URL = rawApiUrl.endsWith('/api')
   : `${rawApiUrl}/api`;
 
 // Derive WebSocket base URL by stripping /api suffix
-const WS_BASE_URL = import.meta.env.VITE_WS_URL ||
-  (rawApiUrl.endsWith('/api') ? rawApiUrl.slice(0, -4) : rawApiUrl);
+const normalizeSocketIoBaseUrl = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  // socket.io expects an http(s) base URL even if it upgrades to websocket.
+  if (trimmed.startsWith('ws://')) return `http://${trimmed.slice('ws://'.length)}`;
+  if (trimmed.startsWith('wss://')) return `https://${trimmed.slice('wss://'.length)}`;
+  return trimmed;
+};
+
+const WS_BASE_URL = normalizeSocketIoBaseUrl(
+  import.meta.env.VITE_WS_URL ||
+    (rawApiUrl.endsWith('/api') ? rawApiUrl.slice(0, -4) : rawApiUrl),
+);
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

@@ -140,15 +140,18 @@ openspec/                # Spec-driven development
 ```
 UserEntity → ProjectEntity → GroupEntity → ManifestEntity → ManifestItemEntity
                                   ↓
-                            SchemaEntity (JSON schemas for extraction)
-                                  ↓
-                    ExtractionHistoryEntity (audit trail)
+                              SchemaEntity (JSON schemas for extraction)
+                                    ↓
+                      ExtractionHistoryEntity (audit trail)
 
 ModelEntity → ProjectEntity
 ExtractorEntity → ProjectEntity → ManifestEntity
 PromptEntity
-JobEntity (BullMQ jobs)
-```
+ JobEntity (BullMQ jobs)
+ ```
+
+### Schema Prompt Rules (Markdown)
+- `SchemaEntity.validationSettings.promptRulesMarkdown` stores a single Markdown block that is appended to the LLM system prompt during extraction (used for OCR corrections, extraction rules, cross verification, etc.).
 
 ## Testing Philosophy
 
@@ -182,7 +185,7 @@ Critical for mechanical industry invoices (Chinese):
 
 ### PaddleOCR-VL Integration
 - **Endpoint**: POST /layout-parsing
-- **Type**: Remote HTTP service (configured via PADDLEOCR_BASE_URL)
+- **Type**: Remote HTTP service (configured via PADDLEOCR_BASE_URL; PADDLEOCR_ENDPOINT optional)
 - **Key Parameters**: useDocOrientationClassify, useLayoutDetection, prettifyMarkdown
 
 ### LLM Integration
@@ -268,12 +271,12 @@ The API uses `src/apps/api/config.yaml` as its single source of truth for runtim
 Key configuration sections:
 - `server`: port, logLevel
 - `database`: host, port, username, password, database
-- `redis`: host, port
-- `jwt`: secret, expiration
-- `paddleocr`: baseUrl
-- `llm`: apiKey
-- `security`: cors, rateLimit, accountLockout, passwordPolicy, usernamePolicy
-- `admin`: username, password (optional)
+  - `redis`: host, port
+  - `jwt`: secret, expiration
+  - `paddleocr`: baseUrl (endpoint optional)
+  - `llm`: apiKey
+  - `security`: cors, rateLimit, accountLockout, passwordPolicy, usernamePolicy
+  - `admin`: username, password (optional)
 
 ### Security Notes
 - `/uploads` is protected by JWT and file ownership checks (admins bypass ownership).

@@ -16,6 +16,7 @@ import { ModelEntity } from '../entities/model.entity';
 import { PromptEntity } from '../entities/prompt.entity';
 import { SchemaEntity } from '../entities/schema.entity';
 import { SchemaRuleEntity } from '../entities/schema-rule.entity';
+import { ExtractorEntity } from '../entities/extractor.entity';
 import { LlmResponseFormat, LlmChatMessage, LlmProviderConfig } from '../llm/llm.types';
 import { LlmService } from '../llm/llm.service';
 import { PromptBuilderService } from '../prompts/prompt-builder.service';
@@ -26,6 +27,9 @@ import { IFileAccessService } from '../file-access/file-access.service';
 import { ExtractedData } from '../prompts/types/prompts.types';
 import { ModelPricingService } from '../models/model-pricing.service';
 import { TextExtractorService } from '../text-extractor/text-extractor.service';
+import { PricingConfig, TextExtractionMetadata } from '../text-extractor/types/extractor.types';
+import { OcrResultDto } from '../manifests/dto/ocr-result.dto';
+import { ManifestsService } from '../manifests/manifests.service';
 import {
   ExtractionStateResult,
   ExtractionStatus,
@@ -38,6 +42,7 @@ import { adapterRegistry } from '../models/adapters/adapter-registry';
 type ExtractionOptions = {
   llmModel?: ModelEntity;
   llmModelId?: string;
+  queueJobId?: string;
   promptId?: number;
   systemPromptOverride?: string;
   reExtractPromptOverride?: string;
@@ -61,6 +66,8 @@ export class ExtractionService {
   constructor(
     @InjectRepository(ManifestEntity)
     private readonly manifestRepository: Repository<ManifestEntity>,
+    @InjectRepository(ExtractorEntity)
+    private readonly extractorRepository: Repository<ExtractorEntity>,
     @InjectRepository(ModelEntity)
     private readonly modelRepository: Repository<ModelEntity>,
     @InjectRepository(PromptEntity)
@@ -75,6 +82,7 @@ export class ExtractionService {
     private readonly configService: ConfigService,
     @Inject('IFileAccessService')
     private readonly fileSystem: IFileAccessService,
+    private readonly manifestsService: ManifestsService,
   ) {}
 
   async optimizePrompt(description: string): Promise<{ prompt: string }> {
@@ -208,11 +216,15 @@ export class ExtractionService {
       reportProgress(10);
       await this.validateManifest(manifest, state);
 
-      const fileBuffer = await this.fileSystem.readFile(manifest.storagePath);
-
       state.status = ExtractionStatus.TEXT_EXTRACTING;
       reportProgress(25);
-      const textResult = await this.executeTextExtraction(manifest, fileBuffer, project.textExtractorId);
+      const textResult = manifest.ocrResult
+        ? await this.buildCachedTextExtractionState(manifest, project.textExtractorId)
+        : await this.executeTextExtraction(
+            manifest,
+            await this.fileSystem.readFile(manifest.storagePath),
+            project.textExtractorId,
+          );
       state.textResult = textResult;
       reportProgress(40);
 
@@ -304,6 +316,90 @@ export class ExtractionService {
     };
   }
 
+  private async buildCachedTextExtractionState(
+    manifest: ManifestEntity,
+    fallbackExtractorId: string,
+  ): Promise<TextExtractionState> {
+    const ocrResult = (manifest.ocrResult ?? null) as unknown as OcrResultDto | null;
+    if (!ocrResult) {
+      throw new InternalServerErrorException('Cannot build cached text extraction state without OCR result');
+    }
+
+    const pages = Array.isArray(ocrResult.pages) ? ocrResult.pages : [];
+    const text = pages.map((page) => page.text ?? '').join('\n').trim();
+    const markdown = pages.map((page) => page.markdown ?? '').join('\n').trim();
+    const pagesProcessed = pages.length > 0 ? pages.length : (ocrResult.document?.pages ?? 1);
+
+    const extractorId = manifest.textExtractorId ?? fallbackExtractorId;
+    const extractor = await this.extractorRepository.findOne({ where: { id: extractorId } });
+    const pricing = (extractor?.config?.pricing as PricingConfig | undefined) ?? undefined;
+
+    const tokensMax = this.estimateTokensFromOcr(ocrResult).max;
+    const textCost = this.calculateTextCostEstimate(pricing, pagesProcessed, tokensMax);
+
+    const metadata: TextExtractionMetadata = {
+      extractorId,
+      processingTimeMs: 0,
+      pagesProcessed,
+      textCost,
+      currency: pricing?.currency ?? undefined,
+      qualityScore: manifest.ocrQualityScore ?? undefined,
+      ocrResult: ocrResult,
+    };
+
+    return {
+      text,
+      markdown,
+      metadata,
+      ocrResult,
+    };
+  }
+
+  private estimateTokensFromOcr(ocrResult: OcrResultDto): { min: number; max: number } {
+    const pages = Array.isArray(ocrResult.pages) ? ocrResult.pages : [];
+    const textLength = pages.reduce((sum, page) => sum + (page?.text?.length ?? 0), 0);
+    if (!textLength) {
+      return { min: 0, max: 0 };
+    }
+    const estimatedTokens = Math.ceil(textLength / 4);
+    const min = Math.max(1, Math.floor(estimatedTokens * 0.8));
+    const max = Math.max(min, Math.ceil(estimatedTokens * 1.2));
+    return { min, max };
+  }
+
+  private calculateTextCostEstimate(
+    pricing: PricingConfig | undefined,
+    pagesTotal: number,
+    tokensMax: number,
+  ): number {
+    if (!pricing || pricing.mode === 'none') {
+      return 0;
+    }
+
+    if (pricing.mode === 'page') {
+      const cost = (pricing.pricePerPage ?? 0) * pagesTotal;
+      return pricing.minimumCharge ? Math.max(cost, pricing.minimumCharge) : cost;
+    }
+
+    if (pricing.mode === 'fixed') {
+      const cost = pricing.fixedCost ?? 0;
+      return pricing.minimumCharge ? Math.max(cost, pricing.minimumCharge) : cost;
+    }
+
+    if (pricing.mode === 'token') {
+      const inputCost = pricing.inputPricePerMillionTokens
+        ? (tokensMax / 1_000_000) * pricing.inputPricePerMillionTokens
+        : 0;
+      const outputCost = pricing.outputPricePerMillionTokens
+        ? (Math.round(tokensMax * 0.2) / 1_000_000) * pricing.outputPricePerMillionTokens
+        : 0;
+      const total = inputCost + outputCost;
+      return pricing.minimumCharge ? Math.max(total, pricing.minimumCharge) : total;
+    }
+
+    return 0;
+  }
+
   private async runExtractionLoop(
     state: ExtractionWorkflowState,
     options: ExtractionOptions & { llmModel: ModelEntity },
@@ -317,6 +413,7 @@ export class ExtractionService {
     const activeRules = (rules ?? []).filter((rule) => rule.enabled !== false);
     const contextOverride = options.textContextSnippet?.trim() || undefined;
     const customPrompt = options.customPrompt?.trim() || undefined;
+    const queueJobId = options.queueJobId;
 
     while (true) {
       state.status =
@@ -334,6 +431,7 @@ export class ExtractionService {
         activeRules,
         contextOverride,
         customPrompt,
+        queueJobId,
       );
       state.extractionResult = extractionResult;
 
@@ -360,6 +458,7 @@ export class ExtractionService {
     rules: SchemaRuleEntity[],
     contextOverride?: string,
     customPrompt?: string,
+    queueJobId?: string,
   ): Promise<ExtractionStateResult> {
     const previousExtraction = state.extractionResult;
     const useReExtract = state.extractionRetryCount > 0 && Boolean(previousExtraction);
@@ -370,11 +469,14 @@ export class ExtractionService {
       reExtractSystemPrompt,
       useReExtract,
       previousExtraction,
+      requiredFields,
       schema,
       rules,
       contextOverride,
       customPrompt,
     );
+
+    await this.persistPromptSnapshot(queueJobId, messages);
 
     const llmOptions: { responseFormat?: LlmResponseFormat } = {};
     if (schema && providerConfig) {
@@ -399,6 +501,7 @@ export class ExtractionService {
 
     try {
       const completion = await this.llmService.createChatCompletion(messages, llmOptions, providerConfig);
+      await this.persistAssistantResponse(queueJobId, completion.content);
       const data = this.parseJsonResult(completion.content);
       const tokenUsage = this.normalizeTokenUsage(completion.usage);
 
@@ -410,7 +513,7 @@ export class ExtractionService {
         });
         validation = {
           valid: ajvResult.valid,
-          missingFields: [],
+          missingFields: ajvResult.missingFields ?? [],
           errors: ajvResult.errors ?? [],
         };
       } else {
@@ -445,12 +548,55 @@ export class ExtractionService {
     }
   }
 
+  private async persistPromptSnapshot(queueJobId: string | undefined, messages: LlmChatMessage[]): Promise<void> {
+    if (!queueJobId) {
+      return;
+    }
+    const system = this.normalizeChatContent(messages.find((m) => m.role === 'system')?.content ?? null);
+    const user = this.normalizeChatContent(messages.find((m) => m.role === 'user')?.content ?? null);
+    try {
+      await this.manifestsService.updateJobPromptSnapshot(queueJobId, system, user);
+    } catch {
+      // Best-effort: must not break extraction.
+    }
+  }
+
+  private async persistAssistantResponse(queueJobId: string | undefined, content: string): Promise<void> {
+    if (!queueJobId) {
+      return;
+    }
+    try {
+      await this.manifestsService.updateJobAssistantResponse(queueJobId, content);
+    } catch {
+      // Best-effort.
+    }
+  }
+
+  private normalizeChatContent(content: LlmChatMessage['content'] | null): string | null {
+    if (content === null) {
+      return null;
+    }
+    if (typeof content === 'string') {
+      return content;
+    }
+    if (Array.isArray(content)) {
+      return content
+        .map((part) => (part.type === 'text' ? part.text : `[image] ${part.image_url.url}`))
+        .join('\n');
+    }
+    if (content.type === 'text') {
+      return content.text;
+    }
+    return `[image] ${content.image_url.url}`;
+  }
+
   private buildTextMessages(
     state: ExtractionWorkflowState,
     systemPrompt: string,
     reExtractSystemPrompt: string,
     useReExtract: boolean,
     previousExtraction?: ExtractionStateResult,
+    requiredFields: string[] = [],
     schema?: SchemaEntity | null,
     rules: SchemaRuleEntity[] = [],
     contextOverride?: string,
@@ -461,7 +607,7 @@ export class ExtractionService {
     }
 
     const textMarkdown = contextOverride ?? state.textResult?.markdown ?? '';
-    let prompt =
+    const promptParts =
       useReExtract && previousExtraction
         ? this.promptBuilderService.buildReExtractPrompt(
             textMarkdown,
@@ -470,21 +616,26 @@ export class ExtractionService {
             previousExtraction.error,
             schema,
             rules,
+            requiredFields,
           )
-        : this.promptBuilderService.buildExtractionPrompt(textMarkdown, schema, rules);
+        : this.promptBuilderService.buildExtractionPrompt(textMarkdown, schema, rules, requiredFields);
 
+    let nextSystemPrompt = useReExtract ? reExtractSystemPrompt : systemPrompt;
+    if (promptParts.systemContext) {
+      nextSystemPrompt = `${nextSystemPrompt}\n\n${promptParts.systemContext}`;
+    }
     if (customPrompt) {
-      prompt += `\n\nAdditional instructions:\n${customPrompt}`;
+      nextSystemPrompt = `${nextSystemPrompt}\n\nAdditional instructions:\n${customPrompt}`;
     }
 
     return [
       {
         role: 'system',
-        content: useReExtract ? reExtractSystemPrompt : systemPrompt,
+        content: nextSystemPrompt,
       },
       {
         role: 'user',
-        content: prompt,
+        content: promptParts.userInput,
       },
     ];
   }
@@ -670,23 +821,44 @@ export class ExtractionService {
   }
 
   private getSystemPrompt(schema: SchemaEntity | null, override?: string): string {
-    if (override) {
-      return override;
+    const base = (() => {
+      if (override) return override;
+      if (schema?.systemPromptTemplate) return schema.systemPromptTemplate;
+      return this.promptsService.getSystemPrompt();
+    })();
+
+    const promptRulesMarkdown = this.getPromptRulesMarkdown(schema);
+    if (!promptRulesMarkdown) {
+      return base;
     }
-    if (schema?.systemPromptTemplate) {
-      return schema.systemPromptTemplate;
-    }
-    return this.promptsService.getSystemPrompt();
+
+    return `${base}\n\nPrompt Rules (Markdown):\n${promptRulesMarkdown}`;
   }
 
   private getReExtractPrompt(schema: SchemaEntity | null, override?: string): string {
-    if (override) {
-      return override;
+    const base = (() => {
+      if (override) return override;
+      if (schema?.systemPromptTemplate) return schema.systemPromptTemplate;
+      return this.promptsService.getReExtractSystemPrompt();
+    })();
+
+    const promptRulesMarkdown = this.getPromptRulesMarkdown(schema);
+    if (!promptRulesMarkdown) {
+      return base;
     }
-    if (schema?.systemPromptTemplate) {
-      return schema.systemPromptTemplate;
+
+    return `${base}\n\nPrompt Rules (Markdown):\n${promptRulesMarkdown}`;
+  }
+
+  private getPromptRulesMarkdown(schema: SchemaEntity | null): string | undefined {
+    const raw = schema?.validationSettings as Record<string, unknown> | null | undefined;
+    const value = raw?.promptRulesMarkdown;
+    if (typeof value !== 'string') {
+      return undefined;
     }
-    return this.promptsService.getReExtractSystemPrompt();
+
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
   }
 
   private validateResult(data: Record<string, unknown>, requiredFields: string[]): ExtractionValidationResult {

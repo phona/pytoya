@@ -8,6 +8,7 @@ import { SchemasController } from './schemas.controller';
 import { SchemasService } from './schemas.service';
 import { SchemaGeneratorService } from './schema-generator.service';
 import { RuleGeneratorService } from './rule-generator.service';
+import { PromptRulesGeneratorService } from './prompt-rules-generator.service';
 
 describe('SchemasController', () => {
   let app: INestApplication;
@@ -29,6 +30,10 @@ describe('SchemasController', () => {
   };
 
   const ruleGeneratorService = {
+    generate: jest.fn(),
+  };
+
+  const promptRulesGeneratorService = {
     generate: jest.fn(),
   };
 
@@ -54,6 +59,7 @@ describe('SchemasController', () => {
         { provide: SchemasService, useValue: schemasService },
         { provide: SchemaGeneratorService, useValue: schemaGeneratorService },
         { provide: RuleGeneratorService, useValue: ruleGeneratorService },
+        { provide: PromptRulesGeneratorService, useValue: promptRulesGeneratorService },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -128,5 +134,23 @@ describe('SchemasController', () => {
     expect(response.body.rules).toHaveLength(1);
     expect(schemasService.findOne).toHaveBeenCalledWith(1);
     expect(ruleGeneratorService.generate).toHaveBeenCalled();
+  });
+
+  it('generates prompt rules markdown from saved schema', async () => {
+    schemasService.findOne.mockResolvedValue(schema);
+    promptRulesGeneratorService.generate.mockResolvedValue('## OCR Corrections\n- O -> 0');
+
+    const response = await request(app.getHttpServer())
+      .post('/schemas/1/generate-prompt-rules')
+      .send({
+        modelId: 'llm-1',
+        prompt: 'Add OCR corrections for numeric tokens',
+        currentRulesMarkdown: '## OCR Corrections\n- l -> 1',
+      })
+      .expect(201);
+
+    expect(response.body.rulesMarkdown).toContain('## OCR Corrections');
+    expect(schemasService.findOne).toHaveBeenCalledWith(1);
+    expect(promptRulesGeneratorService.generate).toHaveBeenCalled();
   });
 });

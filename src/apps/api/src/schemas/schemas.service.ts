@@ -134,27 +134,59 @@ export class SchemasService {
 
   validateWithRequiredFields(
     dto: ValidateSchemaDto,
-  ): { valid: boolean; errors?: string[] } {
-    const result = this.validateData(dto);
+  ): { valid: boolean; errors?: string[]; missingFields?: string[] } {
+    if (!dto.data) {
+      throw new BadRequestException('Validation data is required');
+    }
 
-    if (!result.valid) {
-      return result;
+    const validate = this.ajv.compile(dto.jsonSchema);
+    const valid = validate(dto.data);
+
+    const errors =
+      validate.errors?.map((err) => {
+        const path = err.instancePath || 'root';
+        return `${path}: ${err.message}`;
+      }) ?? [];
+
+    const missingFieldsFromAjv =
+      validate.errors
+        ?.filter((err) => err.keyword === 'required')
+        .map((err) => {
+          const missingProperty = (err.params as Record<string, unknown> | undefined)?.[
+            'missingProperty'
+          ] as string | undefined;
+          if (!missingProperty) {
+            return null;
+          }
+          const instancePath = (err.instancePath ?? '').replace(/^\//, '').replace(/\//g, '.');
+          return instancePath ? `${instancePath}.${missingProperty}` : missingProperty;
+        })
+        .filter(Boolean) as string[] | undefined;
+
+    if (!valid) {
+      return {
+        valid: false,
+        errors: errors.length > 0 ? errors : undefined,
+        missingFields: missingFieldsFromAjv && missingFieldsFromAjv.length > 0 ? missingFieldsFromAjv : undefined,
+      };
     }
 
     // Check required fields
-    const errors: string[] = result.errors ?? [];
+    const missingFields: string[] = [];
     const requiredFields = this.deriveRequiredFields(dto.jsonSchema);
 
     for (const field of requiredFields) {
       const value = this.getNestedValue(dto.data!, field);
       if (value === undefined || value === null || value === '') {
         errors.push(`Required field '${field}' is missing or empty`);
+        missingFields.push(field);
       }
     }
 
     return {
       valid: errors.length === 0,
       errors: errors.length > 0 ? errors : undefined,
+      missingFields: missingFields.length > 0 ? missingFields : undefined,
     };
   }
 

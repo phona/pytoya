@@ -4,6 +4,7 @@ import {
   CreateSchemaDto,
   CreateSchemaRuleDto,
   GenerateRulesDto,
+  GeneratePromptRulesMarkdownDto,
   GenerateSchemaDto,
   ImportSchemaDto,
   type Schema,
@@ -140,6 +141,13 @@ export function useGenerateSchema() {
 export function useGenerateRules(schemaId: number) {
   return useMutation({
     mutationFn: (data: GenerateRulesDto) => schemasApi.generateRules(schemaId, data),
+  });
+}
+
+export function useGeneratePromptRulesMarkdown(schemaId: number) {
+  return useMutation({
+    mutationFn: (data: GeneratePromptRulesMarkdownDto) =>
+      schemasApi.generatePromptRulesMarkdown(schemaId, data),
   });
 }
 

@@ -54,6 +54,7 @@ describe('SchemasService', () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors?.[0]).toMatch(/required property/i);
+    expect(result.missingFields).toEqual(['invoice.po_no']);
   });
 
   it('throws when validation data is missing', () => {

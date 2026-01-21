@@ -55,6 +55,18 @@ export interface ImportSchemaResult {
   errors?: SchemaValidationError[];
 }
 
+export interface GeneratePromptRulesMarkdownDto {
+  modelId: string;
+  prompt: string;
+  currentRulesMarkdown?: string;
+  previousCandidateMarkdown?: string;
+  feedback?: string;
+}
+
+export interface GeneratePromptRulesMarkdownResult {
+  rulesMarkdown: string;
+}
+
 export const schemasApi = {
   // Schemas
   listSchemas: async () => {
@@ -120,6 +132,14 @@ export const schemasApi = {
 
   generateRulesFromSchema: async (data: GenerateRulesDto) => {
     const response = await apiClient.post<{ rules: GeneratedSchemaRule[] }>('/schemas/generate-rules', data);
+    return response.data;
+  },
+
+  generatePromptRulesMarkdown: async (schemaId: number, data: GeneratePromptRulesMarkdownDto) => {
+    const response = await apiClient.post<GeneratePromptRulesMarkdownResult>(
+      `/schemas/${schemaId}/generate-prompt-rules`,
+      data,
+    );
     return response.data;
   },
 

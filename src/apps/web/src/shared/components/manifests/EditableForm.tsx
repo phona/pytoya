@@ -1,33 +1,68 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
 import { Manifest, ManifestItem } from '@/api/manifests';
 
 interface EditableFormProps {
   manifest: Manifest;
   items: ManifestItem[];
+  extractionHintMap?: Record<string, string>;
   onSave: (data: Partial<Manifest>) => void;
   onReExtractField: (fieldName: string) => void;
 }
 
-export function EditableForm({ manifest, items, onSave, onReExtractField }: EditableFormProps) {
-  const extractedData = (manifest.extractedData ?? {}) as ExtractedData;
+function buildInitialFormData({
+  humanVerified,
+  extractedData,
+  items,
+}: {
+  humanVerified: boolean;
+  extractedData: ExtractedData;
+  items: ManifestItem[];
+}) {
+  const resolvedItems = items.length > 0 ? items : (extractedData.items ?? []);
 
-  const [formData, setFormData] = useState({
+  return {
     department: extractedData.department?.code || '',
     invoice: {
       po_no: extractedData.invoice?.po_no || '',
       invoice_date: extractedData.invoice?.invoice_date || '',
       usage: extractedData.invoice?.usage || '',
     },
-    human_checked: manifest.humanVerified || false,
-    items: items || [],
-  });
+    human_checked: humanVerified,
+    items: resolvedItems,
+  };
+}
+
+type FormData = ReturnType<typeof buildInitialFormData>;
+
+export function EditableForm({ manifest, items, extractionHintMap, onSave, onReExtractField }: EditableFormProps) {
+  const manifestId = manifest.id;
+  const humanVerified = manifest.humanVerified || false;
+  const rawExtractedData = (manifest.extractedData ?? null) as ExtractedData | null;
+  const extractedData = useMemo<ExtractedData>(() => (rawExtractedData ?? {}) as ExtractedData, [rawExtractedData]);
 
   const [unsavedChanges, setUnsavedChanges] = useState(false);
+  const initialFormData = useMemo<FormData>(
+    () =>
+      buildInitialFormData({
+        humanVerified,
+        extractedData,
+        items,
+      }),
+    [extractedData, humanVerified, items],
+  );
+  const [formData, setFormData] = useState<FormData>(() => initialFormData);
+
+  useEffect(() => {
+    if (unsavedChanges) {
+      return;
+    }
+    setFormData(initialFormData);
+  }, [initialFormData, unsavedChanges]);
 
   const handleSave = useCallback(() => {
     const updatedData = {
-      ...manifest.extractedData,
+      ...(manifest.extractedData ?? {}),
       department: { code: formData.department },
       invoice: formData.invoice,
       items: formData.items,
@@ -88,7 +123,7 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
           quantity: 0,
           unitPrice: 0,
           totalPrice: 0,
-          manifestId: manifest.id,
+          manifestId,
         },
       ],
     }));
@@ -114,6 +149,14 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
     return 'border-[color:var(--status-failed-text)]';
   };
 
+  const getHint = useCallback((fieldPath: string): string | undefined => {
+    const trimmed = fieldPath.trim();
+    if (!trimmed || !extractionHintMap) {
+      return undefined;
+    }
+    return extractionHintMap[trimmed];
+  }, [extractionHintMap]);
+
   return (
     <div className="p-6 space-y-6">
       {/* Extraction Info */}
@@ -127,8 +170,9 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
         label="Department Code"
         value={formData.department}
         onChange={(value) => handleFieldChange('department', value)}
-        onReExtract={() => onReExtractField('department')}
-        confidenceColor={getConfidenceColor('department')}
+        onReExtract={() => onReExtractField('department.code')}
+        confidenceColor={getConfidenceColor('department.code')}
+        hint={getHint('department.code') ?? getHint('department')}
       />
 
       {/* Invoice Fields */}
@@ -142,6 +186,7 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
           onChange={(value) => handleFieldChange('invoice.po_no', value)}
           onReExtract={() => onReExtractField('invoice.po_no')}
           confidenceColor={getConfidenceColor('invoice.po_no')}
+          hint={getHint('invoice.po_no')}
         />
 
         <FormField
@@ -152,6 +197,7 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
           onChange={(value) => handleFieldChange('invoice.invoice_date', value)}
           onReExtract={() => onReExtractField('invoice.invoice_date')}
           confidenceColor={getConfidenceColor('invoice.invoice_date')}
+          hint={getHint('invoice.invoice_date')}
         />
 
         <FormField
@@ -161,6 +207,7 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
           onChange={(value) => handleFieldChange('invoice.usage', value)}
           onReExtract={() => onReExtractField('invoice.usage')}
           confidenceColor={getConfidenceColor('invoice.usage')}
+          hint={getHint('invoice.usage')}
         />
       </div>
 
@@ -175,6 +222,11 @@ export function EditableForm({ manifest, items, onSave, onReExtractField }: Edit
             + Add Item
           </button>
         </div>
+        {getHint('items') && (
+          <p className="text-xs text-muted-foreground">
+            hint: {getHint('items')}
+          </p>
+        )}
 
         {formData.items.map((item, index) => (
           <ItemCard
@@ -224,6 +276,7 @@ interface FormFieldProps {
   onChange: (value: string) => void;
   onReExtract: () => void;
   confidenceColor: string;
+  hint?: string;
 }
 
 function FormField({
@@ -234,6 +287,7 @@ function FormField({
   onChange,
   onReExtract,
   confidenceColor,
+  hint,
 }: FormFieldProps) {
   return (
     <div>
@@ -257,6 +311,11 @@ function FormField({
         onChange={(e) => onChange(e.target.value)}
         className={`w-full border-l-4 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-ring focus:border-ring ${confidenceColor}`}
       />
+      {hint && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          hint: {hint}
+        </p>
+      )}
     </div>
   );
 }

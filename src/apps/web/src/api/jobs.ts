@@ -27,4 +27,12 @@ export const jobsApi = {
     });
     return response.data;
   },
+
+  cancelJob: async (jobId: string, reason?: string) => {
+    const response = await apiClient.post<{ canceled: boolean; removedFromQueue: boolean; state: string }>(
+      `/jobs/${jobId}/cancel`,
+      { reason },
+    );
+    return response.data;
+  },
 };

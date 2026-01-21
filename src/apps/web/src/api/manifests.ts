@@ -6,6 +6,8 @@ import type {
   ManifestResponseDto,
   UpdateManifestDto,
   OcrResultResponseDto,
+  ManifestExtractionHistoryEntryDto,
+  ManifestExtractionHistoryEntryDetailsDto,
   CostEstimateDto,
   BulkExtractDto,
   ReExtractFieldPreviewDto,
@@ -17,6 +19,8 @@ export type Manifest = Jsonify<ManifestResponseDto>;
 export type ManifestListResponse = Jsonify<ManifestListResponseDto>;
 export type { UpdateManifestDto };
 export type OcrResultResponse = Jsonify<OcrResultResponseDto>;
+export type ManifestExtractionHistoryEntry = Jsonify<ManifestExtractionHistoryEntryDto>;
+export type ManifestExtractionHistoryEntryDetails = Jsonify<ManifestExtractionHistoryEntryDetailsDto>;
 export type CostEstimate = Jsonify<CostEstimateDto>;
 export type ReExtractFieldPreviewResponse = Jsonify<ReExtractFieldPreviewResponseDto>;
 
@@ -129,6 +133,21 @@ export const manifestsApi = {
     return response.data;
   },
 
+  getExtractionHistory: async (manifestId: number, params?: { limit?: number }) => {
+    const response = await apiClient.get<ManifestExtractionHistoryEntry[]>(
+      `/manifests/${manifestId}/extraction-history`,
+      { params },
+    );
+    return response.data;
+  },
+
+  getExtractionHistoryEntry: async (manifestId: number, jobId: number) => {
+    const response = await apiClient.get<ManifestExtractionHistoryEntryDetails>(
+      `/manifests/${manifestId}/extraction-history/${jobId}`,
+    );
+    return response.data;
+  },
+
   // Upload single file
   uploadManifest: async (groupId: number, file: File, onProgress?: (progress: number) => void) => {
     const formData = new FormData();
@@ -184,6 +203,13 @@ export const manifestsApi = {
   // Get PDF file URL
   getPdfUrl: (manifestId: number) => {
     return `${apiClient.defaults.baseURL}/manifests/${manifestId}/pdf`;
+  },
+
+  getPdfFileBlob: async (manifestId: number) => {
+    const response = await apiClient.get<Blob>(`/manifests/${manifestId}/pdf-file`, {
+      responseType: 'blob',
+    });
+    return response.data;
   },
 
   // Trigger extraction

@@ -8,20 +8,24 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateSchemaDto } from './dto/create-schema.dto';
 import { GenerateRulesDto } from './dto/generate-rules.dto';
 import { GenerateSchemaDto } from './dto/generate-schema.dto';
+import { GeneratePromptRulesDto } from './dto/generate-prompt-rules.dto';
 import { ImportSchemaDto } from './dto/import-schema.dto';
 import { SchemaResponseDto } from './dto/schema-response.dto';
 import { UpdateSchemaDto } from './dto/update-schema.dto';
 import { ValidateSchemaDto } from './dto/validate-schema.dto';
+import { PromptRulesGeneratorService } from './prompt-rules-generator.service';
 import { RuleGeneratorService } from './rule-generator.service';
 import { SchemaGeneratorService } from './schema-generator.service';
 import { SchemasService } from './schemas.service';
@@ -33,6 +37,7 @@ export class SchemasController {
     private readonly schemasService: SchemasService,
     private readonly schemaGeneratorService: SchemaGeneratorService,
     private readonly ruleGeneratorService: RuleGeneratorService,
+    private readonly promptRulesGeneratorService: PromptRulesGeneratorService,
   ) {}
 
   @Post()
@@ -95,6 +100,45 @@ export class SchemasController {
     const schema = await this.schemasService.findOne(id);
     const rules = await this.ruleGeneratorService.generate(schema, generateRulesDto);
     return { rules };
+  }
+
+  @Post(':id/generate-prompt-rules')
+  async generatePromptRulesMarkdown(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() generatePromptRulesDto: GeneratePromptRulesDto,
+  ) {
+    const schema = await this.schemasService.findOne(id);
+    const rulesMarkdown = await this.promptRulesGeneratorService.generate(schema, generatePromptRulesDto);
+    return { rulesMarkdown };
+  }
+
+  @Post(':id/generate-prompt-rules/stream')
+  async generatePromptRulesMarkdownStream(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() generatePromptRulesDto: GeneratePromptRulesDto,
+    @Res() res: Response,
+  ) {
+    const schema = await this.schemasService.findOne(id);
+
+    res.status(200);
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+
+    res.write(JSON.stringify({ type: 'start' }) + '\n');
+
+    try {
+      for await (const chunk of this.promptRulesGeneratorService.generateStream(schema, generatePromptRulesDto)) {
+        res.write(JSON.stringify({ type: 'delta', content: chunk }) + '\n');
+      }
+      res.write(JSON.stringify({ type: 'done' }) + '\n');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error ?? 'Unknown error');
+      res.write(JSON.stringify({ type: 'error', message }) + '\n');
+    } finally {
+      res.end();
+    }
   }
 
   @Post('import')

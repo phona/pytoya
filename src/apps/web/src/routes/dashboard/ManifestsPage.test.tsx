@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, it, vi } from 'vitest';
 import { Routes, Route } from 'react-router-dom';
 import { server } from '@/tests/mocks/server';
 import { ManifestsPage } from './ManifestsPage';
+import { ManifestAuditPage } from './ManifestAuditPage';
 
 vi.mock('@/shared/hooks/use-websocket', () => ({
   useWebSocket: () => ({
@@ -16,7 +17,12 @@ vi.mock('@/shared/hooks/use-websocket', () => ({
 }));
 
 vi.mock('@/shared/components/manifests/AuditPanel', () => ({
-  AuditPanel: () => <div>Audit Content</div>,
+  AuditPanel: ({ onClose }: { onClose: () => void }) => (
+    <div>
+      <div>Audit Content</div>
+      <button onClick={onClose}>Close Audit</button>
+    </div>
+  ),
 }));
 
 vi.mock('@/shared/components/UploadDialog', () => ({
@@ -67,13 +73,14 @@ describe('ManifestsPage', () => {
     server.close();
   });
 
-  it('opens audit panel in dialog', async () => {
+  it('navigates to manifest audit page', async () => {
     setupHandlers();
 
     await act(async () => {
       renderWithProviders(
         <Routes>
           <Route path="/projects/:id/groups/:groupId/manifests" element={<ManifestsPage />} />
+          <Route path="/projects/:id/groups/:groupId/manifests/:manifestId" element={<ManifestAuditPage />} />
         </Routes>,
         { route: '/projects/1/groups/2/manifests' },
       );
@@ -85,14 +92,12 @@ describe('ManifestsPage', () => {
       fireEvent.click(screen.getByText('invoice.pdf'));
     });
 
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText('Manifest Audit')).toBeInTheDocument();
     expect(screen.getByText('Audit Content')).toBeInTheDocument();
 
-    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.click(screen.getByText('Close Audit'));
 
     await waitFor(() => {
-      expect(screen.queryByText('Manifest Audit')).not.toBeInTheDocument();
+      expect(screen.getByText('invoice.pdf')).toBeInTheDocument();
     });
   });
 });

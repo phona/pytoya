@@ -64,6 +64,22 @@ export interface LlmChatCompletionRequest {
   temperature?: number;
   max_tokens?: number;
   response_format?: LlmResponseFormat;
+  stream?: boolean;
+}
+
+export interface LlmChatCompletionStreamChoice {
+  index: number;
+  delta?: {
+    role?: LlmRole;
+    content?: string | null;
+  };
+  finish_reason?: string | null;
+}
+
+export interface LlmChatCompletionStreamChunk {
+  id?: string;
+  model?: string;
+  choices?: LlmChatCompletionStreamChoice[];
 }
 
 export interface LlmChatCompletionChoice {

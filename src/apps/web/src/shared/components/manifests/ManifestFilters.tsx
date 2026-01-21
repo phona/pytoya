@@ -279,10 +279,10 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
         </Select>
       </div>
 
-      {/* OCR Quality */}
+      {/* Text Quality */}
       <div className="mb-4">
         <label htmlFor="filter-ocr-quality" className="block text-sm font-medium text-foreground mb-2">
-          OCR Quality
+          Text Quality
         </label>
         <Select value={ocrQualityValue} onValueChange={handleOcrQualityChange}>
           <SelectTrigger id="filter-ocr-quality">
@@ -551,4 +551,3 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
     </div>
   );
 }
-

@@ -1,9 +1,12 @@
-import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { In, Repository, SelectQueryBuilder } from 'typeorm';
 
 import { JobEntity, JobStatus } from '../entities/job.entity';
 import { ManifestEntity, ManifestStatus, FileType } from '../entities/manifest.entity';
+import { ManifestItemEntity } from '../entities/manifest-item.entity';
+import { ModelEntity } from '../entities/model.entity';
+import { PromptEntity } from '../entities/prompt.entity';
 import { UserEntity, UserRole } from '../entities/user.entity';
 import { GroupsService } from '../groups/groups.service';
 import { IFileAccessService } from '../file-access/file-access.service';
@@ -24,6 +27,8 @@ import {
 } from './utils/json-path.util';
 import { OcrResultDto } from './dto/ocr-result.dto';
 import { OcrContextPreviewDto } from './dto/re-extract-field-preview.dto';
+import { ManifestExtractionHistoryEntryDto } from './dto/manifest-extraction-history.dto';
+import { ManifestExtractionHistoryEntryDetailsDto } from './dto/manifest-extraction-history-details.dto';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const DEFAULT_PAGE_SIZE = 25;
@@ -58,8 +63,14 @@ export class ManifestsService {
   constructor(
     @InjectRepository(ManifestEntity)
     private readonly manifestRepository: Repository<ManifestEntity>,
+    @InjectRepository(ManifestItemEntity)
+    private readonly manifestItemRepository: Repository<ManifestItemEntity>,
     @InjectRepository(JobEntity)
     private readonly jobRepository: Repository<JobEntity>,
+    @InjectRepository(ModelEntity)
+    private readonly modelRepository: Repository<ModelEntity>,
+    @InjectRepository(PromptEntity)
+    private readonly promptRepository: Repository<PromptEntity>,
     private readonly groupsService: GroupsService,
     private readonly storageService: StorageService,
     private readonly textExtractorService: TextExtractorService,
@@ -163,6 +174,17 @@ export class ManifestsService {
     return manifest;
   }
 
+  async findItems(
+    user: UserEntity,
+    manifestId: number,
+  ): Promise<ManifestItemEntity[]> {
+    await this.findOne(user, manifestId);
+    return this.manifestItemRepository.find({
+      where: { manifestId },
+      order: { id: 'ASC' },
+    });
+  }
+
   async findManyByIds(
     user: UserEntity,
     ids: number[],
@@ -204,6 +226,90 @@ export class ManifestsService {
     Object.assign(manifest, input);
 
     return this.manifestRepository.save(manifest);
+  }
+
+  async listExtractionHistory(
+    user: UserEntity,
+    manifestId: number,
+    options: { limit?: number } = {},
+  ): Promise<ManifestExtractionHistoryEntryDto[]> {
+    await this.findOne(user, manifestId);
+
+    const limit = this.normalizeHistoryLimit(options.limit);
+
+    const jobs = await this.jobRepository.find({
+      where: { manifestId },
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+
+    const modelIds = Array.from(
+      new Set(
+        jobs
+          .map((job) => job.llmModelId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    const promptIds = Array.from(
+      new Set(
+        jobs
+          .map((job) => job.promptId)
+          .filter((id): id is number => typeof id === 'number'),
+      ),
+    );
+
+    const [models, prompts] = await Promise.all([
+      modelIds.length > 0
+        ? this.modelRepository.find({ where: { id: In(modelIds) } })
+        : Promise.resolve([]),
+      promptIds.length > 0
+        ? this.promptRepository.find({ where: { id: In(promptIds) } })
+        : Promise.resolve([]),
+    ]);
+
+    const modelNameById = new Map(models.map((model) => [model.id, model.name]));
+    const promptNameById = new Map(prompts.map((prompt) => [prompt.id, prompt.name]));
+
+    return jobs.map((job) =>
+      ManifestExtractionHistoryEntryDto.fromEntity(job, {
+        llmModelName: job.llmModelId ? modelNameById.get(job.llmModelId) : null,
+        promptName: job.promptId ? promptNameById.get(job.promptId) : null,
+      }),
+    );
+  }
+
+  async getExtractionHistoryEntry(
+    user: UserEntity,
+    manifestId: number,
+    jobId: number,
+  ): Promise<ManifestExtractionHistoryEntryDetailsDto> {
+    await this.findOne(user, manifestId);
+
+    const job = await this.jobRepository.findOne({
+      where: { id: jobId, manifestId },
+    });
+    if (!job) {
+      throw new NotFoundException(`Extraction job ${jobId} not found for manifest ${manifestId}`);
+    }
+
+    const [model, prompt] = await Promise.all([
+      job.llmModelId ? this.modelRepository.findOne({ where: { id: job.llmModelId } }) : Promise.resolve(null),
+      job.promptId ? this.promptRepository.findOne({ where: { id: job.promptId } }) : Promise.resolve(null),
+    ]);
+
+    return ManifestExtractionHistoryEntryDetailsDto.fromEntity(job, {
+      llmModelName: model?.name ?? null,
+      promptName: prompt?.name ?? null,
+      promptTemplateContent: prompt?.content ?? null,
+    });
+  }
+
+  private normalizeHistoryLimit(limit?: number): number {
+    const resolved = limit ?? 25;
+    if (resolved < 1) {
+      return 1;
+    }
+    return Math.min(resolved, 100);
   }
 
   async remove(user: UserEntity, id: number): Promise<ManifestEntity> {
@@ -503,6 +609,106 @@ export class ManifestsService {
     job.completedAt = new Date();
     if (!job.startedAt) {
       job.startedAt = new Date();
+    }
+    if (attemptCount !== undefined) {
+      job.attemptCount = attemptCount;
+    }
+
+    return this.jobRepository.save(job);
+  }
+
+  async updateJobPromptSnapshot(
+    queueJobId: string,
+    systemPrompt: string | null,
+    userPrompt: string | null,
+  ): Promise<JobEntity | null> {
+    const job = await this.jobRepository.findOne({
+      where: { queueJobId },
+    });
+    if (!job) {
+      return null;
+    }
+
+    job.systemPrompt = systemPrompt;
+    job.userPrompt = userPrompt;
+
+    return this.jobRepository.save(job);
+  }
+
+  async updateJobAssistantResponse(
+    queueJobId: string,
+    assistantResponse: string,
+  ): Promise<JobEntity | null> {
+    const job = await this.jobRepository.findOne({
+      where: { queueJobId },
+    });
+    if (!job) {
+      return null;
+    }
+
+    job.assistantResponse = assistantResponse;
+    return this.jobRepository.save(job);
+  }
+
+  async requestJobCancel(
+    queueJobId: string,
+    reason?: string,
+  ): Promise<JobEntity | null> {
+    const job = await this.jobRepository.findOne({
+      where: { queueJobId },
+    });
+    if (!job) {
+      return null;
+    }
+
+    if (!job.cancelRequestedAt) {
+      job.cancelRequestedAt = new Date();
+    }
+    if (reason !== undefined) {
+      job.cancelReason = reason || null;
+    }
+
+    return this.jobRepository.save(job);
+  }
+
+  async getJobCancelRequest(queueJobId: string): Promise<{ requested: boolean; reason?: string }> {
+    const job = await this.jobRepository.findOne({
+      where: { queueJobId },
+      select: ['cancelRequestedAt', 'cancelReason'],
+    });
+
+    return {
+      requested: Boolean(job?.cancelRequestedAt),
+      reason: job?.cancelReason ?? undefined,
+    };
+  }
+
+  async markJobCanceled(
+    queueJobId: string,
+    reason?: string,
+    attemptCount?: number,
+  ): Promise<JobEntity | null> {
+    const job = await this.jobRepository.findOne({
+      where: { queueJobId },
+    });
+    if (!job) {
+      return null;
+    }
+
+    const message = reason ? `Canceled: ${reason}` : 'Canceled';
+
+    job.status = JobStatus.FAILED;
+    job.error = message;
+    job.canceledAt = new Date();
+    job.completedAt = new Date();
+    if (!job.startedAt) {
+      job.startedAt = new Date();
+    }
+    if (!job.cancelRequestedAt) {
+      job.cancelRequestedAt = new Date();
+    }
+    if (job.cancelReason === null || job.cancelReason === undefined) {
+      job.cancelReason = reason ?? null;
     }
     if (attemptCount !== undefined) {
       job.attemptCount = attemptCount;

@@ -364,7 +364,7 @@ export function SchemaTestMode({
                           e.stopPropagation();
                           onPreviewOcr(manifest.id);
                         }}
-                        title="Preview OCR"
+                        title="Preview Text"
                       >
                         <Eye className="h-3 w-3" />
                       </Button>

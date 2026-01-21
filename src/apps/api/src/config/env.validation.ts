@@ -60,6 +60,10 @@ class JwtConfig {
 class PaddleocrConfig {
   @IsString()
   baseUrl!: string;
+
+  @IsOptional()
+  @IsString()
+  endpoint?: string;
 }
 
 class LlmConfig {

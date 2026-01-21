@@ -49,11 +49,11 @@ describe('QuickOcrPeek', () => {
       vi.advanceTimersByTime(500);
     });
 
-    expect(screen.getByText('OCR Peek')).toBeInTheDocument();
+    expect(screen.getByText('Text Peek')).toBeInTheDocument();
     expect(screen.getByText('Excellent')).toBeInTheDocument();
     expect(screen.getByText(/Sample OCR text/i)).toBeInTheDocument();
 
-    const viewButton = screen.getByRole('button', { name: /View Full OCR/i });
+    const viewButton = screen.getByRole('button', { name: /View Text Details/i });
     fireEvent.click(viewButton);
     expect(onViewFull).toHaveBeenCalledTimes(1);
   });

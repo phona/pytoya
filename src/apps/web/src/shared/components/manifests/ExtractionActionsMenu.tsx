@@ -1,0 +1,88 @@
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { History, MoreVertical, Settings2 } from 'lucide-react';
+import { Button } from '@/shared/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/shared/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { useManifestExtractionHistory } from '@/shared/hooks/use-manifests';
+import { ExtractionHistoryPanel } from './ExtractionHistoryPanel';
+
+type ExtractionActionsMenuProps = {
+  projectId?: number | null;
+  manifestId: number;
+  manifestName?: string;
+};
+
+export function ExtractionActionsMenu({ projectId, manifestId, manifestName }: ExtractionActionsMenuProps) {
+  const navigate = useNavigate();
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const historyQuery = useManifestExtractionHistory(manifestId, {
+    limit: 50,
+    enabled: historyOpen,
+  });
+
+  const history = useMemo(() => historyQuery.data ?? [], [historyQuery.data]);
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground"
+            title="Extraction actions"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+          <DropdownMenuItem onSelect={() => setHistoryOpen(true)}>
+            <History className="h-4 w-4" />
+            View extraction history/details
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            disabled={!projectId}
+            onSelect={() => {
+              if (!projectId) return;
+              navigate(`/projects/${projectId}/settings/rules`);
+            }}
+          >
+            <Settings2 className="h-4 w-4" />
+            Update extraction rules
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent
+          className="left-auto right-0 top-0 h-screen max-h-none w-full max-w-2xl translate-x-0 translate-y-0 rounded-none"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <DialogHeader>
+            <DialogTitle>
+              Extraction History{manifestName ? `: ${manifestName}` : ''}
+            </DialogTitle>
+          </DialogHeader>
+
+          <ExtractionHistoryPanel
+            manifestId={manifestId}
+            manifestName={manifestName ?? `manifest-${manifestId}`}
+            history={history}
+            loading={historyQuery.isLoading}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+

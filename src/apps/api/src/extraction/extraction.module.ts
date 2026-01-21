@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { ManifestEntity } from '../entities/manifest.entity';
+import { ExtractorEntity } from '../entities/extractor.entity';
 import { ModelEntity } from '../entities/model.entity';
 import { PromptEntity } from '../entities/prompt.entity';
 import { SchemaEntity } from '../entities/schema.entity';
@@ -20,6 +21,7 @@ import { ManifestExtractionProcessor } from './processors/manifest-extraction.pr
   imports: [
     TypeOrmModule.forFeature([
       ManifestEntity,
+      ExtractorEntity,
       ModelEntity,
       PromptEntity,
       SchemaEntity,

@@ -6,16 +6,8 @@ import { useExportSelectedToCsv } from '@/shared/hooks/use-manifests';
 import { useQueryClient } from '@tanstack/react-query';
 import { ManifestList } from '@/shared/components/manifests/ManifestList';
 import { ManifestFilters } from '@/shared/components/manifests/ManifestFilters';
-import { AuditPanel } from '@/shared/components/manifests/AuditPanel';
 import { UploadDialog } from '@/shared/components/UploadDialog';
 import { ManifestFilterValues, ManifestSort } from '@/shared/types/manifests';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 
@@ -30,7 +22,6 @@ export function ManifestsPage() {
   const [pageSize, setPageSize] = useState(25);
   const exportSelectedToCsv = useExportSelectedToCsv();
 
-  const [selectedManifestId, setSelectedManifestId] = useState<number | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const [filters, setFilters] = useState<ManifestFilterValues>({});
@@ -68,11 +59,9 @@ export function ManifestsPage() {
   };
 
   const handleSelectManifest = (manifestId: number) => {
-    setSelectedManifestId(manifestId);
-  };
-
-  const handleCloseAudit = () => {
-    setSelectedManifestId(null);
+    navigate(`/projects/${projectId}/groups/${groupId}/manifests/${manifestId}`, {
+      state: { allManifestIds: manifests.map((m: { id: number }) => m.id) },
+    });
   };
 
   const handleBatchExport = async (manifestIds: number[]) => {
@@ -94,7 +83,7 @@ export function ManifestsPage() {
   const handleBatchReExtract = (manifestIds: number[]) => {
     // This would trigger re-extraction for selected manifests
     // Implementation depends on backend API
-    console.log('Re-extracting manifests:', manifestIds);
+    void manifestIds;
   };
 
   if (isLoading) {
@@ -185,6 +174,7 @@ export function ManifestsPage() {
           {/* Manifest List */}
           <div className="flex-1">
             <ManifestList
+              projectId={projectId}
               manifests={manifests}
               totalManifests={meta?.total ?? 0}
               sort={sort}
@@ -203,31 +193,6 @@ export function ManifestsPage() {
           </div>
         </div>
       </div>
-
-      <Dialog
-        open={selectedManifestId !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            handleCloseAudit();
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-6xl">
-          <DialogHeader>
-            <DialogTitle>Manifest Audit</DialogTitle>
-            <DialogDescription className="sr-only">
-              Review extracted data and audit details for the selected manifest.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedManifestId ? (
-            <AuditPanel
-              manifestId={selectedManifestId}
-              onClose={handleCloseAudit}
-              allManifestIds={manifests.map((m: { id: number }) => m.id)}
-            />
-          ) : null}
-        </DialogContent>
-      </Dialog>
 
       <UploadDialog
         groupId={groupId}

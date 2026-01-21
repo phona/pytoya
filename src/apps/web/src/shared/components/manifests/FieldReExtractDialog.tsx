@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Copy, Eye, EyeOff, RefreshCw, X } from 'lucide-react';
 import { useReExtractFieldPreview } from '@/shared/hooks/use-manifests';
 import { useModels } from '@/shared/hooks/use-models';
@@ -22,6 +22,8 @@ interface FieldReExtractDialogProps {
   onClose: () => void;
   manifestId: number;
   fieldName: string;
+  fieldHint?: string;
+  defaultModelId?: string;
   currentValue?: unknown;
   ocrContext?: string;
   onSubmit?: (jobId: string) => void;
@@ -32,6 +34,8 @@ export function FieldReExtractDialog({
   onClose,
   manifestId,
   fieldName,
+  fieldHint,
+  defaultModelId,
   currentValue,
   ocrContext,
   onSubmit,
@@ -52,7 +56,32 @@ export function FieldReExtractDialog({
   const [showOcrContext, setShowOcrContext] = useState(true);
   const defaultPromptValue = '__default__';
 
-  const llmModels = models?.filter((m) => m.adapterType !== 'paddlex' && m.isActive) ?? [];
+  const llmModels = useMemo(
+    () => models?.filter((m) => m.adapterType !== 'paddlex' && m.isActive) ?? [],
+    [models],
+  );
+
+  const resolvedDefaultModelId = useMemo(() => {
+    if (defaultModelId && llmModels.some((m) => m.id === defaultModelId)) {
+      return defaultModelId;
+    }
+    return llmModels[0]?.id ?? '';
+  }, [defaultModelId, llmModels]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    setSelectedModelId(resolvedDefaultModelId);
+    setSelectedPromptId(undefined);
+    setCustomPrompt(fieldHint?.trim() ?? '');
+    setIncludeOcrContext(true);
+    setPreviewOnly(true);
+    setEstimatedCost(null);
+    setOcrPreview(null);
+    setShowOcrContext(true);
+  }, [fieldHint, open, resolvedDefaultModelId, fieldName]);
 
   const handlePreview = async () => {
     try {
@@ -269,6 +298,22 @@ export function FieldReExtractDialog({
             {/* Custom Prompt */}
             <div>
               <Label htmlFor="custom-prompt">Custom Instructions (Optional)</Label>
+              {fieldHint && (
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    hint: {fieldHint}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCustomPrompt(fieldHint)}
+                    disabled={isSubmitting}
+                  >
+                    Reset to hint
+                  </Button>
+                </div>
+              )}
               <Textarea
                 id="custom-prompt"
                 value={customPrompt}

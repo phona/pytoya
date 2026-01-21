@@ -5,6 +5,7 @@ import { useExtractionStore } from '@/shared/stores/extraction';
 import { WS_BASE_URL } from '@/api/client';
 
 interface JobUpdateEvent {
+  jobId?: string;
   manifestId: number;
   progress: number;
   status: string;
@@ -54,7 +55,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const socketRef = useRef<Socket | null>(null);
+  const connectingRef = useRef(false);
   const subscriptionsRef = useRef<Set<number>>(new Set());
+  const desiredSubscriptionsRef = useRef<Set<number>>(new Set());
 
   const {
     onJobUpdate,
@@ -72,8 +75,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
   // Connect to WebSocket
   useEffect(() => {
-    if (socketRef.current || isConnecting) return;
+    if (socketRef.current || connectingRef.current) return;
 
+    connectingRef.current = true;
     setIsConnecting(true);
 
     try {
@@ -81,7 +85,6 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
       const socket = io(`${WS_BASE_URL}/manifests`, {
         auth: token ? { token } : undefined,
-        transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
@@ -89,14 +92,23 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       });
 
       socket.on('connect', () => {
-        console.log('WebSocket connected');
         setIsConnected(true);
         setIsConnecting(false);
+        connectingRef.current = false;
+
+        // Resubscribe to any manifests that were requested before connection.
+        for (const manifestId of desiredSubscriptionsRef.current) {
+          socket.emit('subscribe-manifest', { manifestId }, (response: SubscriptionResponse) => {
+            if (response.event === 'subscribed') {
+              subscriptionsRef.current.add(manifestId);
+            }
+          });
+        }
+
         onConnect?.();
       });
 
       socket.on('disconnect', () => {
-        console.log('WebSocket disconnected');
         setIsConnected(false);
         onDisconnect?.();
       });
@@ -104,6 +116,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       socket.on('connect_error', (error) => {
         console.error('WebSocket connection error:', error);
         setIsConnecting(false);
+        connectingRef.current = false;
         onError?.(error);
       });
 
@@ -147,6 +160,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     } catch (error) {
       console.error('Failed to create WebSocket connection:', error);
       setIsConnecting(false);
+      connectingRef.current = false;
       onError?.(error as Error);
     }
 
@@ -155,9 +169,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         socketRef.current.disconnect();
         socketRef.current = null;
       }
+      connectingRef.current = false;
     };
   }, [
-    isConnecting,
     getAuthToken,
     onConnect,
     onDisconnect,
@@ -170,18 +184,16 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
   // Subscribe to manifest updates
   const subscribeToManifest = useCallback((manifestId: number) => {
+    desiredSubscriptionsRef.current.add(manifestId);
     const socket = socketRef.current;
     if (!socket || !socket.connected) {
-      console.warn('Cannot subscribe: WebSocket not connected');
       return;
     }
 
     if (subscriptionsRef.current.has(manifestId)) {
-      console.log(`Already subscribed to manifest ${manifestId}`);
       return;
     }
 
-    console.log(`Subscribing to manifest ${manifestId}`);
     socket.emit('subscribe-manifest', { manifestId }, (response: SubscriptionResponse) => {
       if (response.event === 'subscribed') {
         subscriptionsRef.current.add(manifestId);
@@ -191,18 +203,16 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
   // Unsubscribe from manifest updates
   const unsubscribeFromManifest = useCallback((manifestId: number) => {
+    desiredSubscriptionsRef.current.delete(manifestId);
     const socket = socketRef.current;
     if (!socket || !socket.connected) {
-      console.warn('Cannot unsubscribe: WebSocket not connected');
       return;
     }
 
     if (!subscriptionsRef.current.has(manifestId)) {
-      console.log(`Not subscribed to manifest ${manifestId}`);
       return;
     }
 
-    console.log(`Unsubscribing from manifest ${manifestId}`);
     socket.emit('unsubscribe-manifest', { manifestId }, (response: SubscriptionResponse) => {
       if (response.event === 'unsubscribed') {
         subscriptionsRef.current.delete(manifestId);
@@ -229,7 +239,6 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 }
 
 export type { JobUpdateEvent, ManifestUpdateEvent, OcrUpdateEvent };
-
 
 
 

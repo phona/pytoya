@@ -133,6 +133,33 @@ export function useOcrResult(manifestId: number, enabled = true) {
   });
 }
 
+export function useManifestExtractionHistory(manifestId: number, options: { limit?: number; enabled?: boolean } = {}) {
+  const enabled = options.enabled ?? true;
+  return useQuery({
+    queryKey: ['manifests', manifestId, 'extraction-history', options.limit],
+    queryFn: () => manifestsApi.getExtractionHistory(manifestId, { limit: options.limit }),
+    enabled: enabled && manifestId > 0,
+  });
+}
+
+export function useManifestExtractionHistoryEntry(
+  manifestId: number,
+  jobId: number | null,
+  options: { enabled?: boolean } = {},
+) {
+  const enabled = options.enabled ?? true;
+  return useQuery({
+    queryKey: ['manifests', manifestId, 'extraction-history', jobId],
+    queryFn: () => {
+      if (jobId === null) {
+        throw new Error('jobId is required');
+      }
+      return manifestsApi.getExtractionHistoryEntry(manifestId, jobId);
+    },
+    enabled: enabled && manifestId > 0 && jobId !== null,
+  });
+}
+
 export function useExtractBulk() {
   const queryClient = useQueryClient();
 

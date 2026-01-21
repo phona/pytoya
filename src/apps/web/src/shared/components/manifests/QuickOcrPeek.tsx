@@ -30,15 +30,15 @@ export function QuickOcrPeek({ manifestId, children, onViewFull }: QuickOcrPeekP
       </HoverCardTrigger>
       <HoverCardContent className="w-80 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-medium text-foreground">OCR Peek</div>
+          <div className="text-sm font-medium text-foreground">Text Peek</div>
           <Badge className="bg-muted text-muted-foreground">
             {getQualityLabel(data?.qualityScore ?? null)}
           </Badge>
         </div>
 
-        {isLoading && <p className="text-xs text-muted-foreground">Loading OCR...</p>}
+        {isLoading && <p className="text-xs text-muted-foreground">Loading text...</p>}
         {!isLoading && !ocrResult && (
-          <p className="text-xs text-muted-foreground">OCR not processed yet.</p>
+          <p className="text-xs text-muted-foreground">Text not processed yet.</p>
         )}
         {ocrResult && (
           <div className="space-y-2 text-xs text-muted-foreground">
@@ -66,7 +66,7 @@ export function QuickOcrPeek({ manifestId, children, onViewFull }: QuickOcrPeekP
         {onViewFull && (
           <Button size="sm" variant="outline" className="w-full" onClick={onViewFull}>
             <Eye className="mr-2 h-4 w-4" />
-            View Full OCR
+            View Text Details
           </Button>
         )}
       </HoverCardContent>

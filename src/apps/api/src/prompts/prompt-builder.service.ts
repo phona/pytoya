@@ -3,33 +3,46 @@ import { SchemaEntity } from '../entities/schema.entity';
 import { SchemaRuleEntity } from '../entities/schema-rule.entity';
 import { ExtractedData } from './types/prompts.types';
 
+export type ExtractionPromptParts = {
+  systemContext: string;
+  userInput: string;
+};
+
 @Injectable()
 export class PromptBuilderService {
   buildExtractionPrompt(
     ocrMarkdown: string,
     schema: SchemaEntity,
     rules: SchemaRuleEntity[],
-  ): string {
+    requiredFields?: string[],
+  ): ExtractionPromptParts {
     const header = [
-      'Extract structured data from the OCR text.',
-      'Return ONLY valid JSON that matches the JSON Schema.',
-      'Follow validation rules and extraction hints.',
+      'You extract structured data from OCR text provided by the user.',
+      'Use the JSON Schema, validation rules, validation settings, and extraction hints as the contract.',
+      'If OCR likely contains mistakes, correct them using the project prompt rules (Markdown) provided in the system prompt.',
+      'Do not invent values: use null when unknown.',
     ].join('\n');
 
     const schemaBlock = this.formatSchema(schema);
+    const requiredBlock = this.formatRequiredFields(requiredFields ?? schema.requiredFields ?? []);
     const rulesBlock = this.formatRules(rules);
     const settingsBlock = this.formatValidationSettings(schema);
 
-    return [
-      header,
-      schemaBlock,
-      rulesBlock,
-      settingsBlock,
-      'OCR Text:',
+    const systemContext = [header, schemaBlock, requiredBlock, rulesBlock, settingsBlock]
+      .filter(Boolean)
+      .join('\n\n');
+
+    const userInput = [
+      'Target:',
+      '- Extract all fields required by the contract.',
+      '',
+      'OCR Text (Markdown):',
       ocrMarkdown,
     ]
       .filter(Boolean)
-      .join('\n\n');
+      .join('\n');
+
+    return { systemContext, userInput };
   }
 
   buildReExtractPrompt(
@@ -39,41 +52,63 @@ export class PromptBuilderService {
     errorMessage: string | undefined,
     schema: SchemaEntity,
     rules: SchemaRuleEntity[],
-  ): string {
+    requiredFields?: string[],
+  ): ExtractionPromptParts {
     const header = [
-      'Re-extract the missing or incorrect fields from the OCR text.',
-      'Return ONLY valid JSON that matches the JSON Schema.',
+      'You are re-extracting data to fix validation issues.',
+      'Use the OCR text, the JSON Schema contract, and the validation rules/settings to correct the result.',
+      'Prefer minimal diffs: only change what is needed to satisfy the contract.',
     ].join('\n');
 
     const missing = (missingFields ?? [])
       .map((field) => `- ${field}`)
       .join('\n');
-    const errorBlock = errorMessage ? `Error: ${errorMessage}` : '';
+    const errorBlock = errorMessage ? `Validation error:\n${errorMessage}` : '';
     const previousBlock = JSON.stringify(previousResult, null, 2);
 
     const schemaBlock = this.formatSchema(schema);
+    const requiredBlock = this.formatRequiredFields(requiredFields ?? schema.requiredFields ?? []);
     const rulesBlock = this.formatRules(rules);
     const settingsBlock = this.formatValidationSettings(schema);
 
-    return [
+    const systemContext = [
       header,
       errorBlock,
-      missing ? `Missing fields:\n${missing}` : '',
       'Previous result:',
       previousBlock,
       schemaBlock,
+      requiredBlock,
       rulesBlock,
       settingsBlock,
-      'OCR Text:',
-      ocrMarkdown,
     ]
       .filter(Boolean)
       .join('\n\n');
+
+    const userInput = [
+      'Target:',
+      missing ? `- Re-extract ONLY these fields:\n${missing}` : '- Fix the data to satisfy the contract.',
+      '',
+      'OCR Text (Markdown):',
+      ocrMarkdown,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    return { systemContext, userInput };
   }
 
   private formatSchema(schema: SchemaEntity): string {
     const jsonSchema = JSON.stringify(schema.jsonSchema, null, 2);
     return `JSON Schema:\n${jsonSchema}`;
+  }
+
+  private formatRequiredFields(requiredFields: string[]): string {
+    const cleaned = [...new Set(requiredFields)].filter(Boolean);
+    if (cleaned.length === 0) {
+      return '';
+    }
+    const lines = cleaned.sort().map((field) => `- ${field}`);
+    return `Required fields (dot paths):\n${lines.join('\n')}`;
   }
 
   private formatRules(rules: SchemaRuleEntity[]): string {
@@ -95,7 +130,14 @@ export class PromptBuilderService {
     if (!schema.validationSettings) {
       return '';
     }
-    const settings = JSON.stringify(schema.validationSettings, null, 2);
+
+    const raw = schema.validationSettings as Record<string, unknown>;
+    const { promptRulesMarkdown: _promptRulesMarkdown, ...rest } = raw;
+    if (Object.keys(rest).length === 0) {
+      return '';
+    }
+
+    const settings = JSON.stringify(rest, null, 2);
     return `Validation Settings:\n${settings}`;
   }
 }

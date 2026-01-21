@@ -19,9 +19,9 @@ export type SettingsDropdownProps = {
 export function SettingsDropdown({ projectId, schemaId, onDelete }: SettingsDropdownProps) {
   const navigate = useNavigate();
   const hasSchema = Boolean(schemaId);
-  const schemaLink = schemaId ? `/schemas/${schemaId}?projectId=${projectId}` : null;
-  const rulesLink = schemaId ? `/schemas/${schemaId}?projectId=${projectId}&tab=rules` : null;
-  const scriptsLink = `/validation-scripts?projectId=${projectId}`;
+  const schemaLink = schemaId ? `/projects/${projectId}/settings/schema` : null;
+  const rulesLink = schemaId ? `/projects/${projectId}/settings/rules` : null;
+  const scriptsLink = `/projects/${projectId}/settings/validation-scripts`;
 
   return (
     <DropdownMenu>
@@ -41,6 +41,9 @@ export function SettingsDropdown({ projectId, schemaId, onDelete }: SettingsDrop
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => navigate(`/projects/${projectId}/settings/extractors`)}>
           Extractors
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate(`/projects/${projectId}/settings/costs`)}>
+          Costs
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Data</DropdownMenuLabel>
@@ -63,9 +66,6 @@ export function SettingsDropdown({ projectId, schemaId, onDelete }: SettingsDrop
         )}
         <DropdownMenuItem onClick={() => navigate(scriptsLink)}>
           Validation Scripts
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate(`/projects/${projectId}/costs`)}>
-          Cost Summary
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Danger Zone</DropdownMenuLabel>

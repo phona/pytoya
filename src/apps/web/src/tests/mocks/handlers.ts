@@ -306,6 +306,22 @@ export const handlers = [
   http.get('/api/schemas', () => {
     return HttpResponse.json([]);
   }),
+  http.get('/api/schemas/project/:projectId', ({ params }) => {
+    return HttpResponse.json([
+      {
+        id: 10,
+        name: 'Project Schema',
+        jsonSchema: { type: 'object', properties: {} },
+        requiredFields: [],
+        projectId: Number(params.projectId),
+        description: null,
+        systemPromptTemplate: null,
+        validationSettings: null,
+        createdAt: '2025-01-13T00:00:00.000Z',
+        updatedAt: '2025-01-13T00:00:00.000Z',
+      },
+    ]);
+  }),
   http.post('/api/schemas/validate', () => {
     return HttpResponse.json({ valid: true });
   }),
@@ -329,10 +345,46 @@ export const handlers = [
   http.post('/api/schemas/:id/generate-rules', () => {
     return HttpResponse.json({ rules: [] });
   }),
+  http.post('/api/schemas/:id/generate-prompt-rules', async ({ request }) => {
+    const body = await parseJsonBody(request);
+    const base = '## OCR Corrections\n\n### Char Confusions (token-level)\n| from | to | apply when |\n|---|---|---|\n| O | 0 | numeric-like tokens |\n';
+    const hint = typeof body.prompt === 'string' && body.prompt.trim() ? `\n\n## Notes\n- ${body.prompt.trim()}` : '';
+    return HttpResponse.json({ rulesMarkdown: `${base}${hint}` });
+  }),
+  http.post('/api/schemas/:id/generate-prompt-rules/stream', async ({ request }) => {
+    const body = await parseJsonBody(request);
+    const base = '## OCR Corrections\n\n### Char Confusions (token-level)\n| from | to | apply when |\n|---|---|---|\n| O | 0 | numeric-like tokens |\n';
+    const hint = typeof body.prompt === 'string' && body.prompt.trim() ? `\n\n## Notes\n- ${body.prompt.trim()}` : '';
+    const content = `${base}${hint}`;
+    const ndjson = [
+      JSON.stringify({ type: 'start' }),
+      JSON.stringify({ type: 'delta', content }),
+      JSON.stringify({ type: 'done' }),
+      '',
+    ].join('\n');
+    return new HttpResponse(ndjson, {
+      headers: { 'Content-Type': 'application/x-ndjson; charset=utf-8' },
+    });
+  }),
   http.post('/api/schemas/import', () => {
     return HttpResponse.json({
       valid: true,
       jsonSchema: { type: 'object', properties: {}, required: [] },
+    });
+  }),
+  http.patch('/api/schemas/:id', async ({ request, params }) => {
+    const body = await parseJsonBody(request);
+    return HttpResponse.json({
+      id: Number(params.id),
+      name: body.name ?? 'Updated Schema',
+      jsonSchema: body.jsonSchema ?? { type: 'object', properties: {} },
+      requiredFields: body.requiredFields ?? [],
+      projectId: body.projectId ?? 1,
+      description: body.description ?? null,
+      systemPromptTemplate: body.systemPromptTemplate ?? null,
+      validationSettings: body.validationSettings ?? null,
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
     });
   }),
   http.get('/api/schemas/:schemaId/rules', () => {
@@ -876,6 +928,16 @@ export const handlers = [
     ]);
   }),
 
+  http.get('/api/manifests/:id/pdf-file', () => {
+    return HttpResponse.text('%PDF-1.4\n% Mock PDF\n', {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Cache-Control': 'no-store',
+        'Content-Disposition': 'inline; filename="mock.pdf"',
+      },
+    });
+  }),
+
   http.patch('/api/manifests/:id', async ({ request, params }) => {
     const body = await parseJsonBody(request);
     return HttpResponse.json({
@@ -899,5 +961,9 @@ export const handlers = [
 
   http.post('/api/manifests/:id/trigger', () => {
     return HttpResponse.json({ success: true });
+  }),
+
+  http.post('/api/jobs/:id/cancel', () => {
+    return HttpResponse.json({ canceled: true, removedFromQueue: false, state: 'active' });
   }),
 ];

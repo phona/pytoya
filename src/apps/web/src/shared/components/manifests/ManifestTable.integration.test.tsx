@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, within } from '@/tests/utils';
+import { renderWithProviders, screen, fireEvent, within } from '@/tests/utils';
 import { ManifestTable } from './ManifestTable';
 import type { Manifest } from '@/api/manifests';
 
@@ -46,9 +46,10 @@ const renderTable = (overrides: Partial<React.ComponentProps<typeof ManifestTabl
   const onReExtract = vi.fn();
   const onPreviewOcr = vi.fn();
 
-  render(
+  renderWithProviders(
     <ManifestTable
       manifests={manifests}
+      projectId={1}
       sort={{ field: '', order: 'asc' }}
       onSortChange={onSortChange}
       onSelectManifest={onSelectManifest}
@@ -63,7 +64,7 @@ const renderTable = (overrides: Partial<React.ComponentProps<typeof ManifestTabl
 };
 
 describe('ManifestTable Integration Tests', () => {
-  it('renders OCR quality badges', () => {
+  it('renders text quality badges', () => {
     renderTable();
 
     const row1 = screen.getByText('invoice1.pdf').closest('tr');
@@ -84,12 +85,14 @@ describe('ManifestTable Integration Tests', () => {
 
     const pendingRow = screen.getByText('invoice2.pdf').closest('tr');
     expect(pendingRow).toBeTruthy();
-    expect(within(pendingRow!).getByTitle('Preview OCR')).toBeInTheDocument();
+    expect(within(pendingRow!).getByTitle('Preview Text')).toBeInTheDocument();
     expect(within(pendingRow!).getByTitle('Extract')).toBeInTheDocument();
+    expect(within(pendingRow!).getByTitle('Extraction actions')).toBeInTheDocument();
 
     const completedRow = screen.getByText('invoice1.pdf').closest('tr');
     expect(completedRow).toBeTruthy();
     expect(within(completedRow!).getByTitle('Re-extract')).toBeInTheDocument();
+    expect(within(completedRow!).getByTitle('Extraction actions')).toBeInTheDocument();
   });
 
   it('calls onSelectManifest when row is clicked', () => {

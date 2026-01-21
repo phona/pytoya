@@ -65,12 +65,37 @@ describe('PromptBuilderService', () => {
       } as SchemaRuleEntity,
     ];
 
-    const prompt = service.buildExtractionPrompt('OCR text', schema, rules);
+    const { systemContext, userInput } = service.buildExtractionPrompt('OCR text', schema, rules);
 
-    expect(prompt).toContain('JSON Schema:');
-    expect(prompt).toContain('x-extraction-hint');
-    expect(prompt).toContain('Validation Settings:');
-    expect(prompt.indexOf('[8]')).toBeLessThan(prompt.indexOf('[3]'));
+    expect(systemContext).toContain('JSON Schema:');
+    expect(systemContext).toContain('x-extraction-hint');
+    expect(systemContext).toContain('Validation Settings:');
+    expect(systemContext.indexOf('[8]')).toBeLessThan(systemContext.indexOf('[3]'));
+
+    expect(userInput).toContain('OCR Text (Markdown):');
+    expect(userInput).toContain('OCR text');
+    expect(userInput).not.toContain('JSON Schema:');
+  });
+
+  it('omits promptRulesMarkdown from validation settings', () => {
+    const schema: SchemaEntity = {
+      id: 1,
+      name: 'Schema',
+      jsonSchema: { type: 'object', properties: {} },
+      requiredFields: [],
+      projectId: 1,
+      description: null,
+      systemPromptTemplate: null,
+      validationSettings: { promptRulesMarkdown: '## OCR Corrections\n- O -> 0' } as any,
+      rules: [],
+      project: {} as any,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as SchemaEntity;
+
+    const { systemContext } = service.buildExtractionPrompt('OCR text', schema, []);
+    expect(systemContext).not.toContain('Validation Settings:');
+    expect(systemContext).not.toContain('promptRulesMarkdown');
   });
 
   it('builds a re-extract prompt with missing fields and errors', () => {
@@ -89,7 +114,7 @@ describe('PromptBuilderService', () => {
       updatedAt: new Date(),
     } as SchemaEntity;
 
-    const prompt = service.buildReExtractPrompt(
+    const { systemContext, userInput } = service.buildReExtractPrompt(
       'OCR text',
       { invoice: { po_no: '123' } } as any,
       ['invoice.total'],
@@ -98,9 +123,12 @@ describe('PromptBuilderService', () => {
       [],
     );
 
-    expect(prompt).toContain('Missing fields:');
-    expect(prompt).toContain('invoice.total');
-    expect(prompt).toContain('Error: Missing total');
-    expect(prompt).toContain('Previous result:');
+    expect(userInput).toContain('invoice.total');
+    expect(userInput).toContain('OCR text');
+    expect(userInput).not.toContain('Previous result:');
+
+    expect(systemContext).toContain('Validation error:');
+    expect(systemContext).toContain('Missing total');
+    expect(systemContext).toContain('Previous result:');
   });
 });

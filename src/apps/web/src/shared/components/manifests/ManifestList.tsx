@@ -18,6 +18,7 @@ import { Button } from '@/shared/components/ui/button';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 
 interface ManifestListProps {
+  projectId: number;
   manifests: Manifest[];
   totalManifests: number;
   sort: ManifestSort;
@@ -40,6 +41,7 @@ interface BatchValidationSummary {
 }
 
 export function ManifestList({
+  projectId,
   manifests,
   totalManifests,
   sort,
@@ -316,6 +318,7 @@ export function ManifestList({
         <>
           {viewMode === 'table' ? (
             <ManifestTable
+              projectId={projectId}
               manifests={manifests}
               sort={sort}
               onSortChange={onSortChange}

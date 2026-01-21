@@ -87,9 +87,12 @@ describe('FieldReExtractDialog', () => {
         onClose={vi.fn()}
         manifestId={10}
         fieldName="invoice.po_no"
+        fieldHint="7 digits, zero-padded"
         currentValue="0000001"
       />,
     );
+
+    expect(screen.getByLabelText(/Custom Instructions/i)).toHaveValue('7 digits, zero-padded');
 
     await selectOption(user, /LLM Model/i, 'GPT-4o Mini');
 
@@ -103,7 +106,7 @@ describe('FieldReExtractDialog', () => {
           fieldName: 'invoice.po_no',
           llmModelId: 'llm-1',
           promptId: undefined,
-          customPrompt: undefined,
+          customPrompt: '7 digits, zero-padded',
           includeOcrContext: undefined,
           previewOnly: true,
         },

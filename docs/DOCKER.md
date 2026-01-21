@@ -101,9 +101,11 @@ DB_DATABASE=pytoya
 REDIS_HOST=redis
 REDIS_PORT=6379
 JWT_SECRET=dev-jwt-secret-change-in-production
-LLM_API_KEY=dev-llm-key
-PADDLEOCR_BASE_URL=http://localhost:8080
-```
+ LLM_API_KEY=dev-llm-key
+ PADDLEOCR_BASE_URL=http://localhost:8080
+ # Optional if your OCR service uses a non-root endpoint (e.g. /layout_parsing)
+ # PADDLEOCR_ENDPOINT=/layout-parsing
+ ```
 
 ## Production Deployment with Helm
 

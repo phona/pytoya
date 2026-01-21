@@ -13,3 +13,5 @@ export type { ExportBulkDto } from '../../../apps/api/src/manifests/dto/export-b
 export type { ExportManifestsDto } from '../../../apps/api/src/manifests/dto/export-manifests.dto';
 export type { ManifestFiltersDto } from '../../../apps/api/src/manifests/dto/manifest-filters.dto';
 export type { DynamicFieldFiltersDto } from '../../../apps/api/src/manifests/dto/dynamic-field-filters.dto';
+export type { ManifestExtractionHistoryEntryDto } from '../../../apps/api/src/manifests/dto/manifest-extraction-history.dto';
+export type { ManifestExtractionHistoryEntryDetailsDto } from '../../../apps/api/src/manifests/dto/manifest-extraction-history-details.dto';

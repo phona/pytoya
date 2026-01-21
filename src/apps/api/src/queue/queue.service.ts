@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Job, Queue } from 'bullmq';
@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 
 import { JobEntity } from '../entities/job.entity';
 import { ManifestsService } from '../manifests/manifests.service';
+import { UserEntity } from '../entities/user.entity';
 import { JobNotFoundException } from './exceptions/job-not-found.exception';
 import { QueueProcessingException } from './exceptions/queue-processing.exception';
 import { EXTRACTION_QUEUE, PROCESS_MANIFEST_JOB } from './queue.constants';
@@ -111,6 +112,49 @@ export class QueueService {
     const job = await this.getQueueJob(jobId);
     await job.remove();
     this.logger.log(`Removed extraction job ${jobId}`);
+  }
+
+  async requestCancelJob(
+    user: UserEntity,
+    jobId: string,
+    reason?: string,
+  ): Promise<{
+    canceled: boolean;
+    removedFromQueue: boolean;
+    state: string;
+  }> {
+    const jobRecord = await this.jobRepository.findOne({
+      where: { queueJobId: jobId },
+    });
+
+    if (!jobRecord) {
+      throw new JobNotFoundException(jobId);
+    }
+
+    await this.manifestsService.findOne(user, jobRecord.manifestId);
+
+    if (jobRecord.completedAt) {
+      throw new BadRequestException('Job already finished');
+    }
+
+    await this.manifestsService.requestJobCancel(jobId, reason);
+
+    const queueJob = await this.extractionQueue.getJob(jobId);
+    if (!queueJob) {
+      throw new BadRequestException('Job is not in queue (already finished)');
+    }
+
+    const state = String(await queueJob.getState());
+
+    if (state === 'waiting' || state === 'delayed' || state === 'paused') {
+      await queueJob.remove();
+      await this.manifestsService.markJobCanceled(jobId, reason);
+      this.logger.log(`Canceled queued extraction job ${jobId}`);
+      return { canceled: true, removedFromQueue: true, state };
+    }
+
+    this.logger.log(`Cancel requested for extraction job ${jobId} (state: ${state})`);
+    return { canceled: true, removedFromQueue: false, state };
   }
 
   async getQueueStats(): Promise<{

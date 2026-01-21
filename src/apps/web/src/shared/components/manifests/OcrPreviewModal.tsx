@@ -79,7 +79,7 @@ export function OcrPreviewModal({ manifestId, open, onClose, onExtract }: OcrPre
       <DialogContent className="sm:max-w-6xl">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between gap-4">
-            <span>OCR Preview</span>
+            <span>Text Preview</span>
             <div className="flex items-center gap-2">
               <Badge className={qualityBadge.className}>{qualityBadge.label}</Badge>
               {onExtract && (
@@ -90,7 +90,7 @@ export function OcrPreviewModal({ manifestId, open, onClose, onExtract }: OcrPre
             </div>
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Preview OCR output and quality metrics for this manifest.
+            Preview extracted text output and quality metrics for this manifest.
           </DialogDescription>
         </DialogHeader>
 
@@ -133,17 +133,17 @@ export function OcrPreviewModal({ manifestId, open, onClose, onExtract }: OcrPre
               </label>
             </div>
 
-            {isLoading && <p className="text-sm text-muted-foreground">Loading OCR text...</p>}
-            {error && <p className="text-sm text-destructive">Failed to load OCR text.</p>}
+            {isLoading && <p className="text-sm text-muted-foreground">Loading text...</p>}
+            {error && <p className="text-sm text-destructive">Failed to load text.</p>}
             {!ocrResult && !isLoading && (
               <div className="flex flex-col items-start gap-3 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4" />
-                  OCR not processed for this manifest.
+                  Text not processed for this manifest.
                 </div>
                 <Button size="sm" onClick={handleTriggerOcr} disabled={triggerOcr.isPending}>
                   <RefreshCw className={`mr-2 h-4 w-4 ${triggerOcr.isPending ? 'animate-spin' : ''}`} />
-                  Run OCR
+                  Run Text Extraction
                 </Button>
               </div>
             )}
