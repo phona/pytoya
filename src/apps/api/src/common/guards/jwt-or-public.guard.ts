@@ -15,6 +15,7 @@ import { Repository } from 'typeorm';
 import { ManifestEntity } from '../../entities/manifest.entity';
 import { UserEntity, UserRole } from '../../entities/user.entity';
 import { UsersService } from '../../users/users.service';
+import { ERROR_CODES } from '../errors/error-codes';
 
 interface JwtPayload {
   userId: number;
@@ -39,7 +40,10 @@ export class JwtOrPublicGuard implements CanActivate {
     const user = await this.usersService.findById(payload.userId);
 
     if (!user) {
-      throw new UnauthorizedException('Invalid token');
+      throw new UnauthorizedException({
+        code: ERROR_CODES.AUTH_INVALID_TOKEN,
+        message: 'Invalid token',
+      });
     }
 
     const storagePath = this.resolveStoragePath(request);
@@ -49,11 +53,17 @@ export class JwtOrPublicGuard implements CanActivate {
     });
 
     if (!manifest) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException({
+        code: ERROR_CODES.FILE_NOT_FOUND,
+        message: 'File not found',
+      });
     }
 
     if (user.role !== UserRole.ADMIN && manifest.group.project.ownerId !== user.id) {
-      throw new ForbiddenException('Access denied');
+      throw new ForbiddenException({
+        code: ERROR_CODES.FILE_FORBIDDEN,
+        message: 'Access denied',
+      });
     }
 
     return true;
@@ -62,7 +72,10 @@ export class JwtOrPublicGuard implements CanActivate {
   private extractToken(request: Request): string {
     const authHeader = request.headers.authorization ?? '';
     if (!authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Authentication required');
+      throw new UnauthorizedException({
+        code: ERROR_CODES.AUTH_MISSING_TOKEN,
+        message: 'Authentication required',
+      });
     }
     return authHeader.slice('Bearer '.length).trim();
   }
@@ -71,7 +84,10 @@ export class JwtOrPublicGuard implements CanActivate {
     try {
       return (await this.jwtService.verifyAsync(token)) as JwtPayload;
     } catch (error) {
-      throw new UnauthorizedException('Invalid token');
+      throw new UnauthorizedException({
+        code: ERROR_CODES.AUTH_INVALID_TOKEN,
+        message: 'Invalid token',
+      });
     }
   }
 
@@ -85,7 +101,10 @@ export class JwtOrPublicGuard implements CanActivate {
     const resolvedPath = path.resolve(this.uploadsRoot, `.${safePath}`);
 
     if (!resolvedPath.startsWith(this.uploadsRoot)) {
-      throw new NotFoundException('File not found');
+      throw new NotFoundException({
+        code: ERROR_CODES.FILE_NOT_FOUND,
+        message: 'File not found',
+      });
     }
 
     return resolvedPath;

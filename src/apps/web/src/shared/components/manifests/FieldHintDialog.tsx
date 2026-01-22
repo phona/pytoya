@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Save } from 'lucide-react';
-import { getApiErrorMessage } from '@/api/client';
+import { getApiErrorText } from '@/api/client';
 import { toast } from '@/shared/hooks/use-toast';
 import { Button } from '@/shared/components/ui/button';
 import {
@@ -13,6 +13,7 @@ import {
 } from '@/shared/components/ui/dialog';
 import { Label } from '@/shared/components/ui/label';
 import { Textarea } from '@/shared/components/ui/textarea';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface FieldHintDialogProps {
   open: boolean;
@@ -176,6 +177,7 @@ const applyHintToSchema = (
 };
 
 export function FieldHintDialog({ open, onClose, fieldPath, jsonSchema, onSubmit }: FieldHintDialogProps) {
+  const { t } = useI18n();
   const [hint, setHint] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -198,8 +200,8 @@ export function FieldHintDialog({ open, onClose, fieldPath, jsonSchema, onSubmit
     if (!nextSchema) {
       toast({
         variant: 'destructive',
-        title: 'Field not found in schema',
-        description: `Unable to update x-extraction-hint for ${fieldPath}.`,
+        title: t('audit.fieldHint.fieldNotFoundTitle'),
+        description: t('audit.fieldHint.fieldNotFoundDescription', { field: fieldPath }),
       });
       return;
     }
@@ -208,15 +210,15 @@ export function FieldHintDialog({ open, onClose, fieldPath, jsonSchema, onSubmit
     try {
       await onSubmit(nextSchema);
       toast({
-        title: 'Hint updated',
+        title: t('audit.fieldHint.updatedTitle'),
         description: fieldPath,
       });
       onClose();
     } catch (error) {
       toast({
         variant: 'destructive',
-        title: 'Update hint failed',
-        description: getApiErrorMessage(error, 'Unable to update hint. Please try again.'),
+        title: t('audit.fieldHint.updateFailedTitle'),
+        description: getApiErrorText(error, t),
       });
     } finally {
       setIsSubmitting(false);
@@ -227,11 +229,9 @@ export function FieldHintDialog({ open, onClose, fieldPath, jsonSchema, onSubmit
     <Dialog open={open} onOpenChange={(next) => !next && !isSubmitting && onClose()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Edit Extraction Hint</DialogTitle>
+          <DialogTitle>{t('audit.fieldHint.title')}</DialogTitle>
           <DialogDescription className="whitespace-pre-wrap">
-            Updates `x-extraction-hint` in the current project schema for:
-            {' '}
-            {fieldPath}
+            {t('audit.fieldHint.description', { field: fieldPath })}
           </DialogDescription>
         </DialogHeader>
 
@@ -242,17 +242,17 @@ export function FieldHintDialog({ open, onClose, fieldPath, jsonSchema, onSubmit
               id="field-hint-textarea"
               value={hint}
               onChange={(e) => setHint(e.target.value)}
-              placeholder="Add field-specific instructions to improve extraction..."
+              placeholder={t('audit.fieldHint.placeholder')}
               className="mt-1 min-h-[120px]"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Leave empty to remove the hint.
+              {t('audit.fieldHint.helper')}
             </p>
           </div>
 
           {!schemaNodeExists && (
             <p className="text-xs text-destructive">
-              This field path was not found in the current schema.
+              {t('audit.fieldHint.schemaMissing')}
             </p>
           )}
 
@@ -262,14 +262,14 @@ export function FieldHintDialog({ open, onClose, fieldPath, jsonSchema, onSubmit
               onClick={onClose}
               disabled={isSubmitting}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleSave}
               disabled={isSubmitting || !schemaNodeExists}
             >
               <Save className="mr-2 h-4 w-4" />
-              {isSubmitting ? 'Saving...' : 'Save'}
+              {isSubmitting ? t('common.saving') : t('common.save')}
             </Button>
           </DialogFooter>
         </div>

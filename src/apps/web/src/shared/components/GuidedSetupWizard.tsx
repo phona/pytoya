@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { getApiErrorMessage } from '@/api/client';
+import { getApiErrorText } from '@/api/client';
 import { CreateProjectDto } from '@/api/projects';
 import { schemasApi } from '@/api/schemas';
 import {
@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select';
 import { Textarea } from '@/shared/components/ui/textarea';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 const DEFAULT_SCHEMA_TEXT = JSON.stringify(
   {
@@ -95,6 +96,7 @@ export type GuidedSetupWizardProps = {
 };
 
 export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWizardProps) {
+  const { t } = useI18n();
   const { createProject } = useProjects();
   const { createSchema } = useSchemas();
   const { createScript } = useValidationScripts();
@@ -240,7 +242,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
       });
       setRules(result.rules as RuleDraft[]);
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Failed to generate rules.'));
+      setError(getApiErrorText(err, t));
     } finally {
       setIsGeneratingRules(false);
     }
@@ -352,7 +354,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
       onCreated(project.id);
       resetWizard();
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Unable to create project.'));
+      setError(getApiErrorText(err, t));
     } finally {
       setIsSubmitting(false);
     }

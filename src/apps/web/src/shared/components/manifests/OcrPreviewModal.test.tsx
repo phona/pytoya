@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, expect, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@/tests/utils';
+import { fireEvent, renderWithProviders, screen, waitFor } from '@/tests/utils';
 import userEvent from '@testing-library/user-event';
 import { OcrPreviewModal } from './OcrPreviewModal';
 import { useOcrResult, useTriggerOcr } from '@/shared/hooks/use-manifests';
@@ -55,7 +55,7 @@ describe('OcrPreviewModal', () => {
       isPending: false,
     } as any);
 
-    render(
+    renderWithProviders(
       <OcrPreviewModal manifestId={1} open={true} onClose={vi.fn()} />,
     );
 
@@ -84,7 +84,7 @@ describe('OcrPreviewModal', () => {
       isPending: false,
     } as any);
 
-    render(
+    renderWithProviders(
       <OcrPreviewModal manifestId={2} open={true} onClose={vi.fn()} />,
     );
 

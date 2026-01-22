@@ -26,7 +26,7 @@ On the backend, the error envelope is consistent, but the `error.code` is often 
 
 - Affected specs: `web-app`, `backend-standards`
 - Affected code (future implementation): `src/apps/web`, `src/apps/api`
-- Dependencies (web): add `i18next` + `react-i18next` (production dependencies; requires confirmation before adding)
+- Dependencies: no new production dependencies (minimal in-house i18n layer)
 - Breaking changes: none intended (API adds fields and stabilizes codes; existing envelope remains)
 
 ## Non-Goals (v1)
@@ -47,4 +47,3 @@ On the backend, the error envelope is consistent, but the `error.code` is often 
 - Web: user-facing strings are sourced from translation catalogs (starting with global chrome and auth)
 - API: error envelope includes stable `error.code`, optional `error.params`, and structured validation `error.details`
 - Web: API errors are displayed via translated keys with a safe fallback + requestId for support
-

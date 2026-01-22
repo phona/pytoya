@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { ExportButton } from './ExportButton';
 import { server } from '../../tests/mocks/server';
 import { http, HttpResponse } from 'msw';
+import { renderWithProviders } from '@/tests/utils';
 
 describe('ExportButton', () => {
   const createObjectURLSpy = vi.fn(() => 'blob:mock-url');
@@ -36,25 +37,25 @@ describe('ExportButton', () => {
   });
 
   it('renders export button', () => {
-    render(<ExportButton />);
+    renderWithProviders(<ExportButton />);
 
     expect(screen.getByRole('button', { name: /export csv/i })).toBeInTheDocument();
   });
 
   it('is disabled when no filters or selectedIds provided', () => {
-    render(<ExportButton />);
+    renderWithProviders(<ExportButton />);
 
     expect(screen.getByRole('button')).toBeDisabled();
   });
 
   it('is enabled when filters are provided', () => {
-    render(<ExportButton filters={{ status: 'completed' }} />);
+    renderWithProviders(<ExportButton filters={{ status: 'completed' }} />);
 
     expect(screen.getByRole('button')).not.toBeDisabled();
   });
 
   it('is enabled when selectedIds are provided', () => {
-    render(<ExportButton selectedIds={[1, 2, 3]} />);
+    renderWithProviders(<ExportButton selectedIds={[1, 2, 3]} />);
 
     expect(screen.getByRole('button')).not.toBeDisabled();
   });
@@ -62,7 +63,7 @@ describe('ExportButton', () => {
   it('calls exportSelectedToCsv when selectedIds provided', async () => {
     const user = userEvent.setup();
 
-    render(<ExportButton selectedIds={[1, 2, 3]} />);
+    renderWithProviders(<ExportButton selectedIds={[1, 2, 3]} />);
 
     const button = screen.getByRole('button');
     await user.click(button);
@@ -76,7 +77,7 @@ describe('ExportButton', () => {
     const user = userEvent.setup();
 
     const filters = { status: 'completed' };
-    render(<ExportButton filters={filters} />);
+    renderWithProviders(<ExportButton filters={filters} />);
 
     const button = screen.getByRole('button');
     await user.click(button);
@@ -100,7 +101,7 @@ describe('ExportButton', () => {
       })
     );
 
-    render(<ExportButton selectedIds={[1]} />);
+    renderWithProviders(<ExportButton selectedIds={[1]} />);
 
     const button = screen.getByRole('button');
     await user.click(button);
@@ -112,7 +113,7 @@ describe('ExportButton', () => {
   it('uses custom filename when provided', async () => {
     const user = userEvent.setup();
 
-    render(<ExportButton filters={{}} filename="custom-export.csv" />);
+    renderWithProviders(<ExportButton filters={{}} filename="custom-export.csv" />);
 
     const button = screen.getByRole('button');
     await user.click(button);
@@ -132,7 +133,7 @@ describe('ExportButton', () => {
       })
     );
 
-    render(<ExportButton selectedIds={[1]} />);
+    renderWithProviders(<ExportButton selectedIds={[1]} />);
 
     const button = screen.getByRole('button');
     await user.click(button);

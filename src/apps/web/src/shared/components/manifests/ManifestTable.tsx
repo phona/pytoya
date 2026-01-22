@@ -16,6 +16,7 @@ import { Checkbox } from '@/shared/components/ui/checkbox';
 import { getStatusBadgeClasses } from '@/shared/styles/status-badges';
 import { ProgressBar } from './ProgressBar';
 import { ExtractionActionsMenu } from './ExtractionActionsMenu';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface ManifestTableProps {
   projectId?: number;
@@ -34,9 +35,9 @@ interface ManifestTableProps {
   onPreviewOcr?: (manifestId: number) => void;
 }
 
-const getOcrQualityBadge = (score?: number | null) => {
+const getOcrQualityBadge = (score: number | null | undefined, naLabel: string) => {
   if (score === null || score === undefined) {
-    return { label: 'N/A', className: 'bg-muted text-muted-foreground' };
+    return { label: naLabel, className: 'bg-muted text-muted-foreground' };
   }
   if (score >= 90) return { label: `${score}%`, className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-100' };
   if (score >= 70) return { label: `${score}%`, className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100' };
@@ -59,6 +60,7 @@ export function ManifestTable({
   onReExtract,
   onPreviewOcr,
 }: ManifestTableProps) {
+  const { t } = useI18n();
   const sorting = useMemo<SortingState>(
     () => (sort.field ? [{ id: sort.field, desc: sort.order === 'desc' }] : []),
     [sort],
@@ -92,7 +94,7 @@ export function ManifestTable({
             <Checkbox
               checked={selectAll ?? false}
               onCheckedChange={() => onSelectAll()}
-              aria-label="Select all manifests"
+              aria-label={t('manifests.table.selectAllAria')}
             />
           </div>
         ),
@@ -102,7 +104,9 @@ export function ManifestTable({
               checked={selectedIds?.has(row.original.id) ?? false}
               onCheckedChange={() => onSelectToggle(row.original.id)}
               onClick={(event) => event.stopPropagation()}
-              aria-label={`Select ${row.original.originalFilename}`}
+              aria-label={t('manifests.table.selectOneAria', {
+                filename: row.original.originalFilename,
+              })}
             />
           </div>
         ),
@@ -122,7 +126,7 @@ export function ManifestTable({
             onClick={() => handleSort('filename')}
             className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
           >
-            Filename
+            {t('manifests.table.filename')}
             {renderSortIcon('filename')}
           </button>
         ),
@@ -140,14 +144,24 @@ export function ManifestTable({
             onClick={() => handleSort('status')}
             className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
           >
-            Status
+            {t('manifests.table.status')}
             {renderSortIcon('status')}
           </button>
         ),
         cell: ({ row }) => {
           const status = row.original.status;
+          const statusLabel =
+            status === 'pending'
+              ? t('manifests.status.pending')
+              : status === 'processing'
+                ? t('manifests.status.processing')
+                : status === 'completed'
+                  ? t('manifests.status.completed')
+                  : status === 'failed'
+                    ? t('manifests.status.failed')
+                    : status;
           return (
-            <Badge className={`px-2 py-1 ${getStatusBadgeClasses(status)}`}>{status}</Badge>
+            <Badge className={`px-2 py-1 ${getStatusBadgeClasses(status)}`}>{statusLabel}</Badge>
           );
         },
       },
@@ -155,19 +169,19 @@ export function ManifestTable({
         id: 'extractor',
         header: () => (
           <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Extractor
+            {t('manifests.table.extractor')}
           </span>
         ),
         cell: ({ row }) => {
           const extractorId = row.original.textExtractorId ?? '';
           const extractorInfo = extractorId ? extractorLookup?.[extractorId] : undefined;
           if (!extractorId) {
-            return <span className="text-xs text-muted-foreground">Unassigned</span>;
+            return <span className="text-xs text-muted-foreground">{t('manifests.table.unassigned')}</span>;
           }
           return (
             <div className="flex flex-col gap-1">
               <Badge className="w-fit bg-primary/10 text-primary">
-                {extractorInfo?.type ?? 'Extractor'}
+                {extractorInfo?.type ?? t('manifests.table.extractor')}
               </Badge>
               <span className="text-xs text-muted-foreground">
                 {extractorInfo?.name ?? extractorId}
@@ -184,12 +198,12 @@ export function ManifestTable({
             onClick={() => handleSort('ocrQualityScore')}
             className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
           >
-            Text
+            {t('manifests.table.text')}
             {renderSortIcon('ocrQualityScore')}
           </button>
         ),
         cell: ({ row }) => {
-          const qualityBadge = getOcrQualityBadge(row.original.ocrQualityScore);
+          const qualityBadge = getOcrQualityBadge(row.original.ocrQualityScore, t('common.na'));
           return (
             <Badge className={`px-2 py-1 ${qualityBadge.className}`}>{qualityBadge.label}</Badge>
           );
@@ -199,7 +213,7 @@ export function ManifestTable({
         id: 'progress',
         header: () => (
           <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Progress
+            {t('manifests.table.progress')}
           </span>
         ),
         cell: ({ row }) => {
@@ -228,13 +242,13 @@ export function ManifestTable({
             onClick={() => handleSort('poNo')}
             className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
           >
-            PO No
+            {t('manifests.table.poNo')}
             {renderSortIcon('poNo')}
           </button>
         ),
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {row.original.purchaseOrder ?? 'N/A'}
+            {row.original.purchaseOrder ?? t('common.na')}
           </span>
         ),
       },
@@ -246,7 +260,7 @@ export function ManifestTable({
             onClick={() => handleSort('invoiceDate')}
             className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
           >
-            Invoice Date
+            {t('manifests.table.invoiceDate')}
             {renderSortIcon('invoiceDate')}
           </button>
         ),
@@ -254,7 +268,7 @@ export function ManifestTable({
           <span className="text-sm text-muted-foreground">
             {row.original.invoiceDate
               ? format(new Date(row.original.invoiceDate), 'PP')
-              : 'N/A'}
+              : t('common.na')}
           </span>
         ),
       },
@@ -262,12 +276,12 @@ export function ManifestTable({
         id: 'department',
         header: () => (
           <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Department
+            {t('manifests.table.department')}
           </span>
         ),
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {row.original.department ?? 'N/A'}
+            {row.original.department ?? t('common.na')}
           </span>
         ),
       },
@@ -279,7 +293,7 @@ export function ManifestTable({
             onClick={() => handleSort('extractionCost')}
             className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
           >
-            Cost
+            {t('manifests.table.cost')}
             {renderSortIcon('extractionCost')}
           </button>
         ),
@@ -303,7 +317,7 @@ export function ManifestTable({
             onClick={() => handleSort('confidence')}
             className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
           >
-            Confidence
+            {t('manifests.table.confidence')}
             {renderSortIcon('confidence')}
           </button>
         ),
@@ -311,7 +325,7 @@ export function ManifestTable({
           <span className="text-sm text-muted-foreground">
             {row.original.confidence !== null
               ? `${Math.round(row.original.confidence * 100)}%`
-              : 'N/A'}
+              : t('common.na')}
           </span>
         ),
       },
@@ -319,7 +333,7 @@ export function ManifestTable({
         id: 'verified',
         header: () => (
           <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Verified
+            {t('manifests.table.verified')}
           </span>
         ),
         cell: ({ row }) => (
@@ -337,7 +351,7 @@ export function ManifestTable({
         id: 'actions',
         header: () => (
           <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Actions
+            {t('manifests.table.actions')}
           </span>
         ),
         cell: ({ row }) => {
@@ -356,7 +370,7 @@ export function ManifestTable({
                     onPreviewOcr(manifest.id);
                   }}
                   className="text-muted-foreground hover:text-foreground"
-                  title="Preview Text"
+                  title={t('manifests.table.previewText')}
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
@@ -371,7 +385,7 @@ export function ManifestTable({
                       onExtract(manifest.id);
                     }}
                     className="text-primary hover:text-primary"
-                    title="Extract"
+                    title={t('manifests.table.extract')}
                   >
                     <Play className="h-4 w-4" />
                   </Button>
@@ -392,7 +406,7 @@ export function ManifestTable({
                       onReExtract(manifest.id);
                     }}
                     className="text-muted-foreground hover:text-foreground"
-                    title="Re-extract"
+                    title={t('manifests.table.reextract')}
                   >
                     <RefreshCw className="h-4 w-4" />
                   </Button>
@@ -411,9 +425,9 @@ export function ManifestTable({
                   onSelectManifest(manifest.id);
                 }}
                 className="text-primary hover:text-primary"
-                title="View details"
+                title={t('manifests.table.viewDetails')}
               >
-                View
+                {t('common.view')}
               </Button>
             </div>
           );
@@ -440,6 +454,7 @@ export function ManifestTable({
     renderSortIcon,
     selectedIds,
     selectAll,
+    t,
   ]);
 
   const table = useReactTable({
@@ -467,8 +482,8 @@ export function ManifestTable({
         }
         emptyState={(
           <EmptyState
-            title="No results"
-            description="No matching manifests found."
+            title={t('manifests.table.empty.title')}
+            description={t('manifests.table.empty.description')}
           />
         )}
       />

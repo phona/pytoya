@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { getApiErrorMessage } from '@/api/client';
+import { getApiErrorText } from '@/api/client';
 import { CreateProjectDto } from '@/api/projects';
 import { useModels } from '@/shared/hooks/use-models';
 import { useExtractors } from '@/shared/hooks/use-extractors';
 import { useProjects } from '@/shared/hooks/use-projects';
+import { useI18n } from '@/shared/providers/I18nProvider';
 import {
   Dialog,
   DialogContent,
@@ -28,6 +29,7 @@ export type ProjectWizardProps = {
 };
 
 export function ProjectWizard({ isOpen, onClose, onCreated }: ProjectWizardProps) {
+  const { t } = useI18n();
   const { createProject } = useProjects();
   const { extractors } = useExtractors();
   const { models: llmModels } = useModels({ category: 'llm' });
@@ -75,7 +77,7 @@ export function ProjectWizard({ isOpen, onClose, onCreated }: ProjectWizardProps
       onCreated(project.id);
       resetForm();
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Unable to create project.'));
+      setError(getApiErrorText(err, t));
     } finally {
       setIsSubmitting(false);
     }

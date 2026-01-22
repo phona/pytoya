@@ -13,6 +13,7 @@ import {
   FormMessage,
 } from '@/shared/components/ui/form';
 import { Input } from '@/shared/components/ui/input';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface GroupFormProps {
   group?: Group;
@@ -23,6 +24,7 @@ interface GroupFormProps {
 }
 
 export function GroupForm({ group, projectId, onSubmit, onCancel, isLoading }: GroupFormProps) {
+  const { t } = useI18n();
   const form = useForm<GroupFormValues>({
     resolver: zodResolver(groupSchema),
     defaultValues: {
@@ -56,9 +58,9 @@ export function GroupForm({ group, projectId, onSubmit, onCancel, isLoading }: G
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel htmlFor="group-name">Group Name *</FormLabel>
+              <FormLabel htmlFor="group-name">{t('groups.form.nameLabel')}</FormLabel>
               <FormControl>
-                <Input {...field} id="group-name" placeholder="Group A" />
+                <Input {...field} id="group-name" placeholder={t('groups.form.namePlaceholder')} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -67,10 +69,14 @@ export function GroupForm({ group, projectId, onSubmit, onCancel, isLoading }: G
 
         <div className="flex justify-end gap-3 pt-4">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button type="submit" disabled={isLoading}>
-            {isLoading ? 'Saving...' : group ? 'Update' : 'Create'}
+            {isLoading
+              ? t('common.saving')
+              : group
+                ? t('common.update')
+                : t('common.create')}
           </Button>
         </div>
       </form>

@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/shared/components/ui/select';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface PaginationProps {
   currentPage: number;
@@ -32,6 +33,7 @@ export function Pagination({
   onPageChange,
   onPageSizeChange,
 }: PaginationProps) {
+  const { t } = useI18n();
   const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endItem = Math.min(currentPage * pageSize, totalItems);
 
@@ -74,16 +76,14 @@ export function Pagination({
     <div className="px-6 py-4 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-4">
       {/* Info */}
       <div className="text-sm text-muted-foreground">
-        Showing <span className="font-medium">{startItem}</span> to{' '}
-        <span className="font-medium">{endItem}</span> of{' '}
-        <span className="font-medium">{totalItems}</span> results
+        {t('pagination.showing', { start: startItem, end: endItem, total: totalItems })}
       </div>
 
       <div className="flex items-center gap-4">
         {/* Page Size Selector */}
         <div className="flex items-center gap-2">
           <label htmlFor="pageSize" className="text-sm text-muted-foreground">
-            Per page:
+            {t('pagination.perPage')}
           </label>
           <Select
             value={String(pageSize)}
@@ -112,12 +112,12 @@ export function Pagination({
                   onClick={() => onPageChange(currentPage - 1)}
                   disabled={currentPage === 1}
                   className="p-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-label="Previous page"
+                  aria-label={t('pagination.previous')}
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Previous page</TooltipContent>
+              <TooltipContent>{t('pagination.previous')}</TooltipContent>
             </Tooltip>
 
           {/* Page Numbers */}
@@ -155,12 +155,12 @@ export function Pagination({
                   onClick={() => onPageChange(currentPage + 1)}
                   disabled={currentPage === totalPages || totalPages === 0}
                   className="p-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-label="Next page"
+                  aria-label={t('pagination.next')}
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Next page</TooltipContent>
+              <TooltipContent>{t('pagination.next')}</TooltipContent>
             </Tooltip>
           </nav>
         </TooltipProvider>

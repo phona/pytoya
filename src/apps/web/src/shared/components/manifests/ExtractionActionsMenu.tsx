@@ -12,6 +12,7 @@ import {
 import { Dialog, DialogDescription, DialogHeader, DialogSideContent, DialogTitle } from '@/shared/components/ui/dialog';
 import { useManifestExtractionHistory } from '@/shared/hooks/use-manifests';
 import { ExtractionHistoryPanel } from './ExtractionHistoryPanel';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 type ExtractionActionsMenuProps = {
   projectId?: number | null;
@@ -20,6 +21,7 @@ type ExtractionActionsMenuProps = {
 };
 
 export function ExtractionActionsMenu({ projectId, manifestId, manifestName }: ExtractionActionsMenuProps) {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -38,7 +40,7 @@ export function ExtractionActionsMenu({ projectId, manifestId, manifestName }: E
             variant="ghost"
             size="sm"
             className="text-muted-foreground hover:text-foreground"
-            title="Extraction actions"
+            title={t('manifests.actions.menuTitle')}
             onClick={(event) => event.stopPropagation()}
           >
             <MoreVertical className="h-4 w-4" />
@@ -47,7 +49,7 @@ export function ExtractionActionsMenu({ projectId, manifestId, manifestName }: E
         <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
           <DropdownMenuItem onSelect={() => setHistoryOpen(true)}>
             <History className="h-4 w-4" />
-            View extraction history/details
+            {t('manifests.actions.viewHistory')}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -58,7 +60,7 @@ export function ExtractionActionsMenu({ projectId, manifestId, manifestName }: E
             }}
           >
             <Settings2 className="h-4 w-4" />
-            Update extraction rules
+            {t('manifests.actions.updateRules')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -67,10 +69,10 @@ export function ExtractionActionsMenu({ projectId, manifestId, manifestName }: E
         <DialogSideContent onClick={(event) => event.stopPropagation()}>
           <DialogHeader>
             <DialogTitle>
-              Extraction History{manifestName ? `: ${manifestName}` : ''}
+              {t('manifests.actions.historyDialogTitle')}{manifestName ? `: ${manifestName}` : ''}
             </DialogTitle>
             <DialogDescription className="sr-only">
-              View extraction run history for this document.
+              {t('manifests.actions.historyDialogDescription')}
             </DialogDescription>
           </DialogHeader>
 

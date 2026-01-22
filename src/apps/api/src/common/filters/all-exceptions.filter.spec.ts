@@ -34,6 +34,39 @@ describe('AllExceptionsFilter', () => {
     );
   });
 
+  it('prefers application error code from exception response', () => {
+    const response = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+    const request = {
+      id: 'req-3',
+      headers: {},
+      originalUrl: '/api/projects/123',
+    };
+    const filter = new AllExceptionsFilter();
+    const exception = new HttpException(
+      {
+        code: 'PROJECT_NOT_FOUND',
+        message: 'Project not found',
+        params: { projectId: 123 },
+      },
+      HttpStatus.NOT_FOUND,
+    );
+
+    filter.catch(exception, createHost(request, response) as any);
+
+    expect(response.status).toHaveBeenCalledWith(HttpStatus.NOT_FOUND);
+    expect(response.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          code: 'PROJECT_NOT_FOUND',
+          message: 'Project not found',
+          params: { projectId: 123 },
+          requestId: 'req-3',
+          path: '/api/projects/123',
+        }),
+      }),
+    );
+  });
+
   it('sanitizes unknown errors in production', () => {
     const response = { status: jest.fn().mockReturnThis(), json: jest.fn() };
     const request = {

@@ -3,6 +3,7 @@ import { Download, Loader2 } from 'lucide-react';
 import { manifestsApi } from '@/api/manifests';
 import { Button } from '@/shared/components/ui/button';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface ExportButtonProps {
   filters?: {
@@ -22,6 +23,7 @@ interface ExportButtonProps {
 }
 
 export function ExportButton({ filters, selectedIds, filename }: ExportButtonProps) {
+  const { t } = useI18n();
   const { alert, ModalDialog } = useModalDialog();
   const [isExporting, setIsExporting] = useState(false);
 
@@ -49,7 +51,10 @@ export function ExportButton({ filters, selectedIds, filename }: ExportButtonPro
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Export failed:', error);
-      void alert({ title: 'Export failed', message: 'Export failed. Please try again.' });
+      void alert({
+        title: t('export.failedTitle'),
+        message: t('export.failedMessage'),
+      });
     } finally {
       setIsExporting(false);
     }
@@ -68,12 +73,12 @@ export function ExportButton({ filters, selectedIds, filename }: ExportButtonPro
         {isExporting ? (
           <>
             <Loader2 className="-ml-1 mr-2 h-4 w-4 animate-spin" />
-            Exporting...
+            {t('export.exporting')}
           </>
         ) : (
           <>
             <Download className="-ml-1 mr-2 h-4 w-4" />
-            Export CSV
+            {t('export.exportCsv')}
           </>
         )}
       </Button>

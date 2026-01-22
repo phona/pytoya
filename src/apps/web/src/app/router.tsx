@@ -36,7 +36,7 @@ export const router = createBrowserRouter([
       },
       {
         element: (
-          <ErrorBoundary title="Dashboard unavailable">
+          <ErrorBoundary titleKey="errors.dashboardUnavailableTitle">
             <ProtectedRoute>
               <DashboardLayout />
             </ProtectedRoute>

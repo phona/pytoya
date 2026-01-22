@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
+import { renderWithProviders } from '@/tests/utils';
 import { Pagination } from './Pagination';
 
 describe('Pagination', () => {
@@ -9,7 +10,7 @@ describe('Pagination', () => {
     const onPageChange = vi.fn();
     const onPageSizeChange = vi.fn();
 
-    render(
+    renderWithProviders(
       <Pagination
         currentPage={1}
         totalPages={3}

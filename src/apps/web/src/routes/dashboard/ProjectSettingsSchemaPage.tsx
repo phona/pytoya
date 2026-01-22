@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getApiErrorMessage } from '@/api/client';
+import { getApiErrorText } from '@/api/client';
 import { UpdateSchemaDto } from '@/api/schemas';
 import { ProjectSettingsShell } from '@/shared/components/ProjectSettingsShell';
 import { SchemaForm } from '@/shared/components/SchemaForm';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { useProjectSchemas, useSchema, useSchemas } from '@/shared/hooks/use-schemas';
 import { canonicalizeJsonSchemaForDisplay } from '@/shared/utils/schema';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 export function ProjectSettingsSchemaPage() {
   const { confirm, alert, ModalDialog } = useModalDialog();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const params = useParams();
   const projectId = Number(params.id);
@@ -29,7 +31,7 @@ export function ProjectSettingsSchemaPage() {
     } catch (error) {
       void alert({
         title: 'Update schema failed',
-        message: getApiErrorMessage(error, 'Unable to update schema. Please try again.'),
+        message: getApiErrorText(error, t),
       });
     }
   };
@@ -48,7 +50,7 @@ export function ProjectSettingsSchemaPage() {
     } catch (error) {
       void alert({
         title: 'Delete schema failed',
-        message: getApiErrorMessage(error, 'Unable to delete schema. Please try again.'),
+        message: getApiErrorText(error, t),
       });
     }
   };

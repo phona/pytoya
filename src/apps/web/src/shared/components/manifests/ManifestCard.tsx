@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { ArrowRight, CheckCircle2, Clock } from 'lucide-react';
 import { Manifest } from '@/api/manifests';
 import { getStatusBadgeClasses } from '@/shared/styles/status-badges';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface ManifestCardProps {
   manifest: Manifest;
@@ -10,6 +11,7 @@ interface ManifestCardProps {
 }
 
 export function ManifestCard({ manifest, extractorInfo, onClick }: ManifestCardProps) {
+  const { t } = useI18n();
   const getConfidenceColor = (confidence: number | null) => {
     if (confidence === null) return 'border-border';
     if (confidence >= 0.9) return 'border-[color:var(--status-completed-text)]';
@@ -42,14 +44,22 @@ export function ManifestCard({ manifest, extractorInfo, onClick }: ManifestCardP
             {manifest.originalFilename}
           </h3>
           <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeClasses(manifest.status)}`}>
-            {manifest.status}
+            {manifest.status === 'pending'
+              ? t('manifests.status.pending')
+              : manifest.status === 'processing'
+                ? t('manifests.status.processing')
+                : manifest.status === 'completed'
+                  ? t('manifests.status.completed')
+                  : manifest.status === 'failed'
+                    ? t('manifests.status.failed')
+                    : manifest.status}
           </span>
         </div>
 
         <div className="space-y-2 text-sm">
           {manifest.textExtractorId && (
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Extractor:</span>
+              <span className="text-muted-foreground">{t('manifests.card.extractor')}:</span>
               <span className="text-foreground">
                 {extractorInfo?.name ?? manifest.textExtractorId}
               </span>
@@ -57,14 +67,14 @@ export function ManifestCard({ manifest, extractorInfo, onClick }: ManifestCardP
           )}
           {manifest.purchaseOrder && (
             <div className="flex justify-between">
-              <span className="text-muted-foreground">PO:</span>
+              <span className="text-muted-foreground">{t('manifests.card.po')}:</span>
               <span className="text-foreground">{manifest.purchaseOrder}</span>
             </div>
           )}
 
           {manifest.invoiceDate && (
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Date:</span>
+              <span className="text-muted-foreground">{t('manifests.card.date')}:</span>
               <span className="text-foreground">
                 {format(new Date(manifest.invoiceDate), 'PP')}
               </span>
@@ -73,30 +83,30 @@ export function ManifestCard({ manifest, extractorInfo, onClick }: ManifestCardP
 
           {manifest.department && (
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Dept:</span>
+              <span className="text-muted-foreground">{t('manifests.card.department')}:</span>
               <span className="text-foreground">{manifest.department}</span>
             </div>
           )}
 
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Confidence:</span>
+            <span className="text-muted-foreground">{t('manifests.card.confidence')}:</span>
             <span className="text-foreground">
               {manifest.confidence !== null
                 ? `${Math.round(manifest.confidence * 100)}%`
-                : 'N/A'}
+                : t('common.na')}
             </span>
           </div>
 
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Size:</span>
+            <span className="text-muted-foreground">{t('manifests.card.size')}:</span>
             <span className="text-foreground">{formatFileSize(manifest.fileSize)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Cost:</span>
+            <span className="text-muted-foreground">{t('manifests.card.cost')}:</span>
             <span className="text-foreground">
               {manifest.extractionCost !== null && manifest.extractionCost !== undefined
                 ? `$${Number(manifest.extractionCost).toFixed(4)}`
-                : 'N/A'}
+                : t('common.na')}
             </span>
           </div>
         </div>
@@ -106,17 +116,17 @@ export function ManifestCard({ manifest, extractorInfo, onClick }: ManifestCardP
             {manifest.humanVerified ? (
               <div className="flex items-center text-[color:var(--status-verified-text)]">
                 <CheckCircle2 className="mr-1 h-4 w-4" />
-                <span className="text-xs">Verified</span>
+                <span className="text-xs">{t('manifests.card.verified')}</span>
               </div>
             ) : (
               <div className="flex items-center text-[color:var(--status-pending-text)]">
                 <Clock className="mr-1 h-4 w-4" />
-                <span className="text-xs">Pending</span>
+                <span className="text-xs">{t('manifests.card.pending')}</span>
               </div>
             )}
           </div>
           <span className="inline-flex items-center gap-1 text-primary text-xs font-medium">
-            View
+            {t('common.view')}
             <ArrowRight className="h-3 w-3" />
           </span>
         </div>

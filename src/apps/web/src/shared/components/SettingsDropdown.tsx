@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 export type SettingsDropdownProps = {
   projectId: number;
@@ -17,6 +18,7 @@ export type SettingsDropdownProps = {
 };
 
 export function SettingsDropdown({ projectId, schemaId, onDelete }: SettingsDropdownProps) {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const hasSchema = Boolean(schemaId);
   const schemaLink = schemaId ? `/projects/${projectId}/settings/schema` : null;
@@ -28,52 +30,52 @@ export function SettingsDropdown({ projectId, schemaId, onDelete }: SettingsDrop
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="outline" className="gap-2">
           <Settings className="h-4 w-4" />
-          Settings
+          {t('project.settingsDropdown.button')}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Project</DropdownMenuLabel>
+        <DropdownMenuLabel>{t('project.settingsDropdown.projectLabel')}</DropdownMenuLabel>
         <DropdownMenuItem onClick={() => navigate(`/projects/${projectId}/settings/basic`)}>
-          Basic
+          {t('project.settingsDropdown.basic')}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => navigate(`/projects/${projectId}/settings/models`)}>
-          Models
+          {t('project.settingsDropdown.models')}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => navigate(`/projects/${projectId}/settings/extractors`)}>
-          Extractors
+          {t('project.settingsDropdown.extractors')}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => navigate(`/projects/${projectId}/settings/costs`)}>
-          Costs
+          {t('project.settingsDropdown.costs')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>Data</DropdownMenuLabel>
+        <DropdownMenuLabel>{t('project.settingsDropdown.dataLabel')}</DropdownMenuLabel>
         <DropdownMenuItem
           onClick={() => schemaLink && navigate(schemaLink)}
           disabled={!hasSchema}
         >
-          Schema
+          {t('project.settingsDropdown.schema')}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => rulesLink && navigate(rulesLink)}
           disabled={!hasSchema}
         >
-          Rules
+          {t('project.settingsDropdown.rules')}
         </DropdownMenuItem>
         {!hasSchema && (
           <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-            Available after first extraction
+            {t('project.settingsDropdown.availableAfterFirstExtraction')}
           </DropdownMenuLabel>
         )}
         <DropdownMenuItem onClick={() => navigate(scriptsLink)}>
-          Validation Scripts
+          {t('project.settingsDropdown.validationScripts')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>Danger Zone</DropdownMenuLabel>
+        <DropdownMenuLabel>{t('project.settingsDropdown.dangerZone')}</DropdownMenuLabel>
         <DropdownMenuItem
           onClick={() => onDelete?.()}
           className="text-destructive focus:text-destructive"
         >
-          Delete Project
+          {t('project.settingsDropdown.deleteProject')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

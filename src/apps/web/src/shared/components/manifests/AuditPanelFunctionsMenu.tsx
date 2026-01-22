@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
 import { getStatusBadgeClasses } from '@/shared/styles/status-badges';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 export type AuditPanelTab = 'form' | 'extraction' | 'ocr' | 'validation' | 'history';
 
@@ -25,15 +26,15 @@ type AuditPanelFunctionsMenuProps = {
 };
 
 const tabOptions: Array<{ value: AuditPanelTab; label: string }> = [
-  { value: 'form', label: 'Invoice Form' },
-  { value: 'extraction', label: 'Extraction' },
-  { value: 'ocr', label: 'Text' },
-  { value: 'history', label: 'Extraction History' },
-  { value: 'validation', label: 'Validation' },
+  { value: 'form', label: 'audit.tab.form' },
+  { value: 'extraction', label: 'audit.tab.extraction' },
+  { value: 'ocr', label: 'audit.tab.ocr' },
+  { value: 'history', label: 'audit.tab.history' },
+  { value: 'validation', label: 'audit.tab.validation' },
 ];
 
-const getActiveTabLabel = (tab: AuditPanelTab) =>
-  tabOptions.find((option) => option.value === tab)?.label ?? 'Sections';
+const getActiveTabLabelKey = (tab: AuditPanelTab) =>
+  tabOptions.find((option) => option.value === tab)?.label ?? 'audit.menu.sections';
 
 export function AuditPanelFunctionsMenu({
   activeTab,
@@ -43,7 +44,8 @@ export function AuditPanelFunctionsMenu({
   validationLabel = '',
   validationStatus = null,
 }: AuditPanelFunctionsMenuProps) {
-  const activeTabLabel = getActiveTabLabel(activeTab);
+  const { t } = useI18n();
+  const activeTabLabel = t(getActiveTabLabelKey(activeTab));
 
   return (
     <DropdownMenu>
@@ -53,7 +55,7 @@ export function AuditPanelFunctionsMenu({
           variant="outline"
           size="sm"
           className="gap-2"
-          title="Sections"
+          title={t('audit.menu.sections')}
           onClick={(event) => event.stopPropagation()}
         >
           {activeTabLabel}
@@ -61,14 +63,14 @@ export function AuditPanelFunctionsMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-        <DropdownMenuLabel>Sections</DropdownMenuLabel>
+        <DropdownMenuLabel>{t('audit.menu.sections')}</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={activeTab}
           onValueChange={(value) => onTabChange(value as AuditPanelTab)}
         >
           {tabOptions.map((option) => (
             <DropdownMenuRadioItem key={option.value} value={option.value}>
-              {option.label}
+              {t(option.label)}
               {option.value === 'validation' && validationLabel ? (
                 <span
                   className={`ml-auto px-2 py-0.5 text-xs font-medium rounded-full ${
@@ -84,10 +86,9 @@ export function AuditPanelFunctionsMenu({
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={runValidationPending} onSelect={onRunValidation}>
           <Play className="h-4 w-4" />
-          {runValidationPending ? 'Running validation...' : 'Run validation'}
+          {runValidationPending ? t('audit.menu.runningValidation') : t('audit.menu.runValidation')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
-

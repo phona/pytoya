@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/shared/components/ui/dialog';
 import { Progress } from '@/shared/components/ui/progress';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface UploadProgress {
   fileName: string;
@@ -26,6 +27,7 @@ interface UploadDialogProps {
 }
 
 export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDialogProps) {
+  const { t } = useI18n();
   const [files, setFiles] = useState<File[]>([]);
   const [uploads, setUploads] = useState<UploadProgress[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -65,7 +67,7 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
             successCount++;
             return { ...u, progress: 100, status: 'success' };
           } else {
-            return { ...u, status: 'error', error: result.reason?.message || 'Upload failed' };
+            return { ...u, status: 'error', error: result.reason?.message || t('upload.errorFallback') };
           }
         }),
       );
@@ -78,7 +80,7 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
     } finally {
       setIsUploading(false);
     }
-  }, [files, groupId, onComplete]);
+  }, [files, groupId, onComplete, t]);
 
   const handleClose = useCallback(() => {
     if (!isUploading) {
@@ -99,14 +101,14 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
     >
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Upload Manifests</DialogTitle>
+          <DialogTitle>{t('upload.title')}</DialogTitle>
           <DialogDescription className="sr-only">
-            Upload PDF invoices to begin extraction for this group.
+            {t('upload.description')}
           </DialogDescription>
         </DialogHeader>
         <div className="mb-4">
           <label htmlFor="uploadFiles" className="block text-sm font-medium text-foreground mb-2">
-            Select PDF files
+            {t('upload.selectFilesLabel')}
           </label>
           <input
             id="uploadFiles"
@@ -139,12 +141,12 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
                     }`}
                   >
                     {upload.status === 'success'
-                      ? 'Uploaded'
+                      ? t('upload.status.uploaded')
                       : upload.status === 'error'
-                      ? 'Failed'
+                      ? t('upload.status.failed')
                       : upload.status === 'uploading'
                       ? `${upload.progress}%`
-                      : 'Pending'}
+                      : t('upload.status.pending')}
                   </span>
                 </div>
                 {upload.status === 'uploading' && (
@@ -169,7 +171,7 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
             onClick={handleClose}
             disabled={isUploading}
           >
-            {files.length > 0 ? 'Cancel' : 'Close'}
+            {files.length > 0 ? t('common.cancel') : t('common.close')}
           </Button>
           {files.length > 0 && (
             <Button
@@ -177,7 +179,12 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
               onClick={handleUpload}
               disabled={isUploading || files.length === 0}
             >
-              {isUploading ? 'Uploading...' : `Upload ${files.length} File${files.length > 1 ? 's' : ''}`}
+              {isUploading
+                ? t('upload.uploading')
+                : t('upload.uploadCount', {
+                    count: files.length,
+                    plural: files.length === 1 ? '' : 's',
+                  })}
             </Button>
           )}
         </DialogFooter>

@@ -16,6 +16,7 @@ import {
 } from '@/shared/components/ui/tooltip';
 import { Button } from '@/shared/components/ui/button';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface ManifestListProps {
   projectId: number;
@@ -57,6 +58,7 @@ export function ManifestList({
   onPageChange,
   onPageSizeChange,
 }: ManifestListProps) {
+  const { t } = useI18n();
   const { alert, ModalDialog } = useModalDialog();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
@@ -150,8 +152,8 @@ export function ManifestList({
     const completedManifests = manifests.filter(m => selectedIds.has(m.id) && m.status === 'completed');
     if (completedManifests.length === 0) {
       void alert({
-        title: 'Batch validation',
-        message: 'Only completed manifests can be validated. Please select manifests with status "completed".',
+        title: t('manifests.list.batchValidation.title'),
+        message: t('manifests.list.batchValidation.onlyCompletedMessage'),
       });
       return;
     }
@@ -178,8 +180,12 @@ export function ManifestList({
       });
 
       // Show summary
-      const message = `Validation complete!\n\n${manifestIdsToValidate.length} manifests validated\n${totalErrors} errors\n${totalWarnings} warnings`;
-      void alert({ title: 'Batch validation complete', message });
+      const message = t('manifests.list.batchValidation.summaryMessage', {
+        count: manifestIdsToValidate.length,
+        errors: totalErrors,
+        warnings: totalWarnings,
+      });
+      void alert({ title: t('manifests.list.batchValidation.completeTitle'), message });
 
       // Clear selection and progress after a delay
       setTimeout(() => {
@@ -189,7 +195,10 @@ export function ManifestList({
       }, 3000);
     } catch (error) {
       console.error('Batch validation failed:', error);
-      void alert({ title: 'Batch validation failed', message: 'Batch validation failed. Please try again.' });
+      void alert({
+        title: t('manifests.list.batchValidation.failedTitle'),
+        message: t('manifests.list.batchValidation.failedMessage'),
+      });
       setValidationProgress({ completed: 0, total: 0, results: {} });
     }
   };
@@ -222,18 +231,18 @@ export function ManifestList({
       <div className="px-6 py-4 border-b border-border flex justify-between items-center">
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-semibold text-foreground">
-            Manifests ({totalManifests})
+            {t('manifests.list.titleWithCount', { count: totalManifests })}
           </h2>
           {selectedIds.size > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">
-                {selectedIds.size} selected
+                {t('manifests.list.selectedCount', { count: selectedIds.size })}
               </span>
               <Button
                 onClick={handleBatchExport}
                 size="sm"
               >
-                Export CSV
+                {t('manifests.list.exportCsv')}
               </Button>
               <Button
                 onClick={handleBatchValidate}
@@ -242,24 +251,30 @@ export function ManifestList({
                 variant="secondary"
               >
                 {validationProgress.total > 0
-                  ? `Validating ${validationProgress.completed}/${validationProgress.total}`
+                  ? t('manifests.list.batchValidation.progressLabel', {
+                    completed: validationProgress.completed,
+                    total: validationProgress.total,
+                  })
                   : runBatchValidation.isPending
-                    ? 'Validating...'
-                    : 'Run Validation'}
+                    ? t('manifests.list.batchValidation.runningLabel')
+                    : t('manifests.list.batchValidation.runLabel')}
               </Button>
               <Button
                 onClick={handleBatchReExtract}
                 size="sm"
                 variant="outline"
               >
-                Re-extract
+                {t('manifests.list.reextract')}
               </Button>
             </div>
           )}
         </div>
         <div className="flex items-center gap-4">
           <div className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages || 1}
+            {t('pagination.pageOf', {
+              current: currentPage,
+              total: totalPages || 1,
+            })}
           </div>
           {/* View Toggle */}
           <TooltipProvider>
@@ -268,7 +283,7 @@ export function ManifestList({
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    aria-label="Table view"
+                    aria-label={t('manifests.list.view.table')}
                     onClick={() => onViewModeChange('table')}
                     className={`px-3 py-2 text-sm font-medium rounded-l-lg border ${
                       viewMode === 'table'
@@ -279,13 +294,13 @@ export function ManifestList({
                     <List className="h-4 w-4" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>Table view</TooltipContent>
+                <TooltipContent>{t('manifests.list.view.table')}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    aria-label="Card view"
+                    aria-label={t('manifests.list.view.card')}
                     onClick={() => onViewModeChange('card')}
                     className={`px-3 py-2 text-sm font-medium rounded-r-lg border -ml-px ${
                       viewMode === 'card'
@@ -296,7 +311,7 @@ export function ManifestList({
                     <LayoutGrid className="h-4 w-4" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>Card view</TooltipContent>
+                <TooltipContent>{t('manifests.list.view.card')}</TooltipContent>
               </Tooltip>
             </div>
           </TooltipProvider>
@@ -309,9 +324,9 @@ export function ManifestList({
       {manifests.length === 0 ? (
         <div className="p-12 text-center">
           <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-2 text-sm font-medium text-foreground">No manifests found</h3>
+          <h3 className="mt-2 text-sm font-medium text-foreground">{t('manifests.list.empty.title')}</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Try adjusting your filters to see more results.
+            {t('manifests.list.empty.description')}
           </p>
         </div>
       ) : (

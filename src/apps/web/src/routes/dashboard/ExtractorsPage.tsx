@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { getApiErrorMessage } from '@/api/client';
+import { getApiErrorText } from '@/api/client';
 import { CreateExtractorDto, UpdateExtractorDto, ExtractorCostSummary, extractorsApi } from '@/api/extractors';
 import { ExtractorFormDialog } from '@/shared/components/ExtractorFormDialog';
 import { ExtractorCard } from '@/shared/components/ExtractorCard';
@@ -10,9 +10,11 @@ import { Input } from '@/shared/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 export function ExtractorsPage() {
   const { confirm, alert, ModalDialog } = useModalDialog();
+  const { t } = useI18n();
   const { extractors, isLoading, error } = useExtractors();
   const { types } = useExtractorTypes();
   const { presets } = useExtractorPresets();
@@ -75,9 +77,9 @@ export function ExtractorsPage() {
 
   const handleDelete = async (id: string) => {
     const confirmed = await confirm({
-      title: 'Delete extractor',
-      message: 'Delete this extractor?',
-      confirmText: 'Delete',
+      title: t('extractors.deleteTitle'),
+      message: t('extractors.deleteMessage'),
+      confirmText: t('common.delete'),
       destructive: true,
     });
     if (!confirmed) return;
@@ -91,7 +93,7 @@ export function ExtractorsPage() {
     } catch (error) {
       void alert({
         title: 'Extractor test failed',
-        message: getApiErrorMessage(error, 'Extractor test failed. Please try again.'),
+        message: getApiErrorText(error, t),
       });
     }
   };
@@ -101,13 +103,16 @@ export function ExtractorsPage() {
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Extractors</h1>
+            <h1 className="text-3xl font-bold text-foreground">{t('extractors.title')}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {filteredExtractors.length} extractor{filteredExtractors.length === 1 ? '' : 's'} configured
+              {t('extractors.count', {
+                count: filteredExtractors.length,
+                plural: filteredExtractors.length === 1 ? '' : 's',
+              })}
             </p>
           </div>
           <Button type="button" onClick={openCreate}>
-            New Extractor
+            {t('extractors.new')}
           </Button>
         </div>
 
@@ -115,17 +120,17 @@ export function ExtractorsPage() {
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search extractors..."
+            placeholder={t('extractors.searchPlaceholder')}
             className="max-w-sm"
           />
           <Card className="md:max-w-sm w-full">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Total Spend</CardTitle>
+              <CardTitle className="text-sm">{t('extractors.totalSpend')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-xl font-semibold">${totalSpend.toFixed(4)}</div>
               <p className="text-xs text-muted-foreground">
-                Across {extractors.length} extractors
+                {t('extractors.totalSpendSubtitle', { count: extractors.length })}
               </p>
             </CardContent>
           </Card>
@@ -144,12 +149,12 @@ export function ExtractorsPage() {
           </div>
         ) : error ? (
           <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-6 py-4 text-sm text-destructive">
-            <div className="font-semibold">Unable to load extractors</div>
-            <p className="mt-1">{getApiErrorMessage(error, 'Please try again in a moment.')}</p>
+            <div className="font-semibold">{t('extractors.loadErrorTitle')}</div>
+            <p className="mt-1">{getApiErrorText(error, t)}</p>
           </div>
         ) : filteredExtractors.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border bg-card p-10 text-center text-muted-foreground">
-            No extractors configured yet.
+            {t('extractors.empty')}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">

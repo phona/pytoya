@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/shared/components/ui/select';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface ManifestFiltersProps {
   values: ManifestFilterValues;
@@ -23,6 +24,7 @@ interface ManifestFiltersProps {
 }
 
 export function ManifestFilters({ values, onChange, manifestCount }: ManifestFiltersProps) {
+  const { t } = useI18n();
   const { schemas } = useSchemas();
   const { types: extractorTypes } = useExtractorTypes();
   const { extractors } = useExtractors(
@@ -226,7 +228,7 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
   return (
     <div className="bg-card rounded-lg shadow-sm border border-border p-4 sticky top-4">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="font-semibold text-foreground">Filters</h3>
+        <h3 className="font-semibold text-foreground">{t('manifests.filters.title')}</h3>
         {hasActiveFilters && (
           <Button
             type="button"
@@ -235,7 +237,7 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
             size="sm"
             className="text-primary hover:text-primary"
           >
-            Clear all
+            {t('common.clearAll')}
           </Button>
         )}
       </div>
@@ -243,18 +245,18 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
       {/* Status */}
       <div className="mb-4">
         <label htmlFor="filter-status" className="block text-sm font-medium text-foreground mb-2">
-          Status
+          {t('manifests.filters.status.label')}
         </label>
         <Select value={statusValue} onValueChange={handleStatusChange}>
           <SelectTrigger id="filter-status">
-            <SelectValue placeholder="Any status" />
+            <SelectValue placeholder={t('manifests.filters.status.placeholder')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Any status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="processing">Processing</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
+            <SelectItem value="all">{t('manifests.filters.status.any')}</SelectItem>
+            <SelectItem value="pending">{t('manifests.status.pending')}</SelectItem>
+            <SelectItem value="processing">{t('manifests.status.processing')}</SelectItem>
+            <SelectItem value="completed">{t('manifests.status.completed')}</SelectItem>
+            <SelectItem value="failed">{t('manifests.status.failed')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -262,19 +264,19 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
       {/* Extraction Status */}
       <div className="mb-4">
         <label htmlFor="filter-extraction-status" className="block text-sm font-medium text-foreground mb-2">
-          Extraction Status
+          {t('manifests.filters.extractionStatus.label')}
         </label>
         <Select value={extractionStatusValue} onValueChange={handleExtractionStatusChange}>
           <SelectTrigger id="filter-extraction-status">
-            <SelectValue placeholder="Any extraction status" />
+            <SelectValue placeholder={t('manifests.filters.extractionStatus.placeholder')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Any status</SelectItem>
-            <SelectItem value="not_extracted">Not Extracted</SelectItem>
-            <SelectItem value="extracting">Extracting</SelectItem>
-            <SelectItem value="complete">Complete</SelectItem>
-            <SelectItem value="partial">Partial</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
+            <SelectItem value="all">{t('manifests.filters.extractionStatus.any')}</SelectItem>
+            <SelectItem value="not_extracted">{t('manifests.extractionStatus.notExtracted')}</SelectItem>
+            <SelectItem value="extracting">{t('manifests.extractionStatus.extracting')}</SelectItem>
+            <SelectItem value="complete">{t('manifests.extractionStatus.complete')}</SelectItem>
+            <SelectItem value="partial">{t('manifests.extractionStatus.partial')}</SelectItem>
+            <SelectItem value="failed">{t('manifests.extractionStatus.failed')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -282,18 +284,18 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
       {/* Text Quality */}
       <div className="mb-4">
         <label htmlFor="filter-ocr-quality" className="block text-sm font-medium text-foreground mb-2">
-          Text Quality
+          {t('manifests.filters.ocrQuality.label')}
         </label>
         <Select value={ocrQualityValue} onValueChange={handleOcrQualityChange}>
           <SelectTrigger id="filter-ocr-quality">
-            <SelectValue placeholder="Any quality" />
+            <SelectValue placeholder={t('manifests.filters.ocrQuality.placeholder')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Any quality</SelectItem>
-            <SelectItem value="excellent">Excellent (90-100)</SelectItem>
-            <SelectItem value="good">Good (70-89)</SelectItem>
-            <SelectItem value="poor">Poor (&lt;70)</SelectItem>
-            <SelectItem value="unprocessed">Not Processed</SelectItem>
+            <SelectItem value="all">{t('manifests.filters.ocrQuality.any')}</SelectItem>
+            <SelectItem value="excellent">{t('manifests.filters.ocrQuality.excellent')}</SelectItem>
+            <SelectItem value="good">{t('manifests.filters.ocrQuality.good')}</SelectItem>
+            <SelectItem value="poor">{t('manifests.filters.ocrQuality.poor')}</SelectItem>
+            <SelectItem value="unprocessed">{t('manifests.filters.ocrQuality.notProcessed')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -301,14 +303,14 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
       {/* Extractor Filters */}
       <div className="mb-4">
         <label htmlFor="filter-extractor-type" className="block text-sm font-medium text-foreground mb-2">
-          Extractor Type
+          {t('manifests.filters.extractorType.label')}
         </label>
         <Select value={extractorTypeValue} onValueChange={handleExtractorTypeChange}>
           <SelectTrigger id="filter-extractor-type">
-            <SelectValue placeholder="Any extractor type" />
+            <SelectValue placeholder={t('manifests.filters.extractorType.placeholder')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Any type</SelectItem>
+            <SelectItem value="all">{t('manifests.filters.extractorType.any')}</SelectItem>
             {extractorTypes.map((type) => (
               <SelectItem key={type.id} value={type.id}>
                 {type.name}
@@ -320,14 +322,14 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
 
       <div className="mb-4">
         <label htmlFor="filter-extractor" className="block text-sm font-medium text-foreground mb-2">
-          Extractor
+          {t('manifests.filters.extractor.label')}
         </label>
         <Select value={extractorValue} onValueChange={handleExtractorChange}>
           <SelectTrigger id="filter-extractor">
-            <SelectValue placeholder="Any extractor" />
+            <SelectValue placeholder={t('manifests.filters.extractor.placeholder')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Any extractor</SelectItem>
+            <SelectItem value="all">{t('manifests.filters.extractor.any')}</SelectItem>
             {extractors.map((extractor) => (
               <SelectItem key={extractor.id} value={extractor.id}>
                 {extractor.name}
@@ -340,31 +342,31 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
       {/* PO Number */}
       <div className="mb-4">
         <label htmlFor="filterPoNo" className="block text-sm font-medium text-foreground mb-1">
-          PO Number
+          {t('manifests.filters.poNumber.label')}
         </label>
         <Input
           id="filterPoNo"
           type="text"
           value={values.poNo ?? ''}
           onChange={(e) => handleInputChange('poNo', e.target.value)}
-          placeholder="Filter by PO..."
+          placeholder={t('manifests.filters.poNumber.placeholder')}
           className="mt-1"
         />
       </div>
 
       {/* Date Range */}
       <div className="mb-4">
-        <p className="block text-sm font-medium text-foreground mb-1">Invoice Date</p>
+        <p className="block text-sm font-medium text-foreground mb-1">{t('manifests.filters.invoiceDate.label')}</p>
         <div className="space-y-2">
           <Input
             type="date"
-            aria-label="Invoice date from"
+            aria-label={t('manifests.filters.invoiceDate.fromAria')}
             value={values.dateFrom ?? ''}
             onChange={(e) => handleInputChange('dateFrom', e.target.value)}
           />
           <Input
             type="date"
-            aria-label="Invoice date to"
+            aria-label={t('manifests.filters.invoiceDate.toAria')}
             value={values.dateTo ?? ''}
             onChange={(e) => handleInputChange('dateTo', e.target.value)}
           />
@@ -374,25 +376,25 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
       {/* Department */}
       <div className="mb-4">
         <label htmlFor="filterDepartment" className="block text-sm font-medium text-foreground mb-1">
-          Department
+          {t('manifests.filters.department.label')}
         </label>
         <Input
           id="filterDepartment"
           type="text"
           value={values.department ?? ''}
           onChange={(e) => handleInputChange('department', e.target.value)}
-          placeholder="Filter by department..."
+          placeholder={t('manifests.filters.department.placeholder')}
           className="mt-1"
         />
       </div>
 
       {/* Dynamic Field Filters */}
       <div className="mb-4">
-        <p className="block text-sm font-medium text-foreground mb-2">Custom Field</p>
+        <p className="block text-sm font-medium text-foreground mb-2">{t('manifests.filters.customField.label')}</p>
         <div className="space-y-2">
           <div>
             <label htmlFor="dynamicFieldPath" className="sr-only">
-              Field path
+              {t('manifests.filters.customField.pathAria')}
             </label>
             <Input
               id="dynamicFieldPath"
@@ -400,7 +402,7 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
               type="text"
               value={dynamicField}
               onChange={(e) => setDynamicField(e.target.value)}
-              placeholder="e.g. invoice.po_no"
+              placeholder={t('manifests.filters.customField.pathPlaceholder')}
             />
             <datalist id="dynamic-field-options">
               {fieldOptions.map((option) => (
@@ -410,14 +412,14 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
           </div>
           <div>
             <label htmlFor="dynamicFieldValue" className="sr-only">
-              Field value
+              {t('manifests.filters.customField.valueAria')}
             </label>
             <Input
               id="dynamicFieldValue"
               type="text"
               value={dynamicValue}
               onChange={(e) => setDynamicValue(e.target.value)}
-              placeholder="Value to match"
+              placeholder={t('manifests.filters.customField.valuePlaceholder')}
             />
           </div>
           <Button
@@ -426,7 +428,7 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
             variant="outline"
             className="w-full"
           >
-            Add Field Filter
+            {t('manifests.filters.customField.addButton')}
           </Button>
         </div>
 
@@ -447,7 +449,7 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
                   size="sm"
                   className="text-muted-foreground hover:text-muted-foreground"
                 >
-                  Remove
+                  {t('common.remove')}
                 </Button>
               </div>
             ))}
@@ -458,14 +460,17 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
       {/* Confidence Range */}
       <div className="mb-4">
         <p className="block text-sm font-medium text-foreground mb-1">
-          Confidence: {confidenceRange.min}% - {confidenceRange.max}%
+          {t('manifests.filters.confidenceRange.label', {
+            min: confidenceRange.min,
+            max: confidenceRange.max,
+          })}
         </p>
         <div className="space-y-2">
           <Input
             type="range"
             min="0"
             max="100"
-            aria-label="Confidence minimum"
+            aria-label={t('manifests.filters.confidenceRange.minAria')}
             value={confidenceRange.min}
             onChange={(e) => handleConfidenceChange(Number(e.target.value), confidenceRange.max)}
             className="h-2 px-0 py-0"
@@ -474,7 +479,7 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
             type="range"
             min="0"
             max="100"
-            aria-label="Confidence maximum"
+            aria-label={t('manifests.filters.confidenceRange.maxAria')}
             value={confidenceRange.max}
             onChange={(e) => handleConfidenceChange(confidenceRange.min, Number(e.target.value))}
             className="h-2 px-0 py-0"
@@ -485,14 +490,17 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
       {/* Cost Range */}
       <div className="mb-4">
         <p className="block text-sm font-medium text-foreground mb-1">
-          Cost Range: ${costRange.min.toFixed(2)} - ${costRange.max.toFixed(2)}
+          {t('manifests.filters.costRange.label', {
+            min: costRange.min.toFixed(2),
+            max: costRange.max.toFixed(2),
+          })}
         </p>
         <div className="grid grid-cols-2 gap-2">
           <Input
             type="number"
             min="0"
             step="0.01"
-            aria-label="Cost minimum"
+            aria-label={t('manifests.filters.costRange.minAria')}
             value={costRange.min}
             onChange={(e) => handleCostChange(Number(e.target.value), costRange.max)}
           />
@@ -500,7 +508,7 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
             type="number"
             min="0"
             step="0.01"
-            aria-label="Cost maximum"
+            aria-label={t('manifests.filters.costRange.maxAria')}
             value={costRange.max}
             onChange={(e) => handleCostChange(costRange.min, Number(e.target.value))}
           />
@@ -511,7 +519,7 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
             min="0"
             max="100"
             step="0.5"
-            aria-label="Cost minimum slider"
+            aria-label={t('manifests.filters.costRange.minSliderAria')}
             value={costRange.min}
             onChange={(e) => handleCostChange(Number(e.target.value), costRange.max)}
             className="h-2 px-0 py-0"
@@ -521,7 +529,7 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
             min="0"
             max="100"
             step="0.5"
-            aria-label="Cost maximum slider"
+            aria-label={t('manifests.filters.costRange.maxSliderAria')}
             value={costRange.max}
             onChange={(e) => handleCostChange(costRange.min, Number(e.target.value))}
             className="h-2 px-0 py-0"
@@ -535,17 +543,24 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
           <Checkbox
             checked={values.humanVerified ?? false}
             onCheckedChange={(checked) => handleVerifiedChange(checked === true)}
-            aria-label="Human Verified Only"
+            aria-label={t('manifests.filters.humanVerified.aria')}
           />
-          <span>Human Verified Only</span>
+          <span>{t('manifests.filters.humanVerified.label')}</span>
         </div>
       </div>
 
       {/* Results Count */}
       <div className="pt-4 border-t border-border">
         <p className="text-xs text-muted-foreground">
-          {hasActiveFilters ? 'Filtered' : 'Total'}: {manifestCount} manifest
-          {manifestCount !== 1 ? 's' : ''}
+          {t(
+            hasActiveFilters
+              ? 'manifests.filters.results.filtered'
+              : 'manifests.filters.results.total',
+            {
+              count: manifestCount,
+              plural: manifestCount === 1 ? '' : 's',
+            },
+          )}
         </p>
       </div>
     </div>

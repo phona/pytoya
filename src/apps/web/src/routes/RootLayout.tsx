@@ -1,7 +1,6 @@
 import { ReactNode, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { Providers } from '../app/providers';
-import '../shared/styles/globals.css';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 type RootLayoutProps = {
   children?: ReactNode;
@@ -9,10 +8,11 @@ type RootLayoutProps = {
 
 export function RootLayout({ children }: RootLayoutProps) {
   const location = useLocation();
+  const { t } = useI18n();
 
   useEffect(() => {
-    document.title = 'PyToYa';
-  }, []);
+    document.title = t('app.name');
+  }, [t]);
 
   useEffect(() => {
     const main = document.getElementById('main-content');
@@ -22,15 +22,15 @@ export function RootLayout({ children }: RootLayoutProps) {
   }, [location.pathname, location.search]);
 
   return (
-    <Providers>
+    <>
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-card focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary focus:shadow"
       >
-        Skip to content
+        {t('a11y.skipToContent')}
       </a>
       {children ?? <Outlet />}
-    </Providers>
+    </>
   );
 }
 

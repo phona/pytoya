@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { manifestsApi } from '@/api/manifests';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface PdfViewerProps {
   manifestId: number;
 }
 
 export function PdfViewer({ manifestId }: PdfViewerProps) {
+  const { t } = useI18n();
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -24,7 +26,7 @@ export function PdfViewer({ manifestId }: PdfViewerProps) {
         setObjectUrl(nextUrl);
       } catch (error) {
         if (canceled) return;
-        setLoadError(error instanceof Error ? error.message : 'Failed to load PDF');
+        setLoadError(error instanceof Error ? error.message : t('audit.pdf.failedToLoad'));
       }
     };
 
@@ -36,7 +38,7 @@ export function PdfViewer({ manifestId }: PdfViewerProps) {
         URL.revokeObjectURL(urlToRevoke);
       }
     };
-  }, [manifestId]);
+  }, [manifestId, t]);
 
   return (
     <div className="h-full flex flex-col bg-muted">
@@ -55,7 +57,7 @@ export function PdfViewer({ manifestId }: PdfViewerProps) {
             src={objectUrl}
             type="application/pdf"
             className="w-full h-full"
-            title="PDF Viewer"
+            title={t('audit.pdf.title')}
           />
         )}
       </div>

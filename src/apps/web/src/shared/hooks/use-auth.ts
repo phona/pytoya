@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/stores/auth';
+import { useJobsStore } from '@/shared/stores/jobs';
 import apiClient from '@/api/client';
 
 export interface LoginCredentials {
@@ -32,6 +33,7 @@ export function useAuth() {
     },
     onSuccess: ({ user: nextUser, token: nextToken }) => {
       setAuth(nextUser, nextToken);
+      useJobsStore.getState().setOwnerUserId(nextUser.id);
     },
   });
 
@@ -45,6 +47,7 @@ export function useAuth() {
     },
     onSuccess: ({ user: nextUser, token: nextToken }) => {
       setAuth(nextUser, nextToken);
+      useJobsStore.getState().setOwnerUserId(nextUser.id);
     },
   });
 
@@ -60,6 +63,7 @@ export function useAuth() {
 
   const logout = () => {
     clearAuth();
+    useJobsStore.getState().reset();
     const nextUrl = `${window.location.pathname}${window.location.search}`;
     if (window.location.pathname !== '/login') {
       window.location.href = `/login?next_url=${encodeURIComponent(nextUrl)}`;

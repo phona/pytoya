@@ -27,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/shared/components/ui/table';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 export type ExtractionHistoryEntry = ManifestExtractionHistoryEntry;
 
@@ -45,6 +46,7 @@ export function ExtractionHistoryPanel({
   onCompare,
   loading = false,
 }: ExtractionHistoryPanelProps) {
+  const { t } = useI18n();
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set());
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
   const expandedJobId = expandedEntryId ? Number(expandedEntryId) : null;
@@ -100,28 +102,28 @@ export function ExtractionHistoryPanel({
         return (
           <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-100">
             <CheckCircle2 className="h-3 w-3 mr-1" />
-            Completed
+            {t('audit.extractionHistory.status.completed')}
           </Badge>
         );
       case 'running':
         return (
           <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100">
             <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-            Running
+            {t('audit.extractionHistory.status.running')}
           </Badge>
         );
       case 'pending':
         return (
           <Badge className="bg-muted text-muted-foreground">
             <Clock className="h-3 w-3 mr-1" />
-            Pending
+            {t('audit.extractionHistory.status.pending')}
           </Badge>
         );
       case 'canceled':
         return (
           <Badge className="bg-slate-200 text-slate-800 dark:bg-slate-900 dark:text-slate-100">
             <Ban className="h-3 w-3 mr-1" />
-            Canceled
+            {t('audit.extractionHistory.status.canceled')}
           </Badge>
         );
       case 'failed':
@@ -129,7 +131,7 @@ export function ExtractionHistoryPanel({
         return (
           <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100">
             <XCircle className="h-3 w-3 mr-1" />
-            Failed
+            {t('audit.extractionHistory.status.failed')}
           </Badge>
         );
     }
@@ -172,30 +174,36 @@ export function ExtractionHistoryPanel({
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Clock className="h-5 w-5 text-blue-500" />
-            Extraction History
+            {t('audit.extractionHistory.title')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <div className="text-xs text-muted-foreground">Total Runs</div>
+              <div className="text-xs text-muted-foreground">{t('audit.extractionHistory.stats.totalRuns')}</div>
               <div className="text-2xl font-semibold">{stats.totalRuns}</div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Total Spent</div>
+              <div className="text-xs text-muted-foreground">{t('audit.extractionHistory.stats.totalSpent')}</div>
               <div className="text-2xl font-semibold">${stats.totalCost.toFixed(4)}</div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Success Rate</div>
+              <div className="text-xs text-muted-foreground">{t('audit.extractionHistory.stats.successRate')}</div>
               <div className="text-2xl font-semibold">
                 {stats.totalRuns > 0 ? Math.round((stats.completedCount / stats.totalRuns) * 100) : 0}%
               </div>
               <div className="text-xs text-muted-foreground">
-                {stats.completedCount} completed • {stats.runningCount} running • {stats.pendingCount} pending • {stats.canceledCount} canceled • {stats.failedCount} failed
+                {t('audit.extractionHistory.stats.statusSummary', {
+                  completed: stats.completedCount,
+                  running: stats.runningCount,
+                  pending: stats.pendingCount,
+                  canceled: stats.canceledCount,
+                  failed: stats.failedCount,
+                })}
               </div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Avg Tokens</div>
+              <div className="text-xs text-muted-foreground">{t('audit.extractionHistory.stats.avgTokens')}</div>
               <div className="text-2xl font-semibold">
                 {stats.totalRuns > 0 ? Math.round(stats.totalTokens / stats.totalRuns).toLocaleString() : 0}
               </div>
@@ -203,22 +211,22 @@ export function ExtractionHistoryPanel({
           </div>
 
           <div className="mt-4 pt-4 border-t border-border">
-            <div className="text-sm font-medium mb-2">Cost Breakdown</div>
+            <div className="text-sm font-medium mb-2">{t('audit.extractionHistory.costBreakdown.title')}</div>
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center gap-1">
                 <DollarSign className="h-3 w-3 text-blue-500" />
-                <span className="text-muted-foreground">Text:</span>
+                <span className="text-muted-foreground">{t('audit.extractionHistory.costBreakdown.text')}:</span>
                 <span className="font-medium">${stats.totalTextCost.toFixed(4)}</span>
               </div>
               <div className="flex items-center gap-1">
                 <DollarSign className="h-3 w-3 text-purple-500" />
-                <span className="text-muted-foreground">LLM:</span>
+                <span className="text-muted-foreground">{t('audit.extractionHistory.costBreakdown.llm')}:</span>
                 <span className="font-medium">${stats.totalLlmCost.toFixed(4)}</span>
               </div>
               {stats.avgDurationMs ? (
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-muted-foreground">Avg time:</span>
+                  <span className="text-muted-foreground">{t('audit.extractionHistory.costBreakdown.avgTime')}:</span>
                   <span className="font-medium">{(stats.avgDurationMs / 1000).toFixed(1)}s</span>
                 </div>
               ) : null}
@@ -230,11 +238,11 @@ export function ExtractionHistoryPanel({
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Extraction Runs</CardTitle>
+            <CardTitle className="text-base">{t('audit.extractionHistory.runsTitle')}</CardTitle>
             {selectedEntries.size === 2 && onCompare && (
               <Button variant="outline" size="sm" onClick={() => onCompare(Array.from(selectedEntries))}>
                 <GitCompare className="h-4 w-4 mr-1" />
-                Compare Selected
+                {t('audit.extractionHistory.compareSelected')}
               </Button>
             )}
           </div>
@@ -242,7 +250,7 @@ export function ExtractionHistoryPanel({
         <CardContent className="space-y-2">
           {history.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
-              No extraction history found for this document.
+              {t('audit.extractionHistory.empty')}
             </p>
           ) : (
             history.map((entry) => {
@@ -251,9 +259,23 @@ export function ExtractionHistoryPanel({
               const isSelected = selectedEntries.has(entryId);
 
               const createdAt = new Date(entry.createdAt);
-              const modelLabel = entry.llmModelName ?? entry.llmModelId ?? 'Default model';
-              const promptLabel = entry.promptName ?? (entry.promptId ? `Prompt #${entry.promptId}` : 'Default prompt');
-              const fieldLabel = entry.fieldName ? `Field: ${entry.fieldName}` : 'Full extraction';
+              const modelLabel =
+                entry.llmModelName ?? entry.llmModelId ?? t('audit.extractionHistory.defaultModel');
+              const promptLabel =
+                entry.promptName ??
+                (entry.promptId
+                  ? t('audit.extractionHistory.promptNumber', { id: entry.promptId })
+                  : t('audit.extractionHistory.defaultPrompt'));
+              const fieldLabel = entry.fieldName
+                ? t('audit.extractionHistory.fieldLabel', { field: entry.fieldName })
+                : t('audit.extractionHistory.fullExtraction');
+              const pagesLabel = t('audit.extractionHistory.pages', {
+                count: entry.pagesProcessed ?? '—',
+              });
+              const tokensLabel = t('audit.extractionHistory.tokens', {
+                input: entry.llmInputTokens ?? 0,
+                output: entry.llmOutputTokens ?? 0,
+              });
 
               const totalCost = entry.actualCost ?? entry.estimatedCost ?? 0;
               const textCost = entry.textActualCost ?? entry.textEstimatedCost ?? 0;
@@ -282,7 +304,7 @@ export function ExtractionHistoryPanel({
                         {getStatusBadge(entry.status)}
                       </div>
                       <div className="text-xs text-muted-foreground truncate">
-                        {modelLabel} • {promptLabel} • {fieldLabel} • {entry.pagesProcessed ?? '—'} pages • {(entry.llmInputTokens ?? 0)}→{(entry.llmOutputTokens ?? 0)} tokens
+                        {modelLabel} • {promptLabel} • {fieldLabel} • {pagesLabel} • {tokensLabel}
                       </div>
                     </div>
 
@@ -292,7 +314,10 @@ export function ExtractionHistoryPanel({
                         {totalCost.toFixed(4)}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Text: ${textCost.toFixed(4)} • LLM: ${llmCost.toFixed(4)}
+                        {t('audit.extractionHistory.costLine', {
+                          text: textCost.toFixed(4),
+                          llm: llmCost.toFixed(4),
+                        })}
                       </div>
                     </div>
 
@@ -307,41 +332,48 @@ export function ExtractionHistoryPanel({
                     <div className="p-4 bg-muted/30 border-t border-border space-y-3">
                       <div className="grid grid-cols-2 gap-4 text-xs">
                         <div>
-                          <span className="text-muted-foreground">Job</span>
+                          <span className="text-muted-foreground">{t('audit.extractionHistory.details.job')}</span>
                           <div className="font-medium">
-                            ID: {entry.jobId}{entry.queueJobId ? ` (queue: ${entry.queueJobId})` : ''}
+                            {t('audit.extractionHistory.details.jobIdLine', {
+                              id: entry.jobId,
+                              queue: entry.queueJobId
+                                ? t('audit.extractionHistory.details.jobQueuePart', { id: entry.queueJobId })
+                                : '',
+                            })}
                           </div>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Duration</span>
+                          <span className="text-muted-foreground">{t('audit.extractionHistory.details.duration')}</span>
                           <div className="font-medium">
-                            {entry.durationMs ? `${(entry.durationMs / 1000).toFixed(1)}s` : 'N/A'}
+                            {entry.durationMs ? `${(entry.durationMs / 1000).toFixed(1)}s` : t('common.na')}
                           </div>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Model</span>
+                          <span className="text-muted-foreground">{t('audit.extractionHistory.details.model')}</span>
                           <div className="font-medium">{modelLabel}</div>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Prompt</span>
+                          <span className="text-muted-foreground">{t('audit.extractionHistory.details.prompt')}</span>
                           <div className="font-medium">{promptLabel}</div>
                         </div>
                       </div>
 
                       {(entry.error || entry.cancelReason) ? (
                         <div className="rounded-md bg-red-50 border border-red-200 p-2 text-xs text-red-800 dark:bg-red-950 dark:border-red-900 dark:text-red-200">
-                          {entry.cancelReason ? `Canceled: ${entry.cancelReason}` : entry.error}
+                          {entry.cancelReason
+                            ? t('audit.extractionHistory.details.canceledReason', { reason: entry.cancelReason })
+                            : entry.error}
                         </div>
                       ) : null}
 
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" onClick={() => copyRunDetails(entry)}>
                           <Copy className="h-3 w-3 mr-1" />
-                          Copy details
+                          {t('audit.extractionHistory.details.copyDetails')}
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => downloadRunDetails(entry)}>
                           <Download className="h-3 w-3 mr-1" />
-                          Download JSON
+                          {t('audit.extractionHistory.details.downloadJson')}
                         </Button>
                       </div>
 
@@ -351,18 +383,18 @@ export function ExtractionHistoryPanel({
                           {entryDetails.isLoading ? (
                             <div className="text-xs text-muted-foreground flex items-center gap-2">
                               <Loader2 className="h-3 w-3 animate-spin" />
-                              Loading prompt details…
+                              {t('audit.extractionHistory.prompt.loading')}
                             </div>
                           ) : entryDetails.isError ? (
                             <div className="text-xs text-destructive">
-                              Failed to load prompt details.
+                              {t('audit.extractionHistory.prompt.failedToLoad')}
                             </div>
                           ) : (
                             <>
                               {entryDetails.data?.promptTemplateContent ? (
                                 <div className="rounded-md border border-border bg-background p-2">
                                   <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-medium">Prompt Template</span>
+                                    <span className="text-xs font-medium">{t('audit.extractionHistory.prompt.template')}</span>
                                     <Button
                                       variant="ghost"
                                       size="sm"
@@ -370,7 +402,7 @@ export function ExtractionHistoryPanel({
                                       onClick={() => copyText(entryDetails.data?.promptTemplateContent ?? null)}
                                     >
                                       <Copy className="h-3 w-3 mr-1" />
-                                      Copy
+                                      {t('common.copy')}
                                     </Button>
                                   </div>
                                   <pre className="text-xs font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
@@ -381,7 +413,7 @@ export function ExtractionHistoryPanel({
 
                               <div className="rounded-md border border-border bg-background p-2">
                                 <div className="flex items-center justify-between mb-2">
-                                  <span className="text-xs font-medium">System Prompt (input)</span>
+                                  <span className="text-xs font-medium">{t('audit.extractionHistory.prompt.system')}</span>
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -390,7 +422,7 @@ export function ExtractionHistoryPanel({
                                     disabled={!entryDetails.data?.systemPrompt}
                                   >
                                     <Copy className="h-3 w-3 mr-1" />
-                                    Copy
+                                    {t('common.copy')}
                                   </Button>
                                 </div>
                                 {entryDetails.data?.systemPrompt ? (
@@ -399,14 +431,14 @@ export function ExtractionHistoryPanel({
                                   </pre>
                                 ) : (
                                   <div className="text-xs text-muted-foreground">
-                                    Not recorded for this run (run extraction again to capture it).
+                                    {t('audit.extractionHistory.prompt.notRecorded')}
                                   </div>
                                 )}
                               </div>
 
                               <div className="rounded-md border border-border bg-background p-2">
                                 <div className="flex items-center justify-between mb-2">
-                                  <span className="text-xs font-medium">User Prompt (input)</span>
+                                  <span className="text-xs font-medium">{t('audit.extractionHistory.prompt.user')}</span>
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -415,7 +447,7 @@ export function ExtractionHistoryPanel({
                                     disabled={!entryDetails.data?.userPrompt}
                                   >
                                     <Copy className="h-3 w-3 mr-1" />
-                                    Copy
+                                    {t('common.copy')}
                                   </Button>
                                 </div>
                                 {entryDetails.data?.userPrompt ? (
@@ -424,14 +456,14 @@ export function ExtractionHistoryPanel({
                                   </pre>
                                 ) : (
                                   <div className="text-xs text-muted-foreground">
-                                    Not recorded for this run (run extraction again to capture it).
+                                    {t('audit.extractionHistory.prompt.notRecorded')}
                                   </div>
                                 )}
                               </div>
 
                               <div className="rounded-md border border-border bg-background p-2">
                                 <div className="flex items-center justify-between mb-2">
-                                  <span className="text-xs font-medium">Assistant Output (raw)</span>
+                                  <span className="text-xs font-medium">{t('audit.extractionHistory.prompt.assistant')}</span>
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -440,7 +472,7 @@ export function ExtractionHistoryPanel({
                                     disabled={!entryDetails.data?.assistantResponse}
                                   >
                                     <Copy className="h-3 w-3 mr-1" />
-                                    Copy
+                                    {t('common.copy')}
                                   </Button>
                                 </div>
                                 {entryDetails.data?.assistantResponse ? (
@@ -449,7 +481,7 @@ export function ExtractionHistoryPanel({
                                   </pre>
                                 ) : (
                                   <div className="text-xs text-muted-foreground">
-                                    Not recorded for this run (run extraction again to capture it).
+                                    {t('audit.extractionHistory.prompt.notRecorded')}
                                   </div>
                                 )}
                               </div>
@@ -469,25 +501,25 @@ export function ExtractionHistoryPanel({
       {history.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Cost Summary</CardTitle>
+            <CardTitle className="text-base">{t('audit.extractionHistory.costSummary.title')}</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Model</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Text</TableHead>
-                  <TableHead className="text-right">LLM</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>{t('audit.extractionHistory.costSummary.time')}</TableHead>
+                  <TableHead>{t('audit.extractionHistory.costSummary.model')}</TableHead>
+                  <TableHead>{t('audit.extractionHistory.costSummary.status')}</TableHead>
+                  <TableHead className="text-right">{t('audit.extractionHistory.costSummary.text')}</TableHead>
+                  <TableHead className="text-right">{t('audit.extractionHistory.costSummary.llm')}</TableHead>
+                  <TableHead className="text-right">{t('audit.extractionHistory.costSummary.total')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {history.map((entry) => (
                   <TableRow key={entry.jobId}>
                     <TableCell className="text-xs text-muted-foreground">{format(new Date(entry.createdAt), 'PPp')}</TableCell>
-                    <TableCell className="text-sm">{entry.llmModelName ?? entry.llmModelId ?? 'Default model'}</TableCell>
+                    <TableCell className="text-sm">{entry.llmModelName ?? entry.llmModelId ?? t('audit.extractionHistory.defaultModel')}</TableCell>
                     <TableCell>{getStatusBadge(entry.status)}</TableCell>
                     <TableCell className="text-sm text-right">
                       ${(entry.textActualCost ?? entry.textEstimatedCost ?? 0).toFixed(4)}

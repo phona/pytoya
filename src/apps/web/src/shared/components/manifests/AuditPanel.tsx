@@ -10,7 +10,7 @@ import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/shared/hook
 import { useRunValidation } from '@/shared/hooks/use-validation-scripts';
 import { useExtractors } from '@/shared/hooks/use-extractors';
 import { useOcrResult } from '@/shared/hooks/use-manifests';
-import { getApiErrorMessage } from '@/api/client';
+import { getApiErrorText } from '@/api/client';
 import { jobsApi } from '@/api/jobs';
 import { schemasApi } from '@/api/schemas';
 import { useQueryClient } from '@tanstack/react-query';
@@ -31,6 +31,7 @@ import { Manifest } from '@/api/manifests';
 import { toast } from '@/shared/hooks/use-toast';
 import { AuditPanelFunctionsMenu } from './AuditPanelFunctionsMenu';
 import { Dialog, DialogDescription, DialogHeader, DialogSideContent, DialogTitle } from '@/shared/components/ui/dialog';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface AuditPanelProps {
   projectId: number;
@@ -41,6 +42,7 @@ interface AuditPanelProps {
 }
 
 export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifestIds }: AuditPanelProps) {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const { data: manifest, isLoading } = useManifest(manifestId);
   const updateManifest = useUpdateManifest();
@@ -49,8 +51,9 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
   const { extractors } = useExtractors();
   const { project } = useProject(projectId);
   const { groups } = useGroups(projectId);
-  const groupLabel = groups.find((group) => group.id === groupId)?.name ?? `Group ${groupId}`;
-  const projectLabel = project?.name ?? `Project ${projectId}`;
+  const groupLabel =
+    groups.find((group) => group.id === groupId)?.name ?? t('groups.fallbackName', { id: groupId });
+  const projectLabel = project?.name ?? t('projects.fallbackName', { id: projectId });
   const { schemas: projectSchemas } = useProjectSchemas(projectId);
   const resolvedSchemaId = useMemo(() => {
     const defaultSchemaId = project?.defaultSchemaId ?? null;
@@ -292,18 +295,18 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
         }
 
         toast({
-          title: 'Re-extract queued',
+          title: t('audit.reextract.queuedTitle'),
           description: targetFieldName,
         });
       } catch (error) {
         toast({
           variant: 'destructive',
-          title: 'Re-extract failed',
-          description: getApiErrorMessage(error, 'Unable to re-extract field. Please try again.'),
+          title: t('audit.reextract.failedTitle'),
+          description: getApiErrorText(error, t),
         });
       }
     },
-    [getReExtractTargetField, manifestId, normalizeHintPath, reExtractFieldWithPreview],
+    [getReExtractTargetField, manifestId, normalizeHintPath, reExtractFieldWithPreview, t],
   );
 
   const handleViewExtractionHistory = useCallback(
@@ -373,10 +376,10 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
 
   const validationLabel = manifest.validationResults
     ? manifest.validationResults.errorCount > 0
-      ? `${manifest.validationResults.errorCount} errors`
+      ? t('audit.validation.errors', { count: manifest.validationResults.errorCount })
       : manifest.validationResults.warningCount > 0
-        ? `${manifest.validationResults.warningCount} warnings`
-        : 'Passed'
+        ? t('audit.validation.warnings', { count: manifest.validationResults.warningCount })
+        : t('audit.validation.passed')
     : '';
 
   const currentExtractor = manifest.textExtractorId
@@ -392,10 +395,10 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
           <AppBreadcrumbs
             className="mb-1"
             items={[
-              { label: 'Projects', to: '/projects' },
+              { label: t('nav.projects'), to: '/projects' },
               { label: projectLabel, to: `/projects/${projectId}` },
               {
-                label: `Manifests (${groupLabel})`,
+                label: t('manifests.breadcrumbWithGroup', { group: groupLabel }),
                 to: `/projects/${projectId}/groups/${groupId}/manifests`,
               },
               { label: manifest.originalFilename },
@@ -416,7 +419,11 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
                     : 'text-muted-foreground'
               }`}
             >
-              {saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'error' ? '✗ Failed' : 'Saving...'}
+              {saveStatus === 'saved'
+                ? t('audit.save.saved')
+                : saveStatus === 'error'
+                  ? t('audit.save.failed')
+                  : t('audit.save.saving')}
             </span>
           )}
 
@@ -425,7 +432,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
               onClick={goToPrevious}
               disabled={currentIndex === 0}
               className="p-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Previous (←)"
+              title={t('audit.nav.previous')}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -433,7 +440,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
               onClick={goToNext}
               disabled={currentIndex === allManifestIds.length - 1}
               className="p-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Next (→)"
+              title={t('audit.nav.next')}
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -458,7 +465,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
           <button
             onClick={onClose}
             className="p-2 rounded border border-border hover:bg-muted"
-            title="Close (Esc)"
+            title={t('audit.nav.close')}
           >
             <X className="h-5 w-5" />
           </button>
@@ -473,7 +480,9 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
           <div className="absolute inset-0 z-[var(--z-index-overlay)] bg-card/90 backdrop-blur-sm flex items-center justify-center">
             <div className="bg-card rounded-lg shadow-xl border border-border p-6 max-w-md w-full mx-4">
               <h3 className="text-lg font-semibold text-foreground mb-4">
-                {jobProgress?.status === 'processing' ? 'Processing Invoice' : 'Updating'}
+                {jobProgress?.status === 'processing'
+                  ? t('audit.job.processingInvoice')
+                  : t('audit.job.updating')}
               </h3>
               <ProgressBar
                 progress={jobProgress?.progress ?? 0}
@@ -488,9 +497,13 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
                   onClick={handleCancelExtraction}
                   disabled={isCanceling || !jobProgress?.jobId || jobProgress?.status !== 'processing'}
                   className="px-3 py-1 text-sm font-medium rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={jobProgress?.jobId ? 'Cancel extraction job' : 'Waiting for job id...'}
+                  title={
+                    jobProgress?.jobId
+                      ? t('audit.job.cancelTitle')
+                      : t('audit.job.waitingJobIdTitle')
+                  }
                 >
-                  {isCanceling ? 'Canceling...' : 'Cancel'}
+                  {isCanceling ? t('audit.job.canceling') : t('audit.job.cancel')}
                 </button>
               </div>
               {jobProgress?.error && (
@@ -520,23 +533,30 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
           ) : activeTab === 'extraction' ? (
             <div className="p-6 space-y-4">
               <div className="rounded-md border border-border p-4">
-                <div className="text-sm font-medium text-foreground">Extractor</div>
+                <div className="text-sm font-medium text-foreground">{t('audit.extraction.extractorTitle')}</div>
                 <div className="mt-1 text-sm text-muted-foreground">
-                  {currentExtractor?.name ?? manifest.textExtractorId ?? 'Not selected'}
+                  {currentExtractor?.name ?? manifest.textExtractorId ?? t('audit.extraction.notSelected')}
                 </div>
                 {currentExtractor && (
                   <div className="mt-2 text-xs text-muted-foreground">
-                    Type: {currentExtractor.extractorType} • {currentExtractor.isActive ? 'Active' : 'Inactive'}
+                    {t('audit.extraction.typeLabel')}: {currentExtractor.extractorType} •{' '}
+                    {currentExtractor.isActive ? t('audit.extraction.active') : t('audit.extraction.inactive')}
                   </div>
                 )}
               </div>
               <div className="rounded-md border border-border p-4">
-                <div className="text-sm font-medium text-foreground">Processing</div>
+                <div className="text-sm font-medium text-foreground">{t('audit.processing.title')}</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  Text processed: {manifest.ocrProcessedAt ? new Date(manifest.ocrProcessedAt).toLocaleString() : 'N/A'}
+                  {t('audit.processing.textProcessed', {
+                    date: manifest.ocrProcessedAt
+                      ? new Date(manifest.ocrProcessedAt).toLocaleString()
+                      : t('common.na'),
+                  })}
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  OCR quality score: {manifest.ocrQualityScore ?? 'N/A'}
+                  {t('audit.processing.ocrQualityScore', {
+                    score: manifest.ocrQualityScore ?? t('common.na'),
+                  })}
                 </div>
               </div>
               <CostBreakdownPanel
@@ -550,10 +570,14 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
             <div className="p-6 space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-sm font-medium text-foreground">Text Extraction Summary</div>
+                  <div className="text-sm font-medium text-foreground">{t('audit.ocr.summaryTitle')}</div>
                   <div className="text-xs text-muted-foreground">
-                    Processed: {manifest.ocrProcessedAt ? new Date(manifest.ocrProcessedAt).toLocaleString() : 'N/A'} • Quality:{' '}
-                    {manifest.ocrQualityScore ?? 'N/A'}
+                    {t('audit.ocr.summaryLine', {
+                      date: manifest.ocrProcessedAt
+                        ? new Date(manifest.ocrProcessedAt).toLocaleString()
+                        : t('common.na'),
+                      score: manifest.ocrQualityScore ?? t('common.na'),
+                    })}
                   </div>
                 </div>
                 <button
@@ -561,17 +585,17 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
                   className="px-3 py-1 text-xs font-medium border border-border rounded hover:bg-muted"
                 >
                   <Eye className="h-3 w-3 inline mr-1" />
-                  Open Text Details
+                  {t('audit.ocr.openDetails')}
                 </button>
               </div>
 
               <div className="rounded-lg border border-border p-4">
-                <div className="text-sm font-medium text-foreground mb-2">Cached Text (full)</div>
-                {isOcrLoading && <p className="text-sm text-muted-foreground">Loading text...</p>}
-                {ocrError && <p className="text-sm text-destructive">Failed to load cached text.</p>}
+                <div className="text-sm font-medium text-foreground mb-2">{t('audit.ocr.cachedTextTitle')}</div>
+                {isOcrLoading && <p className="text-sm text-muted-foreground">{t('audit.ocr.loadingText')}</p>}
+                {ocrError && <p className="text-sm text-destructive">{t('audit.ocr.failedCachedText')}</p>}
                 {!isOcrLoading && !ocrError && !ocrData?.ocrResult && (
                   <p className="text-sm text-muted-foreground">
-                    No cached text found. Click “Open Text Details” and run text extraction.
+                    {t('audit.ocr.noCachedText')}
                   </p>
                 )}
                 {ocrData?.ocrResult && (
@@ -585,7 +609,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
               </div>
 
               <div className="rounded-lg border border-border p-4">
-                <div className="text-sm font-medium text-foreground mb-2">Extraction Diagnostics</div>
+                <div className="text-sm font-medium text-foreground mb-2">{t('audit.ocr.diagnosticsTitle')}</div>
                 <OcrViewer manifest={manifest} />
               </div>
             </div>
@@ -594,13 +618,14 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
               {historyFieldFilter ? (
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <div className="text-sm text-muted-foreground">
-                    Filtering by field: <span className="font-medium text-foreground">{historyFieldFilter}</span>
+                    {t('audit.history.filteringByField')}{' '}
+                    <span className="font-medium text-foreground">{historyFieldFilter}</span>
                   </div>
                   <button
                     onClick={() => setHistoryFieldFilter(null)}
                     className="text-xs text-muted-foreground hover:text-foreground"
                   >
-                    Clear filter
+                    {t('audit.history.clearFilter')}
                   </button>
                 </div>
               ) : null}
@@ -634,10 +659,10 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
         <DialogSideContent>
           <DialogHeader>
             <DialogTitle>
-              Field Extraction History{historyFieldFilter ? `: ${historyFieldFilter}` : ''}
+              {t('audit.history.dialogTitle')}{historyFieldFilter ? `: ${historyFieldFilter}` : ''}
             </DialogTitle>
             <DialogDescription className="sr-only">
-              View extraction run history for this field.
+              {t('audit.history.dialogDescription')}
             </DialogDescription>
           </DialogHeader>
 

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { manifestsApi, ManifestListResponse, UpdateManifestDto } from '@/api/manifests';
 import { ManifestListQueryParams } from '@/shared/types/manifests';
+import { useJobsStore } from '@/shared/stores/jobs';
 
 export function useManifests(groupId: number, params?: ManifestListQueryParams) {
   return useQuery<ManifestListResponse>({
@@ -63,8 +64,19 @@ export function useReExtractField() {
       llmModelId?: string;
       promptId?: number;
     }) => manifestsApi.reExtractField(manifestId, fieldName, llmModelId, promptId),
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId] });
+      const now = new Date().toISOString();
+      useJobsStore.getState().upsertJob({
+        id: String(data.jobId),
+        kind: 'extraction',
+        manifestId: variables.manifestId,
+        status: 'waiting',
+        progress: 0,
+        error: null,
+        createdAt: now,
+        updatedAt: now,
+      });
     },
   });
 }
@@ -80,8 +92,22 @@ export function useReExtractFieldPreview() {
       manifestId: number;
       data: Parameters<typeof manifestsApi.reExtractFieldWithPreview>[1];
     }) => manifestsApi.reExtractFieldWithPreview(manifestId, data),
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId] });
+      if (!data.jobId) {
+        return;
+      }
+      const now = new Date().toISOString();
+      useJobsStore.getState().upsertJob({
+        id: String(data.jobId),
+        kind: 'extraction',
+        manifestId: variables.manifestId,
+        status: 'waiting',
+        progress: 0,
+        error: null,
+        createdAt: now,
+        updatedAt: now,
+      });
     },
   });
 }
@@ -99,8 +125,19 @@ export function useTriggerExtraction() {
       llmModelId?: string;
       promptId?: number;
     }) => manifestsApi.extractManifest(manifestId, { llmModelId, promptId }),
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId] });
+      const now = new Date().toISOString();
+      useJobsStore.getState().upsertJob({
+        id: String(data.jobId),
+        kind: 'extraction',
+        manifestId: variables.manifestId,
+        status: 'waiting',
+        progress: 0,
+        error: null,
+        createdAt: now,
+        updatedAt: now,
+      });
     },
   });
 }

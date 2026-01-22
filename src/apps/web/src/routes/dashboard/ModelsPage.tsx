@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { getApiErrorMessage } from '@/api/client';
+import { getApiErrorText } from '@/api/client';
 import { AdapterSchema, CreateModelDto, Model, UpdateModelDto } from '@/api/models';
 import { ModelCard } from '@/shared/components/ModelCard';
 import { ModelForm } from '@/shared/components/ModelForm';
@@ -15,9 +15,11 @@ import {
 } from '@/shared/components/ui/dialog';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 export function ModelsPage() {
   const { confirm, alert, ModalDialog } = useModalDialog();
+  const { t } = useI18n();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<Model | null>(null);
   const [selectedAdapterType, setSelectedAdapterType] = useState<string>('');
@@ -67,9 +69,9 @@ export function ModelsPage() {
 
   const handleDelete = async (id: string) => {
     const confirmed = await confirm({
-      title: 'Delete model',
-      message: 'Delete this model?',
-      confirmText: 'Delete',
+      title: t('models.deleteTitle'),
+      message: t('models.deleteMessage'),
+      confirmText: t('common.delete'),
       destructive: true,
     });
     if (!confirmed) return;
@@ -84,7 +86,7 @@ export function ModelsPage() {
     } catch (error) {
       void alert({
         title: 'Model test failed',
-        message: getApiErrorMessage(error, 'Connection test failed. Please try again.'),
+        message: getApiErrorText(error, t),
       });
     } finally {
       setTestingId(null);
@@ -104,19 +106,22 @@ export function ModelsPage() {
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Models</h1>
+            <h1 className="text-3xl font-bold text-foreground">{t('models.title')}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {filteredModels.length} {filteredModels.length === 1 ? 'model' : 'models'}
+              {t('models.count', {
+                count: filteredModels.length,
+                plural: filteredModels.length === 1 ? '' : 's',
+              })}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
-              Models power structured extraction. Configure text extraction in the Extractors page.
+              {t('models.subtitle')}
             </p>
           </div>
           <Button
             type="button"
             onClick={openCreateForm}
           >
-            New Model
+            {t('models.new')}
           </Button>
         </div>
 
@@ -134,22 +139,22 @@ export function ModelsPage() {
             <DialogHeader>
               <DialogTitle>
                 {editingModel
-                  ? 'Edit Model'
+                  ? t('models.dialog.edit')
                   : createStep === 'select'
-                  ? 'Choose Model Type'
-                  : 'Configure Model'}
+                  ? t('models.dialog.chooseType')
+                  : t('models.dialog.configure')}
               </DialogTitle>
               <DialogDescription>
                 {editingModel
-                  ? 'Update model settings and connection details.'
-                  : 'Select the adapter type before configuring the model.'}
+                  ? t('models.dialog.descEdit')
+                  : t('models.dialog.descCreate')}
               </DialogDescription>
             </DialogHeader>
             {!editingModel && createStep === 'select' && (
               <div className="space-y-4">
                 <div>
                   <label htmlFor="adapterType" className="block text-sm font-medium text-foreground">
-                    Adapter Type
+                    {t('models.adapterType')}
                   </label>
                   <select
                     id="adapterType"
@@ -178,14 +183,14 @@ export function ModelsPage() {
                       setEditingModel(null);
                     }}
                   >
-                    Cancel
+                    {t('models.cancel')}
                   </Button>
                   <Button
                     type="button"
                     onClick={() => setCreateStep('form')}
                     disabled={!selectedAdapterType}
                   >
-                    Next
+                    {t('models.next')}
                   </Button>
                 </DialogFooter>
               </div>
@@ -195,7 +200,11 @@ export function ModelsPage() {
               <div className="space-y-4">
                 {!editingModel && (
                   <div className="flex items-center justify-between rounded-md border border-border bg-background px-4 py-2 text-sm text-foreground">
-                    <span>Adapter Type: {activeAdapter?.name ?? 'Unknown'}</span>
+                    <span>
+                      {t('models.adapterTypeLine', {
+                        name: activeAdapter?.name ?? t('models.unknown'),
+                      })}
+                    </span>
                     <Button
                       type="button"
                       onClick={() => setCreateStep('select')}
@@ -203,7 +212,7 @@ export function ModelsPage() {
                       size="sm"
                       className="px-0 text-primary hover:text-primary"
                     >
-                      Change
+                      {t('models.change')}
                     </Button>
                   </div>
                 )}
@@ -223,7 +232,7 @@ export function ModelsPage() {
                   />
                 )}
                 {!activeAdapter && !adaptersLoading && (
-                  <div className="text-sm text-muted-foreground">No adapter available for this category.</div>
+                  <div className="text-sm text-muted-foreground">{t('models.noAdapter')}</div>
                 )}
               </div>
             )}
@@ -243,7 +252,7 @@ export function ModelsPage() {
           </div>
         ) : filteredModels.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border bg-card p-10 text-center text-muted-foreground">
-            No models configured yet.
+            {t('models.empty')}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">

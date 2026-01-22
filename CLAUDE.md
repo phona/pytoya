@@ -254,6 +254,7 @@ Critical for mechanical industry invoices (Chinese):
 - **Cost Tracking**: Extractions record text + LLM costs in `JobEntity` and `ManifestEntity.extractionCost`
 - **WebSocket Events**: `job-update` and `manifest-update` events include `costBreakdown` with `text`, `llm`, `total` fields
 - **Frontend State**: `src/apps/web/src/shared/stores/extraction.ts` tracks accumulated costs with `addCost(amount, type)` where type is `'text'`, `'llm'`, or `'total'`
+- **Global Jobs Panel**: `src/apps/web/src/shared/components/JobsPanel.tsx` + `src/apps/web/src/shared/stores/jobs.ts` track in-progress jobs across navigation and subscribe to manifest updates via `useWebSocket`
 - **Cached OCR**: When OCR is reused from `ManifestEntity.ocrResult`, `TextExtractionMetadata.estimated` is set and `costBreakdown.text` is treated as `0` (no new text extraction usage for that job).
 
 ## Configuration
@@ -317,6 +318,11 @@ Test.createTestingModule({
 ### Web Forms and Validation
 - Use React Hook Form with Zod schemas in `src/apps/web/src/shared/schemas`
 - Prefer shadcn/ui form primitives for inputs, labels, and errors
+
+### Web Internationalization (i18n)
+- Prefer `t(key, vars?)` for all user-facing UI strings
+- Add/modify translations in `docs/I18N.md` and the locale catalogs under `src/apps/web/src/shared/i18n`
+- Use stable keys like `nav.projects` and `errors.PROJECT_NOT_FOUND` (avoid English-as-key)
 
 ### Manifests List Filtering
 - `GET /api/groups/:groupId/manifests` supports server-side filtering, sorting, and pagination.

@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { ERROR_CODES } from '../common/errors/error-codes';
 
 import { UsersService } from '../users/users.service';
 
@@ -26,7 +27,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload) {
     const user = await this.usersService.findById(payload.userId);
     if (!user) {
-      throw new UnauthorizedException('Invalid token');
+      throw new UnauthorizedException({
+        code: ERROR_CODES.AUTH_INVALID_TOKEN,
+        message: 'Invalid token',
+      });
     }
 
     return user.toJSON();

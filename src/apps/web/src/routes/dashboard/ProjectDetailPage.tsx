@@ -12,8 +12,10 @@ import { Button } from '@/shared/components/ui/button';
 import { Group, CreateGroupDto, UpdateGroupDto } from '@/api/projects';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { AppBreadcrumbs } from '@/shared/components/AppBreadcrumbs';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 export function ProjectDetailPage() {
+  const { t } = useI18n();
   const { confirm, ModalDialog } = useModalDialog();
   const navigate = useNavigate();
   const params = useParams();
@@ -67,9 +69,9 @@ export function ProjectDetailPage() {
   const handleDeleteProject = async () => {
     if (!project) return;
     const confirmed = await confirm({
-      title: 'Delete project',
-      message: `Delete project "${project.name}"? This will remove all groups and manifests.`,
-      confirmText: 'Delete',
+      title: t('project.detail.deleteTitle'),
+      message: t('project.detail.deleteMessage', { name: project.name }),
+      confirmText: t('common.delete'),
       destructive: true,
     });
     if (!confirmed) return;
@@ -89,14 +91,14 @@ export function ProjectDetailPage() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-medium text-foreground">Project not found</h2>
+          <h2 className="text-xl font-medium text-foreground">{t('project.detail.notFoundTitle')}</h2>
           <Button
             type="button"
             variant="ghost"
             onClick={() => navigate('/projects')}
             className="mt-4"
           >
-            Back to Projects
+            {t('project.detail.backToProjects')}
           </Button>
         </div>
       </div>
@@ -112,7 +114,7 @@ export function ProjectDetailPage() {
           <AppBreadcrumbs
             className="mb-4"
             items={[
-              { label: 'Projects', to: '/projects' },
+              { label: t('nav.projects'), to: '/projects' },
               { label: project.name },
             ]}
           />
@@ -139,18 +141,28 @@ export function ProjectDetailPage() {
           <div className="mt-4 flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Folder className="h-4 w-4" />
-              <span>{project._count?.groups ?? 0} groups</span>
+              <span>
+                {t('project.detail.groupsCount', {
+                  count: project._count?.groups ?? 0,
+                  plural: (project._count?.groups ?? 0) === 1 ? '' : 's',
+                })}
+              </span>
             </div>
             <div className="flex items-center gap-1">
               <FileText className="h-4 w-4" />
-              <span>{project._count?.manifests ?? 0} manifests</span>
+              <span>
+                {t('project.detail.manifestsCount', {
+                  count: project._count?.manifests ?? 0,
+                  plural: (project._count?.manifests ?? 0) === 1 ? '' : 's',
+                })}
+              </span>
             </div>
           </div>
         </div>
 
         <div className="bg-card rounded-lg shadow-sm border border-border p-6">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-            <h2 className="text-lg font-semibold text-foreground">Groups</h2>
+            <h2 className="text-lg font-semibold text-foreground">{t('project.detail.groupsTitle')}</h2>
             <Button
               type="button"
               onClick={() => {
@@ -158,14 +170,14 @@ export function ProjectDetailPage() {
                 setEditingGroup(null);
               }}
             >
-              New Group
+              {t('project.detail.newGroup')}
             </Button>
           </div>
 
           {(showForm || editingGroup) && (
             <div className="mb-6 bg-background rounded-lg p-4">
               <h3 className="text-md font-medium text-foreground mb-3">
-                {editingGroup ? 'Edit Group' : 'Create New Group'}
+                {editingGroup ? t('project.detail.editGroup') : t('project.detail.createGroup')}
               </h3>
               <GroupForm
                 group={editingGroup ?? undefined}
@@ -186,11 +198,11 @@ export function ProjectDetailPage() {
             </div>
           ) : groups.length === 0 ? (
             <EmptyState
-              title="No groups"
-              description="Create a group to organize your manifests."
+              title={t('project.detail.noGroupsTitle')}
+              description={t('project.detail.noGroupsDescription')}
               icon={FolderOpen}
               action={{
-                label: 'New Group',
+                label: t('project.detail.newGroup'),
                 onClick: () => {
                   setShowForm(true);
                   setEditingGroup(null);

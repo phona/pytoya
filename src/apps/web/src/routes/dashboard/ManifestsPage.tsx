@@ -11,8 +11,10 @@ import { AppBreadcrumbs } from '@/shared/components/AppBreadcrumbs';
 import { ManifestFilterValues, ManifestSort } from '@/shared/types/manifests';
 import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 export function ManifestsPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const params = useParams();
   const projectId = Number(params.id);
@@ -20,7 +22,8 @@ export function ManifestsPage() {
   const queryClient = useQueryClient();
   const { project } = useProject(projectId);
   const { groups } = useGroups(projectId);
-  const groupLabel = groups.find((group) => group.id === groupId)?.name ?? `Group ${groupId}`;
+  const groupLabel =
+    groups.find((group) => group.id === groupId)?.name ?? t('groups.fallbackName', { id: groupId });
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -119,23 +122,29 @@ export function ManifestsPage() {
           <AppBreadcrumbs
             className="mb-4"
             items={[
-              { label: 'Projects', to: '/projects' },
-              { label: project?.name ?? `Project ${projectId}`, to: `/projects/${projectId}` },
-              { label: `Manifests (${groupLabel})` },
+              { label: t('nav.projects'), to: '/projects' },
+              {
+                label: project?.name ?? t('projects.fallbackName', { id: projectId }),
+                to: `/projects/${projectId}`,
+              },
+              { label: t('manifests.breadcrumbWithGroup', { group: groupLabel }) },
             ]}
           />
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Manifests</h1>
+              <h1 className="text-3xl font-bold text-foreground">{t('manifests.title')}</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                {meta?.total ?? 0} invoice{meta?.total !== 1 ? 's' : ''} in this group
+                {t('manifests.subtitleCount', {
+                  count: meta?.total ?? 0,
+                  plural: (meta?.total ?? 0) === 1 ? '' : 's',
+                })}
               </p>
             </div>
             <Button
               type="button"
               onClick={() => setIsUploadOpen(true)}
             >
-              Upload Manifests
+              {t('manifests.uploadButton')}
             </Button>
           </div>
         </div>
@@ -145,7 +154,7 @@ export function ManifestsPage() {
           {/* Filters Sidebar */}
           <div className="w-full flex-shrink-0 lg:w-64">
             <div className="mb-3 flex items-center justify-between lg:hidden">
-              <h2 className="text-sm font-semibold text-foreground">Filters</h2>
+              <h2 className="text-sm font-semibold text-foreground">{t('manifests.filters.title')}</h2>
               <Button
                 type="button"
                 variant="outline"
@@ -154,7 +163,7 @@ export function ManifestsPage() {
                 aria-expanded={filtersOpen}
                 aria-controls="manifest-filters"
               >
-                {filtersOpen ? 'Hide' : 'Show'}
+                {filtersOpen ? t('common.hide') : t('common.show')}
               </Button>
             </div>
             <div

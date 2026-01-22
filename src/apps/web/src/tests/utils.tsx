@@ -4,6 +4,7 @@ import { render, RenderOptions } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from '@/shared/providers/ThemeProvider';
+import { Providers } from '@/app/providers';
 
 // Create a custom render function that includes providers
 interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
@@ -33,7 +34,9 @@ export function renderWithProviders(
     return (
       <MemoryRouter initialEntries={[route]}>
         <QueryClientProvider client={queryClient}>
-          <ThemeProvider>{children}</ThemeProvider>
+          <ThemeProvider>
+            <Providers>{children}</Providers>
+          </ThemeProvider>
         </QueryClientProvider>
       </MemoryRouter>
     );

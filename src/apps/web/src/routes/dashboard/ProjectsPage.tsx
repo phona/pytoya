@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FolderPlus, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getApiErrorMessage } from '@/api/client';
+import { getApiErrorText } from '@/api/client';
 import { useProjects } from '@/shared/hooks/use-projects';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { ProjectCard } from '@/shared/components/ProjectCard';
@@ -9,6 +9,7 @@ import { ProjectForm } from '@/shared/components/ProjectForm';
 import { ProjectWizard } from '@/shared/components/ProjectWizard';
 import { GuidedSetupWizard } from '@/shared/components/GuidedSetupWizard';
 import { Project, UpdateProjectDto, CreateProjectDto } from '@/api/projects';
+import { useI18n } from '@/shared/providers/I18nProvider';
 import {
   Dialog,
   DialogContent,
@@ -28,6 +29,7 @@ import {
 
 export function ProjectsPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const {
     projects,
     isLoading,
@@ -71,24 +73,27 @@ export function ProjectsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Projects</h1>
+            <h1 className="text-3xl font-bold text-foreground">{t('projects.title')}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {projects.length} {projects.length === 1 ? 'project' : 'projects'}
+              {t('projects.count', {
+                count: projects.length,
+                plural: projects.length === 1 ? '' : 's',
+              })}
             </p>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button">New Project</Button>
+              <Button type="button">{t('projects.new')}</Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Start with</DropdownMenuLabel>
+              <DropdownMenuLabel>{t('projects.startWith')}</DropdownMenuLabel>
               <DropdownMenuItem
                 onClick={() => {
                   setIsQuickCreateOpen(true);
                   setEditingProject(null);
                 }}
               >
-                Quick Create
+                {t('projects.quickCreate')}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
@@ -96,7 +101,7 @@ export function ProjectsPage() {
                   setEditingProject(null);
                 }}
               >
-                Guided Setup
+                {t('projects.guidedSetup')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -125,10 +130,12 @@ export function ProjectsPage() {
           <DialogContent className="sm:max-w-3xl">
             <DialogHeader>
               <DialogTitle>
-                {editingProject ? `Edit ${editingProject.name}` : 'Edit Project'}
+                {editingProject
+                  ? t('projects.editNamed', { name: editingProject.name })
+                  : t('projects.edit')}
               </DialogTitle>
               <DialogDescription className="sr-only">
-                Update the project name and description.
+                {t('projects.editDescription')}
               </DialogDescription>
             </DialogHeader>
             <ProjectForm
@@ -156,17 +163,17 @@ export function ProjectsPage() {
           </div>
         ) : error ? (
           <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-6 py-4 text-sm text-destructive">
-            <div className="font-semibold">Unable to load projects</div>
-            <p className="mt-1">{getApiErrorMessage(error, 'Please try again in a moment.')}</p>
+            <div className="font-semibold">{t('projects.loadErrorTitle')}</div>
+            <p className="mt-1">{getApiErrorText(error, t)}</p>
           </div>
         ) : projects.length === 0 ? (
           <EmptyState
-            title="No projects"
-            description="Get started by creating a new project."
+            title={t('projects.empty.title')}
+            description={t('projects.empty.description')}
             icon={FolderPlus}
             className="py-12"
             action={{
-              label: 'New Project',
+              label: t('projects.new'),
               onClick: () => setIsQuickCreateOpen(true),
               icon: <Plus className="h-5 w-5" />,
             }}

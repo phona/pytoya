@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { getApiErrorMessage } from '@/api/client';
+import { getApiErrorText } from '@/api/client';
 import { useSchema, useSchemaRules, useSchemas, useValidateWithRequired } from '@/shared/hooks/use-schemas';
 import { SchemaRule, SchemaRuleOperator, UpdateSchemaDto, ValidateSchemaDto } from '@/api/schemas';
 import { SchemaForm } from '@/shared/components/SchemaForm';
@@ -11,9 +11,11 @@ import { Button } from '@/shared/components/ui/button';
 import { canonicalizeJsonSchemaForDisplay, deriveRequiredFields } from '@/shared/utils/schema';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { ProjectSettingsShell } from '@/shared/components/ProjectSettingsShell';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 export function SchemaDetailPage() {
   const { confirm, alert, ModalDialog } = useModalDialog();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const params = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -169,7 +171,7 @@ export function SchemaDetailPage() {
     } catch (error) {
       void alert({
         title: 'Update schema failed',
-        message: getApiErrorMessage(error, 'Unable to update schema. Please try again.'),
+        message: getApiErrorText(error, t),
       });
     }
   };
@@ -202,7 +204,7 @@ export function SchemaDetailPage() {
     } catch (error) {
       void alert({
         title: 'Delete schema failed',
-        message: getApiErrorMessage(error, 'Unable to delete schema. Please try again.'),
+        message: getApiErrorText(error, t),
       });
     }
   };

@@ -1,7 +1,9 @@
 import { ReactNode } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { SidebarNav } from '@/shared/components/SidebarNav';
+import { JobsPanel } from '@/shared/components/JobsPanel';
 import { useUiStore } from '@/shared/stores/ui';
+import { useI18n } from '@/shared/providers/I18nProvider';
 import {
   Tooltip,
   TooltipContent,
@@ -12,6 +14,7 @@ import {
 export function DashboardLayout({ children }: { children?: ReactNode }) {
   const isSidebarOpen = useUiStore((state) => state.isSidebarOpen);
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen);
+  const { t } = useI18n();
 
   return (
     <div className="min-h-screen bg-background lg:flex lg:h-screen lg:flex-row">
@@ -28,18 +31,18 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
                     type="button"
                     onClick={() => setSidebarOpen(true)}
                   className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  aria-label="Open sidebar"
+                  aria-label={t('a11y.openSidebar')}
                 >
                   <span className="block h-0.5 w-5 rounded bg-current" />
                   <span className="mt-1 block h-0.5 w-5 rounded bg-current" />
                   <span className="mt-1 block h-0.5 w-5 rounded bg-current" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Open sidebar</TooltipContent>
+              <TooltipContent>{t('a11y.openSidebar')}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
           <Link to="/projects" className="text-base font-semibold text-foreground">
-            PyToYa
+            {t('app.name')}
           </Link>
         </header>
         <main
@@ -49,6 +52,7 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
         >
           {children ?? <Outlet />}
         </main>
+        <JobsPanel />
       </div>
     </div>
   );

@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { within } from '@testing-library/react';
 import { vi } from 'vitest';
 import { Group } from '@/api/projects';
+import { renderWithProviders } from '@/tests/utils';
 import { GroupCard } from './GroupCard';
 
 const baseGroup: Group = {
@@ -20,7 +21,7 @@ describe('GroupCard', () => {
     const user = userEvent.setup();
     const onClick = vi.fn();
 
-    render(<GroupCard group={baseGroup} onClick={onClick} />);
+    renderWithProviders(<GroupCard group={baseGroup} onClick={onClick} />);
 
     await user.click(screen.getByRole('button', { name: /invoices/i }));
     expect(onClick).toHaveBeenCalledTimes(1);
@@ -32,7 +33,7 @@ describe('GroupCard', () => {
     const onEdit = vi.fn();
     const onDelete = vi.fn();
 
-    render(
+    renderWithProviders(
       <GroupCard
         group={baseGroup}
         onClick={onClick}

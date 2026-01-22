@@ -3,6 +3,7 @@ import { Group } from '@/api/projects';
 import { Button } from '@/shared/components/ui/button';
 import { getGroupStatusBadgeClasses } from '@/shared/styles/status-badges';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface GroupCardProps {
   group: Group;
@@ -12,6 +13,7 @@ interface GroupCardProps {
 }
 
 export function GroupCard({ group, onClick, onDelete, onEdit }: GroupCardProps) {
+  const { t } = useI18n();
   const { confirm, ModalDialog } = useModalDialog();
   const statusCounts = group.statusCounts ?? {
     pending: 0,
@@ -54,7 +56,7 @@ export function GroupCard({ group, onClick, onDelete, onEdit }: GroupCardProps) 
               size="sm"
               className="text-primary hover:text-primary"
             >
-              Edit
+              {t('common.edit')}
             </Button>
           )}
         </div>
@@ -63,7 +65,12 @@ export function GroupCard({ group, onClick, onDelete, onEdit }: GroupCardProps) 
       <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
         <div className="flex items-center gap-1">
           <FileText className="h-4 w-4" />
-          <span>{group._count?.manifests ?? 0} manifests</span>
+          <span>
+            {t('groups.card.manifestsCount', {
+              count: group._count?.manifests ?? 0,
+              plural: (group._count?.manifests ?? 0) === 1 ? '' : 's',
+            })}
+          </span>
         </div>
         {onDelete && (
           <Button
@@ -72,9 +79,9 @@ export function GroupCard({ group, onClick, onDelete, onEdit }: GroupCardProps) 
               event.stopPropagation();
               void (async () => {
                 const confirmed = await confirm({
-                  title: 'Delete group',
-                  message: `Delete group "${group.name}"? This will delete all manifests.`,
-                  confirmText: 'Delete',
+                  title: t('groups.card.deleteTitle'),
+                  message: t('groups.card.deleteMessage', { name: group.name }),
+                  confirmText: t('common.delete'),
                   destructive: true,
                 });
                 if (!confirmed) return;
@@ -85,26 +92,26 @@ export function GroupCard({ group, onClick, onDelete, onEdit }: GroupCardProps) 
             size="sm"
             className={`text-destructive hover:text-destructive ${actionClasses}`}
           >
-            Delete
+            {t('common.delete')}
           </Button>
         )}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span className={`rounded-full px-2 py-0.5 ${getGroupStatusBadgeClasses('pending')}`}>
-          {statusCounts.pending} pending
+          {t('groups.card.pendingCount', { count: statusCounts.pending })}
         </span>
         <span className={`rounded-full px-2 py-0.5 ${getGroupStatusBadgeClasses('failed')}`}>
-          {statusCounts.failed} errors
+          {t('groups.card.errorCount', { count: statusCounts.failed })}
         </span>
         <span className={`rounded-full px-2 py-0.5 ${getGroupStatusBadgeClasses('verified')}`}>
-          {statusCounts.verified} verified
+          {t('groups.card.verifiedCount', { count: statusCounts.verified })}
         </span>
       </div>
 
       {onClick ? (
         <div className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">
-          View
+          {t('common.view')}
           <ArrowUpRight className="h-3 w-3" />
         </div>
       ) : null}

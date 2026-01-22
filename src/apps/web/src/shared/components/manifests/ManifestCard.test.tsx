@@ -1,7 +1,8 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { Manifest } from '@/api/manifests';
+import { renderWithProviders } from '@/tests/utils';
 import { ManifestCard } from './ManifestCard';
 
 describe('ManifestCard', () => {
@@ -34,7 +35,7 @@ describe('ManifestCard', () => {
       updatedAt: '2025-01-15T00:00:00.000Z',
     };
 
-    render(<ManifestCard manifest={manifest} onClick={onClick} />);
+    renderWithProviders(<ManifestCard manifest={manifest} onClick={onClick} />);
 
     const card = screen.getByRole('button', { name: /invoice-001/i });
     card.focus();

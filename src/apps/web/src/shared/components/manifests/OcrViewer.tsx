@@ -1,12 +1,14 @@
 import { AlertTriangle, FileText, XCircle } from 'lucide-react';
 import { Manifest } from '@/api/manifests';
 import { Progress } from '@/shared/components/ui/progress';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface OcrViewerProps {
   manifest: Manifest;
 }
 
 export function OcrViewer({ manifest }: OcrViewerProps) {
+  const { t } = useI18n();
   const extractedData = (manifest.extractedData ?? {}) as ExtractedData;
   const extractionInfo = extractedData._extraction_info ?? {};
 
@@ -16,7 +18,7 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
       {extractionInfo.confidence !== undefined && (
         <div className="mb-6 p-4 bg-background rounded-lg">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-medium text-foreground">Overall Confidence</span>
+            <span className="text-sm font-medium text-foreground">{t('audit.diagnostics.overallConfidence')}</span>
             <span className="text-lg font-bold text-foreground">
               {Math.round(extractionInfo.confidence * 100)}%
             </span>
@@ -32,7 +34,7 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
       {/* Field Confidences */}
       {extractionInfo.field_confidences && (
         <div className="mb-6">
-          <h4 className="text-sm font-medium text-foreground mb-3">Field-by-Field Confidence</h4>
+          <h4 className="text-sm font-medium text-foreground mb-3">{t('audit.diagnostics.fieldByField')}</h4>
           <div className="space-y-2">
           {Object.entries(extractionInfo.field_confidences ?? {}).map(([field, confidence]) => (
               <div key={field} className="flex items-center justify-between p-2 bg-card border rounded">
@@ -62,7 +64,7 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
       {/* Text Issues */}
       {extractionInfo.ocr_issues && extractionInfo.ocr_issues.length > 0 && (
         <div className="mb-6">
-          <h4 className="text-sm font-medium text-foreground mb-3">Text Issues Detected</h4>
+          <h4 className="text-sm font-medium text-foreground mb-3">{t('audit.diagnostics.textIssues')}</h4>
           <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
             <ul className="space-y-2">
               {extractionInfo.ocr_issues.map((issue: string, i: number) => (
@@ -79,13 +81,13 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
       {/* Uncertain Fields */}
       {extractionInfo.uncertain_fields && extractionInfo.uncertain_fields.length > 0 && (
         <div className="mb-6">
-          <h4 className="text-sm font-medium text-foreground mb-3">Uncertain Fields</h4>
+          <h4 className="text-sm font-medium text-foreground mb-3">{t('audit.diagnostics.uncertainFields')}</h4>
           <div className="bg-[color:var(--status-warning-bg)] border border-border rounded-lg p-4">
             <ul className="space-y-2">
               {extractionInfo.uncertain_fields.map((field: string, i: number) => (
                 <li key={i} className="text-sm text-[color:var(--status-warning-text)] flex items-start">
                   <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-[color:var(--status-warning-text)]" />
-                  <span className="font-mono">{field}</span> - Please verify this value
+                  <span className="font-mono">{field}</span> - {t('audit.diagnostics.verifyValue')}
                 </li>
               ))}
             </ul>
@@ -96,7 +98,7 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
       {/* Raw Text */}
       {extractionInfo.raw_ocr_text && (
         <div>
-          <h4 className="text-sm font-medium text-foreground mb-3">Raw Text</h4>
+          <h4 className="text-sm font-medium text-foreground mb-3">{t('audit.diagnostics.rawText')}</h4>
           <div className="bg-background border border-border rounded-lg p-4 max-h-64 overflow-y-auto">
             <pre className="text-xs text-foreground whitespace-pre-wrap font-mono">
               {extractionInfo.raw_ocr_text}
@@ -113,7 +115,7 @@ export function OcrViewer({ manifest }: OcrViewerProps) {
         !extractionInfo.raw_ocr_text && (
           <div className="text-center py-12 text-muted-foreground">
             <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <p>No extraction diagnostics available.</p>
+            <p>{t('audit.diagnostics.empty')}</p>
           </div>
         )}
     </div>

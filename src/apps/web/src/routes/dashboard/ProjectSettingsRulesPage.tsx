@@ -1,11 +1,12 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getApiErrorMessage } from '@/api/client';
+import { getApiErrorText } from '@/api/client';
 import { ProjectSettingsShell } from '@/shared/components/ProjectSettingsShell';
 import { Button } from '@/shared/components/ui/button';
 import { useProject } from '@/shared/hooks/use-projects';
 import { useProjectSchemas, useSchema, useSchemas } from '@/shared/hooks/use-schemas';
 import { useAuthStore } from '@/shared/stores/auth';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 const DEFAULT_PROMPT_RULES_MARKDOWN = `## OCR Corrections
 
@@ -31,6 +32,7 @@ export function ProjectSettingsRulesPage() {
   const params = useParams();
   const projectId = Number(params.id);
   const baseId = useId();
+  const { t } = useI18n();
 
   const { project, isLoading: projectLoading } = useProject(projectId);
   const { schemas, isLoading: projectSchemasLoading } = useProjectSchemas(projectId);
@@ -191,7 +193,7 @@ export function ProjectSettingsRulesPage() {
                         data: { validationSettings: nextValidationSettings },
                       });
                     } catch (error) {
-                      setSaveError(getApiErrorMessage(error, 'Unable to save prompt rules. Please try again.'));
+      setSaveError(getApiErrorText(error, t));
                     } finally {
                       setIsSaving(false);
                     }
@@ -272,7 +274,7 @@ export function ProjectSettingsRulesPage() {
                           if (isAbortError(error)) {
                             setGenerateError('Generation canceled.');
                           } else {
-                            setGenerateError(getApiErrorMessage(error, 'Unable to generate rules. Please try again.'));
+        setGenerateError(getApiErrorText(error, t));
                           }
                         } finally {
                           setIsGenerating(false);
@@ -372,7 +374,7 @@ export function ProjectSettingsRulesPage() {
                         if (isAbortError(error)) {
                           setGenerateError('Generation canceled.');
                         } else {
-                          setGenerateError(getApiErrorMessage(error, 'Unable to regenerate rules. Please try again.'));
+      setGenerateError(getApiErrorText(error, t));
                         }
                       } finally {
                         setIsGenerating(false);

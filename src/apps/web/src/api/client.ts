@@ -37,6 +37,7 @@ export const getApiErrorMessage = (
 ): string => {
   if (axios.isAxiosError(error)) {
     const message =
+      error.response?.data?.error?.message ||
       error.response?.data?.message ||
       error.response?.data?.error ||
       error.response?.statusText;
@@ -50,6 +51,94 @@ export const getApiErrorMessage = (
   }
 
   return fallback;
+};
+
+type ApiErrorEnvelope = {
+  error?: {
+    code?: unknown;
+    message?: unknown;
+    requestId?: unknown;
+    params?: unknown;
+    details?: unknown;
+  };
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const getApiErrorEnvelope = (value: unknown): ApiErrorEnvelope['error'] | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const error = value.error;
+  if (!isRecord(error)) {
+    return null;
+  }
+  return error;
+};
+
+export const getApiErrorInfo = (
+  error: unknown,
+): {
+  code?: string;
+  message?: string;
+  requestId?: string;
+  params?: Record<string, unknown>;
+  details?: unknown;
+} => {
+  if (!axios.isAxiosError(error)) {
+    return {};
+  }
+
+  const envelope = getApiErrorEnvelope(error.response?.data);
+  if (!envelope) {
+    return {};
+  }
+
+  return {
+    code: typeof envelope.code === 'string' ? envelope.code : undefined,
+    message: typeof envelope.message === 'string' ? envelope.message : undefined,
+    requestId: typeof envelope.requestId === 'string' ? envelope.requestId : undefined,
+    params: isRecord(envelope.params) ? envelope.params : undefined,
+    details: envelope.details,
+  };
+};
+
+export const getApiErrorText = (
+  error: unknown,
+  t: (key: string, vars?: Record<string, unknown>) => string,
+  options?: { fallbackKey?: string },
+): string => {
+  const fallbackKey = options?.fallbackKey ?? 'errors.generic';
+  const info = getApiErrorInfo(error);
+
+  const withRequestId = (message: string) => {
+    if (!info.requestId) {
+      return message;
+    }
+    const formatted = t('errors.withRequestId', {
+      message,
+      requestId: info.requestId,
+    });
+    if (formatted.startsWith('__MISSING:')) {
+      return `${message} (Request ID: ${info.requestId})`;
+    }
+    return formatted;
+  };
+
+  if (info.code) {
+    const key = `errors.${info.code}`;
+    const translated = t(key, info.params);
+    if (!translated.startsWith('__MISSING:')) {
+      return withRequestId(translated);
+    }
+  }
+
+  if (info.message) {
+    return withRequestId(info.message);
+  }
+
+  return withRequestId(t(fallbackKey));
 };
 
 // Request interceptor to add auth token

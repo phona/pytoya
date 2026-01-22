@@ -6,6 +6,7 @@ import { router } from './app/router';
 import { ErrorBoundary } from './shared/components/ErrorBoundary';
 import { Toaster } from './shared/components/ui/toaster';
 import { ThemeProvider } from './shared/providers/ThemeProvider';
+import { Providers } from './app/providers';
 import './shared/styles/globals.css';
 
 const queryClient = new QueryClient({
@@ -24,10 +25,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <ErrorBoundary title="PyToYa is unavailable">
-          <RouterProvider router={router} />
-          <Toaster />
-        </ErrorBoundary>
+        <Providers>
+          <ErrorBoundary titleKey="errors.appUnavailableTitle">
+            <RouterProvider router={router} />
+            <Toaster />
+          </ErrorBoundary>
+        </Providers>
       </ThemeProvider>
     </QueryClientProvider>
   </React.StrictMode>,
