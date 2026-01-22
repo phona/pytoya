@@ -9,6 +9,45 @@ import { UpdateSchemaDto } from './dto/update-schema.dto';
 import { ValidateSchemaDto } from './dto/validate-schema.dto';
 import { SchemaNotFoundException } from './exceptions/schema-not-found.exception';
 
+const JSON_SCHEMA_KEYWORDS = new Set<string>([
+  '$id',
+  '$schema',
+  '$ref',
+  '$defs',
+  'definitions',
+  'title',
+  'description',
+  'type',
+  'properties',
+  'items',
+  'required',
+  'additionalProperties',
+  'allOf',
+  'anyOf',
+  'oneOf',
+  'not',
+  'enum',
+  'const',
+  'default',
+  'examples',
+  'format',
+  'minimum',
+  'maximum',
+  'pattern',
+  'minLength',
+  'maxLength',
+  'minItems',
+  'maxItems',
+  'uniqueItems',
+  'dependentRequired',
+  'if',
+  'then',
+  'else',
+]);
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
 @Injectable()
 export class SchemasService {
   private ajv: Ajv;
@@ -21,11 +60,12 @@ export class SchemasService {
   }
 
   async create(input: CreateSchemaDto): Promise<SchemaEntity> {
-    const name = this.deriveSchemaName(input.jsonSchema, input.projectId);
-    const description = this.deriveSchemaDescription(input.jsonSchema);
-    const requiredFields = this.deriveRequiredFields(input.jsonSchema);
+    const { schema: jsonSchema } = this.normalizeJsonSchema(input.jsonSchema);
+    const name = this.deriveSchemaName(jsonSchema, input.projectId);
+    const description = this.deriveSchemaDescription(jsonSchema);
+    const requiredFields = this.deriveRequiredFields(jsonSchema);
     const schema = this.schemaRepository.create({
-      jsonSchema: input.jsonSchema,
+      jsonSchema,
       projectId: input.projectId,
       name,
       description,
@@ -51,14 +91,50 @@ export class SchemasService {
       throw new SchemaNotFoundException(id);
     }
 
+    const normalized = this.normalizeJsonSchema(schema.jsonSchema as Record<string, unknown>);
+    if (normalized.changed) {
+      const nextJsonSchema = normalized.schema;
+      Object.assign(schema, {
+        name: this.deriveSchemaName(nextJsonSchema, schema.projectId, schema.name),
+        jsonSchema: nextJsonSchema,
+        description: this.deriveSchemaDescription(nextJsonSchema),
+        requiredFields: this.deriveRequiredFields(nextJsonSchema),
+      });
+      await this.schemaRepository.save(schema);
+    }
+
     return schema;
   }
 
   async findByProject(projectId: number): Promise<SchemaEntity[]> {
-    return this.schemaRepository.find({
+    const schemas = await this.schemaRepository.find({
       where: { projectId },
       order: { createdAt: 'DESC' },
     });
+
+    const toUpdate = schemas.filter((schema) => this.normalizeJsonSchema(schema.jsonSchema as Record<string, unknown>).changed);
+    if (toUpdate.length === 0) {
+      return schemas;
+    }
+
+    const updated = await Promise.all(
+      schemas.map(async (schema) => {
+        const normalized = this.normalizeJsonSchema(schema.jsonSchema as Record<string, unknown>);
+        if (!normalized.changed) {
+          return schema;
+        }
+        const nextJsonSchema = normalized.schema;
+        Object.assign(schema, {
+          name: this.deriveSchemaName(nextJsonSchema, schema.projectId, schema.name),
+          jsonSchema: nextJsonSchema,
+          description: this.deriveSchemaDescription(nextJsonSchema),
+          requiredFields: this.deriveRequiredFields(nextJsonSchema),
+        });
+        return this.schemaRepository.save(schema);
+      }),
+    );
+
+    return updated;
   }
 
   async update(
@@ -66,7 +142,9 @@ export class SchemasService {
     input: UpdateSchemaDto,
   ): Promise<SchemaEntity> {
     const schema = await this.findOne(id);
-    const nextJsonSchema = input.jsonSchema ?? schema.jsonSchema;
+    const nextJsonSchemaRaw = input.jsonSchema ?? schema.jsonSchema;
+    const normalized = this.normalizeJsonSchema(nextJsonSchemaRaw as Record<string, unknown>);
+    const nextJsonSchema = normalized.schema;
     const nextProjectId = input.projectId ?? schema.projectId;
     const requiredFields = this.deriveRequiredFields(nextJsonSchema);
     const name = this.deriveSchemaName(nextJsonSchema, nextProjectId, schema.name);
@@ -85,6 +163,70 @@ export class SchemasService {
     });
 
     return this.schemaRepository.save(schema);
+  }
+
+  private normalizeJsonSchema(jsonSchema: Record<string, unknown>): { schema: Record<string, unknown>; changed: boolean } {
+    if (!jsonSchema || typeof jsonSchema !== 'object' || Array.isArray(jsonSchema)) {
+      return { schema: jsonSchema, changed: false };
+    }
+
+    const typeValue = jsonSchema.type;
+    const types = Array.isArray(typeValue)
+      ? typeValue.filter((value): value is string => typeof value === 'string')
+      : typeof typeValue === 'string'
+        ? [typeValue]
+        : [];
+
+    const isObject = types.includes('object') || Boolean(jsonSchema.properties);
+    if (!isObject) {
+      return { schema: jsonSchema, changed: false };
+    }
+
+    const rawProperties = isRecord(jsonSchema.properties) ? (jsonSchema.properties as Record<string, unknown>) : {};
+    const nextProperties: Record<string, unknown> = { ...rawProperties };
+    const nextSchema: Record<string, unknown> = { ...jsonSchema };
+    let changed = false;
+
+    for (const [key, value] of Object.entries(jsonSchema)) {
+      if (!key || key === 'properties') {
+        continue;
+      }
+      if (key.startsWith('$') || key.startsWith('x-') || JSON_SCHEMA_KEYWORDS.has(key)) {
+        continue;
+      }
+      if (!isRecord(value) || !this.looksLikeSchemaNode(value)) {
+        continue;
+      }
+
+      if (!Object.prototype.hasOwnProperty.call(nextProperties, key)) {
+        nextProperties[key] = value;
+      }
+      delete nextSchema[key];
+      changed = true;
+    }
+
+    if (changed) {
+      nextSchema.properties = nextProperties;
+      return { schema: nextSchema, changed: true };
+    }
+
+    return { schema: jsonSchema, changed: false };
+  }
+
+  private looksLikeSchemaNode(value: Record<string, unknown>): boolean {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return false;
+    }
+    const record = value as Record<string, unknown>;
+    return (
+      'type' in record ||
+      'properties' in record ||
+      'items' in record ||
+      '$ref' in record ||
+      'oneOf' in record ||
+      'anyOf' in record ||
+      'allOf' in record
+    );
   }
 
   async remove(id: number): Promise<SchemaEntity> {

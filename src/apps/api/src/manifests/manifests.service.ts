@@ -411,41 +411,39 @@ export class ManifestsService {
       return undefined;
     }
 
+    const fullText = ocrResult.pages
+      .map((page) => page.markdown || page.text || '')
+      .join('\n')
+      .trim();
+
+    if (!fullText) {
+      return undefined;
+    }
+
     const rawField = fieldName.split('.').pop() ?? fieldName;
     const normalizedField = rawField.replace(/_/g, ' ').toLowerCase();
     const candidates = [normalizedField, rawField.toLowerCase()];
 
     for (const page of ocrResult.pages) {
-      const text = page.text ?? '';
+      const text = page.markdown || page.text || '';
       const lower = text.toLowerCase();
       const matchIndex = candidates
         .map((term) => lower.indexOf(term))
         .find((index) => index >= 0);
 
       if (matchIndex !== undefined && matchIndex >= 0) {
-        const start = Math.max(0, matchIndex - 120);
-        const end = Math.min(text.length, matchIndex + 180);
         return {
           fieldName,
-          snippet: text.slice(start, end).trim(),
+          snippet: fullText,
           pageNumber: page.pageNumber,
           confidence: page.confidence,
         };
       }
     }
 
-    const fallbackText = ocrResult.pages
-      .map((page) => page.text ?? '')
-      .join('\n')
-      .trim();
-
-    if (!fallbackText) {
-      return undefined;
-    }
-
     return {
       fieldName,
-      snippet: fallbackText.slice(0, 300),
+      snippet: fullText,
       pageNumber: ocrResult.pages[0]?.pageNumber,
       confidence: ocrResult.pages[0]?.confidence,
     };
@@ -499,14 +497,25 @@ export class ManifestsService {
     llmModelId?: string,
     promptId?: number,
     estimatedCost?: number,
+    fieldName?: string,
   ): Promise<JobEntity> {
-    await this.findById(manifestId);
+    const manifest = await this.manifestRepository.findOne({
+      where: { id: manifestId },
+      relations: ['group', 'group.project'],
+    });
+
+    if (!manifest) {
+      throw new ManifestNotFoundException(manifestId);
+    }
+
+    const resolvedModelId = llmModelId ?? manifest.group?.project?.llmModelId ?? null;
     const job = this.jobRepository.create({
       manifestId,
       queueJobId,
       status: JobStatus.PENDING,
-      llmModelId: llmModelId ?? null,
+      llmModelId: resolvedModelId,
       promptId: promptId ?? null,
+      fieldName: fieldName?.trim() || null,
       progress: 0,
       estimatedCost: estimatedCost ?? null,
     });

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useManifests } from '@/shared/hooks/use-manifests';
 import { useExportSelectedToCsv } from '@/shared/hooks/use-manifests';
+import { useGroups, useProject } from '@/shared/hooks/use-projects';
 import { useQueryClient } from '@tanstack/react-query';
 import { ManifestList } from '@/shared/components/manifests/ManifestList';
 import { ManifestFilters } from '@/shared/components/manifests/ManifestFilters';
 import { UploadDialog } from '@/shared/components/UploadDialog';
+import { AppBreadcrumbs } from '@/shared/components/AppBreadcrumbs';
 import { ManifestFilterValues, ManifestSort } from '@/shared/types/manifests';
 import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';
@@ -17,6 +18,9 @@ export function ManifestsPage() {
   const projectId = Number(params.id);
   const groupId = Number(params.groupId);
   const queryClient = useQueryClient();
+  const { project } = useProject(projectId);
+  const { groups } = useGroups(projectId);
+  const groupLabel = groups.find((group) => group.id === groupId)?.name ?? `Group ${groupId}`;
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -54,10 +58,6 @@ export function ManifestsPage() {
     setCurrentPage(1);
   };
 
-  const handleBackToGroups = () => {
-    navigate(`/projects/${projectId}`);
-  };
-
   const handleSelectManifest = (manifestId: number) => {
     navigate(`/projects/${projectId}/groups/${groupId}/manifests/${manifestId}`, {
       state: { allManifestIds: manifests.map((m: { id: number }) => m.id) },
@@ -91,7 +91,7 @@ export function ManifestsPage() {
       <div className="min-h-screen bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-8 space-y-2">
-            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-72" />
             <Skeleton className="h-8 w-48" />
             <Skeleton className="h-4 w-56" />
           </div>
@@ -116,16 +116,14 @@ export function ManifestsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <Button
-            type="button"
-            onClick={handleBackToGroups}
-            variant="link"
-            size="sm"
-            className="mb-4 px-0 text-primary hover:text-primary"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Project
-          </Button>
+          <AppBreadcrumbs
+            className="mb-4"
+            items={[
+              { label: 'Projects', to: '/projects' },
+              { label: project?.name ?? `Project ${projectId}`, to: `/projects/${projectId}` },
+              { label: `Manifests (${groupLabel})` },
+            ]}
+          />
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-foreground">Manifests</h1>

@@ -131,4 +131,37 @@ describe('PromptBuilderService', () => {
     expect(systemContext).toContain('Missing total');
     expect(systemContext).toContain('Previous result:');
   });
+
+  it('omits target fields from the Previous result block', () => {
+    const schema = {
+      id: 1,
+      name: 'Schema',
+      jsonSchema: { type: 'object', properties: {} },
+      requiredFields: [],
+      projectId: 1,
+      description: null,
+      systemPromptTemplate: null,
+      validationSettings: null,
+      rules: [],
+      project: {} as any,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as SchemaEntity;
+
+    const { systemContext } = service.buildReExtractPrompt(
+      'OCR text',
+      { invoice: { po_no: '123', total: 100 }, items: [{ name: 'BAD' }] } as any,
+      ['invoice.total', 'items'],
+      undefined,
+      schema,
+      [],
+    );
+
+    const previousBlock =
+      systemContext.split('Previous result:')[1]?.split('JSON Schema:')[0] ?? '';
+
+    expect(previousBlock).toContain('"po_no"');
+    expect(previousBlock).not.toContain('"total"');
+    expect(previousBlock).not.toContain('"items"');
+  });
 });

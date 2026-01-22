@@ -64,7 +64,11 @@ export class PromptBuilderService {
       .map((field) => `- ${field}`)
       .join('\n');
     const errorBlock = errorMessage ? `Validation error:\n${errorMessage}` : '';
-    const previousBlock = JSON.stringify(previousResult, null, 2);
+    const previousBlock = JSON.stringify(
+      this.omitTargetFieldsFromPreviousResult(previousResult, missingFields),
+      null,
+      2,
+    );
 
     const schemaBlock = this.formatSchema(schema);
     const requiredBlock = this.formatRequiredFields(requiredFields ?? schema.requiredFields ?? []);
@@ -95,6 +99,91 @@ export class PromptBuilderService {
       .join('\n');
 
     return { systemContext, userInput };
+  }
+
+  private omitTargetFieldsFromPreviousResult(
+    previousResult: ExtractedData,
+    missingFields: string[] | undefined,
+  ): ExtractedData {
+    const targets = (missingFields ?? []).map((field) => field.trim()).filter(Boolean);
+    if (targets.length === 0) {
+      return previousResult;
+    }
+
+    const cloned = JSON.parse(JSON.stringify(previousResult)) as ExtractedData;
+    for (const fieldPath of targets) {
+      this.deleteFieldPath(cloned as unknown, fieldPath);
+    }
+    return cloned;
+  }
+
+  private deleteFieldPath(container: unknown, fieldPath: string): void {
+    const trimmed = fieldPath.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const parts = trimmed.split('.').filter(Boolean);
+    if (parts.length === 0) {
+      return;
+    }
+
+    const walk = (current: unknown, index: number): void => {
+      if (current === null || typeof current !== 'object') {
+        return;
+      }
+      if (index >= parts.length) {
+        return;
+      }
+
+      const part = parts[index];
+      const record = current as Record<string, unknown>;
+      const isLast = index === parts.length - 1;
+
+      const anyMatch = part.match(/(.+)\[\]$/);
+      if (anyMatch) {
+        const key = anyMatch[1];
+        const next = record[key];
+        if (isLast) {
+          delete record[key];
+          return;
+        }
+        if (!Array.isArray(next)) {
+          return;
+        }
+        for (const entry of next) {
+          walk(entry, index + 1);
+        }
+        return;
+      }
+
+      const arrayMatch = part.match(/(.+)\[(\d+)\]$/);
+      if (arrayMatch) {
+        const key = arrayMatch[1];
+        const arrayIndex = Number.parseInt(arrayMatch[2], 10);
+        const next = record[key];
+        if (!Array.isArray(next) || !Number.isFinite(arrayIndex) || arrayIndex < 0 || arrayIndex >= next.length) {
+          return;
+        }
+        if (isLast) {
+          next[arrayIndex] = null;
+          return;
+        }
+        walk(next[arrayIndex], index + 1);
+        return;
+      }
+
+      if (isLast) {
+        delete record[part];
+        return;
+      }
+      if (!(part in record)) {
+        return;
+      }
+      walk(record[part], index + 1);
+    };
+
+    walk(container, 0);
   }
 
   private formatSchema(schema: SchemaEntity): string {

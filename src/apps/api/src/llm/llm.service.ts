@@ -23,7 +23,7 @@ import {
 } from './llm.types';
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
-const DEFAULT_TIMEOUT_MS = 30000;
+const DEFAULT_TIMEOUT_MS = 180000;
 const DEFAULT_MODEL = 'gpt-4o';
 const DEFAULT_TEMPERATURE = 0.1;
 const DEFAULT_MAX_TOKENS = 2000;
@@ -37,6 +37,7 @@ export class LlmService {
   private readonly model: string;
   private readonly temperature: number;
   private readonly maxTokens: number;
+  private readonly useStreamByDefault: boolean;
 
   constructor(
     private readonly configService: ConfigService,
@@ -64,6 +65,8 @@ export class LlmService {
       'LLM_MAX_TOKENS',
       DEFAULT_MAX_TOKENS,
     );
+
+    this.useStreamByDefault = this.getBooleanConfig('LLM_STREAM', true);
   }
 
   async createChatCompletion(
@@ -93,6 +96,7 @@ export class LlmService {
     const maxTokens =
       options.maxTokens ?? provider?.maxTokens ?? this.maxTokens;
     const timeoutMs = options.timeoutMs ?? this.timeoutMs;
+    const useStream = options.useStream ?? this.useStreamByDefault;
 
     const payload: LlmChatCompletionRequest = {
       model,
@@ -115,6 +119,58 @@ export class LlmService {
       `LLM request prepared (model=${model}, messages=${messages.length}, ` +
       `response_format=${payload.response_format?.type ?? 'none'})`,
     );
+
+    if (useStream) {
+      let streamedModel: string | undefined;
+      let streamedUsage: LlmChatCompletionResponse['usage'] | undefined;
+      let content = '';
+
+      for await (const delta of this.createChatCompletionStream(
+        messages,
+        {
+          ...options,
+          // The stream implementation needs the same output contract.
+          responseFormat: payload.response_format,
+        },
+        provider,
+        (chunk) => {
+          streamedModel = chunk.model ?? streamedModel;
+          streamedUsage = chunk.usage ?? streamedUsage;
+        },
+      )) {
+        content += delta;
+      }
+
+      const finalContent = content.trimEnd();
+      if (!finalContent) {
+        throw new InternalServerErrorException(
+          'LLM response missing message content',
+        );
+      }
+
+      const finalModel = streamedModel ?? model;
+      const rawResponse: LlmChatCompletionResponse = {
+        model: finalModel,
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: finalContent,
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: streamedUsage,
+      };
+
+      return {
+        content: finalContent,
+        model: finalModel,
+        usage: streamedUsage,
+        rawResponse,
+      };
+    }
 
     try {
       const response =
@@ -164,6 +220,7 @@ export class LlmService {
     messages: LlmChatMessage[],
     options: LlmChatOptions = {},
     provider?: LlmProviderConfig,
+    onChunk?: (chunk: LlmChatCompletionStreamChunk) => void,
   ): AsyncGenerator<string, void, void> {
     if (!messages.length) {
       throw new BadRequestException(
@@ -196,7 +253,18 @@ export class LlmService {
       stream: true,
     };
 
-    // Streaming + response_format is provider-specific; omit for now to avoid incompatibilities.
+    if (options.responseFormat) {
+      const supportsStructuredOutput =
+        provider?.supportsStructuredOutput ??
+        this.providerSupportsStructuredOutput(provider?.type, model);
+      if (supportsStructuredOutput) {
+        payload.response_format = options.responseFormat;
+      }
+    }
+
+    if (provider?.type?.toLowerCase() === 'openai') {
+      payload.stream_options = { include_usage: true };
+    }
 
     this.logger.debug(
       `LLM stream request prepared (model=${model}, messages=${messages.length})`,
@@ -253,6 +321,8 @@ export class LlmService {
               // Ignore malformed chunks (some providers may send keep-alives)
               continue;
             }
+
+            onChunk?.(parsed);
 
             const delta = parsed.choices?.[0]?.delta?.content ?? null;
             if (typeof delta === 'string' && delta.length > 0) {
@@ -368,6 +438,27 @@ export class LlmService {
     return Number.isFinite(value) && value > 0
       ? value
       : defaultValue;
+  }
+
+  private getBooleanConfig(key: string, defaultValue: boolean): boolean {
+    const raw = this.configService.get<string | boolean>(key);
+    if (raw === undefined || raw === null) {
+      return defaultValue;
+    }
+
+    if (typeof raw === 'boolean') {
+      return raw;
+    }
+
+    const normalized = raw.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) {
+      return true;
+    }
+    if (['false', '0', 'no', 'n', 'off'].includes(normalized)) {
+      return false;
+    }
+
+    return defaultValue;
   }
 
   private normalizeBaseUrl(url: string): string {

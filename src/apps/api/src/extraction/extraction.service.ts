@@ -335,15 +335,16 @@ export class ExtractionService {
     const pricing = (extractor?.config?.pricing as PricingConfig | undefined) ?? undefined;
 
     const tokensMax = this.estimateTokensFromOcr(ocrResult).max;
-    const textCost = this.calculateTextCostEstimate(pricing, pagesProcessed, tokensMax);
+    const estimatedTextCost = this.calculateTextCostEstimate(pricing, pagesProcessed, tokensMax);
 
     const metadata: TextExtractionMetadata = {
       extractorId,
       processingTimeMs: 0,
       pagesProcessed,
-      textCost,
+      textCost: estimatedTextCost,
       currency: pricing?.currency ?? undefined,
       qualityScore: manifest.ocrQualityScore ?? undefined,
+      estimated: true,
       ocrResult: ocrResult,
     };
 
@@ -365,6 +366,30 @@ export class ExtractionService {
     const min = Math.max(1, Math.floor(estimatedTokens * 0.8));
     const max = Math.max(min, Math.ceil(estimatedTokens * 1.2));
     return { min, max };
+  }
+
+  private estimateTokenUsage(
+    messages: LlmChatMessage[],
+    assistantContent: string,
+  ): { promptTokens: number; completionTokens: number; totalTokens: number } {
+    const promptText = messages
+      .map((message) => this.normalizeChatContent(message.content))
+      .filter((content): content is string => typeof content === 'string' && content.trim().length > 0)
+      .join('\n');
+
+    const estimateTokens = (text: string): number => {
+      const length = text.trim().length;
+      if (!length) return 0;
+      return Math.max(1, Math.ceil(length / 4));
+    };
+
+    const promptTokens = estimateTokens(promptText);
+    const completionTokens = estimateTokens(assistantContent);
+    return {
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
+    };
   }
 
   private calculateTextCostEstimate(
@@ -478,7 +503,9 @@ export class ExtractionService {
 
     await this.persistPromptSnapshot(queueJobId, messages);
 
-    const llmOptions: { responseFormat?: LlmResponseFormat } = {};
+    const llmOptions: { responseFormat?: LlmResponseFormat; useStream?: boolean } = {
+      useStream: providerConfig?.type?.toLowerCase() === 'openai' || !providerConfig?.type ? true : undefined,
+    };
     if (schema && providerConfig) {
       const supportsStructuredOutput =
         providerConfig.supportsStructuredOutput ??
@@ -503,7 +530,10 @@ export class ExtractionService {
       const completion = await this.llmService.createChatCompletion(messages, llmOptions, providerConfig);
       await this.persistAssistantResponse(queueJobId, completion.content);
       const data = this.parseJsonResult(completion.content);
-      const tokenUsage = this.normalizeTokenUsage(completion.usage);
+      let tokenUsage = this.normalizeTokenUsage(completion.usage);
+      if (!tokenUsage || tokenUsage.totalTokens <= 0) {
+        tokenUsage = this.estimateTokenUsage(messages, completion.content);
+      }
 
       let validation: ExtractionValidationResult;
       if (schema) {
@@ -672,7 +702,8 @@ export class ExtractionService {
     state: ExtractionWorkflowState,
     llmModel?: ModelEntity,
   ): { textCost: number; llmCost: number } {
-    const textCost = state.textResult?.metadata?.textCost ?? 0;
+    const textMetadata = state.textResult?.metadata;
+    const textCost = textMetadata?.estimated ? 0 : (textMetadata?.textCost ?? 0);
     const tokenUsage = state.extractionResult?.tokenUsage;
     const llmCost = llmModel && tokenUsage
       ? this.modelPricingService.calculateLlmCost(

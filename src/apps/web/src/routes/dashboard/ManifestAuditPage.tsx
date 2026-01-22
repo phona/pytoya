@@ -24,15 +24,14 @@ export function ManifestAuditPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <AuditPanel
-          projectId={projectId}
-          manifestId={manifestId}
-          onClose={() => navigate(`/projects/${projectId}/groups/${groupId}/manifests`)}
-          allManifestIds={allManifestIds}
-        />
-      </div>
+    <div className="h-full min-h-0 w-full bg-background overflow-hidden">
+      <AuditPanel
+        projectId={projectId}
+        groupId={groupId}
+        manifestId={manifestId}
+        onClose={() => navigate(`/projects/${projectId}/groups/${groupId}/manifests`)}
+        allManifestIds={allManifestIds}
+      />
     </div>
   );
 }

@@ -45,6 +45,7 @@ export interface LlmChatOptions {
   timeoutMs?: number;
   responseFormat?: LlmResponseFormat;
   maxRetries?: number;
+  useStream?: boolean;
 }
 
 export interface LlmProviderConfig {
@@ -65,6 +66,9 @@ export interface LlmChatCompletionRequest {
   max_tokens?: number;
   response_format?: LlmResponseFormat;
   stream?: boolean;
+  stream_options?: {
+    include_usage?: boolean;
+  };
 }
 
 export interface LlmChatCompletionStreamChoice {
@@ -80,6 +84,7 @@ export interface LlmChatCompletionStreamChunk {
   id?: string;
   model?: string;
   choices?: LlmChatCompletionStreamChoice[];
+  usage?: LlmChatCompletionResponse['usage'];
 }
 
 export interface LlmChatCompletionChoice {

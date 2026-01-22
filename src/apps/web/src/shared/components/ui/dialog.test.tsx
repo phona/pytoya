@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { vi } from 'vitest';
 import {
   Dialog,
   DialogContent,
@@ -68,6 +69,41 @@ describe('Dialog', () => {
     });
 
     expect(trigger).toHaveFocus();
+  });
+
+  it('does not bubble Escape to window listeners', async () => {
+    const user = userEvent.setup();
+    const windowEscapeHandler = vi.fn();
+
+    const handleWindowKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        windowEscapeHandler();
+      }
+    };
+
+    window.addEventListener('keydown', handleWindowKeyDown);
+    try {
+      render(<TestDialog />);
+
+      const trigger = screen.getByRole('button', { name: 'Open dialog' });
+      await act(async () => {
+        await user.click(trigger);
+      });
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      await act(async () => {
+        await user.keyboard('{Escape}');
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+
+      expect(windowEscapeHandler).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('keydown', handleWindowKeyDown);
+    }
   });
 });
 

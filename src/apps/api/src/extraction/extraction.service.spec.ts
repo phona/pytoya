@@ -103,8 +103,8 @@ describe('ExtractionService', () => {
       providerSupportsStructuredOutput: jest.fn().mockReturnValue(true),
     };
     const promptBuilderService = {
-      buildExtractionPrompt: jest.fn().mockReturnValue('prompt'),
-      buildReExtractPrompt: jest.fn().mockReturnValue('prompt'),
+      buildExtractionPrompt: jest.fn().mockReturnValue({ systemContext: '', userInput: 'prompt' }),
+      buildReExtractPrompt: jest.fn().mockReturnValue({ systemContext: '', userInput: 'prompt' }),
     };
     const promptsService = {
       getSystemPrompt: jest.fn().mockReturnValue('system'),
@@ -160,6 +160,116 @@ describe('ExtractionService', () => {
     expect(result.llmCost).toBe(0.15);
     expect(result.extractionCost).toBeCloseTo(0.2, 8);
     expect(manifestRepository.save).toHaveBeenCalled();
+  });
+
+  it('estimates token usage when the provider omits usage', async () => {
+    const manifestRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 1,
+        storagePath: '/tmp/test.pdf',
+        originalFilename: 'test.pdf',
+        fileType: 'pdf',
+        status: ManifestStatus.PENDING,
+        extractedData: null,
+        group: {
+          project: {
+            id: 1,
+            llmModelId: 'model-1',
+            defaultSchemaId: 'schema-1',
+            textExtractorId: 'extractor-1',
+          },
+        },
+      }),
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const modelRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'model-1',
+        adapterType: 'openai',
+        parameters: {
+          baseUrl: 'https://api.openai.com/v1',
+          apiKey: 'sk-test',
+          modelName: 'gpt-4o',
+        },
+        pricing: {
+          effectiveDate: new Date().toISOString(),
+          llm: { inputPrice: 2, outputPrice: 4, currency: 'USD' },
+        },
+      }),
+    };
+
+    const promptRepository = { findOne: jest.fn().mockResolvedValue(null) };
+    const textExtractorService = {
+      extract: jest.fn().mockResolvedValue({
+        extractor: { id: 'extractor-1' },
+        result: {
+          text: 'extracted text',
+          markdown: 'extracted text',
+          metadata: { textCost: 0.05, currency: 'USD', processingTimeMs: 12 },
+        },
+      }),
+    };
+    const llmService = {
+      createChatCompletion: jest.fn().mockResolvedValue({
+        content: '{"items":[{"name":"item"}],"_extraction_info":{"confidence":0.9}}',
+      }),
+      providerSupportsStructuredOutput: jest.fn().mockReturnValue(true),
+    };
+    const promptBuilderService = {
+      buildExtractionPrompt: jest.fn().mockReturnValue({ systemContext: '', userInput: 'prompt' }),
+      buildReExtractPrompt: jest.fn().mockReturnValue({ systemContext: '', userInput: 'prompt' }),
+    };
+    const promptsService = {
+      getSystemPrompt: jest.fn().mockReturnValue('system'),
+      getReExtractSystemPrompt: jest.fn().mockReturnValue('system'),
+    };
+    const schemaRulesService = { findBySchema: jest.fn().mockResolvedValue([]) };
+    const schemasService = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'schema-1',
+        jsonSchema: {},
+        requiredFields: ['items'],
+        systemPromptTemplate: null,
+      }),
+      validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
+    };
+    const modelPricingService = {
+      calculateLlmCost: jest.fn().mockReturnValue(0.15),
+    };
+    const configService = { get: jest.fn().mockReturnValue(undefined) };
+    const fileSystem = {
+      readFile: jest.fn().mockResolvedValue(Buffer.from('pdf')),
+      getFileStats: jest.fn().mockResolvedValue({ isFile: true, size: 100 }),
+    };
+    const manifestsService = {
+      updateJobPromptSnapshot: jest.fn(),
+      updateJobAssistantResponse: jest.fn(),
+    };
+
+    const service = new ExtractionService(
+      manifestRepository as any,
+      {} as any,
+      modelRepository as any,
+      promptRepository as any,
+      textExtractorService as any,
+      llmService as any,
+      promptBuilderService as any,
+      promptsService as any,
+      schemaRulesService as any,
+      schemasService as any,
+      modelPricingService as any,
+      configService as any,
+      fileSystem as any,
+      manifestsService as any,
+    );
+
+    const result = await service.runExtraction(1);
+
+    expect(result.llmCost).toBe(0.15);
+    const [promptTokens, completionTokens] = (modelPricingService.calculateLlmCost as jest.Mock).mock.calls[0];
+    expect(promptTokens).toBeGreaterThan(0);
+    expect(completionTokens).toBeGreaterThan(0);
   });
 
   it('reuses cached OCR result and does not re-run text extractor', async () => {
@@ -227,8 +337,8 @@ describe('ExtractionService', () => {
       providerSupportsStructuredOutput: jest.fn().mockReturnValue(true),
     };
     const promptBuilderService = {
-      buildExtractionPrompt: jest.fn().mockReturnValue('prompt'),
-      buildReExtractPrompt: jest.fn().mockReturnValue('prompt'),
+      buildExtractionPrompt: jest.fn().mockReturnValue({ systemContext: '', userInput: 'prompt' }),
+      buildReExtractPrompt: jest.fn().mockReturnValue({ systemContext: '', userInput: 'prompt' }),
     };
     const promptsService = {
       getSystemPrompt: jest.fn().mockReturnValue('system'),
@@ -278,6 +388,8 @@ describe('ExtractionService', () => {
 
     expect(textExtractorService.extract).not.toHaveBeenCalled();
     expect(fileSystem.readFile).not.toHaveBeenCalled();
-    expect(result.textCost).toBeCloseTo(0.02, 8);
+    expect(result.textCost).toBeCloseTo(0, 8);
+    expect(result.textResult?.metadata.estimated).toBe(true);
+    expect(result.textResult?.metadata.textCost).toBeCloseTo(0.02, 8);
   });
 });

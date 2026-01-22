@@ -253,6 +253,7 @@ export function ExtractionHistoryPanel({
               const createdAt = new Date(entry.createdAt);
               const modelLabel = entry.llmModelName ?? entry.llmModelId ?? 'Default model';
               const promptLabel = entry.promptName ?? (entry.promptId ? `Prompt #${entry.promptId}` : 'Default prompt');
+              const fieldLabel = entry.fieldName ? `Field: ${entry.fieldName}` : 'Full extraction';
 
               const totalCost = entry.actualCost ?? entry.estimatedCost ?? 0;
               const textCost = entry.textActualCost ?? entry.textEstimatedCost ?? 0;
@@ -281,7 +282,7 @@ export function ExtractionHistoryPanel({
                         {getStatusBadge(entry.status)}
                       </div>
                       <div className="text-xs text-muted-foreground truncate">
-                        {modelLabel} • {promptLabel} • {entry.pagesProcessed ?? '—'} pages • {(entry.llmInputTokens ?? 0)}→{(entry.llmOutputTokens ?? 0)} tokens
+                        {modelLabel} • {promptLabel} • {fieldLabel} • {entry.pagesProcessed ?? '—'} pages • {(entry.llmInputTokens ?? 0)}→{(entry.llmOutputTokens ?? 0)} tokens
                       </div>
                     </div>
 

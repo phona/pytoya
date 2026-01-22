@@ -1,8 +1,8 @@
 import { type ReactNode } from 'react';
-import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/shared/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { AppBreadcrumbs } from '@/shared/components/AppBreadcrumbs';
+import { useProject } from '@/shared/hooks/use-projects';
 import { useProjectSchemas } from '@/shared/hooks/use-schemas';
 import { cn } from '@/shared/lib/utils';
 
@@ -26,6 +26,29 @@ const tabToPath = (projectId: number, tab: ProjectSettingsTab, schemaId: number 
   return `/projects/${projectId}/settings/${tab}`;
 };
 
+const tabToLabel = (tab: ProjectSettingsTab) => {
+  switch (tab) {
+    case 'basic':
+      return 'Basic';
+    case 'models':
+      return 'Models';
+    case 'extractors':
+      return 'Extractors';
+    case 'costs':
+      return 'Costs';
+    case 'schema':
+      return 'Schema';
+    case 'rules':
+      return 'Rules';
+    case 'scripts':
+      return 'Validation Scripts';
+    default: {
+      const exhaustive: never = tab;
+      return exhaustive;
+    }
+  }
+};
+
 export function ProjectSettingsShell({
   projectId,
   activeTab,
@@ -34,21 +57,23 @@ export function ProjectSettingsShell({
   children,
 }: ProjectSettingsShellProps) {
   const navigate = useNavigate();
+  const { project } = useProject(projectId);
   const { schemas } = useProjectSchemas(projectId);
   const schemaId = schemaIdOverride ?? schemas[0]?.id ?? null;
+  const projectLabel = project?.name ?? `Project ${projectId}`;
+  const activeTabLabel = tabToLabel(activeTab);
 
   return (
     <div className="min-h-screen bg-background">
       <div className={cn('max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6', containerClassName)}>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate(`/projects/${projectId}`)}
-          className="inline-flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Project
-        </Button>
+        <AppBreadcrumbs
+          items={[
+            { label: 'Projects', to: '/projects' },
+            { label: projectLabel, to: `/projects/${projectId}` },
+            { label: 'Settings', to: `/projects/${projectId}/settings/basic` },
+            { label: activeTabLabel },
+          ]}
+        />
 
         <Tabs
           value={activeTab}

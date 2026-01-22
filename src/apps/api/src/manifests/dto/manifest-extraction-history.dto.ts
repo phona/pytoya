@@ -16,6 +16,7 @@ export class ManifestExtractionHistoryEntryDto {
   llmModelName!: string | null;
   promptId!: number | null;
   promptName!: string | null;
+  fieldName!: string | null;
 
   estimatedCost!: number | null;
   actualCost!: number | null;
@@ -60,6 +61,7 @@ export class ManifestExtractionHistoryEntryDto {
       llmModelName: lookups.llmModelName ?? null,
       promptId: job.promptId ?? null,
       promptName: lookups.promptName ?? null,
+      fieldName: job.fieldName ?? null,
       estimatedCost: this.parseNullableDecimal(job.estimatedCost),
       actualCost: this.parseNullableDecimal(job.actualCost),
       textEstimatedCost: this.parseNullableDecimal(job.ocrEstimatedCost),
@@ -117,4 +119,3 @@ export class ManifestExtractionHistoryEntryDto {
     return null;
   }
 }
-

@@ -64,6 +64,7 @@ export class QueueService {
         llmModelId,
         promptId,
         estimatedCost,
+        fieldName,
       );
       this.logger.log(
         `Queued extraction job ${job.id} for manifest ${manifestId}${

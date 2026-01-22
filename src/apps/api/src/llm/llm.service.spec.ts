@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { AxiosInstance } from 'axios';
+import { Readable } from 'node:stream';
 
 import { LlmService } from './llm.service';
 
@@ -136,6 +137,55 @@ describe('LlmService - Vision Support', () => {
     it('should use default model when model is undefined', () => {
       const result = service.providerSupportsVision('openai');
       expect(result).toBe(true); // default is gpt-4o
+    });
+  });
+
+  describe('streamed chat completions', () => {
+    it('aggregates streamed output and preserves usage when provided', async () => {
+      const stream = Readable.from([
+        'data: {"model":"gpt-4o","choices":[{"index":0,"delta":{"content":"Hello "}}]}\n\n',
+        'data: {"choices":[{"index":0,"delta":{"content":"world"}}]}\n\n',
+        'data: {"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3},"choices":[{"index":0,"delta":{}}]}\n\n',
+        'data: [DONE]\n\n',
+      ]);
+
+      (mockAxiosInstance.post as jest.Mock).mockResolvedValueOnce({
+        data: stream,
+      });
+
+      const result = await service.createChatCompletion(
+        [{ role: 'user', content: 'hi' }],
+        {},
+        { type: 'openai', apiKey: 'test-api-key' },
+      );
+
+      expect(result.content).toBe('Hello world');
+      expect(result.usage).toEqual({
+        prompt_tokens: 1,
+        completion_tokens: 2,
+        total_tokens: 3,
+      });
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        '/chat/completions',
+        expect.objectContaining({ stream: true }),
+        expect.objectContaining({ responseType: 'stream' }),
+      );
+    });
+
+    it('does not fall back to non-stream when stream fails before output', async () => {
+      (mockAxiosInstance.post as jest.Mock).mockRejectedValueOnce(
+        new Error('stream not supported'),
+      );
+
+      await expect(
+        service.createChatCompletion(
+          [{ role: 'user', content: 'ping' }],
+          {},
+          { type: 'openai', apiKey: 'test-api-key' },
+        ),
+      ).rejects.toThrow('LLM request failed');
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledTimes(1);
     });
   });
 

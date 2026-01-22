@@ -1,15 +1,23 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, X, Eye } from 'lucide-react';
-import { useManifest, useManifestItems, useUpdateManifest, useManifestExtractionHistory } from '@/shared/hooks/use-manifests';
+import {
+  useManifest,
+  useUpdateManifest,
+  useManifestExtractionHistory,
+  useReExtractFieldPreview,
+} from '@/shared/hooks/use-manifests';
 import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/shared/hooks/use-websocket';
 import { useRunValidation } from '@/shared/hooks/use-validation-scripts';
 import { useExtractors } from '@/shared/hooks/use-extractors';
 import { useOcrResult } from '@/shared/hooks/use-manifests';
+import { getApiErrorMessage } from '@/api/client';
 import { jobsApi } from '@/api/jobs';
+import { schemasApi } from '@/api/schemas';
 import { useQueryClient } from '@tanstack/react-query';
-import { useProject } from '@/shared/hooks/use-projects';
+import { useGroups, useProject } from '@/shared/hooks/use-projects';
 import { useProjectSchemas, useSchema } from '@/shared/hooks/use-schemas';
 import { deriveExtractionHintMap } from '@/shared/utils/schema';
+import { AppBreadcrumbs } from '@/shared/components/AppBreadcrumbs';
 import { PdfViewer } from './PdfViewer';
 import { EditableForm } from './EditableForm';
 import { OcrViewer } from './OcrViewer';
@@ -18,36 +26,53 @@ import { ValidationResultsPanel } from '@/shared/components/ValidationResultsPan
 import { CostBreakdownPanel } from '@/shared/components/CostBreakdownPanel';
 import { OcrPreviewModal } from './OcrPreviewModal';
 import { ExtractionHistoryPanel } from './ExtractionHistoryPanel';
-import { FieldReExtractDialog } from './FieldReExtractDialog';
+import { FieldHintDialog } from './FieldHintDialog';
 import { Manifest } from '@/api/manifests';
-import { getStatusBadgeClasses } from '@/shared/styles/status-badges';
-import { ExtractionActionsMenu } from './ExtractionActionsMenu';
+import { toast } from '@/shared/hooks/use-toast';
+import { AuditPanelFunctionsMenu } from './AuditPanelFunctionsMenu';
+import { Dialog, DialogDescription, DialogHeader, DialogSideContent, DialogTitle } from '@/shared/components/ui/dialog';
 
 interface AuditPanelProps {
   projectId: number;
+  groupId: number;
   manifestId: number;
   onClose: () => void;
   allManifestIds: number[];
 }
 
-export function AuditPanel({ projectId, manifestId, onClose, allManifestIds }: AuditPanelProps) {
+export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifestIds }: AuditPanelProps) {
   const queryClient = useQueryClient();
   const { data: manifest, isLoading } = useManifest(manifestId);
-  const { data: items } = useManifestItems(manifestId);
   const updateManifest = useUpdateManifest();
   const runValidation = useRunValidation();
+  const reExtractFieldWithPreview = useReExtractFieldPreview();
   const { extractors } = useExtractors();
   const { project } = useProject(projectId);
+  const { groups } = useGroups(projectId);
+  const groupLabel = groups.find((group) => group.id === groupId)?.name ?? `Group ${groupId}`;
+  const projectLabel = project?.name ?? `Project ${projectId}`;
   const { schemas: projectSchemas } = useProjectSchemas(projectId);
-  const resolvedSchemaId = project?.defaultSchemaId ?? projectSchemas[0]?.id ?? 0;
+  const resolvedSchemaId = useMemo(() => {
+    const defaultSchemaId = project?.defaultSchemaId ?? null;
+    if (defaultSchemaId && projectSchemas.some((schema) => schema.id === defaultSchemaId)) {
+      return defaultSchemaId;
+    }
+    return projectSchemas[0]?.id ?? defaultSchemaId ?? 0;
+  }, [project?.defaultSchemaId, projectSchemas]);
   const { schema } = useSchema(resolvedSchemaId);
+  const jsonSchema = useMemo(() => {
+    const raw = schema?.jsonSchema;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return undefined;
+    }
+    return raw as Record<string, unknown>;
+  }, [schema?.jsonSchema]);
   const extractionHintMap = useMemo(() => {
-    const jsonSchema = schema?.jsonSchema as Record<string, unknown> | undefined;
     if (!jsonSchema) {
       return {};
     }
     return deriveExtractionHintMap(jsonSchema);
-  }, [schema?.jsonSchema]);
+  }, [jsonSchema]);
 
   const [activeTab, setActiveTab] = useState<'form' | 'extraction' | 'ocr' | 'validation' | 'history'>('form');
   const [currentIndex, setCurrentIndex] = useState(allManifestIds.indexOf(manifestId));
@@ -56,13 +81,15 @@ export function AuditPanel({ projectId, manifestId, onClose, allManifestIds }: A
   const [jobProgress, setJobProgress] = useState<{ jobId?: string; progress: number; status: string; error?: string } | null>(null);
   const [isCanceling, setIsCanceling] = useState(false);
   const [showOcrPreviewModal, setShowOcrPreviewModal] = useState(false);
-  const [fieldReExtract, setFieldReExtract] = useState<{
+  const [fieldHistoryOpen, setFieldHistoryOpen] = useState(false);
+  const [historyFieldFilter, setHistoryFieldFilter] = useState<string | null>(null);
+  const [fieldHintEditor, setFieldHintEditor] = useState<{
     open: boolean;
-    fieldName: string;
+    fieldPath: string;
   } | null>(null);
   const { data: ocrData, isLoading: isOcrLoading, error: ocrError } = useOcrResult(manifestId, activeTab === 'ocr');
   const { data: extractionHistory, isLoading: isHistoryLoading } = useManifestExtractionHistory(manifestId, {
-    enabled: activeTab === 'history',
+    enabled: activeTab === 'history' || fieldHistoryOpen,
     limit: 50,
   });
 
@@ -75,7 +102,6 @@ export function AuditPanel({ projectId, manifestId, onClose, allManifestIds }: A
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['manifests', manifestId] }),
-        queryClient.invalidateQueries({ queryKey: ['manifests', manifestId, 'items'] }),
         queryClient.invalidateQueries({ queryKey: ['manifests', 'group'] }),
       ]);
 
@@ -179,6 +205,11 @@ export function AuditPanel({ projectId, manifestId, onClose, allManifestIds }: A
           goToNext();
           break;
         case 'Escape':
+          // If a modal dialog is open (field history, OCR preview, etc.),
+          // let it handle Escape first instead of closing the whole audit panel.
+          if (document.querySelector('[data-state="open"][role="dialog"]')) {
+            break;
+          }
           onClose();
           break;
       }
@@ -223,50 +254,103 @@ export function AuditPanel({ projectId, manifestId, onClose, allManifestIds }: A
     [manifestId, updateManifest, debounceTimer],
   );
 
-  const handleReExtractField = (fieldName: string) => {
-    setFieldReExtract({ open: true, fieldName });
-  };
+  const normalizeHintPath = useCallback((path: string) => path.replace(/\[(\d+)\]/g, '[]'), []);
 
-  const getFieldHint = useCallback((fieldPath: string): string | undefined => {
-    const trimmed = fieldPath.trim();
-    if (!trimmed) {
-      return undefined;
+  const getReExtractTargetField = useCallback((normalizedPath: string): string => {
+    const parts = normalizedPath.split('.').filter(Boolean);
+    const arrayIndex = parts.findIndex((part) => part.endsWith('[]'));
+    if (arrayIndex === -1) {
+      return normalizedPath;
     }
-
-    const direct = extractionHintMap[trimmed];
-    if (direct) {
-      return direct;
-    }
-
-    if (trimmed.includes('.')) {
-      const parts = trimmed.split('.').filter(Boolean);
-      const parent = parts.slice(0, -1).join('.');
-      const leaf = parts[parts.length - 1];
-      return extractionHintMap[parent] ?? extractionHintMap[leaf];
-    }
-
-    return undefined;
-  }, [extractionHintMap]);
-
-  const getNestedValue = useCallback((obj: unknown, fieldPath: string): unknown => {
-    if (!obj || typeof obj !== 'object') {
-      return undefined;
-    }
-    const parts = fieldPath.split('.').filter(Boolean).map((part) => part.replace(/\[\]$/, ''));
-    let current: unknown = obj;
-    for (const part of parts) {
-      if (!current || typeof current !== 'object') {
-        return undefined;
-      }
-      const record = current as Record<string, unknown>;
-      current = record[part];
-    }
-    return current;
+    const prefixParts = parts.slice(0, arrayIndex + 1);
+    prefixParts[prefixParts.length - 1] = prefixParts[prefixParts.length - 1].replace(/\[\]$/, '');
+    return prefixParts.join('.');
   }, []);
+
+  const handleReExtractField = useCallback(
+    async (fieldName: string) => {
+      const trimmed = fieldName.trim();
+      if (!trimmed) {
+        return;
+      }
+
+      const normalized = normalizeHintPath(trimmed);
+      const targetFieldName = getReExtractTargetField(normalized);
+
+      try {
+        const result = await reExtractFieldWithPreview.mutateAsync({
+          manifestId,
+          data: {
+            fieldName: targetFieldName,
+            includeOcrContext: true,
+            previewOnly: false,
+          },
+        });
+
+        if (result.jobId) {
+          setJobProgress({ jobId: result.jobId, progress: 0, status: 'queued' });
+        }
+
+        toast({
+          title: 'Re-extract queued',
+          description: targetFieldName,
+        });
+      } catch (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Re-extract failed',
+          description: getApiErrorMessage(error, 'Unable to re-extract field. Please try again.'),
+        });
+      }
+    },
+    [getReExtractTargetField, manifestId, normalizeHintPath, reExtractFieldWithPreview],
+  );
+
+  const handleViewExtractionHistory = useCallback(
+    (fieldPath: string) => {
+      const trimmed = fieldPath.trim();
+      if (!trimmed) {
+        return;
+      }
+
+      const normalized = normalizeHintPath(trimmed);
+      const targetFieldName = getReExtractTargetField(normalized);
+      setHistoryFieldFilter(targetFieldName);
+      setFieldHistoryOpen(true);
+    },
+    [getReExtractTargetField, normalizeHintPath],
+  );
+
+  const handleEditFieldHint = useCallback((fieldPath: string) => {
+    setFieldHintEditor({ open: true, fieldPath });
+  }, []);
+
+  const handleUpdateFieldHint = useCallback(
+    async (nextSchema: Record<string, unknown>) => {
+      if (!resolvedSchemaId) {
+        throw new Error('Schema is not available');
+      }
+
+      await schemasApi.updateSchema(resolvedSchemaId, { jsonSchema: nextSchema });
+
+      queryClient.setQueryData(['schema', resolvedSchemaId], (prev) => {
+        if (!prev || typeof prev !== 'object') {
+          return prev;
+        }
+        return { ...(prev as Record<string, unknown>), jsonSchema: nextSchema };
+      });
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['schema', resolvedSchemaId] }),
+        queryClient.invalidateQueries({ queryKey: ['schemas', 'project', projectId] }),
+      ]);
+    },
+    [projectId, queryClient, resolvedSchemaId],
+  );
 
   if (isLoading || !manifest) {
     return (
-      <div className="bg-card rounded-lg shadow-sm border border-border p-8 flex items-center justify-center">
+      <div className="h-full w-full flex items-center justify-center bg-background">
         <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
       </div>
     );
@@ -301,10 +385,22 @@ export function AuditPanel({ projectId, manifestId, onClose, allManifestIds }: A
   const extractorCurrency = (currentExtractor?.config as { pricing?: { currency?: string } } | undefined)?.pricing?.currency;
 
   return (
-    <div className="bg-card rounded-lg shadow-sm border border-border">
+    <div className="h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-border flex justify-between items-center">
-        <div>
+      <div className="px-6 py-4 border-b border-border bg-card flex justify-between items-center flex-shrink-0">
+        <div className="min-w-0">
+          <AppBreadcrumbs
+            className="mb-1"
+            items={[
+              { label: 'Projects', to: '/projects' },
+              { label: projectLabel, to: `/projects/${projectId}` },
+              {
+                label: `Manifests (${groupLabel})`,
+                to: `/projects/${projectId}/groups/${groupId}/manifests`,
+              },
+              { label: manifest.originalFilename },
+            ]}
+          />
           <h2 className="text-lg font-semibold text-foreground">{manifest.originalFilename}</h2>
           <p className="text-sm text-muted-foreground">{manifest.storagePath}</p>
         </div>
@@ -324,31 +420,16 @@ export function AuditPanel({ projectId, manifestId, onClose, allManifestIds }: A
             </span>
           )}
 
-          {/* Navigation */}
-          <button
-            onClick={goToPrevious}
-            disabled={currentIndex === 0}
-            className="p-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Previous"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <span className="text-sm text-muted-foreground">
-            {currentIndex + 1} / {allManifestIds.length}
-          </span>
-          <button
-            onClick={goToNext}
-            disabled={currentIndex === allManifestIds.length - 1}
-            className="p-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Next"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-
-          <ExtractionActionsMenu
-            projectId={projectId}
-            manifestId={manifest.id}
-            manifestName={manifest.originalFilename}
+          <AuditPanelFunctionsMenu
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            runValidationPending={runValidation.isPending}
+            onRunValidation={() => {
+              setActiveTab('validation');
+              runValidation.mutate({ manifestId: manifest.id });
+            }}
+            validationLabel={validationLabel}
+            validationStatus={validationStatus}
           />
 
           {/* Close */}
@@ -362,84 +443,9 @@ export function AuditPanel({ projectId, manifestId, onClose, allManifestIds }: A
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="px-6 pt-4 border-b border-border">
-        <div className="flex items-center justify-between">
-          <div className="flex gap-4 overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('form')}
-              className={`pb-2 px-1 text-sm font-medium border-b-2 whitespace-nowrap ${
-                activeTab === 'form'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Invoice Form
-            </button>
-            <button
-              onClick={() => setActiveTab('extraction')}
-              className={`pb-2 px-1 text-sm font-medium border-b-2 whitespace-nowrap ${
-                activeTab === 'extraction'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Extraction
-            </button>
-            <button
-              onClick={() => setActiveTab('ocr')}
-              className={`pb-2 px-1 text-sm font-medium border-b-2 whitespace-nowrap ${
-                activeTab === 'ocr'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Text
-            </button>
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`pb-2 px-1 text-sm font-medium border-b-2 whitespace-nowrap ${
-                activeTab === 'history'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Extraction History
-            </button>
-            <button
-              onClick={() => setActiveTab('validation')}
-              className={`pb-2 px-1 text-sm font-medium border-b-2 whitespace-nowrap ${
-                activeTab === 'validation'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Validation
-              {manifest.validationResults && (
-                <span
-                  className={`ml-2 px-2 py-0.5 text-xs font-medium rounded-full ${
-                    validationStatus ? getStatusBadgeClasses(validationStatus) : ''
-                  }`}
-                >
-                  {validationLabel}
-                </span>
-              )}
-            </button>
-          </div>
-          {activeTab === 'validation' && (
-            <button
-              onClick={() => runValidation.mutate({ manifestId })}
-              disabled={runValidation.isPending}
-              className="px-3 py-1 text-sm font-medium rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-            >
-              {runValidation.isPending ? 'Running...' : 'Run Validation'}
-            </button>
-          )}
-        </div>
-      </div>
-
       {/* Content */}
-      <div className="relative flex flex-col gap-6 lg:flex-row lg:gap-0">
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="relative flex flex-col lg:flex-row h-full overflow-hidden">
         {/* Progress Overlay */}
         {(manifest.status === 'processing' || jobProgress?.status === 'processing' || jobProgress?.status === 'canceling') && (
           <div className="absolute inset-0 z-[var(--z-index-overlay)] bg-card/90 backdrop-blur-sm flex items-center justify-center">
@@ -473,7 +479,7 @@ export function AuditPanel({ projectId, manifestId, onClose, allManifestIds }: A
         )}
 
         {/* PDF Viewer */}
-        <div className="w-full min-h-0 border-border lg:w-1/2 lg:border-r">
+        <div className="w-full min-h-0 overflow-hidden border-border lg:w-1/2 lg:border-r">
           <PdfViewer manifestId={manifest.id} />
         </div>
 
@@ -482,10 +488,12 @@ export function AuditPanel({ projectId, manifestId, onClose, allManifestIds }: A
           {activeTab === 'form' ? (
             <EditableForm
               manifest={manifest}
-              items={items ?? []}
+              jsonSchema={jsonSchema}
               extractionHintMap={extractionHintMap}
               onSave={handleAutoSave}
               onReExtractField={handleReExtractField}
+              onViewExtractionHistory={handleViewExtractionHistory}
+              onEditFieldHint={jsonSchema && resolvedSchemaId ? handleEditFieldHint : undefined}
             />
           ) : activeTab === 'extraction' ? (
             <div className="p-6 space-y-4">
@@ -536,7 +544,7 @@ export function AuditPanel({ projectId, manifestId, onClose, allManifestIds }: A
               </div>
 
               <div className="rounded-lg border border-border p-4">
-                <div className="text-sm font-medium text-foreground mb-2">Cached Text (snippet)</div>
+                <div className="text-sm font-medium text-foreground mb-2">Cached Text (full)</div>
                 {isOcrLoading && <p className="text-sm text-muted-foreground">Loading text...</p>}
                 {ocrError && <p className="text-sm text-destructive">Failed to load cached text.</p>}
                 {!isOcrLoading && !ocrError && !ocrData?.ocrResult && (
@@ -547,9 +555,9 @@ export function AuditPanel({ projectId, manifestId, onClose, allManifestIds }: A
                 {ocrData?.ocrResult && (
                   <pre className="text-xs text-foreground whitespace-pre-wrap font-mono max-h-64 overflow-y-auto bg-background border border-border rounded p-3">
                     {(ocrData.ocrResult.pages ?? [])
-                      .map((page) => page.text)
+                      .map((page) => page.markdown || page.text)
                       .join('\n')
-                      .slice(0, 2000)}
+                      .trim()}
                   </pre>
                 )}
               </div>
@@ -561,10 +569,23 @@ export function AuditPanel({ projectId, manifestId, onClose, allManifestIds }: A
             </div>
           ) : activeTab === 'history' ? (
             <div className="p-6">
+              {historyFieldFilter ? (
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div className="text-sm text-muted-foreground">
+                    Filtering by field: <span className="font-medium text-foreground">{historyFieldFilter}</span>
+                  </div>
+                  <button
+                    onClick={() => setHistoryFieldFilter(null)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Clear filter
+                  </button>
+                </div>
+              ) : null}
               <ExtractionHistoryPanel
                 manifestId={manifest.id}
                 manifestName={manifest.originalFilename}
-                history={extractionHistory ?? []}
+                history={(extractionHistory ?? []).filter((entry) => !historyFieldFilter || entry.fieldName === historyFieldFilter)}
                 loading={isHistoryLoading}
               />
             </div>
@@ -577,6 +598,42 @@ export function AuditPanel({ projectId, manifestId, onClose, allManifestIds }: A
             <OcrViewer manifest={manifest} />
           )}
         </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="px-6 py-4 border-t border-border bg-card flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={goToPrevious}
+            disabled={currentIndex === 0}
+            className="px-3 py-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            title="Previous (←)"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Previous
+          </button>
+          <button
+            onClick={goToNext}
+            disabled={currentIndex === allManifestIds.length - 1}
+            className="px-3 py-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            title="Next (→)"
+          >
+            Next
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <span className="text-sm text-muted-foreground">
+            {currentIndex + 1} / {allManifestIds.length}
+          </span>
+        </div>
+
+        <button
+          onClick={onClose}
+          className="px-3 py-2 rounded border border-border hover:bg-muted"
+          title="Close (Esc)"
+        >
+          Back to Manifests
+        </button>
       </div>
 
       {/* OCR Preview Modal */}
@@ -586,18 +643,39 @@ export function AuditPanel({ projectId, manifestId, onClose, allManifestIds }: A
         onClose={() => setShowOcrPreviewModal(false)}
       />
 
-      {fieldReExtract?.open && (
-        <FieldReExtractDialog
-          open={fieldReExtract.open}
-          onClose={() => setFieldReExtract(null)}
-          manifestId={manifest.id}
-          fieldName={fieldReExtract.fieldName}
-          fieldHint={getFieldHint(fieldReExtract.fieldName)}
-          defaultModelId={project?.llmModelId ?? undefined}
-          currentValue={getNestedValue(manifest.extractedData, fieldReExtract.fieldName)}
-          onSubmit={(jobId) => setJobProgress({ jobId, progress: 0, status: 'queued' })}
+      <Dialog open={fieldHistoryOpen} onOpenChange={setFieldHistoryOpen}>
+        <DialogSideContent>
+          <DialogHeader>
+            <DialogTitle>
+              Field Extraction History{historyFieldFilter ? `: ${historyFieldFilter}` : ''}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              View extraction run history for this field.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ExtractionHistoryPanel
+            manifestId={manifest.id}
+            manifestName={manifest.originalFilename}
+            history={
+              historyFieldFilter
+                ? (extractionHistory ?? []).filter((entry) => entry.fieldName === historyFieldFilter)
+                : []
+            }
+            loading={isHistoryLoading}
+          />
+        </DialogSideContent>
+      </Dialog>
+
+      {fieldHintEditor?.open && jsonSchema && resolvedSchemaId ? (
+        <FieldHintDialog
+          open={fieldHintEditor.open}
+          onClose={() => setFieldHintEditor(null)}
+          fieldPath={fieldHintEditor.fieldPath}
+          jsonSchema={jsonSchema}
+          onSubmit={handleUpdateFieldHint}
         />
-      )}
+      ) : null}
     </div>
   );
 }

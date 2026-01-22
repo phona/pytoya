@@ -48,7 +48,7 @@ import { MetricsModule } from './metrics/metrics.module';
         }>('security.rateLimit');
         const enabled = rateLimit?.enabled ?? true;
         const ttl = rateLimit?.ttl ?? 60000;
-        const limit = rateLimit?.limit ?? 10;
+        const limit = rateLimit?.limit ?? 120;
         const storageType = rateLimit?.storage ?? 'memory';
 
         const storage =

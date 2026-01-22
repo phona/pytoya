@@ -16,6 +16,7 @@
 - The sidebar is collapsible on mobile with a hamburger toggle.
 - Sign out is handled from the sidebar and clears auth state before redirecting to login.
 - Theme toggling is available from the sidebar.
+- Deep pages show breadcrumbs (Projects > Project > …) for quick orientation and parent navigation.
 
 Admin-only pages (Prompts, Validation Scripts) are still available but no longer appear in the main navigation.
 Schema access is project-scoped and available from the project settings dropdown.

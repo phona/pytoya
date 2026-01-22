@@ -17,8 +17,6 @@ The web application SHALL use modal dialogs for entity creation and editing form
 - **THEN** the system SHALL navigate to the manifest audit page route
 - **AND** the system SHALL NOT open a modal dialog for this flow
 
-## ADDED Requirements
-
 ### Requirement: Schema-Driven Manifest Audit Form
 The web application SHALL render manifest audit form fields dynamically from the project JSON Schema.
 

@@ -36,6 +36,9 @@ export class JobEntity {
   @Column({ type: 'int', name: 'prompt_id', nullable: true })
   promptId!: number | null;
 
+  @Column({ type: 'varchar', name: 'field_name', nullable: true })
+  fieldName!: string | null;
+
   @Column({ type: 'varchar', name: 'queue_job_id', nullable: true })
   queueJobId!: string | null;
 

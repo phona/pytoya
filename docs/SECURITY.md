@@ -16,7 +16,7 @@ Environment overrides:
 Environment overrides:
 - `RATE_LIMIT_ENABLED` (default: true)
 - `RATE_LIMIT_TTL` (default: 60000 ms)
-- `RATE_LIMIT_LIMIT` (default: 10 requests)
+- `RATE_LIMIT_LIMIT` (default: 120 requests)
 - `RATE_LIMIT_STORAGE` (default: `memory`, or `redis`)
 
 ### Account Lockout

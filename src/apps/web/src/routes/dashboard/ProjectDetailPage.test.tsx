@@ -88,7 +88,7 @@ describe('ProjectDetailPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Alpha Project')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Alpha Project' })).toBeInTheDocument();
     });
 
     await act(async () => {

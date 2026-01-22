@@ -19,6 +19,7 @@ import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { createReadStream } from 'fs';
 import * as path from 'path';
+import { SkipThrottle } from '@nestjs/throttler';
 
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -171,6 +172,7 @@ export class ManifestsController {
   }
 
   @Get('manifests/:id/items')
+  @SkipThrottle()
   async getManifestItems(
     @CurrentUser() user: UserEntity,
     @Param('id', ParseIntPipe) id: number,
@@ -454,6 +456,7 @@ export class ManifestsController {
       await this.manifestsService.processOcrForManifest(manifest);
     }
 
+    const includeOcrContext = body.includeOcrContext !== false;
     const ocrPreview = this.manifestsService.buildOcrContextPreview(
       manifest,
       body.fieldName,
@@ -481,7 +484,7 @@ export class ManifestsController {
       body.promptId,
       body.fieldName,
       body.customPrompt,
-      body.includeOcrContext ? ocrPreview?.snippet : undefined,
+      includeOcrContext ? ocrPreview?.snippet : undefined,
       estimate.cost,
     );
 

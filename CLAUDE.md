@@ -128,6 +128,7 @@ openspec/                # Spec-driven development
 - **State Management**: Zustand stores in `src/apps/web/src/shared/stores` with hooks in `src/apps/web/src/shared/hooks`
 - **Components**: Shared components in `src/apps/web/src/shared/components`
 - **UI System**: shadcn/ui components in `src/apps/web/src/shared/components/ui`
+- **Schema-Driven Audit UI**: `deriveSchemaAuditFields` / `deriveExtractionHintMap` support local `$ref` and basic `allOf`
 - **Z-Index Scale**: Use `src/apps/web/src/styles/z-index.css` with `z-[var(--z-index-...)]`
 - **Status Badges**: Use `src/apps/web/src/shared/styles/status-badges.ts` for manifest status colors
 - **Empty States**: Use `src/apps/web/src/shared/components/EmptyState.tsx`
@@ -253,6 +254,7 @@ Critical for mechanical industry invoices (Chinese):
 - **Cost Tracking**: Extractions record text + LLM costs in `JobEntity` and `ManifestEntity.extractionCost`
 - **WebSocket Events**: `job-update` and `manifest-update` events include `costBreakdown` with `text`, `llm`, `total` fields
 - **Frontend State**: `src/apps/web/src/shared/stores/extraction.ts` tracks accumulated costs with `addCost(amount, type)` where type is `'text'`, `'llm'`, or `'total'`
+- **Cached OCR**: When OCR is reused from `ManifestEntity.ocrResult`, `TextExtractionMetadata.estimated` is set and `costBreakdown.text` is treated as `0` (no new text extraction usage for that job).
 
 ## Configuration
 

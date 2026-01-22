@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { Dialog, DialogDescription, DialogHeader, DialogSideContent, DialogTitle } from '@/shared/components/ui/dialog';
 import { useManifestExtractionHistory } from '@/shared/hooks/use-manifests';
 import { ExtractionHistoryPanel } from './ExtractionHistoryPanel';
 
@@ -64,14 +64,14 @@ export function ExtractionActionsMenu({ projectId, manifestId, manifestName }: E
       </DropdownMenu>
 
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
-        <DialogContent
-          className="left-auto right-0 top-0 h-screen max-h-none w-full max-w-2xl translate-x-0 translate-y-0 rounded-none"
-          onClick={(event) => event.stopPropagation()}
-        >
+        <DialogSideContent onClick={(event) => event.stopPropagation()}>
           <DialogHeader>
             <DialogTitle>
               Extraction History{manifestName ? `: ${manifestName}` : ''}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              View extraction run history for this document.
+            </DialogDescription>
           </DialogHeader>
 
           <ExtractionHistoryPanel
@@ -80,9 +80,8 @@ export function ExtractionActionsMenu({ projectId, manifestId, manifestName }: E
             history={history}
             loading={historyQuery.isLoading}
           />
-        </DialogContent>
+        </DialogSideContent>
       </Dialog>
     </>
   );
 }
-

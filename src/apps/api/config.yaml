@@ -49,7 +49,7 @@ security:
   rateLimit:
     enabled: {{default RATE_LIMIT_ENABLED "true"}}
     ttl: {{default RATE_LIMIT_TTL "60000"}}
-    limit: {{default RATE_LIMIT_LIMIT "10"}}
+    limit: {{default RATE_LIMIT_LIMIT "120"}}
     storage: {{default RATE_LIMIT_STORAGE "memory"}}
 
   accountLockout:

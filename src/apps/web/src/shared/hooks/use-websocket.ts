@@ -58,6 +58,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const connectingRef = useRef(false);
   const subscriptionsRef = useRef<Set<number>>(new Set());
   const desiredSubscriptionsRef = useRef<Set<number>>(new Set());
+  const processedCostJobsRef = useRef<Set<string>>(new Set());
 
   const {
     onJobUpdate,
@@ -121,34 +122,42 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       });
 
       socket.on('job-update', (data: JobUpdateEvent) => {
-        // Update extraction store with cost breakdown
-        if (data.costBreakdown) {
-          const addCost = useExtractionStore.getState().addCost;
-          if (data.costBreakdown.text !== undefined) {
-            addCost(data.costBreakdown.text, 'text');
+        // Costs are emitted on completion via both job + manifest updates.
+        // Only count completed jobs once to avoid double counting.
+        if (data.status === 'completed') {
+          const jobId = data.jobId;
+          if (jobId && processedCostJobsRef.current.has(jobId)) {
+            onJobUpdate?.(data);
+            return;
           }
-          if (data.costBreakdown.llm !== undefined) {
-            addCost(data.costBreakdown.llm, 'llm');
+
+          if (jobId) {
+            processedCostJobsRef.current.add(jobId);
           }
-        } else if (data.cost !== undefined) {
-          useExtractionStore.getState().addCost(data.cost, 'total');
+
+          if (data.costBreakdown) {
+            const addCost = useExtractionStore.getState().addCost;
+            if (data.costBreakdown.text !== undefined) {
+              addCost(data.costBreakdown.text, 'text');
+            }
+            if (data.costBreakdown.llm !== undefined) {
+              addCost(data.costBreakdown.llm, 'llm');
+            }
+            if (
+              data.costBreakdown.total !== undefined &&
+              data.costBreakdown.text === undefined &&
+              data.costBreakdown.llm === undefined
+            ) {
+              addCost(data.costBreakdown.total, 'total');
+            }
+          } else if (data.cost !== undefined) {
+            useExtractionStore.getState().addCost(data.cost, 'total');
+          }
         }
         onJobUpdate?.(data);
       });
 
       socket.on('manifest-update', (data: ManifestUpdateEvent) => {
-        // Update extraction store with cost breakdown
-        if (data.costBreakdown) {
-          const addCost = useExtractionStore.getState().addCost;
-          if (data.costBreakdown.text !== undefined) {
-            addCost(data.costBreakdown.text, 'text');
-          }
-          if (data.costBreakdown.llm !== undefined) {
-            addCost(data.costBreakdown.llm, 'llm');
-          }
-        } else if (data.cost !== undefined) {
-          useExtractionStore.getState().addCost(data.cost, 'total');
-        }
         onManifestUpdate?.(data);
       });
 
@@ -239,6 +248,5 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 }
 
 export type { JobUpdateEvent, ManifestUpdateEvent, OcrUpdateEvent };
-
 
 

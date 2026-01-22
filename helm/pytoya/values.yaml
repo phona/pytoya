@@ -110,7 +110,7 @@ api:
       rateLimit:
         enabled: true
         ttl: 60000
-        limit: 10
+        limit: 120
         storage: memory
       accountLockout:
         enabled: true

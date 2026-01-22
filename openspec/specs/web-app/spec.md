@@ -92,62 +92,44 @@ The web application SHALL provide a simplified sidebar navigation in the dashboa
 ### Requirement: Dialog-Based Create and Edit
 The web application SHALL use a shared centered dialog component for Models create/edit and Manifests upload flows, and SHALL use a dedicated route page for the Manifests audit/edit flow.
 
-#### Scenario: Models create dialog
-- **WHEN** a user creates a model
-- **THEN** the system SHALL present a model type selection step inside a centered dialog
-- **AND** after selecting a model type, the system SHALL present the model configuration form
-
-#### Scenario: Models edit dialog
-- **WHEN** a user edits a model
-- **THEN** the system SHALL present the model form inside a centered dialog
-- **AND** the model type SHALL NOT be editable during edit
-
-#### Scenario: Manifests upload dialog
-- **WHEN** a user uploads manifests
-- **THEN** the system SHALL present the upload flow inside a centered dialog
-
 #### Scenario: Manifests audit page
 - **WHEN** a user audits or edits a manifest
 - **THEN** the system SHALL navigate to a dedicated audit page route
-- **AND** the system SHALL render the audit panel as page content (not a modal dialog)
+- **AND** the system SHALL render a full-height split view (PDF + audit form)
 - **AND** the audit page SHALL be deep-linkable and refresh-safe
 
 ### Requirement: Dialog-Based Forms
 The web application SHALL use modal dialogs for entity creation and editing forms that do not require deep-linking, and SHALL use a dedicated route page for the Manifests audit/edit flow.
 
-#### Scenario: Open form dialog
-- **WHEN** a user clicks "New [Entity]" or "Edit" on a list page
-- **THEN** the system SHALL open a modal dialog overlay
-- **AND** the system SHALL NOT navigate to a new route
-- **AND** the system SHALL preserve the list page context behind the dialog
-
-#### Scenario: Close form dialog
-- **WHEN** a user clicks cancel, close button, or presses Escape
-- **THEN** the system SHALL close the dialog
-- **AND** the system SHALL return focus to the triggering element
-- **AND** the list page SHALL remain unchanged
-
-#### Scenario: Submit form dialog
-- **WHEN** a user submits the form successfully
-- **THEN** the system SHALL close the dialog
-- **AND** the system SHALL refresh the list page with new data
-- **AND** the system SHALL display success notification
-
-#### Scenario: Dialog accessibility
-- **WHEN** a dialog is open
-- **THEN** the system SHALL trap focus within the dialog
-- **AND** the system SHALL set aria-modal="true"
-- **AND** the system SHALL manage focus return on close
-
-#### Scenario: Model form dialog
-- **WHEN** a user creates or edits a model
-- **THEN** the system SHALL display the form in a dialog
-- **AND** the system SHALL NOT use a separate page for forms
-
 #### Scenario: Manifest audit navigation
 - **WHEN** a user clicks a manifest row/card to audit or edit
 - **THEN** the system SHALL navigate to the manifest audit page route
 - **AND** the system SHALL NOT open a modal dialog for this flow
+
+### Requirement: Schema-Driven Manifest Audit Form
+The web application SHALL render manifest audit form fields dynamically from the project JSON Schema.
+
+#### Scenario: Schema adds a new leaf field
+- **GIVEN** a project JSON Schema defines a leaf field path not previously present
+- **WHEN** a user opens the manifest audit page for a manifest in that project
+- **THEN** the audit form SHALL render an editable input for that field
+- **AND** edits to the field SHALL be saved back into `manifest.extractedData` at the same field path
+
+#### Scenario: Schema defines an array of objects
+- **GIVEN** the JSON Schema defines an array field whose `items` is an object schema
+- **WHEN** the audit form renders that array field
+- **THEN** the UI SHALL render editable rows using the schema-defined properties
+- **AND** the UI SHALL NOT hardcode per-row field names
+
+#### Scenario: Field hints and confidence signals
+- **GIVEN** the JSON Schema provides `x-extraction-hint` for a field path
+- **WHEN** the audit form renders that field
+- **THEN** the UI SHALL display the hint text for that field
+- **AND** the UI SHALL display confidence highlighting when field confidence is available
+
+#### Scenario: Re-extract per field
+- **WHEN** the user clicks “Re-extract” for a rendered field
+- **THEN** the system SHALL initiate re-extraction for that field path
 
 ### Requirement: Multi-Step Project Creation Wizard
 The web application SHALL provide a multi-step wizard for creating projects with inline schema and prompt configuration.
@@ -1224,3 +1206,4 @@ The web application SHALL integrate extractor management into navigation.
 - **WHEN** the page is displayed
 - **THEN** the breadcrumb SHALL show "Projects > [Project Name] > Settings > Extractors"
 - **AND** clicking any breadcrumb segment SHALL navigate to that level
+

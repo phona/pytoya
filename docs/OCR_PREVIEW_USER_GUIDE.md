@@ -286,6 +286,8 @@ The Cost Log Modal provides:
 
 Each manifest maintains a history of all extraction attempts:
 
+Tip: From the invoice form, click a field’s **History** button to open field-specific extraction history without leaving the form.
+
 1. **Open Manifest Detail View**
 2. **Click "Extraction History" tab**
 3. **View Timeline** showing:

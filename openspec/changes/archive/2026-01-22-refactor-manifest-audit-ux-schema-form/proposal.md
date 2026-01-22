@@ -31,4 +31,4 @@ The current audit UI also feels “embedded” (nested card + independent scroll
   - Tests under `src/apps/web/src/**`
 
 ## Approval
-- Pending
+- Approved by user on 2026-01-21.
