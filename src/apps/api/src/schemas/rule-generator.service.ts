@@ -9,6 +9,7 @@ import { LlmResponseFormat, LlmProviderConfig } from '../llm/llm.types';
 import { LlmService } from '../llm/llm.service';
 import { adapterRegistry } from '../models/adapters/adapter-registry';
 import { GenerateRulesDto } from './dto/generate-rules.dto';
+import { canonicalizeJsonSchemaForStringify } from './utils/canonicalize-json-schema';
 
 type GeneratedRule = {
   fieldPath: string;
@@ -36,7 +37,11 @@ export class RuleGeneratorService {
     const model = await this.getLlmModel(input.modelId);
     const providerConfig = this.buildProviderConfig(model);
 
-    const schemaJson = JSON.stringify(schema.jsonSchema, null, 2);
+    const schemaJson = JSON.stringify(
+      canonicalizeJsonSchemaForStringify(schema.jsonSchema as Record<string, unknown>),
+      null,
+      2,
+    );
     const systemPrompt = [
       'You generate validation rules for JSON Schema extraction.',
       'Return JSON only with a top-level "rules" array.',

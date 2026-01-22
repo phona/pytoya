@@ -1,4 +1,4 @@
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { SchemaVisualBuilder } from './SchemaVisualBuilder';
@@ -478,6 +478,36 @@ describe('SchemaVisualBuilder', () => {
     });
   });
 
+  it('reorders properties and persists x-ui-order', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <SchemaVisualBuilder
+        schema={{
+          type: 'object',
+          properties: {
+            field1: { type: 'string' },
+            field2: { type: 'string' },
+          },
+          required: [],
+        }}
+        onChange={mockOnChange}
+      />,
+    );
+
+    await click(user, screen.getAllByTitle('Move down')[0] as HTMLElement);
+
+    await waitFor(() => {
+      expect(mockOnChange).toHaveBeenCalled();
+    });
+
+    const lastCall = mockOnChange.mock.calls.at(-1)?.[0] as Record<string, unknown> | undefined;
+    const properties = (lastCall?.properties ?? {}) as Record<string, unknown>;
+    expect(Object.keys(properties)).toEqual(['field2', 'field1']);
+    expect((properties.field2 as Record<string, unknown>)['x-ui-order']).toBe(0);
+    expect((properties.field1 as Record<string, unknown>)['x-ui-order']).toBe(1);
+  });
+
   describe('Enum support', () => {
     it('should show enum field for string type', async () => {
       const user = userEvent.setup();
@@ -532,6 +562,218 @@ describe('SchemaVisualBuilder', () => {
       await click(user, screen.getByLabelText(/Type/i));
 
       expect(screen.getByText('Array')).toBeInTheDocument();
+    });
+  });
+
+  describe('Object/Array inference', () => {
+    it('should infer object/array when type is omitted', () => {
+      render(
+        <SchemaVisualBuilder
+          schema={{
+            type: 'object',
+            properties: {
+              address: {
+                properties: {
+                  street: { type: 'string' },
+                },
+                required: ['street'],
+              },
+              tags: {
+                items: { type: 'string' },
+              },
+            },
+            required: [],
+          }}
+          onChange={mockOnChange}
+        />
+      );
+
+      expect(screen.getByText('address')).toBeInTheDocument();
+      expect(screen.getByText('object')).toBeInTheDocument();
+
+      expect(screen.getByText('tags')).toBeInTheDocument();
+      expect(screen.getByText('string[]')).toBeInTheDocument();
+    });
+  });
+
+  describe('Array items generation', () => {
+    it('should include items when adding array field', async () => {
+      const user = userEvent.setup();
+
+      render(
+        <SchemaVisualBuilder
+          schema={{ type: 'object', properties: {} }}
+          onChange={mockOnChange}
+        />
+      );
+
+      await click(user, screen.getByRole('button', { name: /Add Property/i }));
+      await type(user, screen.getByLabelText(/Name/i), 'tags');
+      await select(user, screen.getByLabelText(/Type/i), 'array');
+      await click(user, screen.getByRole('button', { name: /^Add$/i }));
+
+      await waitFor(() => {
+        expect(mockOnChange).toHaveBeenCalled();
+      });
+
+      const call = mockOnChange.mock.calls[0][0];
+      expect(call.properties.tags.type).toBe('array');
+      expect(call.properties.tags.items).toEqual(expect.objectContaining({ type: 'string' }));
+    });
+  });
+
+  describe('Extraction hint (x-extraction-hint)', () => {
+    it('should preserve x-extraction-hint when loading schema', () => {
+      render(
+        <SchemaVisualBuilder
+          schema={{
+            type: 'object',
+            properties: {
+              invoiceNo: {
+                type: 'string',
+                'x-extraction-hint': 'Top right, 7 digits',
+              },
+            },
+            required: [],
+          }}
+          onChange={mockOnChange}
+        />
+      );
+
+      expect(screen.getByText(/Top right, 7 digits/i)).toBeInTheDocument();
+    });
+
+    it('should write x-extraction-hint when adding a field', async () => {
+      const user = userEvent.setup();
+
+      render(
+        <SchemaVisualBuilder
+          schema={{ type: 'object', properties: {} }}
+          onChange={mockOnChange}
+        />
+      );
+
+      await click(user, screen.getByRole('button', { name: /Add Property/i }));
+      await type(user, screen.getByLabelText(/Name/i), 'invoiceNo');
+      await type(user, screen.getByLabelText(/Extraction Hint/i), 'Top right, 7 digits');
+      await click(user, screen.getByRole('button', { name: /^Add$/i }));
+
+      await waitFor(() => {
+        expect(mockOnChange).toHaveBeenCalled();
+      });
+
+      const call = mockOnChange.mock.calls[0][0];
+      expect(call.properties.invoiceNo['x-extraction-hint']).toBe('Top right, 7 digits');
+    });
+
+    it('should remove x-extraction-hint when cleared', async () => {
+      const user = userEvent.setup();
+
+      render(
+        <SchemaVisualBuilder
+          schema={{
+            type: 'object',
+            properties: {
+              invoiceNo: {
+                type: 'string',
+                'x-extraction-hint': 'Top right, 7 digits',
+              },
+            },
+            required: [],
+          }}
+          onChange={mockOnChange}
+        />
+      );
+
+      await click(user, screen.getByTitle(/Edit/i));
+      await clear(user, screen.getByLabelText(/Extraction Hint/i));
+      await click(user, screen.getByRole('button', { name: /Update/i }));
+
+      await waitFor(() => {
+        expect(mockOnChange).toHaveBeenCalled();
+      });
+
+      const call = mockOnChange.mock.calls[0][0];
+      expect(call.properties.invoiceNo['x-extraction-hint']).toBeUndefined();
+    });
+  });
+
+  describe('Nested object editing', () => {
+    it('should allow editing nested object properties', async () => {
+      const user = userEvent.setup();
+
+      render(
+        <SchemaVisualBuilder
+          schema={{
+            type: 'object',
+            properties: {
+              address: {
+                type: 'object',
+                properties: {},
+                required: [],
+              },
+            },
+            required: [],
+          }}
+          onChange={mockOnChange}
+        />
+      );
+
+      await click(user, screen.getByTitle('Expand address'));
+
+      const nestedBuilder = screen.getByLabelText('Visual schema builder: address');
+      const nested = within(nestedBuilder);
+
+      await click(user, nested.getByRole('button', { name: /Add Property/i }));
+      await type(user, nested.getByLabelText(/Name/i), 'street');
+      await click(user, nested.getByRole('button', { name: /^Add$/i }));
+
+      await waitFor(() => {
+        expect(mockOnChange).toHaveBeenCalled();
+      });
+
+      const call = mockOnChange.mock.calls[0][0];
+      expect(call.properties.address.properties.street).toEqual(expect.objectContaining({ type: 'string' }));
+    });
+
+    it('should allow editing array items object properties', async () => {
+      const user = userEvent.setup();
+
+      render(
+        <SchemaVisualBuilder
+          schema={{
+            type: 'object',
+            properties: {
+              lineItems: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {},
+                  required: [],
+                },
+              },
+            },
+            required: [],
+          }}
+          onChange={mockOnChange}
+        />
+      );
+
+      await click(user, screen.getByTitle('Expand lineItems'));
+
+      const nestedBuilder = screen.getByLabelText('Visual schema builder: lineItems[]');
+      const nested = within(nestedBuilder);
+
+      await click(user, nested.getByRole('button', { name: /Add Property/i }));
+      await type(user, nested.getByLabelText(/Name/i), 'sku');
+      await click(user, nested.getByRole('button', { name: /^Add$/i }));
+
+      await waitFor(() => {
+        expect(mockOnChange).toHaveBeenCalled();
+      });
+
+      const call = mockOnChange.mock.calls[0][0];
+      expect(call.properties.lineItems.items.properties.sku).toEqual(expect.objectContaining({ type: 'string' }));
     });
   });
 });

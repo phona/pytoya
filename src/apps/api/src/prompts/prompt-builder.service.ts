@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { SchemaEntity } from '../entities/schema.entity';
 import { SchemaRuleEntity } from '../entities/schema-rule.entity';
+import { canonicalizeJsonSchemaForStringify } from '../schemas/utils/canonicalize-json-schema';
 import { ExtractedData } from './types/prompts.types';
 
 export type ExtractionPromptParts = {
@@ -187,7 +188,11 @@ export class PromptBuilderService {
   }
 
   private formatSchema(schema: SchemaEntity): string {
-    const jsonSchema = JSON.stringify(schema.jsonSchema, null, 2);
+    const jsonSchema = JSON.stringify(
+      canonicalizeJsonSchemaForStringify(schema.jsonSchema as Record<string, unknown>),
+      null,
+      2,
+    );
     return `JSON Schema:\n${jsonSchema}`;
   }
 

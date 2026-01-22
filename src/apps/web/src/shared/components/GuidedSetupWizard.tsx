@@ -20,7 +20,7 @@ import { useExtractors } from '@/shared/hooks/use-extractors';
 import { useProjects } from '@/shared/hooks/use-projects';
 import { useSchemas } from '@/shared/hooks/use-schemas';
 import { useValidationScripts } from '@/shared/hooks/use-validation-scripts';
-import { deriveRequiredFields } from '@/shared/utils/schema';
+import { canonicalizeJsonSchemaForDisplay, deriveRequiredFields } from '@/shared/utils/schema';
 import {
   Dialog,
   DialogContent,
@@ -195,7 +195,11 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
       modelId: llmModelId,
       includeExtractionHints: includeHints,
     });
-    const nextSchema = JSON.stringify(result.jsonSchema, null, 2);
+    const nextSchema = JSON.stringify(
+      canonicalizeJsonSchemaForDisplay(result.jsonSchema as Record<string, unknown>),
+      null,
+      2,
+    );
     setSchemaDraft((prev) => ({
       ...prev,
       jsonSchema: nextSchema,
@@ -212,7 +216,11 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
     }
     setSchemaDraft((prev) => ({
       ...prev,
-      jsonSchema: JSON.stringify(result.jsonSchema, null, 2),
+      jsonSchema: JSON.stringify(
+        canonicalizeJsonSchemaForDisplay(result.jsonSchema as Record<string, unknown>),
+        null,
+        2,
+      ),
     }));
   };
 

@@ -168,11 +168,13 @@ const toInputId = (path: string): string =>
   `audit_${path.replace(/[.[\]]/g, '_').replace(/_+/g, '_')}`;
 
 const sortFields = (fields: SchemaLeafField[]): SchemaLeafField[] => {
-  const required = fields.filter((field) => field.required).sort((a, b) => a.schemaOrder - b.schemaOrder);
-  const optional = fields
-    .filter((field) => !field.required)
-    .sort((a, b) => a.path.localeCompare(b.path));
-  return [...required, ...optional];
+  return [...fields].sort((a, b) => {
+    const orderDiff = a.schemaOrder - b.schemaOrder;
+    if (orderDiff !== 0) {
+      return orderDiff;
+    }
+    return a.path.localeCompare(b.path);
+  });
 };
 
 const isJsonEqual = (a: unknown, b: unknown): boolean => {

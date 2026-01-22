@@ -6,6 +6,7 @@ import { ProjectSettingsShell } from '@/shared/components/ProjectSettingsShell';
 import { SchemaForm } from '@/shared/components/SchemaForm';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { useProjectSchemas, useSchema, useSchemas } from '@/shared/hooks/use-schemas';
+import { canonicalizeJsonSchemaForDisplay } from '@/shared/utils/schema';
 
 export function ProjectSettingsSchemaPage() {
   const { confirm, alert, ModalDialog } = useModalDialog();
@@ -104,7 +105,11 @@ export function ProjectSettingsSchemaPage() {
               <div className="bg-card rounded-lg shadow-sm border border-border p-6">
                 <h2 className="text-lg font-semibold text-foreground mb-4">JSON Schema</h2>
                 <pre className="bg-background p-4 rounded-md overflow-x-auto text-xs">
-                  {JSON.stringify(schemaRecord.jsonSchema, null, 2)}
+                  {JSON.stringify(
+                    canonicalizeJsonSchemaForDisplay(schemaRecord.jsonSchema as Record<string, unknown>),
+                    null,
+                    2,
+                  )}
                 </pre>
               </div>
             </div>

@@ -8,7 +8,7 @@ import { SchemaForm } from '@/shared/components/SchemaForm';
 import { SchemaPreview } from '@/shared/components/SchemaPreview';
 import { RuleEditor, RuleDraft } from '@/shared/components/RuleEditor';
 import { Button } from '@/shared/components/ui/button';
-import { deriveRequiredFields } from '@/shared/utils/schema';
+import { canonicalizeJsonSchemaForDisplay, deriveRequiredFields } from '@/shared/utils/schema';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { ProjectSettingsShell } from '@/shared/components/ProjectSettingsShell';
 
@@ -282,7 +282,11 @@ export function SchemaDetailPage() {
             <div className="bg-card rounded-lg shadow-sm border border-border p-6">
               <h2 className="text-lg font-semibold text-foreground mb-4">JSON Schema</h2>
               <pre className="bg-background p-4 rounded-md overflow-x-auto text-xs">
-                {JSON.stringify(schema.jsonSchema, null, 2)}
+                {JSON.stringify(
+                  canonicalizeJsonSchemaForDisplay(schema.jsonSchema as Record<string, unknown>),
+                  null,
+                  2,
+                )}
               </pre>
             </div>
 

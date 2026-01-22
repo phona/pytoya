@@ -404,7 +404,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
           <h2 className="text-lg font-semibold text-foreground">{manifest.originalFilename}</h2>
           <p className="text-sm text-muted-foreground">{manifest.storagePath}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           {/* Save Status */}
           {saveStatus !== 'idle' && (
             <span
@@ -419,6 +419,28 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
               {saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'error' ? '✗ Failed' : 'Saving...'}
             </span>
           )}
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={goToPrevious}
+              disabled={currentIndex === 0}
+              className="p-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Previous (←)"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              onClick={goToNext}
+              disabled={currentIndex === allManifestIds.length - 1}
+              className="p-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Next (→)"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <span className="min-w-fit px-2 text-sm text-muted-foreground tabular-nums">
+              {currentIndex + 1} / {allManifestIds.length}
+            </span>
+          </div>
 
           <AuditPanelFunctionsMenu
             activeTab={activeTab}
@@ -599,41 +621,6 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
           )}
         </div>
         </div>
-      </div>
-
-      {/* Footer */}
-      <div className="px-6 py-4 border-t border-border bg-card flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={goToPrevious}
-            disabled={currentIndex === 0}
-            className="px-3 py-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            title="Previous (←)"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Previous
-          </button>
-          <button
-            onClick={goToNext}
-            disabled={currentIndex === allManifestIds.length - 1}
-            className="px-3 py-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            title="Next (→)"
-          >
-            Next
-            <ChevronRight className="h-4 w-4" />
-          </button>
-          <span className="text-sm text-muted-foreground">
-            {currentIndex + 1} / {allManifestIds.length}
-          </span>
-        </div>
-
-        <button
-          onClick={onClose}
-          className="px-3 py-2 rounded border border-border hover:bg-muted"
-          title="Close (Esc)"
-        >
-          Back to Manifests
-        </button>
       </div>
 
       {/* OCR Preview Modal */}

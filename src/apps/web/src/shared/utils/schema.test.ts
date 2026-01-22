@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deriveExtractionHintMap, deriveSchemaAuditFields } from './schema';
+import { canonicalizeJsonSchemaForDisplay, deriveExtractionHintMap, deriveSchemaAuditFields } from './schema';
 
 describe('deriveExtractionHintMap', () => {
   it('extracts x-extraction-hint by field path', () => {
@@ -126,5 +126,102 @@ describe('deriveSchemaAuditFields', () => {
     const fields = deriveSchemaAuditFields(schema);
 
     expect(fields.scalarFields.some((field) => field.path === 'department.code')).toBe(true);
+  });
+
+  it('orders root properties by x-ui-order then name', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        beta: { type: 'string' },
+        alpha: { type: 'string', 'x-ui-order': 1 },
+      },
+    } as unknown as Record<string, unknown>;
+
+    const fields = deriveSchemaAuditFields(schema);
+    expect(fields.scalarFields.map((field) => field.path)).toEqual(['alpha', 'beta']);
+  });
+
+  it('falls back to name ordering when x-ui-order is missing', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        beta: { type: 'string' },
+        alpha: { type: 'string' },
+      },
+    } as unknown as Record<string, unknown>;
+
+    const fields = deriveSchemaAuditFields(schema);
+    expect(fields.scalarFields.map((field) => field.path)).toEqual(['alpha', 'beta']);
+  });
+
+  it('orders nested object properties', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        invoice: {
+          type: 'object',
+          properties: {
+            z: { type: 'string' },
+            a: { type: 'string', 'x-ui-order': 1 },
+          },
+        },
+      },
+    } as unknown as Record<string, unknown>;
+
+    const fields = deriveSchemaAuditFields(schema);
+    expect(fields.scalarFields.map((field) => field.path)).toEqual(['invoice.a', 'invoice.z']);
+  });
+
+  it('orders array item object properties', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              z: { type: 'string' },
+              a: { type: 'string', 'x-ui-order': 1 },
+            },
+          },
+        },
+      },
+    } as unknown as Record<string, unknown>;
+
+    const fields = deriveSchemaAuditFields(schema);
+    expect(fields.arrayObjectFields).toHaveLength(1);
+    expect(fields.arrayObjectFields[0]?.itemFields.map((field) => field.path)).toEqual(['items[].a', 'items[].z']);
+  });
+});
+
+describe('canonicalizeJsonSchemaForDisplay', () => {
+  it('canonicalizes properties order recursively', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        beta: { type: 'string' },
+        alpha: { type: 'string', 'x-ui-order': 2 },
+        gamma: { type: 'string', 'x-ui-order': 1 },
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              z: { type: 'string' },
+              a: { type: 'string', 'x-ui-order': 1 },
+            },
+          },
+        },
+      },
+    } as unknown as Record<string, unknown>;
+
+    const canonical = canonicalizeJsonSchemaForDisplay(schema);
+    const rootProps = canonical.properties as Record<string, unknown>;
+    expect(Object.keys(rootProps)).toEqual(['gamma', 'alpha', 'beta', 'items']);
+
+    const itemsSchema = (rootProps.items as Record<string, unknown>).items as Record<string, unknown>;
+    const itemProps = itemsSchema.properties as Record<string, unknown>;
+    expect(Object.keys(itemProps)).toEqual(['a', 'z']);
   });
 });

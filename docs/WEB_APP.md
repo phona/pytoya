@@ -76,6 +76,12 @@ See `docs/PROJECT_CREATION.md` for a step-by-step guide.
 - Validation scripts are accessed from the Settings dropdown and remain project-scoped.
 - Validation scripts can be created, edited, enabled/disabled, and deleted inline.
 
+## Schema Settings
+- The schema settings route is `/projects/:id/settings/schema` (admin-only).
+- Schema editing supports a **Visual Builder** and a **Code Editor**.
+- The Visual Builder supports nested objects and arrays-of-objects via expand/collapse, and persists property ordering via `x-ui-order`.
+- The Visual Builder supports editing extraction hints via `x-extraction-hint`.
+
 ## Error Boundaries
 - The app root and dashboard routes are wrapped in `ErrorBoundary`.
 - Fallback UI provides retry and navigation options.

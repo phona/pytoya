@@ -46,6 +46,25 @@ Content-Type: application/json
 }
 ```
 
+## Field Ordering (UI)
+Postgres `jsonb` does not preserve JSON object key order. To control how schema-driven fields render in the UI, add `x-ui-order` (number) to property schemas.
+
+Rules:
+- Lower `x-ui-order` renders earlier.
+- Properties without `x-ui-order` render after ordered properties, sorted by name (A→Z).
+- Applies recursively for nested objects and array `items` object schemas.
+
+Example:
+```json
+{
+  "type": "object",
+  "properties": {
+    "department": { "type": "object", "x-ui-order": 0, "properties": {} },
+    "invoice": { "type": "object", "x-ui-order": 1, "properties": {} }
+  }
+}
+```
+
 ## Delete Schema
 ```http
 DELETE /api/schemas/:id

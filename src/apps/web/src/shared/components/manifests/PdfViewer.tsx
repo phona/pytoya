@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { manifestsApi } from '@/api/manifests';
 
 interface PdfViewerProps {
@@ -6,7 +6,6 @@ interface PdfViewerProps {
 }
 
 export function PdfViewer({ manifestId }: PdfViewerProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -52,10 +51,10 @@ export function PdfViewer({ manifestId }: PdfViewerProps) {
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent" />
           </div>
         ) : (
-          <iframe
-            ref={iframeRef}
-            src={`${objectUrl}#view=FitH`}
-            className="w-full h-full border-0"
+          <embed
+            src={objectUrl}
+            type="application/pdf"
+            className="w-full h-full"
             title="PDF Viewer"
           />
         )}

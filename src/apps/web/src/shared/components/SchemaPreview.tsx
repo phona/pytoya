@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { FileText } from 'lucide-react';
+import { canonicalizeJsonSchemaForDisplay } from '@/shared/utils/schema';
 
 interface SchemaProperty {
   name: string;
@@ -160,8 +161,9 @@ function PropertyTreeNode({ property, depth = 0 }: { property: SchemaProperty; d
 
 export function SchemaPreview({ schema, title }: SchemaPreviewProps) {
   const properties = useMemo(() => {
-    const props = schema.properties as Record<string, unknown> | undefined;
-    const required = (schema.required as string[]) || [];
+    const orderedSchema = canonicalizeJsonSchemaForDisplay(schema);
+    const props = orderedSchema.properties as Record<string, unknown> | undefined;
+    const required = (orderedSchema.required as string[]) || [];
     return props ? parseProperties(props, required) : {};
   }, [schema]);
 

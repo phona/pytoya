@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SchemaValidationResult } from '@/api/schemas';
+import { canonicalizeJsonSchemaForDisplay } from '@/shared/utils/schema';
 
 interface SchemaJsonEditorProps {
   value: string;
@@ -75,7 +76,11 @@ export function SchemaJsonEditor({
   const formatJSON = () => {
     try {
       const parsed = JSON.parse(value);
-      const formatted = JSON.stringify(parsed, null, 2);
+      const canonical =
+        parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+          ? canonicalizeJsonSchemaForDisplay(parsed as Record<string, unknown>)
+          : parsed;
+      const formatted = JSON.stringify(canonical, null, 2);
       onChange(formatted);
     } catch {
       // Ignore invalid JSON

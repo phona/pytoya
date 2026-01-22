@@ -116,7 +116,7 @@ openspec/                # Spec-driven development
 - **Database**: TypeORM with PostgreSQL, entities in `src/entities/`, migrations in `src/database/migrations/`
 - **Job Queue**: BullMQ with Redis for async extraction jobs
 - **WebSocket**: Gateway at `src/websocket/websocket.gateway.ts` for real-time progress updates
-- **Schemas**: Name/description derived from JSON Schema `title`/`description`; required fields derived from JSON Schema `required`
+- **Schemas**: Name/description derived from JSON Schema `title`/`description`; required fields derived from JSON Schema `required`; UI field order via `x-ui-order` on property schemas (Postgres `jsonb` reorders keys)
 - **Text Extractor Development**: See `docs/TEXT_EXTRACTOR_DEVELOPMENT.md` for adding new extractors
 
 ### Backend Guardrails (NestJS)

@@ -7,6 +7,7 @@ import { JSONSchemaEditor } from '@/shared/components/JSONSchemaEditor';
 import { SchemaVisualBuilder } from '@/shared/components/SchemaVisualBuilder';
 import { schemaFormSchema, type SchemaFormValues } from '@/shared/schemas/schema.schema';
 import { Button } from '@/shared/components/ui/button';
+import { canonicalizeJsonSchemaForDisplay } from '@/shared/utils/schema';
 import {
   Form,
   FormControl,
@@ -50,14 +51,18 @@ export function SchemaForm({ schema, onSubmit, onCancel, isLoading }: SchemaForm
     resolver: zodResolver(schemaFormSchema),
     defaultValues: {
       projectId: schema?.projectId?.toString() ?? '',
-      jsonSchema: schema?.jsonSchema ? JSON.stringify(schema.jsonSchema, null, 2) : DEFAULT_SCHEMA,
+      jsonSchema: schema?.jsonSchema
+        ? JSON.stringify(canonicalizeJsonSchemaForDisplay(schema.jsonSchema as Record<string, unknown>), null, 2)
+        : DEFAULT_SCHEMA,
     },
   });
 
   useEffect(() => {
     form.reset({
       projectId: schema?.projectId?.toString() ?? '',
-      jsonSchema: schema?.jsonSchema ? JSON.stringify(schema.jsonSchema, null, 2) : DEFAULT_SCHEMA,
+      jsonSchema: schema?.jsonSchema
+        ? JSON.stringify(canonicalizeJsonSchemaForDisplay(schema.jsonSchema as Record<string, unknown>), null, 2)
+        : DEFAULT_SCHEMA,
     });
   }, [form, schema]);
 
@@ -156,7 +161,7 @@ export function SchemaForm({ schema, onSubmit, onCancel, isLoading }: SchemaForm
                   <SchemaVisualBuilder
                     schema={JSON.parse(field.value || DEFAULT_SCHEMA)}
                     onChange={(newSchema) => {
-                      const newJsonSchema = JSON.stringify(newSchema, null, 2);
+                      const newJsonSchema = JSON.stringify(canonicalizeJsonSchemaForDisplay(newSchema), null, 2);
                       field.onChange(newJsonSchema);
                     }}
                   />

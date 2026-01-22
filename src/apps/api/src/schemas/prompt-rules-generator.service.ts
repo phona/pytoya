@@ -8,6 +8,7 @@ import { LlmProviderConfig } from '../llm/llm.types';
 import { LlmService } from '../llm/llm.service';
 import { adapterRegistry } from '../models/adapters/adapter-registry';
 import { GeneratePromptRulesDto } from './dto/generate-prompt-rules.dto';
+import { canonicalizeJsonSchemaForStringify } from './utils/canonicalize-json-schema';
 
 @Injectable()
 export class PromptRulesGeneratorService {
@@ -41,7 +42,11 @@ export class PromptRulesGeneratorService {
     const model = await this.getLlmModel(input.modelId);
     const providerConfig = this.buildProviderConfig(model);
 
-    const schemaJson = JSON.stringify(schema.jsonSchema, null, 2);
+    const schemaJson = JSON.stringify(
+      canonicalizeJsonSchemaForStringify(schema.jsonSchema as Record<string, unknown>),
+      null,
+      2,
+    );
 
     const systemPrompt = [
       'You author Prompt Rules in Markdown to guide an LLM extraction system.',

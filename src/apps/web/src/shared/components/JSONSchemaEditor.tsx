@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { canonicalizeJsonSchemaForDisplay } from '@/shared/utils/schema';
 
 interface JSONSchemaEditorProps {
   value: string;
@@ -81,7 +82,11 @@ export function JSONSchemaEditor({
   const formatJSON = () => {
     try {
       const parsed = JSON.parse(value);
-      const formatted = JSON.stringify(parsed, null, 2);
+      const canonical =
+        parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+          ? canonicalizeJsonSchemaForDisplay(parsed as Record<string, unknown>)
+          : parsed;
+      const formatted = JSON.stringify(canonical, null, 2);
       onChange(formatted);
     } catch {
       // Don't change if invalid JSON
@@ -92,7 +97,11 @@ export function JSONSchemaEditor({
   const minifyJSON = () => {
     try {
       const parsed = JSON.parse(value);
-      const minified = JSON.stringify(parsed);
+      const canonical =
+        parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+          ? canonicalizeJsonSchemaForDisplay(parsed as Record<string, unknown>)
+          : parsed;
+      const minified = JSON.stringify(canonical);
       onChange(minified);
     } catch {
       // Don't change if invalid JSON
