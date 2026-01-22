@@ -185,8 +185,13 @@ export function ProjectsPage() {
                 key={project.id}
                 role="button"
                 tabIndex={0}
-                onClick={() => navigate(`/projects/${project.id}`)}
+                onClick={(event) => {
+                  if (event.defaultPrevented) return;
+                  navigate(`/projects/${project.id}`);
+                }}
                 onKeyDown={(event) => {
+                  if (event.defaultPrevented) return;
+                  if (event.target !== event.currentTarget) return;
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
                     navigate(`/projects/${project.id}`);

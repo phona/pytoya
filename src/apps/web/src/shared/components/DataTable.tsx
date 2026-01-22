@@ -23,6 +23,7 @@ export function DataTable<TData>({
   emptyState,
 }: DataTableProps<TData>) {
   const rows = table.getRowModel().rows;
+  const colSpan = Math.max(1, table.getVisibleLeafColumns().length);
 
   return (
     <Table>
@@ -42,7 +43,7 @@ export function DataTable<TData>({
       <TableBody>
         {rows.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center text-sm text-muted-foreground">
+            <TableCell colSpan={colSpan} className="h-24 text-center text-sm text-muted-foreground">
               {emptyState ?? 'No results.'}
             </TableCell>
           </TableRow>
@@ -51,7 +52,7 @@ export function DataTable<TData>({
             <TableRow
               key={row.id}
               className={cn(getRowClassName?.(row))}
-              onClick={() => onRowClick?.(row)}
+              onClick={onRowClick ? () => onRowClick(row) : undefined}
             >
               {row.getVisibleCells().map((cell) => (
                 <TableCell

@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, X, Eye } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, X, Eye, Play, Save } from 'lucide-react';
 import {
   useManifest,
   useUpdateManifest,
@@ -27,10 +28,13 @@ import { CostBreakdownPanel } from '@/shared/components/CostBreakdownPanel';
 import { OcrPreviewModal } from './OcrPreviewModal';
 import { ExtractionHistoryPanel } from './ExtractionHistoryPanel';
 import { FieldHintDialog } from './FieldHintDialog';
-import { Manifest } from '@/api/manifests';
+import { Manifest, ValidationResult } from '@/api/manifests';
 import { toast } from '@/shared/hooks/use-toast';
 import { AuditPanelFunctionsMenu } from './AuditPanelFunctionsMenu';
 import { Dialog, DialogDescription, DialogHeader, DialogSideContent, DialogTitle } from '@/shared/components/ui/dialog';
+import { Button } from '@/shared/components/ui/button';
+import { ToastAction } from '@/shared/components/ui/toast';
+import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface AuditPanelProps {
@@ -43,10 +47,12 @@ interface AuditPanelProps {
 
 export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifestIds }: AuditPanelProps) {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: manifest, isLoading } = useManifest(manifestId);
   const updateManifest = useUpdateManifest();
   const runValidation = useRunValidation();
+  const { confirm, ModalDialog } = useModalDialog();
   const reExtractFieldWithPreview = useReExtractFieldPreview();
   const { extractors } = useExtractors();
   const { project } = useProject(projectId);
@@ -78,9 +84,12 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
   }, [jsonSchema]);
 
   const [activeTab, setActiveTab] = useState<'form' | 'extraction' | 'ocr' | 'validation' | 'history'>('form');
-  const [currentIndex, setCurrentIndex] = useState(allManifestIds.indexOf(manifestId));
+  const currentIndex = useMemo(() => allManifestIds.indexOf(manifestId), [allManifestIds, manifestId]);
+  const displayIndex = currentIndex >= 0 ? currentIndex + 1 : 1;
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [explicitSavePending, setExplicitSavePending] = useState(false);
+  const [formResetCounter, setFormResetCounter] = useState(0);
   const [jobProgress, setJobProgress] = useState<{ jobId?: string; progress: number; status: string; error?: string } | null>(null);
   const [isCanceling, setIsCanceling] = useState(false);
   const [showOcrPreviewModal, setShowOcrPreviewModal] = useState(false);
@@ -95,6 +104,11 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     enabled: activeTab === 'history' || fieldHistoryOpen,
     limit: 50,
   });
+  const latestDraftRef = useRef<Partial<Manifest> | null>(null);
+
+  useEffect(() => {
+    latestDraftRef.current = null;
+  }, [manifestId]);
 
   const handleTerminalJobStatus = useCallback(
     async (status: string) => {
@@ -170,16 +184,30 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
 
   // Navigation
   const goToPrevious = useCallback(() => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
+    if (currentIndex <= 0) {
+      return;
     }
-  }, [currentIndex]);
+    const previousManifestId = allManifestIds[currentIndex - 1];
+    if (!Number.isFinite(previousManifestId)) {
+      return;
+    }
+    navigate(`/projects/${projectId}/groups/${groupId}/manifests/${previousManifestId}`, {
+      state: { allManifestIds },
+    });
+  }, [allManifestIds, currentIndex, groupId, navigate, projectId]);
 
   const goToNext = useCallback(() => {
-    if (currentIndex < allManifestIds.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+    if (currentIndex < 0 || currentIndex >= allManifestIds.length - 1) {
+      return;
     }
-  }, [currentIndex, allManifestIds.length]);
+    const nextManifestId = allManifestIds[currentIndex + 1];
+    if (!Number.isFinite(nextManifestId)) {
+      return;
+    }
+    navigate(`/projects/${projectId}/groups/${groupId}/manifests/${nextManifestId}`, {
+      state: { allManifestIds },
+    });
+  }, [allManifestIds, currentIndex, groupId, navigate, projectId]);
 
   const handleSave = useCallback(async () => {
     if (debounceTimer) {
@@ -229,6 +257,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
         clearTimeout(debounceTimer);
       }
 
+      latestDraftRef.current = data;
       setSaveStatus('saving');
 
       const timer = setTimeout(async () => {
@@ -241,7 +270,6 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
               purchaseOrder: data.purchaseOrder ?? undefined,
               invoiceDate: data.invoiceDate ?? undefined,
               department: data.department ?? undefined,
-              humanVerified: data.humanVerified,
             },
           });
           setSaveStatus('saved');
@@ -254,8 +282,124 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
 
       setDebounceTimer(timer);
     },
-    [manifestId, updateManifest, debounceTimer],
+    [debounceTimer, manifestId, updateManifest],
   );
+
+  const formatValidationSummary = useCallback(
+    (result: ValidationResult) => {
+      if (result.errorCount > 0) {
+        const warningSuffix =
+          result.warningCount > 0 ? ` • ${t('audit.validation.warnings', { count: result.warningCount })}` : '';
+        return `${t('audit.validation.errors', { count: result.errorCount })}${warningSuffix}`;
+      }
+      if (result.warningCount > 0) {
+        return t('audit.validation.warnings', { count: result.warningCount });
+      }
+      return t('audit.validation.passed');
+    },
+    [t],
+  );
+
+  const handleRunValidationClick = useCallback(async () => {
+    if (!manifest) {
+      return;
+    }
+
+    try {
+      const result = await runValidation.mutateAsync({ manifestId: manifest.id });
+
+      toast({
+        title: t('audit.menu.runValidation'),
+        description: formatValidationSummary(result),
+        variant: result.errorCount > 0 ? 'destructive' : 'default',
+        action: (
+          <ToastAction altText={t('common.view')} onClick={() => setActiveTab('validation')}>
+            {t('common.view')}
+          </ToastAction>
+        ),
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: t('audit.menu.runValidation'),
+        description: getApiErrorText(error, t),
+      });
+    }
+  }, [formatValidationSummary, manifest, runValidation, setActiveTab, t]);
+
+  const handleExplicitSave = useCallback(async () => {
+    if (!manifest) {
+      return;
+    }
+
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      setDebounceTimer(null);
+    }
+
+    const draft = latestDraftRef.current;
+    const desiredHumanVerified = Boolean(draft?.humanVerified ?? manifest.humanVerified);
+    const shouldPromoteToVerified = desiredHumanVerified && !manifest.humanVerified;
+    const extractedDataToSave = draft?.extractedData ?? manifest.extractedData;
+
+    setExplicitSavePending(true);
+    setSaveStatus('saving');
+
+    try {
+      const firstSave = await updateManifest.mutateAsync({
+        manifestId,
+        data: {
+          extractedData: extractedDataToSave ?? undefined,
+          humanVerified: shouldPromoteToVerified ? false : desiredHumanVerified,
+        },
+      });
+      queryClient.setQueryData(['manifests', manifestId], firstSave);
+
+      if (shouldPromoteToVerified) {
+        const validation = await runValidation.mutateAsync({ manifestId: manifest.id });
+
+        if (validation.errorCount > 0) {
+          const confirmed = await confirm({
+            title: t('audit.verify.confirmTitle'),
+            message: t('audit.verify.confirmMessage', {
+              errors: validation.errorCount,
+              warnings: validation.warningCount,
+            }),
+            confirmText: t('audit.verify.confirmText'),
+            cancelText: t('common.cancel'),
+            destructive: true,
+          });
+
+          if (!confirmed) {
+            setFormResetCounter((prev) => prev + 1);
+            setSaveStatus('saved');
+            setTimeout(() => setSaveStatus('idle'), 2000);
+            return;
+          }
+        }
+
+        const verifiedSave = await updateManifest.mutateAsync({
+          manifestId,
+          data: { humanVerified: true },
+        });
+        queryClient.setQueryData(['manifests', manifestId], verifiedSave);
+      }
+
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (error) {
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+
+      toast({
+        variant: 'destructive',
+        title: t('audit.save.failed'),
+        description: getApiErrorText(error, t),
+      });
+    } finally {
+      setExplicitSavePending(false);
+    }
+  }, [confirm, debounceTimer, latestDraftRef, manifest, manifestId, queryClient, runValidation, t, updateManifest]);
 
   const normalizeHintPath = useCallback((path: string) => path.replace(/\[(\d+)\]/g, '[]'), []);
 
@@ -359,13 +503,6 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     );
   }
 
-  const currentManifestId = allManifestIds[currentIndex];
-  if (currentManifestId !== manifestId) {
-    // Update the manifestId when navigating
-    window.location.href = window.location.pathname.replace(/\/\d+$/, `/${currentManifestId}`);
-    return null;
-  }
-
   const validationStatus: Manifest['status'] | null = manifest.validationResults
     ? manifest.validationResults.errorCount > 0
       ? ('failed' as Manifest['status'])
@@ -430,7 +567,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
           <div className="flex items-center gap-1">
             <button
               onClick={goToPrevious}
-              disabled={currentIndex === 0}
+              disabled={currentIndex <= 0}
               className="p-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
               title={t('audit.nav.previous')}
             >
@@ -438,25 +575,46 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
             </button>
             <button
               onClick={goToNext}
-              disabled={currentIndex === allManifestIds.length - 1}
+              disabled={currentIndex < 0 || currentIndex >= allManifestIds.length - 1}
               className="p-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
               title={t('audit.nav.next')}
             >
               <ChevronRight className="h-4 w-4" />
             </button>
             <span className="min-w-fit px-2 text-sm text-muted-foreground tabular-nums">
-              {currentIndex + 1} / {allManifestIds.length}
+              {displayIndex} / {allManifestIds.length}
             </span>
           </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled={explicitSavePending || updateManifest.isPending || runValidation.isPending}
+            onClick={() => void handleExplicitSave()}
+            title={t('common.save')}
+          >
+            <Save className="h-4 w-4" />
+            {explicitSavePending ? t('common.saving') : t('common.save')}
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled={runValidation.isPending || explicitSavePending}
+            onClick={() => void handleRunValidationClick()}
+            title={t('audit.menu.runValidation')}
+          >
+            <Play className="h-4 w-4" />
+            {runValidation.isPending ? t('audit.menu.runningValidation') : t('audit.menu.runValidation')}
+          </Button>
 
           <AuditPanelFunctionsMenu
             activeTab={activeTab}
             onTabChange={setActiveTab}
-            runValidationPending={runValidation.isPending}
-            onRunValidation={() => {
-              setActiveTab('validation');
-              runValidation.mutate({ manifestId: manifest.id });
-            }}
             validationLabel={validationLabel}
             validationStatus={validationStatus}
           />
@@ -529,6 +687,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
               onReExtractField={handleReExtractField}
               onViewExtractionHistory={handleViewExtractionHistory}
               onEditFieldHint={jsonSchema && resolvedSchemaId ? handleEditFieldHint : undefined}
+              resetCounter={formResetCounter}
             />
           ) : activeTab === 'extraction' ? (
             <div className="p-6 space-y-4">
@@ -688,6 +847,8 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
           onSubmit={handleUpdateFieldHint}
         />
       ) : null}
+
+      <ModalDialog />
     </div>
   );
 }

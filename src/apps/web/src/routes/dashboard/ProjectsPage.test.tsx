@@ -161,6 +161,80 @@ describe('ProjectsPage', () => {
       expect(navigateMock).toHaveBeenCalledWith('/projects/42');
     });
   });
+
+  it('does not navigate when clicking edit/delete actions on a project card', async () => {
+    setupHandlers();
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    const deleteSpy = vi.fn();
+
+    server.use(
+      http.get('/api/projects', () =>
+        HttpResponse.json([
+          {
+            id: 1,
+            name: 'Test Project',
+            description: 'Test project description',
+            ownerId: 1,
+            userId: 1,
+            textExtractorId: 'extractor-1',
+            llmModelId: 'llm-1',
+            defaultSchemaId: null,
+            createdAt: '2025-01-15T00:00:00.000Z',
+            updatedAt: '2025-01-15T00:00:00.000Z',
+            _count: { groups: 2, manifests: 5 },
+          },
+        ]),
+      ),
+      http.delete('/api/projects/:id', ({ params }) => {
+        deleteSpy(Number(params.id));
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    await act(async () => {
+      renderWithProviders(<ProjectsPage />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Project')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /Edit project Test Project/i }));
+    });
+    expect(navigateMock).not.toHaveBeenCalled();
+
+    const editDialog = await screen.findByRole('dialog');
+    await act(async () => {
+      await user.click(within(editDialog).getByRole('button', { name: /^Cancel$/i }));
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /Delete project Test Project/i }));
+    });
+    const dialog = await screen.findByRole('dialog');
+    await act(async () => {
+      await user.click(within(dialog).getByRole('button', { name: /^Cancel$/i }));
+    });
+    expect(navigateMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /Delete project Test Project/i }));
+    });
+    const dialog2 = await screen.findByRole('dialog');
+    await act(async () => {
+      await user.click(within(dialog2).getByRole('button', { name: /^Delete$/i }));
+    });
+
+    await waitFor(() => {
+      expect(deleteSpy).toHaveBeenCalledWith(1);
+    });
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
 });
 
 

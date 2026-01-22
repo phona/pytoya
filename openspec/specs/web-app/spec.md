@@ -73,21 +73,19 @@ The web application SHALL route users based on authentication status when access
 - **THEN** the system SHALL redirect the user to `/login`
 
 ### Requirement: Dashboard Navigation
-The web application SHALL provide a simplified sidebar navigation in the dashboard for accessing main application sections.
+The web application SHALL provide a simplified sidebar navigation in the dashboard for accessing main application sections, and SHALL allow users to collapse/expand the sidebar on desktop to improve focus and maximize workspace.
 
-#### Scenario: Display navigation menu
-- **WHEN** a user is on any dashboard page
-- **THEN** the system SHALL display a sidebar navigation menu
-- **AND** the menu SHALL include links to Projects and Models
-- **AND** the menu SHALL include a Settings link for user preferences
-- **AND** the menu SHALL highlight the currently active route
+#### Scenario: Desktop collapse/expand
+- **GIVEN** a user is on a dashboard page on a desktop viewport
+- **WHEN** the user collapses the sidebar
+- **THEN** the system SHALL hide the sidebar navigation
+- **AND** the system SHALL provide a control to re-open the sidebar
+- **AND** the main content area SHALL use the available width
 
-#### Scenario: Removed navigation items
-- **WHEN** the sidebar navigation is displayed
-- **THEN** the system SHALL NOT display direct links to Schemas
-- **AND** the system SHALL NOT display direct links to Prompts
-- **AND** the system SHALL NOT display direct links to Validation Scripts
-- **AND** these items SHALL be accessible through the project creation wizard or project settings
+#### Scenario: Desktop collapse state persistence
+- **GIVEN** a user collapses the sidebar on desktop
+- **WHEN** the user reloads the page
+- **THEN** the system SHALL restore the sidebar collapsed state
 
 ### Requirement: Dialog-Based Create and Edit
 The web application SHALL use a shared centered dialog component for Models create/edit and Manifests upload flows, and SHALL use a dedicated route page for the Manifests audit/edit flow.
@@ -847,39 +845,74 @@ The web application SHALL use semantic HTML elements and landmark regions to sup
 
 ### Requirement: Manifest List Display
 
-The manifest list SHALL display manifests with extraction controls and OCR quality.
+The manifest list SHALL display manifests with extraction controls and OCR quality, and SHALL render schema-driven summary fields as dynamic columns derived from the project's active JSON Schema. The manifest list SHALL allow sorting and filtering by those schema-driven fields.
 
-#### Scenario: Table columns updated
+#### Scenario: Minimal default system columns
 
-- **WHEN** manifest table renders
-- **THEN** system shows columns:
-  - Select checkbox
-  - Filename
-  - Status (ready, extracting, extracted, partial)
-  - OCR Quality (badge)
-  - Selected schema fields (configurable)
-  - Confidence
-  - Verified
-  - Actions ([Extract→] or [⟳ Re-extract], [👁️ Preview OCR])
+- **WHEN** the manifest list table renders
+- **THEN** the table SHALL render a minimal set of non-schema columns suitable for a summary view (e.g., Filename, Status, Actions)
+- **AND** the table MAY render a selection checkbox column only when batch actions are enabled
 
-#### Scenario: Row status indicators
+#### Scenario: Use schema-defined table columns
 
-- **GIVEN** manifest row is rendered
-- **WHEN** status is "ready" (OCR done, not extracted)
-- **THEN** row shows white/gray background
-- **AND** actions show [Extract→] button
-- **WHEN** status is "extracting"
-- **THEN** row shows blue background
-- **AND** actions show progress spinner
-- **WHEN** status is "extracted" with all fields
-- **THEN** row shows green left border
-- **AND** actions show [⟳ Re-extract] button
-- **WHEN** status is "partial" (some fields missing)
-- **THEN** row shows yellow left border
-- **AND** actions show [⟳ Re-extract] button
-- **WHEN** status is "failed"
-- **THEN** row shows red left border
-- **AND** actions show [👁️ View Error] button
+- **GIVEN** the project's active JSON Schema defines `x-table-columns` as a non-empty ordered list of dot-paths (e.g., `invoice.po_no`, `department.code`)
+- **WHEN** the manifest list table renders
+- **THEN** the table SHALL render a column for each configured field path in order
+- **AND** each cell value SHALL be read from `manifest.extractedData` using the dot-path
+- **AND** missing values SHALL render as `N/A` (or equivalent)
+
+#### Scenario: Explicit opt-out with empty `x-table-columns`
+
+- **GIVEN** the project's active JSON Schema defines `x-table-columns` as an empty array (`[]`)
+- **WHEN** the manifest list table renders
+- **THEN** the table SHALL render no schema-driven columns
+- **AND** the table SHALL NOT fall back to auto-selected schema fields
+
+#### Scenario: Fallback column selection when `x-table-columns` is absent
+
+- **GIVEN** the project's active JSON Schema does not define `x-table-columns`
+- **WHEN** the manifest list table renders
+- **THEN** the table SHOULD select a small capped set of scalar leaf fields from the schema for display
+- **AND** required fields SHOULD be prioritized
+- **AND** array fields (paths containing `[]`) SHALL NOT be selected as table columns
+
+#### Scenario: Sort by schema-driven field
+
+- **GIVEN** schema-driven columns are visible in the manifest list table
+- **WHEN** the user clicks a schema-driven column header to sort
+- **THEN** the system SHALL request the manifest list with `sortBy=<fieldPath>&order=<asc|desc>`
+- **AND** the UI SHALL display the active sort indicator on that column
+
+#### Scenario: Filter by schema-driven field using column filter dropdown
+
+- **GIVEN** schema-driven columns are visible in the manifest list table
+- **WHEN** the user opens a schema-driven column filter dropdown
+- **AND** the user types a value or selects an available value
+- **THEN** the manifest list query SHALL include `filter[<fieldPath>]=<value>`
+- **AND** the results SHALL update to show only matching manifests
+
+#### Scenario: Toggle visible schema columns via Columns dropdown
+
+- **GIVEN** schema-driven columns are available in the manifest list table
+- **WHEN** the user opens the Columns dropdown
+- **AND** the user unchecks one schema-driven field
+- **THEN** the manifest list table SHALL hide that schema-driven column
+- **AND** pinned columns (e.g., Filename, Actions) SHALL remain visible
+
+#### Scenario: Navigate to manifest audit via Filename
+
+- **GIVEN** the manifest list table is visible
+- **WHEN** the user clicks anywhere on a manifest row
+- **THEN** the system SHALL NOT navigate away (row click is non-navigational)
+- **WHEN** the user clicks the Filename value
+- **THEN** the system SHALL navigate to the manifest audit/detail view
+
+#### Scenario: Actions available via a single menu
+
+- **GIVEN** the manifest list table is visible
+- **WHEN** the user opens the `⋮` menu in the Actions column
+- **THEN** the menu SHALL include high-signal actions for the manifest (e.g., Preview OCR, Run validation, Extract / Re-extract)
+- **AND** low-signal or global actions (e.g., “Update rules”) SHOULD NOT appear in the per-row Actions menu
 
 ### Requirement: Manifest Detail View
 
@@ -1257,3 +1290,38 @@ The web application SHALL provide a global Jobs panel to monitor queued and runn
 - **WHEN** the user clicks “Cancel” in the Jobs panel
 - **THEN** the system SHALL call the backend cancel endpoint
 - **AND** the Jobs panel SHALL reflect the cancellation request and final status
+
+### Requirement: Internationalization (i18n) Support
+The web application SHALL support localized UI text and runtime language switching.
+
+#### Scenario: Default locale selection
+- **GIVEN** a user visits the web app with no saved language preference
+- **WHEN** the application initializes
+- **THEN** the app SHALL select a locale based on browser language
+- **AND** the app SHALL fall back to `en` when the browser locale is unsupported
+
+#### Scenario: Language preference persistence
+- **GIVEN** a user selects a language in the UI
+- **WHEN** the user reloads the page
+- **THEN** the app SHALL restore the previously selected language
+
+#### Scenario: Missing translation fallback
+- **GIVEN** a translation key is missing for the active locale
+- **WHEN** the UI renders that string
+- **THEN** the app SHALL fall back to `en` for that key
+- **AND** the UI SHALL still render a safe, user-friendly message
+
+### Requirement: Localized API Error Presentation
+The web application SHALL present localized error messages based on backend error codes.
+
+#### Scenario: Known backend error code
+- **GIVEN** an API call fails with an error envelope containing `error.code`
+- **WHEN** the UI displays an error message to the user
+- **THEN** the UI SHALL map `error.code` to a translation key and render the localized message
+- **AND** the UI SHOULD show `requestId` for support/debugging when available
+
+#### Scenario: Unknown backend error code
+- **GIVEN** an API call fails with an unknown `error.code`
+- **WHEN** the UI displays an error message
+- **THEN** the UI SHALL display a localized generic error message
+

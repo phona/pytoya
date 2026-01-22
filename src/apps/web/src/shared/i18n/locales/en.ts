@@ -26,6 +26,7 @@ export const enMessages: Record<string, string> = {
   'common.signOut': 'Sign out',
   'common.update': 'Update',
   'common.view': 'View',
+  'common.deleteFailedTitle': 'Delete failed',
 
   'session.checking': 'Checking your session...',
 
@@ -200,6 +201,10 @@ export const enMessages: Record<string, string> = {
   'manifests.list.reextract': 'Re-extract',
   'manifests.list.view.table': 'Table view',
   'manifests.list.view.card': 'Card view',
+  'manifests.list.columns.title': 'Columns',
+  'manifests.list.columns.system': 'System',
+  'manifests.list.columns.schema': 'Schema',
+  'manifests.list.columns.noSchemaFields': 'No schema fields',
   'manifests.list.empty.title': 'No manifests found',
   'manifests.list.empty.description': 'Try adjusting your filters to see more results.',
 
@@ -274,15 +279,17 @@ export const enMessages: Record<string, string> = {
   'manifests.table.cost': 'Cost',
   'manifests.table.confidence': 'Confidence',
   'manifests.table.verified': 'Verified',
+  'manifests.table.columnFilterAria': 'Filter {{column}}',
+  'manifests.table.columnFilter.noValues': 'No values available',
   'manifests.table.actions': 'Actions',
-  'manifests.table.previewText': 'Preview Text',
+  'manifests.table.previewText': 'Preview OCR',
   'manifests.table.extract': 'Extract',
   'manifests.table.reextract': 'Re-extract',
   'manifests.table.viewDetails': 'View details',
   'manifests.table.empty.title': 'No results',
   'manifests.table.empty.description': 'No matching manifests found.',
 
-  'manifests.actions.menuTitle': 'Extraction actions',
+  'manifests.actions.menuTitle': 'Actions',
   'manifests.actions.viewHistory': 'View extraction history/details',
   'manifests.actions.updateRules': 'Update extraction rules',
   'manifests.actions.historyDialogTitle': 'Extraction History',
@@ -301,6 +308,9 @@ export const enMessages: Record<string, string> = {
   'audit.menu.sections': 'Sections',
   'audit.menu.runValidation': 'Run validation',
   'audit.menu.runningValidation': 'Running validation...',
+  'audit.verify.confirmTitle': 'Validation failed',
+  'audit.verify.confirmMessage': 'Validation found {{errors}} errors and {{warnings}} warnings.\nSave as Human Verified anyway?',
+  'audit.verify.confirmText': 'Save anyway',
 
   'audit.tab.form': 'Invoice Form',
   'audit.tab.extraction': 'Extraction',

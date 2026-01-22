@@ -205,6 +205,7 @@ describe('ValidationService', () => {
   let projectRepository: jest.Mocked<Repository<ProjectEntity>>;
   let modelRepository: jest.Mocked<Repository<ModelEntity>>;
   let llmService: jest.Mocked<LlmService>;
+  let scriptExecutor: ScriptExecutorService;
 
   const mockUser: UserEntity = {
     id: 1,
@@ -339,6 +340,7 @@ describe('ValidationService', () => {
     }).compile();
 
     service = module.get<ValidationService>(ValidationService);
+    scriptExecutor = module.get<ScriptExecutorService>(ScriptExecutorService);
   });
 
   describe('create', () => {
@@ -455,6 +457,48 @@ describe('ValidationService', () => {
       expect(manifestRepository.update).toHaveBeenCalledWith(1, {
         validationResults: expect.any(Object),
       });
+    });
+
+    it('returns a validation issue when a script implementation fails', async () => {
+      const mockScript: ValidationScriptEntity = {
+        id: 1,
+        name: 'Bad Script',
+        description: null,
+        projectId: 1,
+        script: `function validate(extractedData) { return null; }`,
+        severity: ValidationSeverity.WARNING,
+        enabled: true,
+        project: mockProject,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      manifestRepository.findOne.mockResolvedValue({
+        ...mockManifest,
+        group: {
+          ...mockManifest.group,
+          project: mockProject,
+        },
+      } as any);
+      validationScriptRepository.find.mockResolvedValue([mockScript]);
+      manifestRepository.update.mockResolvedValue({ affected: 1, raw: {} } as any);
+
+      jest
+        .spyOn(scriptExecutor, 'executeScript')
+        .mockRejectedValueOnce(
+          new Error('Script execution error: Script must return an array of validation issues'),
+        );
+
+      const result = await service.runValidation(mockUser, { manifestId: 1 });
+
+      expect(result.issues).toHaveLength(1);
+      expect(result.issues[0]).toMatchObject({
+        field: '__script__',
+        severity: 'error',
+      });
+      expect(result.issues[0].message).toContain('script implementation error');
+      expect(result.errorCount).toBe(1);
+      expect(result.warningCount).toBe(0);
     });
 
     it('should throw error if manifest not found', async () => {

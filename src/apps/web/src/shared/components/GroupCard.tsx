@@ -1,5 +1,7 @@
 import { ArrowUpRight, FileText } from 'lucide-react';
+import { useState } from 'react';
 import { Group } from '@/api/projects';
+import { getApiErrorText } from '@/api/client';
 import { Button } from '@/shared/components/ui/button';
 import { getGroupStatusBadgeClasses } from '@/shared/styles/status-badges';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
@@ -8,13 +10,14 @@ import { useI18n } from '@/shared/providers/I18nProvider';
 interface GroupCardProps {
   group: Group;
   onClick?: () => void;
-  onDelete?: (id: number) => void;
+  onDelete?: (id: number) => void | Promise<void>;
   onEdit?: (group: Group) => void;
 }
 
 export function GroupCard({ group, onClick, onDelete, onEdit }: GroupCardProps) {
   const { t } = useI18n();
-  const { confirm, ModalDialog } = useModalDialog();
+  const { confirm, alert, ModalDialog } = useModalDialog();
+  const [isDeleting, setIsDeleting] = useState(false);
   const statusCounts = group.statusCounts ?? {
     pending: 0,
     failed: 0,
@@ -31,6 +34,7 @@ export function GroupCard({ group, onClick, onDelete, onEdit }: GroupCardProps) 
       onClick={onClick}
       onKeyDown={(event) => {
         if (!onClick) return;
+        if (event.target !== event.currentTarget) return;
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           onClick();
@@ -82,14 +86,27 @@ export function GroupCard({ group, onClick, onDelete, onEdit }: GroupCardProps) 
                   title: t('groups.card.deleteTitle'),
                   message: t('groups.card.deleteMessage', { name: group.name }),
                   confirmText: t('common.delete'),
+                  cancelText: t('common.cancel'),
                   destructive: true,
                 });
                 if (!confirmed) return;
-                onDelete(group.id);
+                setIsDeleting(true);
+                try {
+                  await onDelete(group.id);
+                } catch (error) {
+                  void alert({
+                    title: t('common.deleteFailedTitle'),
+                    message: getApiErrorText(error, t),
+                  });
+                } finally {
+                  setIsDeleting(false);
+                }
               })();
             }}
             variant="ghost"
             size="sm"
+            disabled={isDeleting}
+            aria-busy={isDeleting}
             className={`text-destructive hover:text-destructive ${actionClasses}`}
           >
             {t('common.delete')}

@@ -21,9 +21,10 @@ interface ManifestFiltersProps {
   values: ManifestFilterValues;
   onChange: (values: ManifestFilterValues) => void;
   manifestCount: number;
+  variant?: 'sidebar' | 'dialog';
 }
 
-export function ManifestFilters({ values, onChange, manifestCount }: ManifestFiltersProps) {
+export function ManifestFilters({ values, onChange, manifestCount, variant = 'sidebar' }: ManifestFiltersProps) {
   const { t } = useI18n();
   const { schemas } = useSchemas();
   const { types: extractorTypes } = useExtractorTypes();
@@ -86,13 +87,6 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
     onChange({
       ...values,
       status: status === 'all' ? undefined : status,
-    });
-  };
-
-  const handleInputChange = (field: keyof ManifestFilterValues, value: string) => {
-    onChange({
-      ...values,
-      [field]: value || undefined,
     });
   };
 
@@ -226,10 +220,24 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
   const ocrQualityValue = resolveOcrQualitySelection();
 
   return (
-    <div className="bg-card rounded-lg shadow-sm border border-border p-4 sticky top-4">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-semibold text-foreground">{t('manifests.filters.title')}</h3>
-        {hasActiveFilters && (
+    <div className={`bg-card rounded-lg shadow-sm border border-border p-4 ${variant === 'sidebar' ? 'sticky top-4' : ''}`}>
+      {variant === 'sidebar' ? (
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-semibold text-foreground">{t('manifests.filters.title')}</h3>
+          {hasActiveFilters && (
+            <Button
+              type="button"
+              onClick={clearFilters}
+              variant="ghost"
+              size="sm"
+              className="text-primary hover:text-primary"
+            >
+              {t('common.clearAll')}
+            </Button>
+          )}
+        </div>
+      ) : hasActiveFilters ? (
+        <div className="flex justify-end mb-4">
           <Button
             type="button"
             onClick={clearFilters}
@@ -239,8 +247,8 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
           >
             {t('common.clearAll')}
           </Button>
-        )}
-      </div>
+        </div>
+      ) : null}
 
       {/* Status */}
       <div className="mb-4">
@@ -337,55 +345,6 @@ export function ManifestFilters({ values, onChange, manifestCount }: ManifestFil
             ))}
           </SelectContent>
         </Select>
-      </div>
-
-      {/* PO Number */}
-      <div className="mb-4">
-        <label htmlFor="filterPoNo" className="block text-sm font-medium text-foreground mb-1">
-          {t('manifests.filters.poNumber.label')}
-        </label>
-        <Input
-          id="filterPoNo"
-          type="text"
-          value={values.poNo ?? ''}
-          onChange={(e) => handleInputChange('poNo', e.target.value)}
-          placeholder={t('manifests.filters.poNumber.placeholder')}
-          className="mt-1"
-        />
-      </div>
-
-      {/* Date Range */}
-      <div className="mb-4">
-        <p className="block text-sm font-medium text-foreground mb-1">{t('manifests.filters.invoiceDate.label')}</p>
-        <div className="space-y-2">
-          <Input
-            type="date"
-            aria-label={t('manifests.filters.invoiceDate.fromAria')}
-            value={values.dateFrom ?? ''}
-            onChange={(e) => handleInputChange('dateFrom', e.target.value)}
-          />
-          <Input
-            type="date"
-            aria-label={t('manifests.filters.invoiceDate.toAria')}
-            value={values.dateTo ?? ''}
-            onChange={(e) => handleInputChange('dateTo', e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* Department */}
-      <div className="mb-4">
-        <label htmlFor="filterDepartment" className="block text-sm font-medium text-foreground mb-1">
-          {t('manifests.filters.department.label')}
-        </label>
-        <Input
-          id="filterDepartment"
-          type="text"
-          value={values.department ?? ''}
-          onChange={(e) => handleInputChange('department', e.target.value)}
-          placeholder={t('manifests.filters.department.placeholder')}
-          className="mt-1"
-        />
       </div>
 
       {/* Dynamic Field Filters */}

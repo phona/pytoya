@@ -11,6 +11,7 @@ interface EditableFormProps {
   onReExtractField: (fieldName: string) => void;
   onViewExtractionHistory?: (fieldPath: string) => void;
   onEditFieldHint?: (fieldPath: string) => void;
+  resetCounter?: number;
 }
 
 type ExtractedData = Record<string, unknown> & {
@@ -385,6 +386,7 @@ export function EditableForm({
   onReExtractField,
   onViewExtractionHistory,
   onEditFieldHint,
+  resetCounter,
 }: EditableFormProps) {
   const humanVerified = Boolean(manifest.humanVerified);
   const hintMap = extractionHintMap ?? {};
@@ -478,6 +480,7 @@ export function EditableForm({
   }));
   const [isDirty, setIsDirty] = useState(false);
   const lastManifestId = useRef<number>(manifest.id);
+  const lastResetCounter = useRef<number | undefined>(resetCounter);
 
   useEffect(() => {
     if (lastManifestId.current === manifest.id) {
@@ -487,6 +490,16 @@ export function EditableForm({
     setDraft({ extractedData: baseExtractedData, humanVerified });
     setIsDirty(false);
   }, [baseExtractedData, humanVerified, manifest.id]);
+
+  useEffect(() => {
+    if (resetCounter === lastResetCounter.current) {
+      return;
+    }
+
+    lastResetCounter.current = resetCounter;
+    setDraft({ extractedData: baseExtractedData, humanVerified });
+    setIsDirty(false);
+  }, [baseExtractedData, humanVerified, resetCounter]);
 
   useEffect(() => {
     if (isDirty) {

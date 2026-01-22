@@ -1,9 +1,59 @@
 import { Routes, Route } from 'react-router-dom';
 import { act, renderWithProviders, screen } from '@/tests/utils';
 import userEvent from '@testing-library/user-event';
+import { useUiStore } from '@/shared/stores/ui';
 import { DashboardLayout } from './DashboardLayout';
 
 describe('DashboardLayout navigation', () => {
+  it('allows toggling the sidebar on desktop', async () => {
+    const user = userEvent.setup();
+    const originalMatchMedia = (window as unknown as { matchMedia?: typeof window.matchMedia })
+      .matchMedia;
+
+    (window as unknown as { matchMedia: typeof window.matchMedia }).matchMedia = (query) =>
+      ({
+        matches: true,
+        media: query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }) as MediaQueryList;
+
+    useUiStore.setState({
+      isSidebarOpen: false,
+      isDesktopSidebarCollapsed: true,
+      isJobsPanelOpen: false,
+    });
+
+    try {
+      await act(async () => {
+        renderWithProviders(
+          <Routes>
+            <Route element={<DashboardLayout />}>
+              <Route path="/projects" element={<div>Projects Page</div>} />
+              <Route path="/models" element={<div>Models Page</div>} />
+            </Route>
+          </Routes>,
+          { route: '/projects' },
+        );
+      });
+
+      expect(screen.getByRole('button', { name: 'Open sidebar' })).toBeInTheDocument();
+
+      await act(async () => {
+        await user.click(screen.getByRole('button', { name: 'Open sidebar' }));
+      });
+
+      expect(screen.getByRole('link', { name: 'Models' })).toBeInTheDocument();
+    } finally {
+      (window as unknown as { matchMedia?: typeof window.matchMedia }).matchMedia = originalMatchMedia;
+      localStorage.removeItem('pytoya-desktop-sidebar-collapsed');
+    }
+  });
+
   it('navigates to sidebar destinations', async () => {
     const user = userEvent.setup();
 

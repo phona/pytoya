@@ -13,7 +13,7 @@
 ## Navigation
 - Dashboard pages render a sidebar with links to Projects, Models, and Extractors.
 - Active routes are highlighted based on the current pathname.
-- The sidebar is collapsible on mobile with a hamburger toggle.
+- The sidebar can be collapsed on desktop (to focus on content) and is collapsible on mobile with a hamburger toggle.
 - Sign out is handled from the sidebar and clears auth state before redirecting to login.
 - Theme toggling is available from the sidebar.
 - Deep pages show breadcrumbs (Projects > Project > …) for quick orientation and parent navigation.
@@ -26,6 +26,7 @@ Schema access is project-scoped and available from the project settings dropdown
 - Manifests audit opens in a dialog overlay.
 - Dialogs trap focus, close on Escape/backdrop, and return focus to the triggering element.
 - Dialogs are implemented with shadcn/ui components (`src/apps/web/src/shared/components/ui/dialog`).
+- Saving a manifest as **Human Verified** is gated by a validation run; if validation returns errors, the user must confirm before the flag is persisted.
 
 ## Z-Index Scale
 - Z-index variables live in `src/apps/web/src/styles/z-index.css`.
@@ -57,9 +58,20 @@ Schema access is project-scoped and available from the project settings dropdown
 - Filters, sorting, and pagination are server-driven via `GET /api/groups/:groupId/manifests`.
 - Custom field filters accept dot-notation paths (e.g., `invoice.po_no`, `receipt.merchant.name`).
 - Pagination metadata (`total`, `page`, `pageSize`, `totalPages`) is returned when list parameters are present.
+- Manifest table columns are schema-driven from the project's active JSON Schema:
+  - If the schema defines root-level `x-table-columns` (dot-paths), the table renders those columns in order.
+  - If `x-table-columns` is present but empty (`[]`), the table renders no schema-driven columns (explicit opt-out).
+  - If `x-table-columns` is absent, the UI falls back to a small capped set of scalar leaf fields.
+- Schema-driven columns support:
+  - Click header to sort via `sortBy=<fieldPath>&order=<asc|desc>`
+  - Header filter dropdown (search + value picker) to filter via `filter[<fieldPath>]=<value>`
+- Table view includes a `Columns` dropdown to show/hide schema columns (and Status); Filename and Actions are pinned.
+- Table row clicks are non-navigational; click the Filename to open the audit page.
+- The Actions column uses a single `⋮` menu for Preview OCR, Run validation, and Extract / Re-extract.
+- Non-column filters (status, quality, cost, etc.) live in an “Advanced filters” panel.
 
 ## Responsive Layout
-- Manifests filters stack above the list on mobile and can be toggled open/closed.
+- Advanced filters open in a dialog/side panel (mobile + desktop).
 - Audit panels stack the PDF viewer and form vertically on mobile.
 - Manifest line items use a 1/2/3 column grid across mobile/tablet/desktop.
 
@@ -75,6 +87,7 @@ See `docs/PROJECT_CREATION.md` for a step-by-step guide.
 - Schema and Rules open the schema detail view, with Rules landing on the Rules tab.
 - Validation scripts are accessed from the Settings dropdown and remain project-scoped.
 - Validation scripts can be created, edited, enabled/disabled, and deleted inline.
+- The validation script form can generate a draft script via LLM using a prompt; it uses the project’s configured LLM model and current JSON Schema automatically.
 
 ## Schema Settings
 - The schema settings route is `/projects/:id/settings/schema` (admin-only).

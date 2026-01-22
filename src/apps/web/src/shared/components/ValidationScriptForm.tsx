@@ -1,14 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   CreateValidationScriptDto,
   UpdateValidationScriptDto,
   ValidationScript,
   ValidationSeverity,
 } from '@/api/validation';
-import { useProjects } from '@/shared/hooks/use-projects';
+import { useProject, useProjects } from '@/shared/hooks/use-projects';
 import { useValidateScriptSyntax, useGenerateValidationScript } from '@/shared/hooks/use-validation-scripts';
-import { useModels } from '@/shared/hooks/use-models';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
+import { useProjectSchemas } from '@/shared/hooks/use-schemas';
+import { getApiErrorText } from '@/api/client';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface ValidationScriptFormProps {
   script?: ValidationScript;
@@ -47,9 +49,9 @@ export function ValidationScriptForm({
   onCancel,
   isLoading,
 }: ValidationScriptFormProps) {
+  const { t } = useI18n();
   const { confirm, alert, ModalDialog } = useModalDialog();
   const { projects } = useProjects();
-  const { models } = useModels({ category: 'llm' });
   const validateSyntax = useValidateScriptSyntax();
   const generateScript = useGenerateValidationScript();
 
@@ -63,15 +65,47 @@ export function ValidationScriptForm({
   const [enabled, setEnabled] = useState(script?.enabled ?? true);
   const [syntaxError, setSyntaxError] = useState<string | null>(null);
   const [isCheckingSyntax, setIsCheckingSyntax] = useState(false);
-  const [llmModelId, setLlmModelId] = useState('');
   const [promptText, setPromptText] = useState('');
-  const [structuredInput, setStructuredInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const fixedProjectIdValue = fixedProjectId ? fixedProjectId.toString() : '';
   const isEditing = Boolean(script && script.id > 0);
   const fixedProject = fixedProjectId
     ? projects.find((project) => project.id === fixedProjectId)
     : undefined;
+
+  const effectiveProjectIdForGeneration = useMemo(() => {
+    if (fixedProjectId) {
+      return fixedProjectId;
+    }
+
+    const parsed = Number(projectId);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }, [fixedProjectId, projectId]);
+
+  const projectForGeneration = useMemo(() => {
+    if (!effectiveProjectIdForGeneration) {
+      return undefined;
+    }
+    return projects.find((project) => project.id === effectiveProjectIdForGeneration);
+  }, [effectiveProjectIdForGeneration, projects]);
+
+  const { project: projectDetailsForGeneration } = useProject(effectiveProjectIdForGeneration ?? 0);
+  const resolvedProjectForGeneration = projectDetailsForGeneration ?? projectForGeneration;
+
+  const { schemas: projectSchemas } = useProjectSchemas(effectiveProjectIdForGeneration ?? 0);
+
+  const schemaForGeneration = useMemo(() => {
+    if (!projectSchemas.length) {
+      return undefined;
+    }
+
+    const desiredId = resolvedProjectForGeneration?.defaultSchemaId ?? null;
+    if (desiredId) {
+      return projectSchemas.find((schema) => schema.id === desiredId) ?? projectSchemas[0];
+    }
+
+    return projectSchemas[0];
+  }, [projectSchemas, resolvedProjectForGeneration?.defaultSchemaId]);
 
   useEffect(() => {
     if (script?.projectId) {
@@ -91,12 +125,21 @@ export function ValidationScriptForm({
     }
   }, [allowDraft, draftProjectId, fixedProjectIdValue, showProjectField]);
 
-  useEffect(() => {
-    const defaultModel = models.find((model) => model.isActive);
-    if (defaultModel && !llmModelId) {
-      setLlmModelId(defaultModel.id);
+  const structuredForGeneration = useMemo(() => {
+    if (!schemaForGeneration) {
+      return null;
     }
-  }, [models, llmModelId]);
+
+    return {
+      project: resolvedProjectForGeneration
+        ? { id: resolvedProjectForGeneration.id, name: resolvedProjectForGeneration.name }
+        : undefined,
+      schema: { id: schemaForGeneration.id, name: schemaForGeneration.name },
+      jsonSchema: schemaForGeneration.jsonSchema,
+      requiredFields: schemaForGeneration.requiredFields,
+      validationSettings: schemaForGeneration.validationSettings ?? undefined,
+    } satisfies Record<string, unknown>;
+  }, [resolvedProjectForGeneration, schemaForGeneration]);
 
   const handleScriptChange = (value: string) => {
     setScriptCode(value);
@@ -104,8 +147,9 @@ export function ValidationScriptForm({
   };
 
   const handleGenerate = async () => {
+    const llmModelId = resolvedProjectForGeneration?.llmModelId ?? null;
     if (!llmModelId) {
-      void alert({ title: 'Generate script', message: 'Please select an LLM model.' });
+      void alert({ title: 'Generate script', message: 'No LLM model is configured for this project.' });
       return;
     }
 
@@ -114,14 +158,12 @@ export function ValidationScriptForm({
       return;
     }
 
-    let structured: Record<string, unknown> = {};
-    if (structuredInput.trim()) {
-      try {
-        structured = JSON.parse(structuredInput);
-      } catch (error) {
-        void alert({ title: 'Generate script', message: 'Structured input must be valid JSON.' });
-        return;
-      }
+    if (!structuredForGeneration) {
+      void alert({
+        title: 'Generate script',
+        message: 'No project schema found. Please create a schema first, then try again.',
+      });
+      return;
     }
 
     const hasExisting =
@@ -144,7 +186,7 @@ export function ValidationScriptForm({
       const result = await generateScript.mutateAsync({
         llmModelId,
         prompt: promptText.trim(),
-        structured,
+        structured: structuredForGeneration,
       });
       setName(result.name);
       setDescription(result.description ?? '');
@@ -154,7 +196,7 @@ export function ValidationScriptForm({
     } catch (error) {
       void alert({
         title: 'Generate script failed',
-        message: error instanceof Error ? error.message : 'Failed to generate script',
+        message: getApiErrorText(error, t),
       });
     } finally {
       setIsGenerating(false);
@@ -172,7 +214,7 @@ export function ValidationScriptForm({
         setSyntaxError(result.error ?? 'Unknown syntax error');
       }
     } catch (error) {
-      setSyntaxError(error instanceof Error ? error.message : 'Failed to validate syntax');
+      setSyntaxError(getApiErrorText(error, t));
     } finally {
       setIsCheckingSyntax(false);
     }
@@ -212,72 +254,6 @@ export function ValidationScriptForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="rounded-md border border-border p-4">
-        <h3 className="text-sm font-semibold text-foreground">Generate with LLM</h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Provide a structured JSON and a prompt to generate a validation script.
-        </p>
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label htmlFor="llmModelId" className="block text-sm font-medium text-foreground">
-              LLM Model *
-            </label>
-            <select
-              id="llmModelId"
-              value={llmModelId}
-              onChange={(e) => setLlmModelId(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
-            >
-              <option value="">Select a model...</option>
-              {models.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="promptText" className="block text-sm font-medium text-foreground">
-              Prompt *
-            </label>
-            <input
-              id="promptText"
-              type="text"
-              value={promptText}
-              onChange={(e) => setPromptText(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
-              placeholder="Describe the validation rule"
-            />
-          </div>
-        </div>
-        <div className="mt-4">
-          <label htmlFor="structuredInput" className="block text-sm font-medium text-foreground">
-            Structured JSON
-          </label>
-          <textarea
-            id="structuredInput"
-            value={structuredInput}
-            onChange={(e) => setStructuredInput(e.target.value)}
-            rows={4}
-            className="mt-1 block w-full px-3 py-2 font-mono text-xs border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
-            placeholder='{"taxRate":0.13,"requiredFields":["invoice.po_no"]}'
-          />
-          <p className="mt-1 text-xs text-muted-foreground">
-            Optional. Must be valid JSON if provided.
-          </p>
-        </div>
-        <div className="mt-4 flex justify-end">
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="px-3 py-1.5 text-xs font-medium rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isGenerating ? 'Generating...' : 'Generate'}
-          </button>
-        </div>
-      </div>
-
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-foreground">
           Script Name *
@@ -363,26 +339,77 @@ export function ValidationScriptForm({
           <label htmlFor="script" className="block text-sm font-medium text-foreground">
             Validation Script *
           </label>
-          <button
-            type="button"
-            onClick={handleCheckSyntax}
-            disabled={isCheckingSyntax}
-            className="px-3 py-1 text-xs font-medium rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isCheckingSyntax ? 'Checking...' : 'Check Syntax'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCheckSyntax}
+              disabled={isCheckingSyntax}
+              className="px-3 py-1 text-xs font-medium rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isCheckingSyntax ? 'Checking...' : 'Check Syntax'}
+            </button>
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={
+                isGenerating ||
+                !schemaForGeneration ||
+                !resolvedProjectForGeneration?.llmModelId ||
+                !promptText.trim()
+              }
+              className="px-3 py-1 text-xs font-medium rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                !resolvedProjectForGeneration?.llmModelId
+                  ? 'No project LLM model configured'
+                  : !schemaForGeneration
+                    ? 'No project schema found'
+                    : !promptText.trim()
+                      ? 'Enter a prompt to generate'
+                      : undefined
+              }
+            >
+              {isGenerating ? 'Generating...' : 'Generate'}
+            </button>
+          </div>
         </div>
-        <textarea
-          id="script"
-          required
-          value={scriptCode}
-          onChange={(e) => handleScriptChange(e.target.value)}
-          rows={20}
-          className="mt-1 block w-full px-3 py-2 font-mono text-xs border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
-          placeholder={DEFAULT_SCRIPT}
-        />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <textarea
+              id="script"
+              required
+              value={scriptCode}
+              onChange={(e) => handleScriptChange(e.target.value)}
+              rows={20}
+              className="mt-1 block w-full px-3 py-2 font-mono text-xs border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
+              placeholder={DEFAULT_SCRIPT}
+            />
+          </div>
+          <div className="rounded-md border border-border p-3 bg-card">
+            <label htmlFor="promptText" className="block text-sm font-medium text-foreground">
+              Prompt *
+            </label>
+            <textarea
+              id="promptText"
+              value={promptText}
+              onChange={(e) => setPromptText(e.target.value)}
+              rows={6}
+              className="mt-1 block w-full px-3 py-2 text-sm border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring"
+              placeholder="Describe what validate() should check"
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              {schemaForGeneration
+                ? `Uses schema: ${schemaForGeneration.name}`
+                : 'No schema found for this project. Create a schema first to enable generation.'}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {resolvedProjectForGeneration?.llmModelId
+                ? 'Uses the project LLM model automatically.'
+                : 'No LLM model configured for this project.'}
+            </p>
+          </div>
+        </div>
         {syntaxError && (
-          <p className="mt-1 text-xs text-destructive">Syntax Error: {syntaxError}</p>
+          <pre className="mt-1 text-xs text-destructive whitespace-pre-wrap">Syntax Error: {syntaxError}</pre>
         )}
         <p className="mt-1 text-xs text-muted-foreground">
           The script must export a function named <code className="bg-muted px-1 rounded">validate</code> that

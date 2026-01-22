@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { FileText, LayoutGrid, List } from 'lucide-react';
 import { Manifest } from '@/api/manifests';
-import { ManifestTable } from './ManifestTable';
+import { ManifestTable, type ManifestTableSchemaColumn } from './ManifestTable';
 import { ManifestCard } from './ManifestCard';
 import { Pagination } from './Pagination';
+import { OcrPreviewModal } from './OcrPreviewModal';
 import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/shared/hooks/use-websocket';
 import { useRunBatchValidation } from '@/shared/hooks/use-validation-scripts';
 import { ManifestSort } from '@/shared/types/manifests';
@@ -15,11 +16,18 @@ import {
   TooltipTrigger,
 } from '@/shared/components/ui/tooltip';
 import { Button } from '@/shared/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/shared/components/ui/dropdown-menu';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface ManifestListProps {
-  projectId: number;
   manifests: Manifest[];
   totalManifests: number;
   sort: ManifestSort;
@@ -34,6 +42,9 @@ interface ManifestListProps {
   totalPages: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
+  schemaColumns?: ManifestTableSchemaColumn[];
+  schemaColumnFilters?: Record<string, string>;
+  onSchemaColumnFilterChange?: (fieldPath: string, value: string) => void;
 }
 
 interface BatchValidationSummary {
@@ -42,7 +53,6 @@ interface BatchValidationSummary {
 }
 
 export function ManifestList({
-  projectId,
   manifests,
   totalManifests,
   sort,
@@ -57,11 +67,17 @@ export function ManifestList({
   totalPages,
   onPageChange,
   onPageSizeChange,
+  schemaColumns,
+  schemaColumnFilters,
+  onSchemaColumnFilterChange,
 }: ManifestListProps) {
   const { t } = useI18n();
   const { alert, ModalDialog } = useModalDialog();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
+  const [ocrPreviewManifestId, setOcrPreviewManifestId] = useState<number | null>(null);
+  const [ocrPreviewOpen, setOcrPreviewOpen] = useState(false);
   const [manifestProgress, setManifestProgress] = useState<Record<number, { progress: number; status: string; error?: string }>>({});
   const [validationProgress, setValidationProgress] = useState<{
     completed: number;
@@ -225,6 +241,33 @@ export function ManifestList({
     setSelectAll(!selectAll);
   };
 
+  const isColumnVisible = useCallback((columnId: string) => {
+    return columnVisibility[columnId] !== false;
+  }, [columnVisibility]);
+
+  const setColumnVisible = useCallback((columnId: string, visible: boolean) => {
+    setColumnVisibility((prev) => {
+      const next = { ...prev, [columnId]: visible };
+      if (visible) {
+        delete next[columnId];
+      }
+      return next;
+    });
+  }, []);
+
+  const schemaColumnOptions = useMemo(() => {
+    return (schemaColumns ?? []).map((column) => ({
+      id: column.path,
+      label: (typeof column.title === 'string' && column.title.trim()) ? column.title.trim() : column.path,
+      hasActiveFilter: Boolean((schemaColumnFilters?.[column.path] ?? '').trim()),
+    }));
+  }, [schemaColumns, schemaColumnFilters]);
+
+  const handlePreviewOcr = useCallback((manifestId: number) => {
+    setOcrPreviewManifestId(manifestId);
+    setOcrPreviewOpen(true);
+  }, []);
+
   return (
     <div className="bg-card rounded-lg shadow-sm border border-border">
       {/* Toolbar */}
@@ -276,6 +319,47 @@ export function ManifestList({
               total: totalPages || 1,
             })}
           </div>
+          {viewMode === 'table' && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="sm">
+                  {t('manifests.list.columns.title')}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>{t('manifests.list.columns.system')}</DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={isColumnVisible('status')}
+                  disabled={isColumnVisible('status') && sort.field === 'status'}
+                  onCheckedChange={(checked) => setColumnVisible('status', checked === true)}
+                >
+                  {t('manifests.table.status')}
+                </DropdownMenuCheckboxItem>
+
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>{t('manifests.list.columns.schema')}</DropdownMenuLabel>
+                {schemaColumnOptions.length === 0 ? (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                    {t('manifests.list.columns.noSchemaFields')}
+                  </div>
+                ) : (
+                  schemaColumnOptions.map((column) => (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      checked={isColumnVisible(column.id)}
+                      disabled={
+                        isColumnVisible(column.id) &&
+                        (sort.field === column.id || column.hasActiveFilter)
+                      }
+                      onCheckedChange={(checked) => setColumnVisible(column.id, checked === true)}
+                    >
+                      {column.label}
+                    </DropdownMenuCheckboxItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           {/* View Toggle */}
           <TooltipProvider>
             <div className="inline-flex rounded-md shadow-sm" role="group">
@@ -319,6 +403,11 @@ export function ManifestList({
       </div>
 
       <ModalDialog />
+      <OcrPreviewModal
+        manifestId={ocrPreviewManifestId ?? 0}
+        open={ocrPreviewOpen}
+        onClose={() => setOcrPreviewOpen(false)}
+      />
 
       {/* Content */}
       {manifests.length === 0 ? (
@@ -333,17 +422,21 @@ export function ManifestList({
         <>
           {viewMode === 'table' ? (
             <ManifestTable
-              projectId={projectId}
               manifests={manifests}
               sort={sort}
               onSortChange={onSortChange}
               onSelectManifest={onSelectManifest}
-              extractorLookup={extractorLookup}
               selectedIds={selectedIds}
               onSelectToggle={handleToggleSelect}
               onSelectAll={handleToggleSelectAll}
               selectAll={selectAll}
               manifestProgress={manifestProgress}
+              schemaColumns={schemaColumns}
+              schemaColumnFilters={schemaColumnFilters}
+              onSchemaColumnFilterChange={onSchemaColumnFilterChange}
+              columnVisibility={columnVisibility}
+              onColumnVisibilityChange={setColumnVisibility}
+              onPreviewOcr={handlePreviewOcr}
             />
           ) : (
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

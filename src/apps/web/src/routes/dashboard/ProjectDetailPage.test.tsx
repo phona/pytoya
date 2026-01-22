@@ -1,4 +1,5 @@
 import { act, renderWithProviders, screen, waitFor } from '@/tests/utils';
+import { within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -119,6 +120,83 @@ describe('ProjectDetailPage', () => {
     });
 
     expect(navigateMock).toHaveBeenCalledWith('/projects/1/groups/22/manifests');
+  });
+
+  it('deletes a group using the groups endpoint (no accidental navigation)', async () => {
+    setupHandlers();
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    const deleteGroupSpy = vi.fn();
+
+    server.use(
+      http.delete('/api/groups/:id', ({ params }) => {
+        deleteGroupSpy(Number(params.id));
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    await act(async () => {
+      renderWithProviders(<ProjectDetailPage />, { route: '/projects/1' });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Invoices')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /^Delete$/i }));
+    });
+
+    const dialog = await screen.findByRole('dialog');
+    await act(async () => {
+      await user.click(within(dialog).getByRole('button', { name: /^Delete$/i }));
+    });
+
+    await waitFor(() => {
+      expect(deleteGroupSpy).toHaveBeenCalledWith(22);
+    });
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it('deletes a project from settings dropdown (and navigates)', async () => {
+    setupHandlers();
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    const deleteProjectSpy = vi.fn();
+
+    server.use(
+      http.delete('/api/projects/:id', ({ params }) => {
+        deleteProjectSpy(Number(params.id));
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    await act(async () => {
+      renderWithProviders(<ProjectDetailPage />, { route: '/projects/1' });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Alpha Project' })).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /settings/i }));
+    });
+
+    await act(async () => {
+      await user.click(screen.getByRole('menuitem', { name: /delete project/i }));
+    });
+
+    const dialog = await screen.findByRole('dialog');
+    await act(async () => {
+      await user.click(within(dialog).getByRole('button', { name: /^Delete$/i }));
+    });
+
+    await waitFor(() => {
+      expect(deleteProjectSpy).toHaveBeenCalledWith(1);
+    });
+
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith('/projects');
+    });
   });
 });
 

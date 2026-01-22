@@ -1,70 +1,259 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
   type ColumnDef,
   getCoreRowModel,
+  type VisibilityState,
   type SortingState,
   useReactTable,
 } from '@tanstack/react-table';
-import { CheckCircle2, ChevronDown, ChevronUp, Eye, Play, RefreshCw, XCircle } from 'lucide-react';
+import { ChevronDown, ChevronUp, Filter } from 'lucide-react';
 import { Manifest } from '@/api/manifests';
 import { DataTable } from '@/shared/components/DataTable';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
 import { Checkbox } from '@/shared/components/ui/checkbox';
+import { Input } from '@/shared/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
+import { ScrollArea } from '@/shared/components/ui/scroll-area';
 import { getStatusBadgeClasses } from '@/shared/styles/status-badges';
 import { ProgressBar } from './ProgressBar';
-import { ExtractionActionsMenu } from './ExtractionActionsMenu';
+import { ManifestActionsMenu } from './ManifestActionsMenu';
 import { useI18n } from '@/shared/providers/I18nProvider';
 
+export type ManifestTableSchemaColumn = {
+  path: string;
+  title?: string;
+  type?: 'string' | 'number' | 'integer' | 'boolean';
+  format?: string;
+};
+
 interface ManifestTableProps {
-  projectId?: number;
   manifests: Manifest[];
   sort: { field: string; order: 'asc' | 'desc' };
   onSortChange: (sort: { field: string; order: 'asc' | 'desc' }) => void;
   onSelectManifest: (manifestId: number) => void;
-  extractorLookup?: Record<string, { name: string; type?: string }>;
   selectedIds?: Set<number>;
   onSelectToggle?: (id: number) => void;
   onSelectAll?: () => void;
   selectAll?: boolean;
   manifestProgress?: Record<number, { progress: number; status: string; error?: string }>;
-  onExtract?: (manifestId: number) => void;
-  onReExtract?: (manifestId: number) => void;
   onPreviewOcr?: (manifestId: number) => void;
+  schemaColumns?: ManifestTableSchemaColumn[];
+  schemaColumnFilters?: Record<string, string>;
+  onSchemaColumnFilterChange?: (fieldPath: string, value: string) => void;
+  columnVisibility?: VisibilityState;
+  onColumnVisibilityChange?: (updater: VisibilityState | ((prev: VisibilityState) => VisibilityState)) => void;
 }
 
-const getOcrQualityBadge = (score: number | null | undefined, naLabel: string) => {
-  if (score === null || score === undefined) {
-    return { label: naLabel, className: 'bg-muted text-muted-foreground' };
-  }
-  if (score >= 90) return { label: `${score}%`, className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-100' };
-  if (score >= 70) return { label: `${score}%`, className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100' };
-  return { label: `${score}%`, className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100' };
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const formatSchemaColumnLabel = (path: string): string => {
+  const leaf = path.split('.').filter(Boolean).pop() ?? path;
+  const cleaned = leaf.replace(/_/g, ' ').trim();
+  if (!cleaned) return path;
+  return cleaned
+    .split(/\s+/g)
+    .map((part) => (part ? `${part.slice(0, 1).toUpperCase()}${part.slice(1)}` : part))
+    .join(' ');
 };
 
+const getByDotPath = (value: unknown, path: string): unknown => {
+  if (!isRecord(value) || !path) {
+    return undefined;
+  }
+  const parts = path.split('.').filter(Boolean);
+  let current: unknown = value;
+  for (const part of parts) {
+    if (!isRecord(current)) {
+      return undefined;
+    }
+    current = current[part];
+  }
+  return current;
+};
+
+const formatSchemaCellValue = (
+  value: unknown,
+  column: ManifestTableSchemaColumn,
+  naLabel: string,
+) => {
+  if (value === null || value === undefined) {
+    return naLabel;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return naLabel;
+    }
+    if (column.format === 'date' || column.format === 'date-time') {
+      const parsed = new Date(trimmed);
+      if (!Number.isNaN(parsed.getTime())) {
+        return format(parsed, 'PP');
+      }
+    }
+    return trimmed;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return naLabel;
+};
+
+const formatSchemaCellValueForFilter = (value: unknown): string | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return null;
+};
+
+const buildAvailableFilterValues = (manifests: Manifest[], path: string): Array<[string, number]> => {
+  const counts = new Map<string, number>();
+
+  for (const manifest of manifests) {
+    const raw = getByDotPath(manifest.extractedData, path);
+    const value = formatSchemaCellValueForFilter(raw);
+    if (!value) {
+      continue;
+    }
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+
+  return Array.from(counts.entries()).sort(([a], [b]) => a.localeCompare(b));
+};
+
+type SchemaColumnHeaderProps = {
+  path: string;
+  label: string;
+  manifests: Manifest[];
+  filterValue: string;
+  onSort: (field: string) => void;
+  renderSortIcon: (field: string) => React.ReactNode;
+  onFilterChange?: (fieldPath: string, value: string) => void;
+};
+
+function SchemaColumnHeader({
+  path,
+  label,
+  manifests,
+  filterValue,
+  onSort,
+  renderSortIcon,
+  onFilterChange,
+}: SchemaColumnHeaderProps) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+
+  const availableValues = useMemo(() => buildAvailableFilterValues(manifests, path), [manifests, path]);
+  const normalizedFilter = filterValue.trim().toLowerCase();
+  const visibleValues = useMemo(() => {
+    if (!normalizedFilter) {
+      return availableValues;
+    }
+    return availableValues.filter(([value]) => value.toLowerCase().includes(normalizedFilter));
+  }, [availableValues, normalizedFilter]);
+
+  const isActive = Boolean(filterValue.trim());
+
+  return (
+    <div className="flex flex-col gap-2 min-w-[10rem]">
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => onSort(path)}
+          className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
+          title={path}
+        >
+          {label}
+          {renderSortIcon(path)}
+        </button>
+        {onFilterChange ? (
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label={t('manifests.table.columnFilterAria', { column: label })}
+                className={`rounded-sm p-1 hover:bg-muted ${isActive ? 'text-primary' : 'text-muted-foreground'}`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <Filter className="h-4 w-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-72 p-3"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <Input
+                value={filterValue}
+                placeholder={t('manifests.filters.customField.valuePlaceholder')}
+                aria-label={`${t('manifests.filters.customField.valueAria')}: ${label}`}
+                className="h-8 text-xs"
+                onChange={(event) => onFilterChange(path, event.target.value)}
+              />
+              <ScrollArea className="mt-2 max-h-56">
+                <div className="space-y-1">
+                  {visibleValues.length === 0 ? (
+                    <div className="px-2 py-2 text-xs text-muted-foreground">
+                      {t('manifests.table.columnFilter.noValues')}
+                    </div>
+                  ) : (
+                    visibleValues.slice(0, 50).map(([value, count]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted"
+                        onClick={() => {
+                          onFilterChange(path, value);
+                          setOpen(false);
+                        }}
+                      >
+                        <span className="truncate">{value}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">({count})</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function ManifestTable({
-  projectId,
   manifests,
   sort,
   onSortChange,
   onSelectManifest,
-  extractorLookup,
   selectedIds,
   onSelectToggle,
   onSelectAll,
   selectAll,
   manifestProgress,
-  onExtract,
-  onReExtract,
   onPreviewOcr,
+  schemaColumns,
+  schemaColumnFilters,
+  onSchemaColumnFilterChange,
+  columnVisibility,
+  onColumnVisibilityChange,
 }: ManifestTableProps) {
   const { t } = useI18n();
   const sorting = useMemo<SortingState>(
     () => (sort.field ? [{ id: sort.field, desc: sort.order === 'desc' }] : []),
     [sort],
   );
+  const resolvedColumnVisibility = useMemo<VisibilityState>(() => columnVisibility ?? {}, [columnVisibility]);
 
   const handleSort = useCallback((field: string) => {
     if (sort.field === field) {
@@ -85,6 +274,7 @@ export function ManifestTable({
 
   const columns = useMemo<ColumnDef<Manifest>[]>(() => {
     const cols: ColumnDef<Manifest>[] = [];
+    const dynamicColumns = schemaColumns ?? [];
 
     if (onSelectAll && onSelectToggle) {
       cols.push({
@@ -131,9 +321,14 @@ export function ManifestTable({
           </button>
         ),
         cell: ({ row }) => (
-          <div className="text-sm font-medium text-foreground">
+          <button
+            type="button"
+            className="text-sm font-medium text-foreground hover:underline underline-offset-4"
+            title={t('common.view')}
+            onClick={() => onSelectManifest(row.original.id)}
+          >
             {row.original.originalFilename}
-          </div>
+          </button>
         ),
       },
       {
@@ -160,191 +355,25 @@ export function ManifestTable({
                   : status === 'failed'
                     ? t('manifests.status.failed')
                     : status;
-          return (
-            <Badge className={`px-2 py-1 ${getStatusBadgeClasses(status)}`}>{statusLabel}</Badge>
-          );
-        },
-      },
-      {
-        id: 'extractor',
-        header: () => (
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {t('manifests.table.extractor')}
-          </span>
-        ),
-        cell: ({ row }) => {
-          const extractorId = row.original.textExtractorId ?? '';
-          const extractorInfo = extractorId ? extractorLookup?.[extractorId] : undefined;
-          if (!extractorId) {
-            return <span className="text-xs text-muted-foreground">{t('manifests.table.unassigned')}</span>;
-          }
-          return (
-            <div className="flex flex-col gap-1">
-              <Badge className="w-fit bg-primary/10 text-primary">
-                {extractorInfo?.type ?? t('manifests.table.extractor')}
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                {extractorInfo?.name ?? extractorId}
-              </span>
-            </div>
-          );
-        },
-      },
-      {
-        id: 'ocrQuality',
-        header: () => (
-          <button
-            type="button"
-            onClick={() => handleSort('ocrQualityScore')}
-            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
-          >
-            {t('manifests.table.text')}
-            {renderSortIcon('ocrQualityScore')}
-          </button>
-        ),
-        cell: ({ row }) => {
-          const qualityBadge = getOcrQualityBadge(row.original.ocrQualityScore, t('common.na'));
-          return (
-            <Badge className={`px-2 py-1 ${qualityBadge.className}`}>{qualityBadge.label}</Badge>
-          );
-        },
-      },
-      {
-        id: 'progress',
-        header: () => (
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {t('manifests.table.progress')}
-          </span>
-        ),
-        cell: ({ row }) => {
           const progress = manifestProgress?.[row.original.id];
-          return row.original.status === 'processing' || progress ? (
-            <div className="w-32">
-              <ProgressBar
-                progress={progress?.progress ?? 0}
-                status={progress?.status}
-                error={progress?.error}
-                size="sm"
-                showLabel={false}
-                showStatus={false}
-              />
-            </div>
-          ) : (
-            <span className="text-xs text-muted-foreground">-</span>
-          );
-        },
-      },
-      {
-        id: 'poNo',
-        header: () => (
-          <button
-            type="button"
-            onClick={() => handleSort('poNo')}
-            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
-          >
-            {t('manifests.table.poNo')}
-            {renderSortIcon('poNo')}
-          </button>
-        ),
-        cell: ({ row }) => (
-          <span className="text-sm text-muted-foreground">
-            {row.original.purchaseOrder ?? t('common.na')}
-          </span>
-        ),
-      },
-      {
-        id: 'invoiceDate',
-        header: () => (
-          <button
-            type="button"
-            onClick={() => handleSort('invoiceDate')}
-            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
-          >
-            {t('manifests.table.invoiceDate')}
-            {renderSortIcon('invoiceDate')}
-          </button>
-        ),
-        cell: ({ row }) => (
-          <span className="text-sm text-muted-foreground">
-            {row.original.invoiceDate
-              ? format(new Date(row.original.invoiceDate), 'PP')
-              : t('common.na')}
-          </span>
-        ),
-      },
-      {
-        id: 'department',
-        header: () => (
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {t('manifests.table.department')}
-          </span>
-        ),
-        cell: ({ row }) => (
-          <span className="text-sm text-muted-foreground">
-            {row.original.department ?? t('common.na')}
-          </span>
-        ),
-      },
-      {
-        id: 'cost',
-        header: () => (
-          <button
-            type="button"
-            onClick={() => handleSort('extractionCost')}
-            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
-          >
-            {t('manifests.table.cost')}
-            {renderSortIcon('extractionCost')}
-          </button>
-        ),
-        cell: ({ row }) => {
-          const cost = row.original.extractionCost;
-          if (cost === null || cost === undefined) {
-            return <span className="text-xs text-muted-foreground">-</span>;
-          }
+          const showProgress = row.original.status === 'processing' || Boolean(progress);
           return (
-            <span className="text-sm font-medium text-foreground">
-              ${Number(cost).toFixed(4)}
-            </span>
+            <div className="flex flex-col gap-2">
+              <Badge className={`px-2 py-1 w-fit ${getStatusBadgeClasses(status)}`}>{statusLabel}</Badge>
+              {showProgress ? (
+                <div className="w-32">
+                  <ProgressBar
+                    progress={progress?.progress ?? 0}
+                    status={progress?.status}
+                    error={progress?.error}
+                    size="sm"
+                    showLabel={false}
+                    showStatus={false}
+                  />
+                </div>
+              ) : null}
+            </div>
           );
-        },
-      },
-      {
-        id: 'confidence',
-        header: () => (
-          <button
-            type="button"
-            onClick={() => handleSort('confidence')}
-            className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-muted-foreground"
-          >
-            {t('manifests.table.confidence')}
-            {renderSortIcon('confidence')}
-          </button>
-        ),
-        cell: ({ row }) => (
-          <span className="text-sm text-muted-foreground">
-            {row.original.confidence !== null
-              ? `${Math.round(row.original.confidence * 100)}%`
-              : t('common.na')}
-          </span>
-        ),
-      },
-      {
-        id: 'verified',
-        header: () => (
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {t('manifests.table.verified')}
-          </span>
-        ),
-        cell: ({ row }) => (
-          row.original.humanVerified ? (
-            <CheckCircle2 className="h-5 w-5 text-[color:var(--status-completed-text)]" />
-          ) : (
-            <XCircle className="h-5 w-5 text-muted-foreground" />
-          )
-        ),
-        meta: {
-          cellClassName: 'text-center',
         },
       },
       {
@@ -356,79 +385,10 @@ export function ManifestTable({
         ),
         cell: ({ row }) => {
           const manifest = row.original;
-          const isCompleted = manifest.status === 'completed';
-          const canExtract = manifest.status === 'pending' || manifest.status === 'failed';
 
           return (
             <div className="flex items-center justify-end gap-2">
-              {onPreviewOcr && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onPreviewOcr(manifest.id);
-                  }}
-                  className="text-muted-foreground hover:text-foreground"
-                  title={t('manifests.table.previewText')}
-                >
-                  <Eye className="h-4 w-4" />
-                </Button>
-              )}
-              {onExtract && canExtract && (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onExtract(manifest.id);
-                    }}
-                    className="text-primary hover:text-primary"
-                    title={t('manifests.table.extract')}
-                  >
-                    <Play className="h-4 w-4" />
-                  </Button>
-                  <ExtractionActionsMenu
-                    projectId={projectId}
-                    manifestId={manifest.id}
-                    manifestName={manifest.originalFilename}
-                  />
-                </>
-              )}
-              {onReExtract && isCompleted && (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onReExtract(manifest.id);
-                    }}
-                    className="text-muted-foreground hover:text-foreground"
-                    title={t('manifests.table.reextract')}
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-                  <ExtractionActionsMenu
-                    projectId={projectId}
-                    manifestId={manifest.id}
-                    manifestName={manifest.originalFilename}
-                  />
-                </>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSelectManifest(manifest.id);
-                }}
-                className="text-primary hover:text-primary"
-                title={t('manifests.table.viewDetails')}
-              >
-                {t('common.view')}
-              </Button>
+              <ManifestActionsMenu manifest={manifest} onPreviewOcr={onPreviewOcr} />
             </div>
           );
         },
@@ -439,15 +399,43 @@ export function ManifestTable({
       },
     );
 
+    for (const column of dynamicColumns) {
+      const path = column.path;
+      const label = (typeof column.title === 'string' && column.title.trim())
+        ? column.title.trim()
+        : formatSchemaColumnLabel(path);
+
+      cols.splice(cols.length - 1, 0, {
+        id: path,
+        header: () => (
+          <SchemaColumnHeader
+            path={path}
+            label={label}
+            manifests={manifests}
+            filterValue={schemaColumnFilters?.[path] ?? ''}
+            onSort={handleSort}
+            renderSortIcon={renderSortIcon}
+            onFilterChange={onSchemaColumnFilterChange}
+          />
+        ),
+        cell: ({ row }) => {
+          const value = getByDotPath(row.original.extractedData, path);
+          const display = formatSchemaCellValue(value, column, t('common.na'));
+          return (
+            <span className="text-sm text-muted-foreground" title={display !== t('common.na') ? display : undefined}>
+              {display}
+            </span>
+          );
+        },
+      });
+    }
+
     return cols;
   }, [
-    extractorLookup,
     handleSort,
+    manifests,
     manifestProgress,
-    projectId,
     onPreviewOcr,
-    onExtract,
-    onReExtract,
     onSelectAll,
     onSelectManifest,
     onSelectToggle,
@@ -455,13 +443,17 @@ export function ManifestTable({
     selectedIds,
     selectAll,
     t,
+    schemaColumns,
+    schemaColumnFilters,
+    onSchemaColumnFilterChange,
   ]);
 
   const table = useReactTable({
     data: manifests,
     columns,
-    state: { sorting },
+    state: { sorting, columnVisibility: resolvedColumnVisibility },
     manualSorting: true,
+    onColumnVisibilityChange,
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -476,9 +468,8 @@ export function ManifestTable({
     <div className="overflow-x-auto">
       <DataTable
         table={table}
-        onRowClick={(row) => onSelectManifest(row.original.id)}
         getRowClassName={(row) =>
-          `hover:bg-muted cursor-pointer border-l-4 ${getConfidenceColor(row.original.confidence)}`
+          `hover:bg-muted border-l-4 ${getConfidenceColor(row.original.confidence)}`
         }
         emptyState={(
           <EmptyState

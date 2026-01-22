@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -161,6 +161,26 @@ describe('useValidationScripts', () => {
       // If we get here without throwing, the mutation succeeded
       expect(true).toBe(true);
     });
+
+    it('should invalidate the manifest query after success', async () => {
+      const queryClient = new QueryClient({
+        defaultOptions: {
+          queries: { retry: false },
+          mutations: { retry: false },
+        },
+      });
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      );
+
+      const { result } = renderHook(() => useRunValidation(), { wrapper });
+
+      await result.current.mutateAsync({ manifestId: 1 });
+
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['manifests', 1] });
+    });
   });
 
   describe('useRunBatchValidation', () => {
@@ -171,6 +191,27 @@ describe('useValidationScripts', () => {
 
       // If we get here without throwing, the mutation succeeded
       expect(true).toBe(true);
+    });
+
+    it('should invalidate each manifest query after success', async () => {
+      const queryClient = new QueryClient({
+        defaultOptions: {
+          queries: { retry: false },
+          mutations: { retry: false },
+        },
+      });
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      );
+
+      const { result } = renderHook(() => useRunBatchValidation(), { wrapper });
+
+      await result.current.mutateAsync({ manifestIds: [1, 2] });
+
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['manifests', 1] });
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['manifests', 2] });
     });
   });
 

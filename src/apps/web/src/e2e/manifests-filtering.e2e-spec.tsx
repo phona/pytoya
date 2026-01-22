@@ -104,6 +104,8 @@ describe('ManifestsPage dynamic filtering', () => {
     await screen.findByText('invoice-a.pdf');
     await screen.findByText('invoice-b.pdf');
 
+    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+
     fireEvent.change(screen.getByLabelText('Field path'), {
       target: { value: 'invoice.po_no' },
     });

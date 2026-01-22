@@ -52,6 +52,25 @@ describe('GroupCard', () => {
     expect(onDelete).toHaveBeenCalledTimes(1);
     expect(onClick).not.toHaveBeenCalled();
   });
+
+  it('does not trigger card navigation from keyboard delete action', async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    const onDelete = vi.fn();
+
+    renderWithProviders(<GroupCard group={baseGroup} onClick={onClick} onDelete={onDelete} />);
+
+    const deleteButton = screen.getByRole('button', { name: /^Delete$/i });
+    deleteButton.focus();
+
+    await user.keyboard('{Enter}');
+
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /^Delete$/i }));
+
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(onClick).not.toHaveBeenCalled();
+  });
 });
 
 

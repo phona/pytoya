@@ -44,8 +44,7 @@ export class ScriptExecutorService {
    */
   validateSyntax(script: string): { valid: boolean; error?: string } {
     try {
-      // Try to parse as a function declaration
-      const functionMatch = script.match(/^function\s+validate\s*\(/);
+      const functionMatch = script.match(/function\s+validate\s*\(/);
       if (!functionMatch) {
         return {
           valid: false,
@@ -53,16 +52,32 @@ export class ScriptExecutorService {
         };
       }
 
-      // Try to create a function from the script to validate syntax
-      // This will throw a SyntaxError if the script is invalid
-      new Function('return ' + script);
+      // Compile only (no execution) so we can provide line/caret details on syntax failures.
+      // vm.Script SyntaxError stacks include code frames like:
+      //   validation-script.js:4
+      //     const x = ;
+      //               ^
+      new Script(script, { filename: 'validation-script.js' });
 
       return { valid: true };
     } catch (error) {
       if (error instanceof SyntaxError) {
-        return { valid: false, error: error.message };
+        const stack = typeof error.stack === 'string' ? error.stack : '';
+        const stackLines = stack ? stack.split('\n') : [];
+
+        const firstAtIndex = stackLines.findIndex((line) => line.trimStart().startsWith('at '));
+        const frameLines =
+          firstAtIndex === -1 ? stackLines : stackLines.slice(0, Math.max(0, firstAtIndex));
+
+        const frameSnippet = frameLines.slice(0, 4).join('\n').trim();
+        const message = error.message;
+
+        return {
+          valid: false,
+          error: frameSnippet ? `${message}\n${frameSnippet}` : message,
+        };
       }
-      return { valid: false, error: 'Unknown syntax error' };
+      return { valid: false, error: error instanceof Error ? error.message : 'Unknown syntax error' };
     }
   }
 

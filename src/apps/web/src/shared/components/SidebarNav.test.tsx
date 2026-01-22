@@ -20,7 +20,16 @@ describe('SidebarNav', () => {
       <Routes>
         <Route
           path="/models/*"
-          element={<SidebarNav isOpen={false} onClose={vi.fn()} />}
+          element={
+            <SidebarNav
+              isDesktop={false}
+              isDesktopCollapsed={false}
+              isOpen={false}
+              onClose={vi.fn()}
+              onDesktopCollapse={vi.fn()}
+              onDesktopExpand={vi.fn()}
+            />
+          }
         />
       </Routes>,
       { route: '/models/abc' },
@@ -39,7 +48,16 @@ describe('SidebarNav', () => {
         <Routes>
           <Route
             path="/projects"
-            element={<SidebarNav isOpen={true} onClose={onClose} />}
+            element={
+              <SidebarNav
+                isDesktop={false}
+                isDesktopCollapsed={false}
+                isOpen={true}
+                onClose={onClose}
+                onDesktopCollapse={vi.fn()}
+                onDesktopExpand={vi.fn()}
+              />
+            }
           />
           <Route path="/models" element={<div>Models</div>} />
         </Routes>,
@@ -58,7 +76,16 @@ describe('SidebarNav', () => {
     const user = userEvent.setup();
 
     await act(async () => {
-      renderWithProviders(<SidebarNav isOpen={false} onClose={vi.fn()} />);
+      renderWithProviders(
+        <SidebarNav
+          isDesktop={false}
+          isDesktopCollapsed={false}
+          isOpen={false}
+          onClose={vi.fn()}
+          onDesktopCollapse={vi.fn()}
+          onDesktopExpand={vi.fn()}
+        />,
+      );
     });
 
     await act(async () => {
@@ -66,6 +93,30 @@ describe('SidebarNav', () => {
     });
 
     expect(logoutMock).toHaveBeenCalled();
+  });
+
+  it('invokes desktop collapse when collapse is clicked', async () => {
+    const user = userEvent.setup();
+    const onDesktopCollapse = vi.fn();
+
+    await act(async () => {
+      renderWithProviders(
+        <SidebarNav
+          isDesktop={true}
+          isDesktopCollapsed={false}
+          isOpen={false}
+          onClose={vi.fn()}
+          onDesktopCollapse={onDesktopCollapse}
+          onDesktopExpand={vi.fn()}
+        />,
+      );
+    });
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Close sidebar' }));
+    });
+
+    expect(onDesktopCollapse).toHaveBeenCalledTimes(1);
   });
 });
 

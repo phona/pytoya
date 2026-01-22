@@ -1,4 +1,4 @@
-import { act, renderWithProviders, screen, fireEvent, waitFor } from '@/tests/utils';
+import { act, renderWithProviders, screen, fireEvent, waitFor, within } from '@/tests/utils';
 import { http, HttpResponse } from 'msw';
 import { afterAll, afterEach, beforeAll, describe, it, vi } from 'vitest';
 import { Routes, Route } from 'react-router-dom';
@@ -89,7 +89,9 @@ describe('ManifestsPage', () => {
     await screen.findByText('invoice.pdf');
 
     await act(async () => {
-      fireEvent.click(screen.getByText('invoice.pdf'));
+      const row = screen.getByText('invoice.pdf').closest('tr');
+      expect(row).toBeTruthy();
+      fireEvent.click(within(row!).getByRole('button', { name: 'invoice.pdf' }));
     });
 
     expect(screen.getByText('Audit Content')).toBeInTheDocument();

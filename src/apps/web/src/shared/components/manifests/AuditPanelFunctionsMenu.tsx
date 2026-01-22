@@ -1,14 +1,12 @@
-import { ChevronDown, Play } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { Manifest } from '@/api/manifests';
 import { Button } from '@/shared/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
 import { getStatusBadgeClasses } from '@/shared/styles/status-badges';
@@ -19,8 +17,6 @@ export type AuditPanelTab = 'form' | 'extraction' | 'ocr' | 'validation' | 'hist
 type AuditPanelFunctionsMenuProps = {
   activeTab: AuditPanelTab;
   onTabChange: (tab: AuditPanelTab) => void;
-  onRunValidation: () => void;
-  runValidationPending?: boolean;
   validationLabel?: string;
   validationStatus?: Manifest['status'] | null;
 };
@@ -39,8 +35,6 @@ const getActiveTabLabelKey = (tab: AuditPanelTab) =>
 export function AuditPanelFunctionsMenu({
   activeTab,
   onTabChange,
-  onRunValidation,
-  runValidationPending = false,
   validationLabel = '',
   validationStatus = null,
 }: AuditPanelFunctionsMenuProps) {
@@ -83,11 +77,6 @@ export function AuditPanelFunctionsMenu({
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={runValidationPending} onSelect={onRunValidation}>
-          <Play className="h-4 w-4" />
-          {runValidationPending ? t('audit.menu.runningValidation') : t('audit.menu.runValidation')}
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

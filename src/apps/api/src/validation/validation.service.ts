@@ -190,7 +190,14 @@ export class ValidationService {
           `Script ${script.id} (${script.name}) execution failed:`,
           error,
         );
-        // Continue with other scripts even if one fails
+        const message =
+          error instanceof Error ? error.message : 'Unknown script execution error';
+
+        allIssues.push({
+          field: '__script__',
+          message: `Validation script "${script.name}" (id=${script.id}) failed: ${message}. This is a script implementation error.`,
+          severity: 'error',
+        });
       }
     }
 

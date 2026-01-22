@@ -20,9 +20,14 @@ vi.mock('@/shared/hooks/use-websocket', () => ({
 
 describe('JobsPanel', () => {
   beforeEach(() => {
+    localStorage.removeItem('pytoya-desktop-sidebar-collapsed');
     localStorage.removeItem('pytoya-jobs');
     useJobsStore.setState({ ownerUserId: 1, hasHydrated: true, jobs: [] });
-    useUiStore.setState({ isSidebarOpen: false, isJobsPanelOpen: false });
+    useUiStore.setState({
+      isSidebarOpen: false,
+      isDesktopSidebarCollapsed: false,
+      isJobsPanelOpen: false,
+    });
   });
 
   it('shows a badge count for in-progress jobs', () => {

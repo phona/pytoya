@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,12 +9,12 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { GenerateValidationScriptDto } from './dto/generate-validation-script.dto';
 import { GeneratedValidationScriptResponseDto } from './dto/generated-validation-script-response.dto';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { UserEntity } from '../entities/user.entity';
+import { ERROR_CODES } from '../common/errors/error-codes';
 import { CreateValidationScriptDto } from './dto/create-validation-script.dto';
 import { UpdateValidationScriptDto } from './dto/update-validation-script.dto';
 import { ValidateScriptSyntaxDto } from './dto/validate-script-syntax.dto';
@@ -65,6 +66,57 @@ export class ValidationController {
     return ValidationScriptResponseDto.fromEntity(script);
   }
 
+  // ========== Script Validation ==========
+
+  @Post('scripts/validate-syntax')
+  async validateScriptSyntax(@Body() validateDto: ValidateScriptSyntaxDto) {
+    return this.validationService.validateScriptSyntax(validateDto.script);
+  }
+
+  @Post('scripts/generate')
+  async generateScript(@Body() generateDto: Record<string, unknown>) {
+    const normalized = this.normalizeGenerateScriptDto(generateDto);
+    const result = await this.validationService.generateScriptTemplate(normalized);
+    return GeneratedValidationScriptResponseDto.fromGenerated(result);
+  }
+
+  private normalizeGenerateScriptDto(input: Record<string, unknown>) {
+    const details: Array<{ path: string; rule: string }> = [];
+
+    const llmModelId = input.llmModelId;
+    if (typeof llmModelId !== 'string') {
+      details.push({ path: 'llmModelId', rule: 'isString' });
+    } else if (!llmModelId.trim()) {
+      details.push({ path: 'llmModelId', rule: 'isNotEmpty' });
+    }
+
+    const prompt = input.prompt;
+    if (typeof prompt !== 'string') {
+      details.push({ path: 'prompt', rule: 'isString' });
+    } else if (!prompt.trim()) {
+      details.push({ path: 'prompt', rule: 'isNotEmpty' });
+    }
+
+    const structured = input.structured;
+    if (!structured || typeof structured !== 'object' || Array.isArray(structured)) {
+      details.push({ path: 'structured', rule: 'isObject' });
+    }
+
+    if (details.length > 0) {
+      throw new BadRequestException({
+        code: ERROR_CODES.VALIDATION_FAILED,
+        message: 'Validation failed',
+        details,
+      });
+    }
+
+    return {
+      llmModelId: (llmModelId as string).trim(),
+      prompt: (prompt as string).trim(),
+      structured: structured as Record<string, unknown>,
+    };
+  }
+
   @Post('scripts/:id')
   async updateScript(
     @CurrentUser() user: UserEntity,
@@ -86,19 +138,6 @@ export class ValidationController {
   ) {
     const script = await this.validationService.remove(user, id);
     return ValidationScriptResponseDto.fromEntity(script);
-  }
-
-  // ========== Script Validation ==========
-
-  @Post('scripts/validate-syntax')
-  async validateScriptSyntax(@Body() validateDto: ValidateScriptSyntaxDto) {
-    return this.validationService.validateScriptSyntax(validateDto.script);
-  }
-
-  @Post('scripts/generate')
-  async generateScript(@Body() generateDto: GenerateValidationScriptDto) {
-    const result = await this.validationService.generateScriptTemplate(generateDto);
-    return GeneratedValidationScriptResponseDto.fromGenerated(result);
   }
 
   // ========== Validation Execution ==========

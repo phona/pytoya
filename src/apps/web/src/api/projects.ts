@@ -86,8 +86,8 @@ export const projectsApi = {
     return response.data;
   },
 
-  getGroup: async (projectId: number, groupId: number) => {
-    const response = await apiClient.get<Group>(`/projects/${projectId}/groups/${groupId}`);
+  getGroup: async (_projectId: number, groupId: number) => {
+    const response = await apiClient.get<Group>(`/groups/${groupId}`);
     return response.data;
   },
 
@@ -96,13 +96,13 @@ export const projectsApi = {
     return response.data;
   },
 
-  updateGroup: async (projectId: number, groupId: number, data: UpdateGroupDto) => {
-    const response = await apiClient.patch<Group>(`/projects/${projectId}/groups/${groupId}`, data);
+  updateGroup: async (_projectId: number, groupId: number, data: UpdateGroupDto) => {
+    const response = await apiClient.patch<Group>(`/groups/${groupId}`, data);
     return response.data;
   },
 
-  deleteGroup: async (projectId: number, groupId: number) => {
-    await apiClient.delete(`/projects/${projectId}/groups/${groupId}`);
+  deleteGroup: async (_projectId: number, groupId: number) => {
+    await apiClient.delete(`/groups/${groupId}`);
   },
 };
 

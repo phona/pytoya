@@ -100,7 +100,7 @@ export function useRunValidation() {
     mutationFn: (data: RunValidationDto) => validationApi.runValidation(data),
     onSuccess: (_, variables) => {
       // Invalidate the manifest query to get updated validation results
-      queryClient.invalidateQueries({ queryKey: ['manifest', variables.manifestId] });
+      queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId] });
     },
   });
 }
@@ -113,7 +113,7 @@ export function useRunBatchValidation() {
     onSuccess: (_, variables) => {
       // Invalidate all manifest queries in the batch
       for (const manifestId of variables.manifestIds) {
-        queryClient.invalidateQueries({ queryKey: ['manifest', manifestId] });
+        queryClient.invalidateQueries({ queryKey: ['manifests', manifestId] });
       }
     },
   });

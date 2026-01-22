@@ -561,6 +561,66 @@ export const deriveSchemaAuditFields = (
   return { scalarFields, arrayObjectFields, arrayFields };
 };
 
+export type SchemaTableColumn = {
+  path: string;
+  title?: string;
+  type?: SchemaFieldType;
+  format?: string;
+};
+
+export const deriveSchemaTableColumns = (
+  jsonSchema: Record<string, unknown>,
+  options: { fallbackLimit?: number } = {},
+): SchemaTableColumn[] => {
+  const fallbackLimit = options.fallbackLimit ?? 4;
+  const { scalarFields } = deriveSchemaAuditFields(jsonSchema);
+  const scalarByPath = new Map(scalarFields.map((field) => [field.path, field]));
+
+  const hasXTableColumns = Object.prototype.hasOwnProperty.call(jsonSchema, 'x-table-columns');
+  const rawXTableColumns = jsonSchema['x-table-columns'];
+  const xTableColumns = Array.isArray(rawXTableColumns)
+    ? rawXTableColumns
+      .map((value) => (typeof value === 'string' ? value.trim() : ''))
+      .filter(Boolean)
+    : null;
+
+  if (hasXTableColumns && Array.isArray(rawXTableColumns)) {
+    if (xTableColumns && xTableColumns.length === 0) {
+      return [];
+    }
+
+    return (xTableColumns ?? [])
+      .filter((path) => !path.includes('[]'))
+      .map((path) => {
+        const schemaField = scalarByPath.get(path);
+        return {
+          path,
+          title: schemaField?.title,
+          type: schemaField?.type,
+          format: schemaField?.format,
+        };
+      });
+  }
+
+  const candidates = scalarFields
+    .filter((field) => !field.path.includes('[]'))
+    .filter((field) => !field.path.startsWith('_extraction_info') && !field.path.startsWith('_'))
+    .sort((a, b) => {
+      if (a.required !== b.required) {
+        return a.required ? -1 : 1;
+      }
+      return a.schemaOrder - b.schemaOrder;
+    })
+    .slice(0, fallbackLimit);
+
+  return candidates.map((field) => ({
+    path: field.path,
+    title: field.title,
+    type: field.type,
+    format: field.format,
+  }));
+};
+
 
 
 

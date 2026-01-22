@@ -10,13 +10,14 @@ import { SettingsDropdown } from '@/shared/components/SettingsDropdown';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { Button } from '@/shared/components/ui/button';
 import { Group, CreateGroupDto, UpdateGroupDto } from '@/api/projects';
+import { getApiErrorText } from '@/api/client';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { AppBreadcrumbs } from '@/shared/components/AppBreadcrumbs';
 import { useI18n } from '@/shared/providers/I18nProvider';
 
 export function ProjectDetailPage() {
   const { t } = useI18n();
-  const { confirm, ModalDialog } = useModalDialog();
+  const { confirm, alert, ModalDialog } = useModalDialog();
   const navigate = useNavigate();
   const params = useParams();
   const projectId = Number(params.id);
@@ -32,7 +33,7 @@ export function ProjectDetailPage() {
     isUpdating,
   } = useGroups(projectId);
   const { schemas: projectSchemas } = useProjectSchemas(projectId);
-  const { deleteProject } = useProjects();
+  const { deleteProject, isDeleting: isProjectDeleting } = useProjects();
 
   const [showForm, setShowForm] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
@@ -68,15 +69,24 @@ export function ProjectDetailPage() {
 
   const handleDeleteProject = async () => {
     if (!project) return;
+    if (isProjectDeleting) return;
     const confirmed = await confirm({
       title: t('project.detail.deleteTitle'),
       message: t('project.detail.deleteMessage', { name: project.name }),
       confirmText: t('common.delete'),
+      cancelText: t('common.cancel'),
       destructive: true,
     });
     if (!confirmed) return;
-    await deleteProject(project.id);
-    navigate('/projects');
+    try {
+      await deleteProject(project.id);
+      navigate('/projects');
+    } catch (error) {
+      void alert({
+        title: t('common.deleteFailedTitle'),
+        message: getApiErrorText(error, t),
+      });
+    }
   };
 
   if (projectLoading) {

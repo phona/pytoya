@@ -26,6 +26,7 @@ export const zhCNMessages: Record<string, string> = {
   'common.signOut': '退出登录',
   'common.update': '更新',
   'common.view': '查看',
+  'common.deleteFailedTitle': '删除失败',
 
   'session.checking': '正在检查登录状态…',
 
@@ -196,6 +197,10 @@ export const zhCNMessages: Record<string, string> = {
   'manifests.list.reextract': '重新提取',
   'manifests.list.view.table': '表格视图',
   'manifests.list.view.card': '卡片视图',
+  'manifests.list.columns.title': '列',
+  'manifests.list.columns.system': '系统',
+  'manifests.list.columns.schema': 'Schema',
+  'manifests.list.columns.noSchemaFields': '没有 Schema 字段',
   'manifests.list.empty.title': '未找到清单',
   'manifests.list.empty.description': '尝试调整筛选条件以查看更多结果。',
 
@@ -269,15 +274,17 @@ export const zhCNMessages: Record<string, string> = {
   'manifests.table.cost': '成本',
   'manifests.table.confidence': '置信度',
   'manifests.table.verified': '已确认',
+  'manifests.table.columnFilterAria': '筛选 {{column}}',
+  'manifests.table.columnFilter.noValues': '没有可用值',
   'manifests.table.actions': '操作',
-  'manifests.table.previewText': '预览文本',
+  'manifests.table.previewText': '预览 OCR',
   'manifests.table.extract': '提取',
   'manifests.table.reextract': '重新提取',
   'manifests.table.viewDetails': '查看详情',
   'manifests.table.empty.title': '暂无结果',
   'manifests.table.empty.description': '未找到匹配的清单。',
 
-  'manifests.actions.menuTitle': '提取操作',
+  'manifests.actions.menuTitle': '操作',
   'manifests.actions.viewHistory': '查看提取历史/详情',
   'manifests.actions.updateRules': '更新提取规则',
   'manifests.actions.historyDialogTitle': '提取历史',
@@ -296,6 +303,9 @@ export const zhCNMessages: Record<string, string> = {
   'audit.menu.sections': '分区',
   'audit.menu.runValidation': '运行校验',
   'audit.menu.runningValidation': '正在校验…',
+  'audit.verify.confirmTitle': '校验失败',
+  'audit.verify.confirmMessage': '校验发现 {{errors}} 个错误和 {{warnings}} 个警告。\n仍要将其标记为人工确认并保存吗？',
+  'audit.verify.confirmText': '仍然保存',
 
   'audit.tab.form': '发票表单',
   'audit.tab.extraction': '提取',

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalizeJsonSchemaForDisplay, deriveExtractionHintMap, deriveSchemaAuditFields } from './schema';
+import {
+  canonicalizeJsonSchemaForDisplay,
+  deriveExtractionHintMap,
+  deriveSchemaAuditFields,
+  deriveSchemaTableColumns,
+} from './schema';
 
 describe('deriveExtractionHintMap', () => {
   it('extracts x-extraction-hint by field path', () => {
@@ -192,6 +197,90 @@ describe('deriveSchemaAuditFields', () => {
     const fields = deriveSchemaAuditFields(schema);
     expect(fields.arrayObjectFields).toHaveLength(1);
     expect(fields.arrayObjectFields[0]?.itemFields.map((field) => field.path)).toEqual(['items[].a', 'items[].z']);
+  });
+});
+
+describe('deriveSchemaTableColumns', () => {
+  it('uses x-table-columns order and ignores array paths', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        invoice: {
+          type: 'object',
+          properties: {
+            po_no: { type: 'string', title: 'PO #' },
+          },
+        },
+        department: {
+          type: 'object',
+          properties: {
+            code: { type: 'string', title: 'Dept' },
+          },
+        },
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              desc: { type: 'string', title: 'Desc' },
+            },
+          },
+        },
+      },
+      'x-table-columns': ['invoice.po_no', 'items[].desc', 'department.code'],
+    } as unknown as Record<string, unknown>;
+
+    const columns = deriveSchemaTableColumns(schema, { fallbackLimit: 4 });
+
+    expect(columns.map((col) => col.path)).toEqual(['invoice.po_no', 'department.code']);
+    expect(columns[0]?.title).toBe('PO #');
+    expect(columns[1]?.title).toBe('Dept');
+  });
+
+  it('treats empty x-table-columns as an explicit opt-out', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        invoice: {
+          type: 'object',
+          properties: { po_no: { type: 'string', title: 'PO #' } },
+        },
+      },
+      'x-table-columns': [],
+    } as unknown as Record<string, unknown>;
+
+    expect(deriveSchemaTableColumns(schema).map((col) => col.path)).toEqual([]);
+  });
+
+  it('falls back to a small required-first selection when x-table-columns is absent', () => {
+    const schema = {
+      type: 'object',
+      required: ['vendor'],
+      properties: {
+        _internal: { type: 'string' },
+        invoice: {
+          type: 'object',
+          required: ['po_no'],
+          properties: {
+            po_no: { type: 'string', title: 'PO No' },
+            notes: { type: 'string' },
+          },
+        },
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              desc: { type: 'string' },
+            },
+          },
+        },
+        vendor: { type: 'string', title: 'Vendor' },
+      },
+    } as unknown as Record<string, unknown>;
+
+    const columns = deriveSchemaTableColumns(schema, { fallbackLimit: 2 });
+    expect(columns.map((col) => col.path)).toEqual(['invoice.po_no', 'vendor']);
   });
 });
 
