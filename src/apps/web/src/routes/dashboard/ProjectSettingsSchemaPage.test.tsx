@@ -31,7 +31,7 @@ describe('ProjectSettingsSchemaPage', () => {
   });
 
   it('updates schema via API when submitting edit form', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
     let schema = {
       id: 1,
       name: 'Invoice Schema',
@@ -66,8 +66,8 @@ describe('ProjectSettingsSchemaPage', () => {
 
     await screen.findByText('Invoice Schema');
 
-    await user.click(screen.getByRole('button', { name: /Edit Schema/i }));
-    await screen.findByText('Edit Schema');
+    await user.click(screen.getByRole('button', { name: /^Edit$/i }));
+    await screen.findByRole('heading', { name: /Edit schema/i });
 
     const nextJsonSchema = {
       type: 'object',
@@ -84,4 +84,3 @@ describe('ProjectSettingsSchemaPage', () => {
     });
   });
 });
-

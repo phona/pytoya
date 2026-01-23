@@ -213,6 +213,7 @@ Critical for mechanical industry invoices (Chinese):
 - **Services**:
   - Text extractor pricing: `src/apps/api/src/text-extractor/`
   - LLM pricing: `src/apps/api/src/models/model-pricing.service.ts`
+- **Precision**: Costs are calculated using nano-unit bigint helpers (1e-9) and converted back to `number` for storage/DTOs to avoid floating point drift.
 - **Text Cost Calculation**:
   ```
   Text Cost = (Number of Pages) × Price Per Page
@@ -251,8 +252,10 @@ Critical for mechanical industry invoices (Chinese):
   }
   ```
 - **Pricing History**: All pricing changes are archived in `ModelEntity.pricingHistory` with effectiveDate/endDate
-- **Cost Tracking**: Extractions record text + LLM costs in `JobEntity` and `ManifestEntity.extractionCost`
-- **WebSocket Events**: `job-update` and `manifest-update` events include `costBreakdown` with `text`, `llm`, `total` fields
+- **Currency**: Currency is taken from pricing/metadata (no default USD fallback); when costs span multiple currencies, total cost is represented as `null` and callers should display per-currency totals.
+- **Cost Tracking**: Extractions record costs in `JobEntity` (estimated/actual + `costCurrency`) and in `ManifestEntity` (`textCost`, `llmCost`, `extractionCost`, `extractionCostCurrency`).
+- **WebSocket Events**: `job-update` and `manifest-update` include `costBreakdown` with `text`, `llm`, `total` (nullable when mixed currencies), and `currency` (nullable).
+- **Cost Dashboard Metrics**: `GET /api/metrics/cost-dashboard` returns currency-grouped totals + LLM/token and text/page breakdowns for embedded dashboard widgets.
 - **Frontend State**: `src/apps/web/src/shared/stores/extraction.ts` tracks accumulated costs with `addCost(amount, type)` where type is `'text'`, `'llm'`, or `'total'`
 - **Global Jobs Panel**: `src/apps/web/src/shared/components/JobsPanel.tsx` + `src/apps/web/src/shared/stores/jobs.ts` track in-progress jobs across navigation and subscribe to manifest updates via `useWebSocket`
 - **Cached OCR**: When OCR is reused from `ManifestEntity.ocrResult`, `TextExtractionMetadata.estimated` is set and `costBreakdown.text` is treated as `0` (no new text extraction usage for that job).

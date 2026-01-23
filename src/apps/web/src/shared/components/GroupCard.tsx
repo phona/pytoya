@@ -21,6 +21,7 @@ export function GroupCard({ group, onClick, onDelete, onEdit }: GroupCardProps) 
   const statusCounts = group.statusCounts ?? {
     pending: 0,
     failed: 0,
+    completed: 0,
     verified: 0,
   };
   const actionClasses = onClick
@@ -120,6 +121,9 @@ export function GroupCard({ group, onClick, onDelete, onEdit }: GroupCardProps) 
         </span>
         <span className={`rounded-full px-2 py-0.5 ${getGroupStatusBadgeClasses('failed')}`}>
           {t('groups.card.errorCount', { count: statusCounts.failed })}
+        </span>
+        <span className={`rounded-full px-2 py-0.5 ${getGroupStatusBadgeClasses('completed')}`}>
+          {t('groups.card.completedCount', { count: statusCounts.completed })}
         </span>
         <span className={`rounded-full px-2 py-0.5 ${getGroupStatusBadgeClasses('verified')}`}>
           {t('groups.card.verifiedCount', { count: statusCounts.verified })}

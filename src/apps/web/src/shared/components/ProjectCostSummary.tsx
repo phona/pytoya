@@ -1,13 +1,10 @@
 import type { ProjectCostSummary as ProjectCostSummaryType } from '@/api/projects';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Separator } from '@/shared/components/ui/separator';
+import { formatCostWithCurrency } from '@/shared/utils/cost';
 
 type ProjectCostSummaryProps = {
   summary?: ProjectCostSummaryType;
-};
-
-const formatCurrency = (value: number) => {
-  return `$${value.toFixed(4)}`;
 };
 
 export function ProjectCostSummary({ summary }: ProjectCostSummaryProps) {
@@ -30,7 +27,19 @@ export function ProjectCostSummary({ summary }: ProjectCostSummaryProps) {
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <div className="text-xs text-muted-foreground">Total Extraction Cost</div>
-            <div className="text-xl font-semibold">{formatCurrency(summary.totalExtractionCost)}</div>
+            {summary.totalsByCurrency && summary.totalsByCurrency.length > 0 ? (
+              <div className="space-y-1">
+                {summary.totalsByCurrency.map((entry) => (
+                  <div key={entry.currency} className="text-xl font-semibold">
+                    {formatCostWithCurrency(entry.totalExtractionCost, entry.currency)}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xl font-semibold">
+                {formatCostWithCurrency(summary.totalExtractionCost ?? 0, summary.currency)}
+              </div>
+            )}
           </div>
           <div>
             <div className="text-xs text-muted-foreground">Date Range</div>
@@ -56,7 +65,7 @@ export function ProjectCostSummary({ summary }: ProjectCostSummaryProps) {
                     {item.extractorName ?? 'Unknown extractor'}
                   </span>
                   <span className="font-medium">
-                    {formatCurrency(item.totalCost)} ({item.extractionCount})
+                    {formatCostWithCurrency(item.totalCost, item.currency)} ({item.extractionCount})
                   </span>
                 </div>
               ))}
@@ -75,7 +84,7 @@ export function ProjectCostSummary({ summary }: ProjectCostSummaryProps) {
               {summary.costOverTime.slice(-10).map((entry) => (
                 <div key={entry.date} className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">{entry.date}</span>
-                  <span className="font-medium">{formatCurrency(entry.extractionCost)}</span>
+                  <span className="font-medium">{formatCostWithCurrency(entry.extractionCost, entry.currency)}</span>
                 </div>
               ))}
             </div>

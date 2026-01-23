@@ -56,6 +56,10 @@ export class ManifestEntity {
   @Column({ type: 'varchar', name: 'storage_path' })
   storagePath!: string;
 
+  @Index()
+  @Column({ type: 'varchar', name: 'content_sha256', nullable: true })
+  contentSha256!: string | null;
+
   @Column({ type: 'int', name: 'file_size' })
   fileSize!: number;
 
@@ -104,12 +108,33 @@ export class ManifestEntity {
 
   @Column({
     type: 'decimal',
-    precision: 10,
-    scale: 4,
+    precision: 18,
+    scale: 9,
+    name: 'text_cost',
+    nullable: true,
+  })
+  textCost!: number | null;
+
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 9,
+    name: 'llm_cost',
+    nullable: true,
+  })
+  llmCost!: number | null;
+
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 9,
     name: 'extraction_cost',
     nullable: true,
   })
   extractionCost!: number | null;
+
+  @Column({ type: 'varchar', name: 'extraction_cost_currency', nullable: true })
+  extractionCostCurrency!: string | null;
 
   @Column({ type: 'uuid', nullable: true, name: 'text_extractor_id' })
   textExtractorId!: string | null;

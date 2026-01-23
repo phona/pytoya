@@ -13,7 +13,6 @@ import { TextExtractorModule } from '../text-extractor/text-extractor.module';
 import { StorageModule } from '../storage/storage.module';
 import { WebSocketModule } from '../websocket/websocket.module';
 import { CsvExportService } from './csv-export.service';
-import { CostEstimateService } from './cost-estimate.service';
 import { ManifestsController } from './manifests.controller';
 import { ManifestsService } from './manifests.service';
 import {
@@ -40,7 +39,6 @@ import {
   controllers: [ManifestsController],
   providers: [
     CsvExportService,
-    CostEstimateService,
     ManifestsService,
     PdfFileInterceptor,
     PdfFilesInterceptor,

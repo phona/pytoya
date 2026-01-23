@@ -3,6 +3,7 @@ import { GroupEntity } from '../../entities/group.entity';
 export type GroupStatusCounts = {
   pending: number;
   failed: number;
+  completed: number;
   verified: number;
 };
 

@@ -71,6 +71,10 @@ export class GroupsService {
         'failedCount',
       )
       .addSelect(
+        'SUM(CASE WHEN manifest.status = :completed THEN 1 ELSE 0 END)',
+        'completedCount',
+      )
+      .addSelect(
         'SUM(CASE WHEN manifest.humanVerified = true THEN 1 ELSE 0 END)',
         'verifiedCount',
       )
@@ -78,6 +82,7 @@ export class GroupsService {
       .setParameters({
         pending: ManifestStatus.PENDING,
         failed: ManifestStatus.FAILED,
+        completed: ManifestStatus.COMPLETED,
       })
       .groupBy('manifest.groupId')
       .getRawMany<{
@@ -85,6 +90,7 @@ export class GroupsService {
         totalCount: string;
         pendingCount: string;
         failedCount: string;
+        completedCount: string;
         verifiedCount: string;
       }>();
 
@@ -96,6 +102,7 @@ export class GroupsService {
         status: {
           pending: Number(row.pendingCount ?? 0),
           failed: Number(row.failedCount ?? 0),
+          completed: Number(row.completedCount ?? 0),
           verified: Number(row.verifiedCount ?? 0),
         },
       });
@@ -105,7 +112,7 @@ export class GroupsService {
       group,
       counts: countsByGroupId.get(group.id) ?? {
         manifests: 0,
-        status: { pending: 0, failed: 0, verified: 0 },
+        status: { pending: 0, failed: 0, completed: 0, verified: 0 },
       },
     }));
   }

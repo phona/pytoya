@@ -13,10 +13,19 @@ const baseGroup: Group = {
   createdAt: '2025-01-01T00:00:00.000Z',
   updatedAt: '2025-01-01T00:00:00.000Z',
   _count: { manifests: 3 },
-  statusCounts: { pending: 1, failed: 1, verified: 1 },
+  statusCounts: { pending: 1, failed: 1, completed: 1, verified: 1 },
 };
 
 describe('GroupCard', () => {
+  it('renders status count badges including completed', () => {
+    renderWithProviders(<GroupCard group={baseGroup} />);
+
+    expect(screen.getByText('1 pending')).toBeInTheDocument();
+    expect(screen.getByText('1 errors')).toBeInTheDocument();
+    expect(screen.getByText('1 completed')).toBeInTheDocument();
+    expect(screen.getByText('1 verified')).toBeInTheDocument();
+  });
+
   it('calls onClick when the card is activated', async () => {
     const user = userEvent.setup();
     const onClick = vi.fn();

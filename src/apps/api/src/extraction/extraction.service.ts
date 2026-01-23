@@ -31,6 +31,13 @@ import { PricingConfig, TextExtractionMetadata } from '../text-extractor/types/e
 import { OcrResultDto } from '../manifests/dto/ocr-result.dto';
 import { ManifestsService } from '../manifests/manifests.service';
 import {
+  applyMinimumCharge,
+  calculateTokenCostNano,
+  multiplyNanoAmounts,
+  nanoToNumber,
+  numberToNano,
+} from '../common/cost/nano';
+import {
   ExtractionStateResult,
   ExtractionStatus,
   ExtractionValidationResult,
@@ -49,6 +56,15 @@ type ExtractionOptions = {
   fieldName?: string;
   customPrompt?: string;
   textContextSnippet?: string;
+};
+
+type StageLogExtras = {
+  manifestId?: number;
+  jobId?: string;
+  durationMs?: number;
+  extractionRetryCount?: number;
+  missingFieldsCount?: number;
+  error?: string;
 };
 
 const DEFAULT_REQUIRED_FIELDS = [
@@ -84,6 +100,71 @@ export class ExtractionService {
     private readonly fileSystem: IFileAccessService,
     private readonly manifestsService: ManifestsService,
   ) {}
+
+  private formatStageLogLine(
+    event: 'start' | 'end' | 'fail',
+    stage: ExtractionStatus,
+    extras: StageLogExtras,
+  ): string {
+    const parts: string[] = [`event=${event}`, `stage=${stage}`];
+    const push = (key: string, value: string | number | null | undefined) => {
+      if (value === undefined) return;
+      if (value === null) {
+        parts.push(`${key}=null`);
+        return;
+      }
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) return;
+        parts.push(/\s/.test(trimmed) ? `${key}=${JSON.stringify(trimmed)}` : `${key}=${trimmed}`);
+        return;
+      }
+      parts.push(`${key}=${String(value)}`);
+    };
+
+    push('manifestId', extras.manifestId);
+    push('jobId', extras.jobId);
+    push('durationMs', extras.durationMs);
+    push('extractionRetryCount', extras.extractionRetryCount);
+    push('missingFieldsCount', extras.missingFieldsCount);
+    push('error', extras.error);
+    return parts.join(' ');
+  }
+
+  private async withStageBoundaryLogs<T>(
+    stage: ExtractionStatus,
+    base: StageLogExtras,
+    run: () => Promise<T>,
+    getExtras?: () => StageLogExtras,
+  ): Promise<T> {
+    const startedAt = Date.now();
+    this.logger.log(this.formatStageLogLine('start', stage, { ...base, ...(getExtras?.() ?? {}) }));
+
+    try {
+      const result = await run();
+      const durationMs = Date.now() - startedAt;
+      this.logger.log(
+        this.formatStageLogLine('end', stage, { ...base, durationMs, ...(getExtras?.() ?? {}) }),
+      );
+      return result;
+    } catch (error) {
+      const durationMs = Date.now() - startedAt;
+      const extras = getExtras?.() ?? {};
+      const message = this.formatError(error);
+      const line = this.formatStageLogLine('fail', stage, {
+        ...base,
+        durationMs,
+        ...extras,
+        error: message,
+      });
+      if (error instanceof Error) {
+        this.logger.error(line, error.stack);
+      } else {
+        this.logger.error(line);
+      }
+      throw error;
+    }
+  }
 
   async optimizePrompt(description: string): Promise<{ prompt: string }> {
     const systemPrompt = [
@@ -152,6 +233,7 @@ export class ExtractionService {
     if (!project.textExtractorId) {
       throw new BadRequestException('Project text extractor is required for extraction');
     }
+    const textExtractorId = project.textExtractorId;
 
     const schema = await this.schemasService.findOne(project.defaultSchemaId);
     const rules = await this.schemaRulesService.findBySchema(schema.id);
@@ -212,68 +294,116 @@ export class ExtractionService {
     await this.updateManifestStatus(manifest, ManifestStatus.PROCESSING);
 
     try {
-      state.status = ExtractionStatus.VALIDATING;
-      reportProgress(10);
-      await this.validateManifest(manifest, state);
+      const logBase: StageLogExtras = {
+        manifestId: manifest.id,
+        jobId: options.queueJobId,
+      };
 
-      state.status = ExtractionStatus.TEXT_EXTRACTING;
-      reportProgress(25);
-      const textResult = manifest.ocrResult
-        ? await this.buildCachedTextExtractionState(manifest, project.textExtractorId)
-        : await this.executeTextExtraction(
-            manifest,
-            await this.fileSystem.readFile(manifest.storagePath),
-            project.textExtractorId,
-          );
-      state.textResult = textResult;
-      reportProgress(40);
-
-      await this.runExtractionLoop(
-        state,
-        {
-          ...options,
-          llmModel,
-          systemPromptOverride,
-          reExtractPromptOverride,
+      await this.withStageBoundaryLogs(
+        ExtractionStatus.VALIDATING,
+        logBase,
+        async () => {
+          state.status = ExtractionStatus.VALIDATING;
+          reportProgress(10);
+          await this.validateManifest(manifest, state);
         },
-        schema,
-        enabledRules,
-        isFieldReExtract && targetFieldName
-          ? [targetFieldName]
-          : schema?.requiredFields ?? this.getRequiredFields(),
+        () => ({ extractionRetryCount: state.extractionRetryCount }),
       );
-      reportProgress(80);
 
-      state.status = ExtractionStatus.SAVING;
-      reportProgress(90);
+      await this.withStageBoundaryLogs(
+        ExtractionStatus.TEXT_EXTRACTING,
+        logBase,
+        async () => {
+          state.status = ExtractionStatus.TEXT_EXTRACTING;
+          reportProgress(25);
+          const textResult = manifest.ocrResult
+            ? await this.buildCachedTextExtractionState(manifest, textExtractorId)
+            : await this.executeTextExtraction(
+                manifest,
+                await this.fileSystem.readFile(manifest.storagePath),
+                textExtractorId,
+              );
+          state.textResult = textResult;
+          reportProgress(40);
+        },
+        () => ({ extractionRetryCount: state.extractionRetryCount }),
+      );
 
-      const costSummary = this.calculateCostSummary(state, llmModel);
-      state.textCost = costSummary.textCost;
-      state.llmCost = costSummary.llmCost;
-      state.extractionCost = costSummary.textCost + costSummary.llmCost;
-      manifest.extractionCost = state.extractionCost;
+      await this.withStageBoundaryLogs(
+        ExtractionStatus.EXTRACTING,
+        logBase,
+        async () => {
+          await this.runExtractionLoop(
+            state,
+            {
+              ...options,
+              llmModel,
+              systemPromptOverride,
+              reExtractPromptOverride,
+            },
+            schema,
+            enabledRules,
+            isFieldReExtract && targetFieldName
+              ? [targetFieldName]
+              : schema?.requiredFields ?? this.getRequiredFields(),
+          );
+          reportProgress(80);
+        },
+        () => {
+          const missingFieldsCount = state.extractionResult?.validation?.missingFields?.length ?? 0;
+          return {
+            extractionRetryCount: state.extractionRetryCount,
+            missingFieldsCount: missingFieldsCount > 0 ? missingFieldsCount : undefined,
+          };
+        },
+      );
 
-      if (
-        isFieldReExtract &&
-        previousExtractedData &&
-        targetFieldName &&
-        state.extractionResult?.success
-      ) {
-        state.extractionResult.data = this.mergeFieldReExtractResult(
-          previousExtractedData,
-          state.extractionResult.data,
-          targetFieldName,
-        );
-      }
+      await this.withStageBoundaryLogs(
+        ExtractionStatus.SAVING,
+        logBase,
+        async () => {
+          state.status = ExtractionStatus.SAVING;
+          reportProgress(90);
 
-      await this.saveResult(manifest, state);
-      state.status = ExtractionStatus.COMPLETED;
-      reportProgress(100);
+          const costSummary = this.calculateCostSummary(state, llmModel);
+          state.textCost = costSummary.textCost;
+          state.llmCost = costSummary.llmCost;
+          state.currency = costSummary.currency ?? undefined;
+          state.extractionCost = costSummary.totalCost ?? undefined;
+
+          manifest.textCost = costSummary.textCost;
+          manifest.llmCost = costSummary.llmCost;
+          manifest.extractionCost = costSummary.totalCost;
+          manifest.extractionCostCurrency = costSummary.currency;
+
+          if (
+            isFieldReExtract &&
+            previousExtractedData &&
+            targetFieldName &&
+            state.extractionResult?.success
+          ) {
+            state.extractionResult.data = this.mergeFieldReExtractResult(
+              previousExtractedData,
+              state.extractionResult.data,
+              targetFieldName,
+            );
+          }
+
+          await this.saveResult(manifest, state);
+          state.status = ExtractionStatus.COMPLETED;
+          reportProgress(100);
+        },
+        () => ({ extractionRetryCount: state.extractionRetryCount }),
+      );
 
       return state;
     } catch (error) {
       const message = this.formatError(error);
-      this.logger.error(`Extraction workflow failed: ${message}`);
+      if (error instanceof Error) {
+        this.logger.error(`Extraction workflow failed: ${message}`, error.stack);
+      } else {
+        this.logger.error(`Extraction workflow failed: ${message}`);
+      }
       state.errors.push(message);
       state.currentError = message;
       state.status = ExtractionStatus.FAILED;
@@ -402,24 +532,39 @@ export class ExtractionService {
     }
 
     if (pricing.mode === 'page') {
-      const cost = (pricing.pricePerPage ?? 0) * pagesTotal;
-      return pricing.minimumCharge ? Math.max(cost, pricing.minimumCharge) : cost;
+      const pagesNano = numberToNano(Math.max(0, pagesTotal));
+      const priceNano = numberToNano(pricing.pricePerPage ?? 0);
+      const rawCostNano = multiplyNanoAmounts(pagesNano, priceNano);
+      const costNano = applyMinimumCharge(
+        rawCostNano,
+        numberToNano(pricing.minimumCharge),
+      );
+      return nanoToNumber(costNano);
     }
 
     if (pricing.mode === 'fixed') {
-      const cost = pricing.fixedCost ?? 0;
-      return pricing.minimumCharge ? Math.max(cost, pricing.minimumCharge) : cost;
+      const rawCostNano = numberToNano(pricing.fixedCost ?? 0);
+      const costNano = applyMinimumCharge(
+        rawCostNano,
+        numberToNano(pricing.minimumCharge),
+      );
+      return nanoToNumber(costNano);
     }
 
     if (pricing.mode === 'token') {
-      const inputCost = pricing.inputPricePerMillionTokens
-        ? (tokensMax / 1_000_000) * pricing.inputPricePerMillionTokens
-        : 0;
-      const outputCost = pricing.outputPricePerMillionTokens
-        ? (Math.round(tokensMax * 0.2) / 1_000_000) * pricing.outputPricePerMillionTokens
-        : 0;
-      const total = inputCost + outputCost;
-      return pricing.minimumCharge ? Math.max(total, pricing.minimumCharge) : total;
+      const inputPrice = pricing.inputPricePerMillionTokens ?? 0;
+      const outputPrice = pricing.outputPricePerMillionTokens ?? 0;
+      const rawCostNano = calculateTokenCostNano(
+        tokensMax,
+        Math.round(tokensMax * 0.2),
+        inputPrice,
+        outputPrice,
+      );
+      const costNano = applyMinimumCharge(
+        rawCostNano,
+        numberToNano(pricing.minimumCharge),
+      );
+      return nanoToNumber(costNano);
     }
 
     return 0;
@@ -701,7 +846,7 @@ export class ExtractionService {
   private calculateCostSummary(
     state: ExtractionWorkflowState,
     llmModel?: ModelEntity,
-  ): { textCost: number; llmCost: number } {
+  ): { textCost: number; llmCost: number; totalCost: number | null; currency: string | null } {
     const textMetadata = state.textResult?.metadata;
     const textCost = textMetadata?.estimated ? 0 : (textMetadata?.textCost ?? 0);
     const tokenUsage = state.extractionResult?.tokenUsage;
@@ -713,7 +858,41 @@ export class ExtractionService {
         )
       : 0;
 
-    return { textCost, llmCost };
+    const textCurrencyRaw = textMetadata?.currency ?? null;
+    const llmCurrencyRaw = llmModel
+      ? (this.modelPricingService.getCurrency(llmModel.pricing) ?? null)
+      : null;
+
+    const hasText = textCost > 0;
+    const hasLlm = llmCost > 0;
+
+    const knownCurrencies = new Set<string>();
+    const addKnownCurrency = (raw: string | null) => {
+      const trimmed = raw?.trim() || '';
+      if (trimmed) {
+        knownCurrencies.add(trimmed);
+      }
+    };
+
+    if (hasText) {
+      addKnownCurrency(textCurrencyRaw);
+    }
+    if (hasLlm) {
+      addKnownCurrency(llmCurrencyRaw);
+    }
+
+    const currency =
+      knownCurrencies.size === 1
+        ? Array.from(knownCurrencies)[0]
+        : knownCurrencies.size > 1
+          ? null
+          : hasText || hasLlm
+            ? 'unknown'
+            : null;
+
+    const totalCost = !hasText && !hasLlm ? 0 : currency === null ? null : textCost + llmCost;
+
+    return { textCost, llmCost, totalCost, currency };
   }
 
   private async saveResult(manifest: ManifestEntity, state: ExtractionWorkflowState): Promise<void> {

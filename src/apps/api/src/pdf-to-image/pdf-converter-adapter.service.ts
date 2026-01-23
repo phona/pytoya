@@ -1,5 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { ConvertedPage } from './pdf-to-image.service';
+import { Inject, Injectable, InternalServerErrorException } from '@nestjs/common';
 
 /**
  * PDF document interface returned by converter adapter.
@@ -42,6 +41,17 @@ export interface IPdfConverterAdapter {
   ): Promise<PdfDoc>;
 }
 
+export interface IPdfToImgModuleLoader {
+  load(): Promise<unknown>;
+}
+
+@Injectable()
+export class PdfToImgModuleLoader implements IPdfToImgModuleLoader {
+  async load(): Promise<unknown> {
+    return import('pdf-to-img');
+  }
+}
+
 /**
  * Default implementation using pdf-to-img library.
  * Uses dynamic import since pdf-to-img is ESM-only.
@@ -49,6 +59,11 @@ export interface IPdfConverterAdapter {
 @Injectable()
 export class PdfToImgConverterAdapter implements IPdfConverterAdapter {
   private pdfToImg: any = null;
+
+  constructor(
+    @Inject('IPdfToImgModuleLoader')
+    private readonly moduleLoader: IPdfToImgModuleLoader,
+  ) {}
 
   async convert(
     input: string | Buffer | Uint8Array,
@@ -73,12 +88,22 @@ export class PdfToImgConverterAdapter implements IPdfConverterAdapter {
    */
   private async getPdfToImg(): Promise<any> {
     if (!this.pdfToImg) {
-      const module = await import('pdf-to-img');
-      const pdfFunc = (module as unknown as { default: any }).default;
+      const module = await this.moduleLoader.load();
+      const maybeModule = module as any;
+
+      // pdf-to-img@5 exports a named `pdf` function (no default export).
+      // Depending on tooling/transpilation, we may see default wrappers too.
+      const candidates = [
+        maybeModule?.pdf,
+        maybeModule?.default?.pdf,
+        maybeModule?.default,
+        maybeModule?.default?.default,
+      ];
+      const pdfFunc = candidates.find((candidate) => typeof candidate === 'function');
 
       if (!pdfFunc) {
         throw new InternalServerErrorException(
-          'pdf-to-img module does not export a default function',
+          'pdf-to-img module does not export a callable pdf function',
         );
       }
 

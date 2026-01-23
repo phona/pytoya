@@ -25,8 +25,12 @@ export class ManifestResponseDto {
   ocrResult!: OcrResultDto | null;
   ocrProcessedAt!: Date | null;
   ocrQualityScore!: number | null;
+  textCost!: number | null;
+  llmCost!: number | null;
   extractionCost!: number | null;
+  extractionCostCurrency!: string | null;
   textExtractorId!: string | null;
+  isDuplicate?: boolean;
   createdAt!: Date;
   updatedAt!: Date;
 
@@ -34,6 +38,14 @@ export class ManifestResponseDto {
     manifest: ManifestEntity,
     options: { includeOcr?: boolean } = {},
   ): ManifestResponseDto {
+    const textCost =
+      typeof manifest.textCost === 'string'
+        ? Number.parseFloat(manifest.textCost)
+        : manifest.textCost ?? null;
+    const llmCost =
+      typeof manifest.llmCost === 'string'
+        ? Number.parseFloat(manifest.llmCost)
+        : manifest.llmCost ?? null;
     const extractionCost =
       typeof manifest.extractionCost === 'string'
         ? Number.parseFloat(manifest.extractionCost)
@@ -60,7 +72,10 @@ export class ManifestResponseDto {
         : null,
       ocrProcessedAt: manifest.ocrProcessedAt ?? null,
       ocrQualityScore: manifest.ocrQualityScore ?? null,
+      textCost,
+      llmCost,
       extractionCost,
+      extractionCostCurrency: manifest.extractionCostCurrency ?? null,
       textExtractorId: manifest.textExtractorId ?? null,
       createdAt: manifest.createdAt,
       updatedAt: manifest.updatedAt,

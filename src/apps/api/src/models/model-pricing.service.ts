@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { ModelPricing } from '../entities/model-pricing.types';
+import {
+  applyMinimumCharge,
+  calculateTokenCostNano,
+  multiplyNanoAmounts,
+  nanoToNumber,
+  numberToNano,
+} from '../common/cost/nano';
 
 @Injectable()
 export class ModelPricingService {
@@ -8,10 +15,14 @@ export class ModelPricingService {
     if (!ocrPricing || pages <= 0) {
       return 0;
     }
-    const cost = pages * ocrPricing.pricePerPage;
-    return ocrPricing.minimumCharge
-      ? Math.max(cost, ocrPricing.minimumCharge)
-      : cost;
+    const pagesNano = numberToNano(Math.max(0, pages));
+    const priceNano = numberToNano(ocrPricing.pricePerPage);
+    const rawCostNano = multiplyNanoAmounts(pagesNano, priceNano);
+    const costNano = applyMinimumCharge(
+      rawCostNano,
+      numberToNano(ocrPricing.minimumCharge),
+    );
+    return nanoToNumber(costNano);
   }
 
   calculateLlmCost(
@@ -23,14 +34,17 @@ export class ModelPricingService {
     if (!llmPricing) {
       return 0;
     }
-    const safeInput = Math.max(0, inputTokens);
-    const safeOutput = Math.max(0, outputTokens);
-    const inputCost = (safeInput / 1_000_000) * llmPricing.inputPrice;
-    const outputCost = (safeOutput / 1_000_000) * llmPricing.outputPrice;
-    const total = inputCost + outputCost;
-    return llmPricing.minimumCharge
-      ? Math.max(total, llmPricing.minimumCharge)
-      : total;
+    const rawCostNano = calculateTokenCostNano(
+      inputTokens,
+      outputTokens,
+      llmPricing.inputPrice,
+      llmPricing.outputPrice,
+    );
+    const costNano = applyMinimumCharge(
+      rawCostNano,
+      numberToNano(llmPricing.minimumCharge),
+    );
+    return nanoToNumber(costNano);
   }
 
   calculateTotalExtractionCost(
@@ -46,7 +60,7 @@ export class ModelPricingService {
     );
   }
 
-  getCurrency(pricing?: ModelPricing): string {
-    return pricing?.ocr?.currency ?? pricing?.llm?.currency ?? 'USD';
+  getCurrency(pricing?: ModelPricing): string | undefined {
+    return pricing?.ocr?.currency ?? pricing?.llm?.currency ?? undefined;
   }
 }

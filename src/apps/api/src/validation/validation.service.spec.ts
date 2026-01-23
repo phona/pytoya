@@ -128,6 +128,23 @@ describe('ScriptExecutorService', () => {
       expect(result).toEqual([]);
     });
 
+    it('should allow Number() conversion in sandbox', async () => {
+      const script = `function validate(extractedData) {
+        return [{
+          field: 'value',
+          message: 'converted',
+          severity: 'warning',
+          actual: Number(extractedData.value),
+          expected: 123,
+        }];
+      }`;
+
+      const result = await service.executeScript(script, { value: '123' });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].actual).toBe(123);
+    });
+
     it('should handle complex extracted data structures', async () => {
       const script = `function validate(extractedData) {
         const issues = [];
@@ -196,6 +213,34 @@ describe('ScriptExecutorService', () => {
       }
     }, 15000);
   });
+
+  describe('executeScriptWithDebug', () => {
+    it('should capture console output during execution', async () => {
+      const script = `function validate(extractedData) {
+        console.log('hello', extractedData.value);
+        return [];
+      }`;
+
+      const result = await service.executeScriptWithDebug(script, { value: 'world' });
+
+      expect(result.runtimeError).toBeUndefined();
+      expect(result.issues).toEqual([]);
+      expect(result.logs.length).toBeGreaterThan(0);
+      expect(result.logs[0].message).toContain('hello');
+    });
+
+    it('should return runtimeError when script throws', async () => {
+      const script = `function validate(extractedData) {
+        throw new Error('boom');
+      }`;
+
+      const result = await service.executeScriptWithDebug(script, {});
+
+      expect(result.issues).toEqual([]);
+      expect(result.runtimeError?.message).toContain('boom');
+      expect(result.runtimeError?.stack).toContain('validation-script');
+    });
+  });
 });
 
 describe('ValidationService', () => {
@@ -253,6 +298,7 @@ describe('ValidationService', () => {
     filename: 'test.pdf',
     originalFilename: 'test.pdf',
     storagePath: '/path/to/test.pdf',
+    contentSha256: null,
     fileSize: 12345,
     fileType: 'pdf' as any,
     status: ManifestStatus.COMPLETED,
@@ -267,7 +313,10 @@ describe('ValidationService', () => {
     ocrResult: null,
     ocrProcessedAt: null,
     ocrQualityScore: null,
+    textCost: null,
+    llmCost: null,
     extractionCost: null,
+    extractionCostCurrency: null,
     textExtractorId: mockProject.textExtractorId,
     textExtractor: null,
     group: {

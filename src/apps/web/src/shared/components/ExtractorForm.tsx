@@ -73,11 +73,18 @@ const buildDefaultPricing = (
 ) => {
   if (!schema) return existing ?? {};
   const defaults = buildDefaultConfig(schema, existing);
-  if (!('mode' in defaults)) {
-    defaults.mode = 'none';
+  const modeEnum = (schema.mode?.validation?.enum ?? []) as string[];
+  const defaultMode = modeEnum.includes('none') ? 'none' : (modeEnum[0] ?? 'none');
+  if (!('mode' in defaults) || defaults.mode === '' || defaults.mode === undefined || defaults.mode === null) {
+    defaults.mode = defaultMode;
   }
-  if (!('currency' in defaults)) {
-    defaults.currency = 'USD';
+
+  const defaultCurrency =
+    typeof schema.currency?.placeholder === 'string' && schema.currency.placeholder.trim()
+      ? schema.currency.placeholder.trim()
+      : 'USD';
+  if (!('currency' in defaults) || defaults.currency === '' || defaults.currency === undefined || defaults.currency === null) {
+    defaults.currency = defaultCurrency;
   }
   return defaults;
 };

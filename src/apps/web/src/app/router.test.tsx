@@ -75,13 +75,6 @@ describe('router configuration', () => {
     expect(modelsRoute?.element?.type?.name).toBe('AdminRoute');
   });
 
-  it('should have prompts route with admin protection', () => {
-    const promptsRoute = findRouteByPath('prompts');
-    expect(promptsRoute).toBeDefined();
-    expect(promptsRoute?.element?.type?.name).toBe('AdminRoute');
-    // Should have AdminRoute wrapper
-  });
-
   it('should have project settings routes', () => {
     const basicSettingsRoute = findRouteByPath('projects/:id/settings/basic');
     const modelsSettingsRoute = findRouteByPath('projects/:id/settings/models');
@@ -134,9 +127,11 @@ describe('router structure', () => {
   });
 
   it('wraps admin-only routes with AdminRoute', () => {
-    // Prompts page should be wrapped with AdminRoute
-    const promptsRoute = findRouteByPath('prompts');
-    expect(promptsRoute).toBeDefined();
-    expect(promptsRoute?.element?.type?.name).toBe('AdminRoute');
+    const modelsRoute = findRouteByPath('models');
+    const extractorsRoute = findRouteByPath('extractors');
+    expect(modelsRoute).toBeDefined();
+    expect(modelsRoute?.element?.type?.name).toBe('AdminRoute');
+    expect(extractorsRoute).toBeDefined();
+    expect(extractorsRoute?.element?.type?.name).toBe('AdminRoute');
   });
 });

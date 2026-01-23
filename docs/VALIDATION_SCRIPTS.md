@@ -37,6 +37,7 @@ Scripts run in a restricted VM context with the following utilities:
 - `Date`: Date constructor
 - `Object.keys()`, `Object.values()`, `Object.entries()`, `Object.assign()`
 - `Array.isArray()`, `Array.from()`
+- `Number(value)`: Convert to number
 - `Number.isFinite()`, `Number.isInteger()`, `Number.isNaN()`, `Number.parseFloat()`, `Number.parseInt()`
 
 ## Security Model
@@ -233,6 +234,27 @@ POST /validation/scripts/validate-syntax
 Body: { script: string }
 Response: { valid: boolean; error?: string }
 ```
+
+### Script Testing (Debug Panel)
+
+```typescript
+// Test a script against provided extractedData and return issues + console output
+POST /validation/scripts/test
+Body: {
+  script: string;
+  extractedData: Record<string, unknown>;
+  debug?: boolean; // when true, captures console.* logs
+}
+Response: {
+  result: ValidationResult;
+  debug?: { logs: Array<{ level: 'log' | 'info' | 'warn' | 'error' | 'debug'; message: string }> };
+  runtimeError?: { message: string; stack?: string };
+}
+```
+
+Notes:
+- `console.log()` output is returned via `debug.logs` when `debug=true` (it is not just written to server logs).
+- Runtime failures return a `runtimeError` with a sanitized stack snippet when available.
 
 ### Validation Execution
 

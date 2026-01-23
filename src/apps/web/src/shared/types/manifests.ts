@@ -4,7 +4,7 @@ export type DynamicManifestFilter = {
 };
 
 export type ManifestFilterValues = {
-  status?: string;
+  status?: 'pending' | 'processing' | 'completed' | 'failed';
   poNo?: string;
   dateFrom?: string;
   dateTo?: string;

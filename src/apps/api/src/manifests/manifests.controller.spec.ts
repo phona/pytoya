@@ -6,10 +6,10 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ManifestsController } from './manifests.controller';
 import { ManifestsService } from './manifests.service';
 import { CsvExportService } from './csv-export.service';
-import { CostEstimateService } from './cost-estimate.service';
 import { QueueService } from '../queue/queue.service';
 import { StorageService } from '../storage/storage.service';
 import { ConfigService } from '@nestjs/config';
+import { GroupsService } from '../groups/groups.service';
 
 describe('ManifestsController', () => {
   let app: INestApplication;
@@ -18,6 +18,11 @@ describe('ManifestsController', () => {
     findItems: jest.fn(),
     listExtractionHistory: jest.fn(),
     getExtractionHistoryEntry: jest.fn(),
+    create: jest.fn(),
+  };
+
+  const queueService = {
+    addExtractionJob: jest.fn(),
   };
 
   beforeAll(async () => {
@@ -26,8 +31,8 @@ describe('ManifestsController', () => {
       providers: [
         { provide: ManifestsService, useValue: manifestsService },
         { provide: CsvExportService, useValue: {} },
-        { provide: CostEstimateService, useValue: {} },
-        { provide: QueueService, useValue: {} },
+        { provide: QueueService, useValue: queueService },
+        { provide: GroupsService, useValue: {} },
         { provide: StorageService, useValue: {} },
         { provide: ConfigService, useValue: { get: () => undefined } },
       ],
@@ -46,6 +51,45 @@ describe('ManifestsController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('does not enqueue extraction jobs on upload', async () => {
+    const controller = app.get(ManifestsController);
+    const now = new Date('2026-01-23T00:00:00.000Z');
+    manifestsService.create.mockResolvedValue({
+      isDuplicate: false,
+      manifest: {
+        id: 1,
+        filename: 'test.pdf',
+        originalFilename: 'test.pdf',
+        storagePath: '/uploads/test.pdf',
+        fileSize: 1024,
+        fileType: 'pdf',
+        status: 'pending',
+        groupId: 1,
+        extractedData: null,
+        confidence: null,
+        purchaseOrder: null,
+        invoiceDate: null,
+        department: null,
+        humanVerified: false,
+        validationResults: null,
+        ocrResult: null,
+        ocrProcessedAt: null,
+        ocrQualityScore: null,
+        textCost: null,
+        llmCost: null,
+        extractionCost: null,
+        extractionCostCurrency: null,
+        textExtractorId: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+
+    await controller.uploadSingle({ id: 1 } as any, 1, {} as any);
+
+    expect(queueService.addExtractionJob).not.toHaveBeenCalled();
   });
 
   it('returns manifest items', async () => {

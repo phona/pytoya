@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -20,9 +21,10 @@ import {
 } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { UserRole } from '../entities/user.entity';
+import { UserEntity, UserRole } from '../entities/user.entity';
 import { adapterRegistry } from './adapters/adapter-registry';
 import { AdapterCategory } from './adapters/adapter.interface';
 import { CreateModelDto } from './dto/create-model.dto';
@@ -88,7 +90,14 @@ export class ModelsController {
   @ApiOperation({ summary: 'Update a model' })
   @ApiParam({ name: 'id', type: String })
   @ApiOkResponse({ type: ModelResponseDto })
-  async update(@Param('id') id: string, @Body() body: UpdateModelDto) {
+  async update(
+    @CurrentUser() user: UserEntity | undefined,
+    @Param('id') id: string,
+    @Body() body: UpdateModelDto,
+  ) {
+    if (body.pricing && user?.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Only admins can update model pricing');
+    }
     const model = await this.modelsService.update(id, body);
     return ModelResponseDto.fromEntity(model);
   }
@@ -103,10 +112,9 @@ export class ModelsController {
     @Param('id') id: string,
     @Body() body: UpdateModelPricingDto,
   ) {
-    const model = await this.modelsService.updatePricing(
-      id,
-      body.pricing,
-    );
+    const model = await this.modelsService.update(id, {
+      pricing: body.pricing,
+    });
     return ModelResponseDto.fromEntity(model);
   }
 

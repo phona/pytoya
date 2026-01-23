@@ -68,81 +68,22 @@ Authorization: Bearer <token>
 
 ### Trigger OCR Processing
 
-Trigger OCR processing for a manifest. If OCR already exists, it will be re-processed only when `force=true`.
+Triggering OCR independently is not supported. OCR results are generated during extraction after the user explicitly starts extraction.
 
 **Request**
 ```http
-POST /api/manifests/:id/ocr?force=false
-Authorization: Bearer <token>
-
-// Optional body for triggering with options
-{
-  "textExtractorId": "extractor-uuid"
-}
+N/A
 ```
-
-**Parameters**
-- `force` (query, optional) - Set to `true` to re-process even if OCR exists
 
 **Response**
 ```json
 {
-  "manifestId": 1,
-  "ocrResult": { /* OCR result object */ },
-  "hasOcr": true,
-  "ocrProcessedAt": "2024-01-15T10:30:00Z",
-  "qualityScore": 90
+  "error": "Not available"
 }
 ```
 
 **Status Codes**
-- `200` - OCR processed successfully
-- `401` - Unauthorized
-- `404` - Manifest not found
-
----
-
-## Cost Estimation Endpoints
-
-### Get Cost Estimate
-
-Calculate cost estimate for extracting one or more manifests.
-
-**Request**
-```http
-GET /api/manifests/cost-estimate?manifestIds=1,2,3&llmModelId=gpt-4o&textExtractorId=extractor-uuid
-Authorization: Bearer <token>
-```
-
-**Query Parameters**
-- `manifestIds` (required) - Comma-separated list of manifest IDs
-- `llmModelId` (optional) - LLM model ID (uses project default if not specified)
-- `textExtractorId` (optional) - Text extractor ID (uses project default if not specified)
-
-**Response**
-```json
-{
-  "manifestCount": 3,
-  "estimatedTokensMin": 3000,
-  "estimatedTokensMax": 4500,
-  "estimatedCostMin": 0.03,
-  "estimatedCostMax": 0.045,
-  "estimatedTextCost": 0.009,
-  "estimatedLlmCostMin": 0.021,
-  "estimatedLlmCostMax": 0.036,
-  "currency": "USD"
-}
-```
-
-**Cost Breakdown**
-- `estimatedTextCost` - Text extraction cost (calculated as pages × pricePerPage)
-- `estimatedLlmCostMin/Max` - LLM cost range (input/output tokens)
-- `estimatedCostMin/Max` - Total cost including both text extraction and LLM
-
-**Status Codes**
-- `200` - Cost estimate calculated successfully
-- `400` - Invalid parameters (no manifests provided, model not found)
-- `401` - Unauthorized
+- `404` - Not found
 
 ---
 
@@ -166,11 +107,7 @@ Authorization: Bearer <token>
 **Response**
 ```json
 {
-  "jobId": "550e8400-e29b-41d4-a716-446655440000",
-  "estimatedCost": {
-    "min": 0.015,
-    "max": 0.025
-  }
+  "jobId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -194,28 +131,25 @@ Authorization: Bearer <token>
 {
   "manifestIds": [1, 2, 3],
   "llmModelId": "gpt-4o",
-  "textExtractorId": "extractor-uuid",
-  "dryRun": false
+  "textExtractorId": "extractor-uuid"
 }
 ```
-
-**Parameters**
-- `dryRun` - If `true`, only returns cost estimate without creating jobs
 
 **Response**
 ```json
 {
+  "jobId": "batch_1700000000000_3",
   "jobIds": [
     "550e8400-e29b-41d4-a716-446655440000",
     "660e8400-e29b-41d4-a716-446655440001",
     "770e8400-e29b-41d4-a716-446655440002"
   ],
-  "manifestCount": 3,
-  "estimatedCost": {
-    "min": 0.045,
-    "max": 0.075
-  },
-  "currency": "USD"
+  "jobs": [
+    { "jobId": "550e8400-e29b-41d4-a716-446655440000", "manifestId": 1 },
+    { "jobId": "660e8400-e29b-41d4-a716-446655440001", "manifestId": 2 },
+    { "jobId": "770e8400-e29b-41d4-a716-446655440002", "manifestId": 3 }
+  ],
+  "manifestCount": 3
 }
 ```
 
@@ -228,7 +162,7 @@ Authorization: Bearer <token>
 
 ### Re-extract Field
 
-Re-extract a specific field from a manifest with preview and cost estimate.
+Re-extract a specific field from a manifest with preview.
 
 **Request**
 ```http
@@ -257,11 +191,6 @@ Authorization: Bearer <token>
     "snippet": "Invoice #001\nPO: 1234567\nDate: 2024-01-15\n...",
     "context": "Full OCR context..."
   },
-  "costEstimate": {
-    "cost": 0.005,
-    "currency": "USD",
-    "tokens": 150
-  },
   "jobId": "880e8400-e29b-41d4-a716-446655440003"
 }
 ```
@@ -270,8 +199,7 @@ Authorization: Bearer <token>
 ```json
 {
   "fieldName": "invoice.po_no",
-  "ocrPreview": { /* preview data */ },
-  "costEstimate": { /* cost data */ }
+  "ocrPreview": { /* preview data */ }
 }
 ```
 
@@ -467,35 +395,15 @@ const ocrResponse = await fetch('/api/manifests/1/ocr', {
 const ocrData = await ocrResponse.json();
 
 if (!ocrData.hasOcr) {
-  // 2. Trigger OCR if not available
-  await fetch('/api/manifests/1/ocr', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
+  // OCR is generated during extraction after the user explicitly starts extraction.
+  console.log('OCR not available (run extraction first).');
 }
 
 // 3. Preview quality score
 console.log(`OCR Quality: ${ocrData.qualityScore}%`);
 ```
 
-### Example 2: Get Cost Estimate Before Bulk Extraction
-
-```javascript
-const manifestIds = [1, 2, 3, 4, 5];
-const costResponse = await fetch(
-  `/api/manifests/cost-estimate?manifestIds=${manifestIds.join(',')}&llmModelId=gpt-4o`,
-  {
-    headers: { 'Authorization': `Bearer ${token}` }
-  }
-);
-const costData = await costResponse.json();
-
-console.log(`Estimated Cost: $${costData.estimatedCostMin} - $${costData.estimatedCostMax}`);
-console.log(`Text Cost: $${costData.estimatedTextCost}`);
-console.log(`LLM Cost: $${costData.estimatedLlmCostMin} - $${costData.estimatedLlmCostMax}`);
-```
-
-### Example 3: Re-extract Single Field
+### Example 2: Re-extract Single Field
 
 ```javascript
 const response = await fetch('/api/manifests/1/re-extract-field', {
@@ -513,7 +421,6 @@ const response = await fetch('/api/manifests/1/re-extract-field', {
 
 const data = await response.json();
 console.log(`Field: ${data.fieldName}`);
-console.log(`Estimated Cost: $${data.costEstimate.cost} (${data.costEstimate.tokens} tokens)`);
 console.log(`Job ID: ${data.jobId}`);
 ```
 

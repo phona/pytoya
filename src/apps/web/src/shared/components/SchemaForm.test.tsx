@@ -1,7 +1,5 @@
-import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react';
+import { renderWithProviders, screen, waitFor, fireEvent, act, within } from '@/tests/utils';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 import { SchemaForm } from './SchemaForm';
 import { Schema } from '@/api/schemas';
@@ -15,21 +13,6 @@ vi.mock('@/shared/hooks/use-projects', () => ({
     ],
   }),
 }));
-
-const createWrapper = () => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false, gcTime: 0 },
-      mutations: { retry: false },
-    },
-  });
-
-  const Wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
-  Wrapper.displayName = 'QueryClientWrapper';
-  return Wrapper;
-};
 
 const click = async (user: ReturnType<typeof userEvent.setup>, element: HTMLElement) => {
   await act(async () => {
@@ -72,13 +55,12 @@ describe('SchemaForm', () => {
 
   describe('Create mode', () => {
     it('should render form fields', () => {
-      render(
+      renderWithProviders(
         <SchemaForm
           onSubmit={mockOnSubmit}
           onCancel={mockOnCancel}
           isLoading={false}
-        />,
-        { wrapper: createWrapper() }
+        />
       );
 
       expect(screen.getByLabelText(/Project/i)).toBeInTheDocument();
@@ -88,13 +70,12 @@ describe('SchemaForm', () => {
     it('should submit valid schema', async () => {
       const user = userEvent.setup({ pointerEventsCheck: 0 });
 
-      render(
+      renderWithProviders(
         <SchemaForm
           onSubmit={mockOnSubmit}
           onCancel={mockOnCancel}
           isLoading={false}
-        />,
-        { wrapper: createWrapper() }
+        />
       );
 
       await selectOption(user, /Project/i, 'Project 1');
@@ -110,13 +91,12 @@ describe('SchemaForm', () => {
     it('should cancel form submission', async () => {
       const user = userEvent.setup({ pointerEventsCheck: 0 });
 
-      render(
+      renderWithProviders(
         <SchemaForm
           onSubmit={mockOnSubmit}
           onCancel={mockOnCancel}
           isLoading={false}
-        />,
-        { wrapper: createWrapper() }
+        />
       );
 
       await click(user, screen.getByRole('button', { name: /Cancel/i }));
@@ -140,28 +120,26 @@ describe('SchemaForm', () => {
     };
 
     it('should populate form with existing schema data', () => {
-      render(
+      renderWithProviders(
         <SchemaForm
           schema={existingSchema}
           onSubmit={mockOnSubmit}
           onCancel={mockOnCancel}
           isLoading={false}
-        />,
-        { wrapper: createWrapper() }
+        />
       );
 
       expect(screen.getByRole('button', { name: /Update/i })).toBeInTheDocument();
     });
 
     it('should disable project selector in edit mode', () => {
-      render(
+      renderWithProviders(
         <SchemaForm
           schema={existingSchema}
           onSubmit={mockOnSubmit}
           onCancel={mockOnCancel}
           isLoading={false}
-        />,
-        { wrapper: createWrapper() }
+        />
       );
 
       const projectSelect = screen.getByLabelText(/Project/i);
@@ -171,13 +149,12 @@ describe('SchemaForm', () => {
 
   describe('Editor mode toggle', () => {
     it('should show both visual and code editor buttons', () => {
-      render(
+      renderWithProviders(
         <SchemaForm
           onSubmit={mockOnSubmit}
           onCancel={mockOnCancel}
           isLoading={false}
-        />,
-        { wrapper: createWrapper() }
+        />
       );
 
       expect(screen.getByRole('button', { name: /Visual Builder/i })).toBeInTheDocument();
@@ -187,13 +164,12 @@ describe('SchemaForm', () => {
     it('should switch to visual builder mode', async () => {
       const user = userEvent.setup({ pointerEventsCheck: 0 });
 
-      render(
+      renderWithProviders(
         <SchemaForm
           onSubmit={mockOnSubmit}
           onCancel={mockOnCancel}
           isLoading={false}
-        />,
-        { wrapper: createWrapper() }
+        />
       );
 
       await click(user, screen.getByRole('button', { name: /Visual Builder/i }));
@@ -207,13 +183,12 @@ describe('SchemaForm', () => {
     it('should show error for invalid JSON', async () => {
       const user = userEvent.setup({ pointerEventsCheck: 0 });
 
-      render(
+      renderWithProviders(
         <SchemaForm
           onSubmit={mockOnSubmit}
           onCancel={mockOnCancel}
           isLoading={false}
-        />,
-        { wrapper: createWrapper() }
+        />
       );
 
       // Switch to code editor
@@ -237,13 +212,12 @@ describe('SchemaForm', () => {
     it('should disable submit with invalid JSON', async () => {
       const user = userEvent.setup({ pointerEventsCheck: 0 });
 
-      render(
+      renderWithProviders(
         <SchemaForm
           onSubmit={mockOnSubmit}
           onCancel={mockOnCancel}
           isLoading={false}
-        />,
-        { wrapper: createWrapper() }
+        />
       );
 
       // Type invalid JSON

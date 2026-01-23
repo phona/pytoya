@@ -147,10 +147,16 @@ Total = OCR Cost + LLM Cost
    - Check the agreement checkbox
    - Click **Start Extraction**
 
-2. **Bulk Extraction**:
-   - Select multiple manifests using checkboxes
-   - Click **Bulk Extract** button
-   - Review aggregate cost estimate
+2. **Bulk Extraction (Selected or Filtered)**:
+   - Select one or more manifests (optional)
+   - Click **Extract…** in the manifests list header
+   - Choose scope:
+     - Selected manifests (N)
+     - All matching current filters (default)
+   - (Optional) Toggle behavior:
+     - Include completed (re-extract)
+     - Include processing
+   - Review the estimated cost range
    - Click **Start Extraction**
 
 ### Extraction Confirmation Modal

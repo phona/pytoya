@@ -189,10 +189,12 @@ export class ExtractorsService {
   }
 
   private validatePricing(pricing?: PricingConfig): void {
-    const resolved = pricing ?? { mode: 'none', currency: 'USD' };
+    const resolved = pricing ?? { mode: 'none' };
 
-    if (!resolved.currency || typeof resolved.currency !== 'string') {
-      throw new BadRequestException('Pricing currency is required');
+    if (resolved.mode !== 'none') {
+      if (!resolved.currency || typeof resolved.currency !== 'string') {
+        throw new BadRequestException('Pricing currency is required');
+      }
     }
 
     if (resolved.mode === 'token') {
@@ -216,7 +218,7 @@ export class ExtractorsService {
   private withDefaultPricing(config?: Record<string, unknown>) {
     const next = { ...(config ?? {}) };
     if (!next.pricing) {
-      next.pricing = { mode: 'none', currency: 'USD' };
+      next.pricing = { mode: 'none' };
     }
     return next;
   }

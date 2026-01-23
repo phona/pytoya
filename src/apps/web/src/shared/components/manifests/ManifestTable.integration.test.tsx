@@ -47,6 +47,7 @@ const renderTable = (overrides: Partial<React.ComponentProps<typeof ManifestTabl
   const onSelectManifest = vi.fn();
   const onPreviewOcr = vi.fn();
   const onSchemaColumnFilterChange = vi.fn();
+  const onFiltersChange = vi.fn();
 
   renderWithProviders(
     <ManifestTable
@@ -54,6 +55,8 @@ const renderTable = (overrides: Partial<React.ComponentProps<typeof ManifestTabl
       sort={{ field: '', order: 'asc' }}
       onSortChange={onSortChange}
       onSelectManifest={onSelectManifest}
+      filters={{}}
+      onFiltersChange={onFiltersChange}
       onPreviewOcr={onPreviewOcr}
       schemaColumns={schemaColumns}
       schemaColumnFilters={{}}
@@ -62,7 +65,7 @@ const renderTable = (overrides: Partial<React.ComponentProps<typeof ManifestTabl
     />,
   );
 
-  return { onSortChange, onSelectManifest, onPreviewOcr, onSchemaColumnFilterChange };
+  return { onSortChange, onSelectManifest, onPreviewOcr, onSchemaColumnFilterChange, onFiltersChange };
 };
 
 describe('ManifestTable Integration Tests', () => {

@@ -7,6 +7,7 @@ import {
   GenerateValidationScriptDto,
   RunValidationDto,
   BatchValidationDto,
+  TestValidationScriptDto,
 } from '@/api/validation';
 
 export function useValidationScripts() {
@@ -90,6 +91,12 @@ export function useValidateScriptSyntax() {
 export function useGenerateValidationScript() {
   return useMutation({
     mutationFn: (data: GenerateValidationScriptDto) => validationApi.generateScript(data),
+  });
+}
+
+export function useTestValidationScript() {
+  return useMutation({
+    mutationFn: (data: TestValidationScriptDto) => validationApi.testScript(data),
   });
 }
 

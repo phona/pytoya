@@ -9,6 +9,7 @@ import { ExportButton } from '@/shared/components/ExportButton';
 import { SettingsDropdown } from '@/shared/components/SettingsDropdown';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { Button } from '@/shared/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Group, CreateGroupDto, UpdateGroupDto } from '@/api/projects';
 import { getApiErrorText } from '@/api/client';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
@@ -35,18 +36,23 @@ export function ProjectDetailPage() {
   const { schemas: projectSchemas } = useProjectSchemas(projectId);
   const { deleteProject, isDeleting: isProjectDeleting } = useProjects();
 
-  const [showForm, setShowForm] = useState(false);
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupDialogDirty, setGroupDialogDirty] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
 
   const handleCreateGroup = async (data: CreateGroupDto) => {
     await createGroup(data);
-    setShowForm(false);
+    setGroupDialogOpen(false);
+    setEditingGroup(null);
+    setGroupDialogDirty(false);
   };
 
   const handleUpdateGroup = async (data: UpdateGroupDto) => {
     if (editingGroup) {
       await updateGroup({ groupId: editingGroup.id, data });
+      setGroupDialogOpen(false);
       setEditingGroup(null);
+      setGroupDialogDirty(false);
     }
   };
 
@@ -64,7 +70,29 @@ export function ProjectDetailPage() {
 
   const handleEditGroup = (group: Group) => {
     setEditingGroup(group);
-    setShowForm(false);
+    setGroupDialogOpen(true);
+    setGroupDialogDirty(false);
+  };
+
+  const requestCloseGroupDialog = async () => {
+    if (isCreating || isUpdating) {
+      return;
+    }
+
+    if (groupDialogDirty) {
+      const confirmed = await confirm({
+        title: t('common.discardTitle'),
+        message: t('common.discardMessage'),
+        confirmText: t('common.discard'),
+        cancelText: t('common.cancel'),
+        destructive: true,
+      });
+      if (!confirmed) return;
+    }
+
+    setGroupDialogOpen(false);
+    setEditingGroup(null);
+    setGroupDialogDirty(false);
   };
 
   const handleDeleteProject = async () => {
@@ -176,31 +204,14 @@ export function ProjectDetailPage() {
             <Button
               type="button"
               onClick={() => {
-                setShowForm(true);
                 setEditingGroup(null);
+                setGroupDialogOpen(true);
+                setGroupDialogDirty(false);
               }}
             >
               {t('project.detail.newGroup')}
             </Button>
           </div>
-
-          {(showForm || editingGroup) && (
-            <div className="mb-6 bg-background rounded-lg p-4">
-              <h3 className="text-md font-medium text-foreground mb-3">
-                {editingGroup ? t('project.detail.editGroup') : t('project.detail.createGroup')}
-              </h3>
-              <GroupForm
-                group={editingGroup ?? undefined}
-                projectId={projectId}
-                onSubmit={handleFormSubmit}
-                onCancel={() => {
-                  setShowForm(false);
-                  setEditingGroup(null);
-                }}
-                isLoading={isCreating || isUpdating}
-              />
-            </div>
-          )}
 
           {groupsLoading ? (
             <div className="text-center py-8">
@@ -214,8 +225,9 @@ export function ProjectDetailPage() {
               action={{
                 label: t('project.detail.newGroup'),
                 onClick: () => {
-                  setShowForm(true);
                   setEditingGroup(null);
+                  setGroupDialogOpen(true);
+                  setGroupDialogDirty(false);
                 },
               }}
             />
@@ -233,6 +245,37 @@ export function ProjectDetailPage() {
             </div>
           )}
         </div>
+
+        <Dialog
+          open={groupDialogOpen}
+          onOpenChange={(next) => {
+            if (next) {
+              setGroupDialogOpen(true);
+              setGroupDialogDirty(false);
+              return;
+            }
+            void requestCloseGroupDialog();
+          }}
+        >
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                {editingGroup ? t('project.detail.editGroup') : t('project.detail.createGroup')}
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                {editingGroup ? t('project.detail.editGroup') : t('project.detail.createGroup')}
+              </DialogDescription>
+            </DialogHeader>
+            <GroupForm
+              group={editingGroup ?? undefined}
+              projectId={projectId}
+              onSubmit={handleFormSubmit}
+              onCancel={() => void requestCloseGroupDialog()}
+              onDirtyChange={setGroupDialogDirty}
+              isLoading={isCreating || isUpdating}
+            />
+          </DialogContent>
+        </Dialog>
 
         <ModalDialog />
       </div>

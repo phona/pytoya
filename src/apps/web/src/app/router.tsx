@@ -17,7 +17,6 @@ import { ManifestsPage } from '../routes/dashboard/ManifestsPage';
 import { ManifestAuditPage } from '../routes/dashboard/ManifestAuditPage';
 import { ModelsPage } from '../routes/dashboard/ModelsPage';
 import { ExtractorsPage } from '../routes/dashboard/ExtractorsPage';
-import { PromptsPage } from '../routes/dashboard/PromptsPage';
 import { ProjectCostSummaryPage } from '../routes/dashboard/ProjectCostSummaryPage';
 import { RootLayout } from '../routes/RootLayout';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
@@ -82,11 +81,6 @@ export const router = createBrowserRouter([
           { path: 'extractors', element: (
             <AdminRoute>
               <ExtractorsPage />
-            </AdminRoute>
-          ) },
-          { path: 'prompts', element: (
-            <AdminRoute>
-              <PromptsPage />
             </AdminRoute>
           ) },
         ],

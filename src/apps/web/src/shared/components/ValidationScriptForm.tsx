@@ -2,15 +2,19 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   CreateValidationScriptDto,
   UpdateValidationScriptDto,
+  TestValidationScriptResponseDto,
+  ValidationScriptConsoleEntry,
   ValidationScript,
   ValidationSeverity,
 } from '@/api/validation';
 import { useProject, useProjects } from '@/shared/hooks/use-projects';
-import { useValidateScriptSyntax, useGenerateValidationScript } from '@/shared/hooks/use-validation-scripts';
+import { useValidateScriptSyntax, useGenerateValidationScript, useTestValidationScript } from '@/shared/hooks/use-validation-scripts';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { useProjectSchemas } from '@/shared/hooks/use-schemas';
 import { getApiErrorText } from '@/api/client';
 import { useI18n } from '@/shared/providers/I18nProvider';
+import { ValidationResultsPanel } from '@/shared/components/ValidationResultsPanel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 
 interface ValidationScriptFormProps {
   script?: ValidationScript;
@@ -20,6 +24,7 @@ interface ValidationScriptFormProps {
   draftProjectId?: string;
   onSubmit: (data: CreateValidationScriptDto | UpdateValidationScriptDto) => Promise<void>;
   onCancel: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
   isLoading?: boolean;
 }
 
@@ -47,6 +52,7 @@ export function ValidationScriptForm({
   draftProjectId = 'draft',
   onSubmit,
   onCancel,
+  onDirtyChange,
   isLoading,
 }: ValidationScriptFormProps) {
   const { t } = useI18n();
@@ -54,6 +60,7 @@ export function ValidationScriptForm({
   const { projects } = useProjects();
   const validateSyntax = useValidateScriptSyntax();
   const generateScript = useGenerateValidationScript();
+  const testValidationScript = useTestValidationScript();
 
   const [name, setName] = useState(script?.name ?? '');
   const [description, setDescription] = useState(script?.description ?? '');
@@ -67,6 +74,9 @@ export function ValidationScriptForm({
   const [isCheckingSyntax, setIsCheckingSyntax] = useState(false);
   const [promptText, setPromptText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [testInputJson, setTestInputJson] = useState<string>('{\n  "invoice": {},\n  "items": []\n}\n');
+  const [testInputError, setTestInputError] = useState<string | null>(null);
+  const [testResponse, setTestResponse] = useState<TestValidationScriptResponseDto | null>(null);
   const fixedProjectIdValue = fixedProjectId ? fixedProjectId.toString() : '';
   const isEditing = Boolean(script && script.id > 0);
   const fixedProject = fixedProjectId
@@ -106,6 +116,25 @@ export function ValidationScriptForm({
 
     return projectSchemas[0];
   }, [projectSchemas, resolvedProjectForGeneration?.defaultSchemaId]);
+
+  const initialProjectId = fixedProjectIdValue
+    ? fixedProjectIdValue
+    : script?.projectId?.toString() ?? (showProjectField ? '' : allowDraft ? draftProjectId : '');
+
+  const isDirty = useMemo(() => {
+    return (
+      name !== (script?.name ?? '') ||
+      description !== (script?.description ?? '') ||
+      projectId !== initialProjectId ||
+      scriptCode !== (script?.script ?? DEFAULT_SCRIPT) ||
+      severity !== (script?.severity ?? ('warning' as ValidationSeverity)) ||
+      enabled !== (script?.enabled ?? true)
+    );
+  }, [description, enabled, initialProjectId, name, projectId, script, scriptCode, severity]);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   useEffect(() => {
     if (script?.projectId) {
@@ -217,6 +246,50 @@ export function ValidationScriptForm({
       setSyntaxError(getApiErrorText(error, t));
     } finally {
       setIsCheckingSyntax(false);
+    }
+  };
+
+  const handleFormatTestJson = () => {
+    try {
+      const parsed = JSON.parse(testInputJson);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        setTestInputError('Input must be a JSON object');
+        return;
+      }
+      setTestInputJson(`${JSON.stringify(parsed, null, 2)}\n`);
+      setTestInputError(null);
+    } catch (error) {
+      setTestInputError(error instanceof Error ? error.message : 'Invalid JSON');
+    }
+  };
+
+  const handleRunTest = async () => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(testInputJson);
+    } catch (error) {
+      setTestInputError(error instanceof Error ? error.message : 'Invalid JSON');
+      return;
+    }
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      setTestInputError('Input must be a JSON object');
+      return;
+    }
+
+    setTestInputError(null);
+    try {
+      const response = await testValidationScript.mutateAsync({
+        script: scriptCode,
+        extractedData: parsed as Record<string, unknown>,
+        debug: true,
+      });
+      setTestResponse(response);
+    } catch (error) {
+      void alert({
+        title: 'Test run failed',
+        message: getApiErrorText(error, t),
+      });
     }
   };
 
@@ -408,6 +481,101 @@ export function ValidationScriptForm({
             </p>
           </div>
         </div>
+        <div className="mt-4 rounded-md border border-border p-4 bg-card">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="text-sm font-medium text-foreground">Test Script</h4>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleFormatTestJson}
+                className="px-3 py-1 text-xs font-medium rounded border border-border hover:bg-muted"
+              >
+                Format JSON
+              </button>
+              <button
+                type="button"
+                onClick={handleRunTest}
+                disabled={testValidationScript.isPending || !!syntaxError}
+                className="px-3 py-1 text-xs font-medium rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+                title={syntaxError ? 'Fix syntax errors before testing' : undefined}
+              >
+                {testValidationScript.isPending ? 'Running...' : 'Run Test'}
+              </button>
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div>
+              <label htmlFor="testInputJson" className="block text-sm font-medium text-foreground">
+                Input JSON (extractedData)
+              </label>
+              <textarea
+                id="testInputJson"
+                value={testInputJson}
+                onChange={(e) => setTestInputJson(e.target.value)}
+                rows={10}
+                className="mt-1 block w-full px-3 py-2 font-mono text-xs border border-border rounded-md shadow-sm focus:outline-none focus:ring-ring focus:border-ring"
+                placeholder='{"invoice":{},"items":[]}'
+              />
+              {testInputError && (
+                <pre className="mt-2 text-xs text-destructive whitespace-pre-wrap">{testInputError}</pre>
+              )}
+              <p className="mt-1 text-xs text-muted-foreground">
+                Use this to test your script without saving or running on a manifest.
+              </p>
+            </div>
+            <div>
+              <Tabs defaultValue="issues">
+                <TabsList className="mb-3">
+                  <TabsTrigger value="issues">Issues</TabsTrigger>
+                  <TabsTrigger value="logs">Logs</TabsTrigger>
+                  <TabsTrigger value="error">Runtime Error</TabsTrigger>
+                </TabsList>
+                <TabsContent value="issues">
+                  <ValidationResultsPanel
+                    result={testResponse?.result ?? null}
+                    isLoading={testValidationScript.isPending}
+                  />
+                </TabsContent>
+                <TabsContent value="logs">
+                  <div className="rounded-md border border-border bg-card p-3 max-h-96 overflow-y-auto">
+                    {(testResponse?.debug?.logs ?? []).length === 0 ? (
+                      <div className="text-sm text-muted-foreground">No logs.</div>
+                    ) : (
+                      <div className="space-y-1 font-mono text-xs">
+                        {(testResponse?.debug?.logs ?? []).map((entry: ValidationScriptConsoleEntry, index: number) => {
+                          const levelClass =
+                            entry.level === 'error'
+                              ? 'text-destructive'
+                              : entry.level === 'warn'
+                                ? 'text-[color:var(--status-warning-text)]'
+                                : 'text-muted-foreground';
+                          return (
+                            <div key={index} className="flex gap-2">
+                              <span className={`w-12 uppercase ${levelClass}`}>{entry.level}</span>
+                              <span className="whitespace-pre-wrap break-words">{entry.message}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+                <TabsContent value="error">
+                  <div className="rounded-md border border-border bg-card p-3 max-h-96 overflow-y-auto">
+                    {!testResponse?.runtimeError ? (
+                      <div className="text-sm text-muted-foreground">No runtime error.</div>
+                    ) : (
+                      <pre className="text-xs whitespace-pre-wrap">
+                        {testResponse.runtimeError.message}
+                        {testResponse.runtimeError.stack ? `\n\n${testResponse.runtimeError.stack}` : ''}
+                      </pre>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
+        </div>
         {syntaxError && (
           <pre className="mt-1 text-xs text-destructive whitespace-pre-wrap">Syntax Error: {syntaxError}</pre>
         )}
@@ -455,14 +623,14 @@ export function ValidationScriptForm({
           disabled={isLoading}
           className="px-4 py-2 border border-border rounded-md shadow-sm text-sm font-medium text-foreground bg-card hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Cancel
+          {t('common.cancel')}
         </button>
         <button
           type="submit"
           disabled={isLoading || !!syntaxError}
           className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoading ? 'Saving...' : isEditing ? 'Update' : 'Create'}
+          {isLoading ? t('common.saving') : isEditing ? t('common.update') : t('common.create')}
         </button>
       </div>
 

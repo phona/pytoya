@@ -11,8 +11,9 @@ export class WebSocketService {
     progress: number;
     status: string;
     error?: string;
-    cost?: number;
-    costBreakdown?: { text: number; llm: number; total: number };
+    cost?: number | null;
+    currency?: string | null;
+    costBreakdown?: { text: number; llm: number; total: number | null; currency?: string | null };
     extractorId?: string | null;
   }) {
     this.manifestGateway.emitJobUpdate(data);
@@ -23,8 +24,9 @@ export class WebSocketService {
     status: string;
     progress: number;
     error?: string;
-    cost?: number;
-    costBreakdown?: { text: number; llm: number; total: number };
+    cost?: number | null;
+    currency?: string | null;
+    costBreakdown?: { text: number; llm: number; total: number | null; currency?: string | null };
     extractorId?: string | null;
   }) {
     this.manifestGateway.emitManifestUpdate(data);

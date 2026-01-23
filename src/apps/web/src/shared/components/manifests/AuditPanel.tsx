@@ -12,7 +12,7 @@ import { useRunValidation } from '@/shared/hooks/use-validation-scripts';
 import { useExtractors } from '@/shared/hooks/use-extractors';
 import { useOcrResult } from '@/shared/hooks/use-manifests';
 import { getApiErrorText } from '@/api/client';
-import { jobsApi } from '@/api/jobs';
+import { manifestsApi } from '@/api/manifests';
 import { schemasApi } from '@/api/schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGroups, useProject } from '@/shared/hooks/use-projects';
@@ -22,7 +22,6 @@ import { AppBreadcrumbs } from '@/shared/components/AppBreadcrumbs';
 import { PdfViewer } from './PdfViewer';
 import { EditableForm } from './EditableForm';
 import { OcrViewer } from './OcrViewer';
-import { ProgressBar } from './ProgressBar';
 import { ValidationResultsPanel } from '@/shared/components/ValidationResultsPanel';
 import { CostBreakdownPanel } from '@/shared/components/CostBreakdownPanel';
 import { OcrPreviewModal } from './OcrPreviewModal';
@@ -36,6 +35,8 @@ import { Button } from '@/shared/components/ui/button';
 import { ToastAction } from '@/shared/components/ui/toast';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { useI18n } from '@/shared/providers/I18nProvider';
+import { useJobsStore } from '@/shared/stores/jobs';
+import { useUiStore } from '@/shared/stores/ui';
 
 interface AuditPanelProps {
   projectId: number;
@@ -91,7 +92,6 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
   const [explicitSavePending, setExplicitSavePending] = useState(false);
   const [formResetCounter, setFormResetCounter] = useState(0);
   const [jobProgress, setJobProgress] = useState<{ jobId?: string; progress: number; status: string; error?: string } | null>(null);
-  const [isCanceling, setIsCanceling] = useState(false);
   const [showOcrPreviewModal, setShowOcrPreviewModal] = useState(false);
   const [fieldHistoryOpen, setFieldHistoryOpen] = useState(false);
   const [historyFieldFilter, setHistoryFieldFilter] = useState<string | null>(null);
@@ -122,7 +122,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
         queryClient.invalidateQueries({ queryKey: ['manifests', 'group'] }),
       ]);
 
-      // Stop blocking the UI once the job is done.
+      // Clear local progress state once the job is done.
       setJobProgress(null);
     },
     [manifestId, queryClient],
@@ -153,26 +153,6 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
       }
     }, [handleTerminalJobStatus, manifestId]),
   });
-
-  const handleCancelExtraction = useCallback(async () => {
-    if (!jobProgress?.jobId) {
-      return;
-    }
-    setIsCanceling(true);
-    try {
-      await jobsApi.cancelJob(jobProgress.jobId);
-      setJobProgress((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: 'canceling',
-            }
-          : prev,
-      );
-    } finally {
-      setIsCanceling(false);
-    }
-  }, [jobProgress?.jobId]);
 
   // Auto-subscribe when panel opens
   useEffect(() => {
@@ -495,6 +475,46 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     [projectId, queryClient, resolvedSchemaId],
   );
 
+  const handleExtractManifest = useCallback(async () => {
+    if (!manifest) return;
+
+    const confirmed = await confirm({
+      title: t('audit.extract.confirmTitle'),
+      message: t('audit.extract.confirmMessage', { filename: manifest.originalFilename }),
+      confirmText: t('audit.extract.confirmCta'),
+      cancelText: t('common.cancel'),
+      destructive: false,
+    });
+    if (!confirmed) return;
+
+    try {
+      const response = await manifestsApi.extractManifest(manifest.id);
+      const now = new Date().toISOString();
+      useJobsStore.getState().upsertJob({
+        id: response.jobId,
+        kind: 'extraction',
+        manifestId: manifest.id,
+        status: 'waiting',
+        progress: 0,
+        error: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+      useUiStore.getState().setJobsPanelOpen(true);
+      toast({
+        title: t('audit.extract.startedTitle'),
+        description: t('audit.extract.startedMessage'),
+      });
+    } catch (error) {
+      console.error('Extract manifest failed:', error);
+      toast({
+        title: t('audit.extract.failedTitle'),
+        description: getApiErrorText(error, t),
+        variant: 'destructive',
+      });
+    }
+  }, [confirm, manifest, t]);
+
   if (isLoading || !manifest) {
     return (
       <div className="h-full w-full flex items-center justify-center bg-background">
@@ -573,6 +593,9 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
+            <span className="min-w-fit px-2 text-sm text-muted-foreground tabular-nums">
+              {displayIndex} / {allManifestIds.length}
+            </span>
             <button
               onClick={goToNext}
               disabled={currentIndex < 0 || currentIndex >= allManifestIds.length - 1}
@@ -581,9 +604,6 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
             >
               <ChevronRight className="h-4 w-4" />
             </button>
-            <span className="min-w-fit px-2 text-sm text-muted-foreground tabular-nums">
-              {displayIndex} / {allManifestIds.length}
-            </span>
           </div>
 
           <Button
@@ -612,65 +632,49 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
             {runValidation.isPending ? t('audit.menu.runningValidation') : t('audit.menu.runValidation')}
           </Button>
 
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled={
+              !manifest ||
+              isLoading ||
+              manifest.status === 'processing' ||
+              jobProgress?.status === 'processing' ||
+              jobProgress?.status === 'canceling'
+            }
+            onClick={() => void handleExtractManifest()}
+            title={t('audit.extract.title')}
+          >
+            <Play className="h-4 w-4" />
+            {t('audit.extract.title')}
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="px-2"
+            onClick={onClose}
+            title={t('audit.nav.close')}
+            aria-label={t('audit.nav.close')}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+
           <AuditPanelFunctionsMenu
             activeTab={activeTab}
             onTabChange={setActiveTab}
             validationLabel={validationLabel}
             validationStatus={validationStatus}
           />
-
-          {/* Close */}
-          <button
-            onClick={onClose}
-            className="p-2 rounded border border-border hover:bg-muted"
-            title={t('audit.nav.close')}
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <div className="relative flex flex-col lg:flex-row h-full overflow-hidden">
-        {/* Progress Overlay */}
-        {(manifest.status === 'processing' || jobProgress?.status === 'processing' || jobProgress?.status === 'canceling') && (
-          <div className="absolute inset-0 z-[var(--z-index-overlay)] bg-card/90 backdrop-blur-sm flex items-center justify-center">
-            <div className="bg-card rounded-lg shadow-xl border border-border p-6 max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold text-foreground mb-4">
-                {jobProgress?.status === 'processing'
-                  ? t('audit.job.processingInvoice')
-                  : t('audit.job.updating')}
-              </h3>
-              <ProgressBar
-                progress={jobProgress?.progress ?? 0}
-                status={jobProgress?.status}
-                error={jobProgress?.error}
-                size="md"
-                showLabel={true}
-                showStatus={true}
-              />
-              <div className="mt-4 flex justify-end gap-2">
-                <button
-                  onClick={handleCancelExtraction}
-                  disabled={isCanceling || !jobProgress?.jobId || jobProgress?.status !== 'processing'}
-                  className="px-3 py-1 text-sm font-medium rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={
-                    jobProgress?.jobId
-                      ? t('audit.job.cancelTitle')
-                      : t('audit.job.waitingJobIdTitle')
-                  }
-                >
-                  {isCanceling ? t('audit.job.canceling') : t('audit.job.cancel')}
-                </button>
-              </div>
-              {jobProgress?.error && (
-                <p className="mt-4 text-sm text-destructive">{jobProgress.error}</p>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* PDF Viewer */}
         <div className="w-full min-h-0 overflow-hidden border-border lg:w-1/2 lg:border-r">
           <PdfViewer manifestId={manifest.id} />

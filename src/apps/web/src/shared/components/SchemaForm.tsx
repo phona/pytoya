@@ -8,6 +8,7 @@ import { SchemaVisualBuilder } from '@/shared/components/SchemaVisualBuilder';
 import { schemaFormSchema, type SchemaFormValues } from '@/shared/schemas/schema.schema';
 import { Button } from '@/shared/components/ui/button';
 import { canonicalizeJsonSchemaForDisplay } from '@/shared/utils/schema';
+import { useI18n } from '@/shared/providers/I18nProvider';
 import {
   Form,
   FormControl,
@@ -29,6 +30,7 @@ interface SchemaFormProps {
   schema?: Schema;
   onSubmit: (data: CreateSchemaDto | UpdateSchemaDto) => Promise<void>;
   onCancel: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
   isLoading?: boolean;
 }
 
@@ -42,7 +44,8 @@ const DEFAULT_SCHEMA = JSON.stringify(
   2,
 );
 
-export function SchemaForm({ schema, onSubmit, onCancel, isLoading }: SchemaFormProps) {
+export function SchemaForm({ schema, onSubmit, onCancel, onDirtyChange, isLoading }: SchemaFormProps) {
+  const { t } = useI18n();
   const { projects } = useProjects();
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [editorMode, setEditorMode] = useState<'visual' | 'code'>('code');
@@ -65,6 +68,10 @@ export function SchemaForm({ schema, onSubmit, onCancel, isLoading }: SchemaForm
         : DEFAULT_SCHEMA,
     });
   }, [form, schema]);
+
+  useEffect(() => {
+    onDirtyChange?.(form.formState.isDirty);
+  }, [form.formState.isDirty, onDirtyChange]);
 
   useEffect(() => {
     if (jsonError) {
@@ -188,16 +195,16 @@ export function SchemaForm({ schema, onSubmit, onCancel, isLoading }: SchemaForm
           )}
         />
 
-        <div className="flex justify-end gap-3 pt-4">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isLoading || !!jsonError}>
-            {isLoading ? 'Saving...' : schema ? 'Update' : 'Create'}
-          </Button>
-        </div>
-      </form>
-    </Form>
+      <div className="flex justify-end gap-3 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
+          {t('common.cancel')}
+        </Button>
+        <Button type="submit" disabled={isLoading || !!jsonError}>
+          {isLoading ? t('common.saving') : schema ? t('common.update') : t('common.create')}
+        </Button>
+      </div>
+    </form>
+  </Form>
   );
 }
 

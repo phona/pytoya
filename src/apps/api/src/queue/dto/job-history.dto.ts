@@ -10,6 +10,7 @@ export class JobHistoryDto {
   progress!: number;
   estimatedCost!: number | null;
   actualCost!: number | null;
+  currency!: string | null;
   error!: string | null;
   attemptCount!: number;
   startedAt!: Date | null;

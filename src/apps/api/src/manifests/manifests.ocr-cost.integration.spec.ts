@@ -6,30 +6,26 @@ import { Repository } from 'typeorm';
 
 import { ManifestsController } from './manifests.controller';
 import { ManifestsService } from './manifests.service';
-import { CostEstimateService } from './cost-estimate.service';
 import { CsvExportService } from './csv-export.service';
 import { QueueService } from '../queue/queue.service';
+import { GroupsService } from '../groups/groups.service';
 import { StorageService } from '../storage/storage.service';
 import { WebSocketService } from '../websocket/websocket.service';
 import { ModelEntity } from '../entities/model.entity';
-import { ConfigService } from '@nestjs/config';
 import { ManifestEntity, FileType, ManifestStatus } from '../entities/manifest.entity';
 import { UserEntity, UserRole } from '../entities/user.entity';
 import { OcrResultDto } from './dto/ocr-result.dto';
 
 /**
- * Integration tests for OCR result preview and cost estimation endpoints.
+ * Integration tests for OCR result preview endpoints.
  *
  * These tests verify the new endpoints added for selective extraction:
  * - GET /manifests/:id/ocr - Retrieve cached OCR result
- * - POST /manifests/:id/ocr - Trigger OCR processing with force option
- * - GET /manifests/cost-estimate - Calculate cost for extraction
  * - POST /manifests/:id/re-extract-field - Preview field re-extraction
  */
-describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
+describe('ManifestsController - OCR Endpoints Integration', () => {
   let controller: ManifestsController;
   let manifestsService: jest.Mocked<ManifestsService>;
-  let costEstimateService: jest.Mocked<CostEstimateService>;
   let csvExportService: jest.Mocked<CsvExportService>;
   let queueService: jest.Mocked<QueueService>;
   let storageService: jest.Mocked<StorageService>;
@@ -59,7 +55,7 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
   };
 
   // Mock manifest
-  const createMockManifest = (overrides?: Partial<ManifestEntity>): ManifestEntity => ({
+  const createMockManifest = (overrides: Partial<ManifestEntity> = {}): ManifestEntity => ({
     id: 1,
     filename: 'test.pdf',
     originalFilename: 'test.pdf',
@@ -96,6 +92,10 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
     extractionHistory: [],
     textExtractor: null,
     ...overrides,
+    contentSha256: overrides.contentSha256 ?? null,
+    textCost: overrides.textCost ?? null,
+    llmCost: overrides.llmCost ?? null,
+    extractionCostCurrency: overrides.extractionCostCurrency ?? null,
   });
 
   const createMockOcrResult = (): OcrResultDto => ({
@@ -142,14 +142,11 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
     manifestsService = {
       findOne: jest.fn(),
       findManyByIds: jest.fn(),
+      findForFilteredExtraction: jest.fn(),
+      setTextExtractorForManifests: jest.fn(),
       processOcrForManifest: jest.fn(),
       buildOcrContextPreview: jest.fn(),
     } as unknown as jest.Mocked<ManifestsService>;
-
-    costEstimateService = {
-      estimateCost: jest.fn(),
-      estimateFieldCost: jest.fn(),
-    } as unknown as jest.Mocked<CostEstimateService>;
 
     csvExportService = {
       exportCsv: jest.fn(),
@@ -178,11 +175,15 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
       providers: [
         { provide: CsvExportService, useValue: csvExportService },
         { provide: ManifestsService, useValue: manifestsService },
-        { provide: CostEstimateService, useValue: costEstimateService },
         { provide: QueueService, useValue: queueService },
+        {
+          provide: GroupsService,
+          useValue: {
+            findOne: jest.fn().mockResolvedValue({ project: {} }),
+          },
+        },
         { provide: StorageService, useValue: storageService },
         { provide: WebSocketService, useValue: webSocketService },
-        { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue(true) } },
         { provide: getRepositoryToken(ManifestEntity), useValue: manifestRepository },
         { provide: getRepositoryToken(ModelEntity), useValue: {} },
       ],
@@ -236,162 +237,6 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
     });
   });
 
-  describe('POST /manifests/:id/ocr', () => {
-    it('should trigger OCR processing with force=true', async () => {
-      const ocrResult = createMockOcrResult();
-      const manifest = createMockManifest({
-        ocrResult: ocrResult as unknown as ManifestEntity['ocrResult'],
-        ocrProcessedAt: new Date(),
-        ocrQualityScore: 85,
-      });
-
-      manifestsService.findOne.mockResolvedValue(manifest);
-      manifestsService.processOcrForManifest.mockResolvedValue(ocrResult);
-
-      const result = await controller.triggerOcr(mockUser, 1, 'true');
-
-      expect(result.ocrResult).toBe(ocrResult);
-      expect(manifestsService.processOcrForManifest).toHaveBeenCalledWith(manifest, {
-        force: true,
-        textExtractorId: undefined,
-      });
-    });
-
-    it('should trigger OCR processing without force when OCR does not exist', async () => {
-      const ocrResult = createMockOcrResult();
-      const manifest = createMockManifest({ ocrResult: null });
-
-      manifestsService.findOne.mockResolvedValue(manifest);
-      manifestsService.processOcrForManifest.mockResolvedValue(ocrResult);
-
-      const result = await controller.triggerOcr(mockUser, 1);
-
-      expect(result.ocrResult).toBe(ocrResult);
-      expect(manifestsService.processOcrForManifest).toHaveBeenCalledWith(manifest, {
-        force: false,
-        textExtractorId: undefined,
-      });
-    });
-
-    it('should return cached OCR when force=false and OCR exists', async () => {
-      const ocrResult = createMockOcrResult();
-      const manifest = createMockManifest({
-        ocrResult: ocrResult as unknown as ManifestEntity['ocrResult'],
-        ocrProcessedAt: new Date(),
-        ocrQualityScore: 90,
-      });
-
-      manifestsService.findOne.mockResolvedValue(manifest);
-      manifestsService.processOcrForManifest.mockResolvedValue(ocrResult);
-
-      const result = await controller.triggerOcr(mockUser, 1, 'false');
-
-      expect(manifestsService.processOcrForManifest).toHaveBeenCalledWith(manifest, {
-        force: false,
-        textExtractorId: undefined,
-      });
-    });
-
-    it('should handle parsing boolean force parameter', async () => {
-      const manifest = createMockManifest({ ocrResult: null });
-      manifestsService.findOne.mockResolvedValue(manifest);
-      manifestsService.processOcrForManifest.mockResolvedValue(createMockOcrResult());
-
-      await controller.triggerOcr(mockUser, 1, 'true');
-      expect(manifestsService.processOcrForManifest).toHaveBeenCalledWith(manifest, {
-        force: true,
-        textExtractorId: undefined,
-      });
-
-      await controller.triggerOcr(mockUser, 1, 'false');
-      expect(manifestsService.processOcrForManifest).toHaveBeenCalledWith(manifest, {
-        force: false,
-        textExtractorId: undefined,
-      });
-
-      await controller.triggerOcr(mockUser, 1);
-      expect(manifestsService.processOcrForManifest).toHaveBeenCalledWith(manifest, {
-        force: false,
-        textExtractorId: undefined,
-      });
-    });
-  });
-
-  describe('GET /manifests/cost-estimate', () => {
-    const mockCostEstimate = {
-      manifestCount: 2,
-      estimatedTokensMin: 1000,
-      estimatedTokensMax: 1500,
-      estimatedCostMin: 0.02,
-      estimatedCostMax: 0.03,
-      estimatedTextCost: 0.005,
-      estimatedLlmCostMin: 0.015,
-      estimatedLlmCostMax: 0.025,
-      currency: 'USD',
-    };
-
-    it('should return cost estimate for provided manifest IDs', async () => {
-      const manifests = [
-        createMockManifest({ id: 1 }),
-        createMockManifest({ id: 2 }),
-      ];
-
-      manifestsService.findManyByIds.mockResolvedValue(manifests);
-      costEstimateService.estimateCost.mockResolvedValue(mockCostEstimate);
-
-      const result = await controller.getCostEstimate(mockUser, '1,2', 'llm-model-1', 'extractor-1');
-
-      expect(result).toEqual(mockCostEstimate);
-      expect(manifestsService.findManyByIds).toHaveBeenCalledWith(mockUser, [1, 2]);
-      expect(costEstimateService.estimateCost).toHaveBeenCalledWith({
-        manifests,
-        llmModelId: 'llm-model-1',
-        textExtractorId: 'extractor-1',
-      });
-    });
-
-    it('should handle empty manifest IDs', async () => {
-      manifestsService.findManyByIds.mockResolvedValue([]);
-      costEstimateService.estimateCost.mockResolvedValue(mockCostEstimate);
-
-      const result = await controller.getCostEstimate(mockUser, '', 'llm-model-1');
-
-      expect(result).toEqual(mockCostEstimate);
-      expect(manifestsService.findManyByIds).toHaveBeenCalledWith(mockUser, []);
-      expect(costEstimateService.estimateCost).toHaveBeenCalledWith({
-        manifests: [],
-        llmModelId: 'llm-model-1',
-        textExtractorId: undefined,
-      });
-    });
-
-    it('should handle missing model IDs by using defaults', async () => {
-      const manifests = [createMockManifest()];
-      manifestsService.findManyByIds.mockResolvedValue(manifests);
-      costEstimateService.estimateCost.mockResolvedValue(mockCostEstimate);
-
-      await controller.getCostEstimate(mockUser, '1');
-
-      expect(costEstimateService.estimateCost).toHaveBeenCalledWith({
-        manifests,
-        llmModelId: undefined,
-        textExtractorId: undefined,
-      });
-    });
-
-    it('should propagate BadRequestException from cost service', async () => {
-      const manifests = [createMockManifest()];
-      manifestsService.findManyByIds.mockResolvedValue(manifests);
-      costEstimateService.estimateCost.mockRejectedValue(
-        new BadRequestException('LLM model is required'),
-      );
-
-      await expect(
-        controller.getCostEstimate(mockUser, '1'),
-      ).rejects.toThrow(BadRequestException);
-    });
-  });
-
   describe('POST /manifests/:id/re-extract-field', () => {
     const mockOcrPreview = {
       fieldName: 'invoice.po_no',
@@ -399,20 +244,13 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
       context: 'Full OCR context here...',
     };
 
-    const mockCostEstimate = {
-      cost: 0.005,
-      currency: 'USD',
-      tokens: 150,
-    };
-
-    it('should return OCR preview and cost estimate for field re-extraction', async () => {
+    it('should return OCR preview for field re-extraction', async () => {
       const manifest = createMockManifest({
         ocrResult: createMockOcrResult() as unknown as ManifestEntity['ocrResult'],
       });
 
       manifestsService.findOne.mockResolvedValue(manifest);
       manifestsService.buildOcrContextPreview.mockReturnValue(mockOcrPreview);
-      costEstimateService.estimateFieldCost.mockResolvedValue(mockCostEstimate);
       queueService.addExtractionJob.mockResolvedValue('job-123');
 
       const result = await controller.reExtractField(mockUser, 1, {
@@ -424,37 +262,22 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
       expect(result).toEqual({
         fieldName: 'invoice.po_no',
         ocrPreview: mockOcrPreview,
-        estimatedCost: mockCostEstimate.cost,
-        currency: mockCostEstimate.currency,
         jobId: 'job-123',
       });
       expect(manifestsService.buildOcrContextPreview).toHaveBeenCalledWith(manifest, 'invoice.po_no');
-      expect(costEstimateService.estimateFieldCost).toHaveBeenCalledWith({
-        manifest,
-        fieldName: 'invoice.po_no',
-        snippet: mockOcrPreview.snippet,
-        llmModelId: 'llm-model-1',
-      });
       expect(queueService.addExtractionJob).toHaveBeenCalled();
     });
 
-    it('should trigger OCR if not present when re-extracting field', async () => {
+    it('rejects re-extract preview when OCR is not present', async () => {
       const manifest = createMockManifest({ ocrResult: null });
-      const ocrResult = createMockOcrResult();
 
       manifestsService.findOne.mockResolvedValue(manifest);
-      manifestsService.processOcrForManifest.mockResolvedValue(ocrResult);
-      manifestsService.buildOcrContextPreview.mockReturnValue(mockOcrPreview);
-      costEstimateService.estimateFieldCost.mockResolvedValue(mockCostEstimate);
-      queueService.addExtractionJob.mockResolvedValue('job-123');
-
-      const result = await controller.reExtractField(mockUser, 1, {
-        fieldName: 'invoice.po_no',
-        previewOnly: false,
-      });
-
-      expect(manifestsService.processOcrForManifest).toHaveBeenCalledWith(manifest);
-      expect(result.jobId).toBe('job-123');
+      await expect(
+        controller.reExtractField(mockUser, 1, {
+          fieldName: 'invoice.po_no',
+          previewOnly: false,
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should only return preview when previewOnly is true', async () => {
@@ -464,7 +287,6 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
 
       manifestsService.findOne.mockResolvedValue(manifest);
       manifestsService.buildOcrContextPreview.mockReturnValue(mockOcrPreview);
-      costEstimateService.estimateFieldCost.mockResolvedValue(mockCostEstimate);
 
       const result = await controller.reExtractField(mockUser, 1, {
         fieldName: 'invoice.po_no',
@@ -475,59 +297,13 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
       expect(result).toEqual({
         fieldName: 'invoice.po_no',
         ocrPreview: mockOcrPreview,
-        estimatedCost: mockCostEstimate.cost,
-        currency: mockCostEstimate.currency,
       });
       expect(queueService.addExtractionJob).not.toHaveBeenCalled();
     });
   });
 
   describe('POST /manifests/extract-bulk', () => {
-    const mockEstimate = {
-      manifestCount: 2,
-      estimatedTokensMin: 1000,
-      estimatedTokensMax: 1500,
-      estimatedCostMin: 0.02,
-      estimatedCostMax: 0.03,
-      estimatedTextCost: 0.005,
-      estimatedLlmCostMin: 0.015,
-      estimatedLlmCostMax: 0.025,
-      currency: 'USD',
-    };
-
-    it('returns cost estimate without queuing when dryRun is true', async () => {
-      const manifestWithOcr = createMockManifest({
-        id: 1,
-        ocrResult: createMockOcrResult() as unknown as ManifestEntity['ocrResult'],
-      });
-      const manifestWithoutOcr = createMockManifest({ id: 2, ocrResult: null });
-
-      manifestsService.findManyByIds.mockResolvedValue([
-        manifestWithOcr,
-        manifestWithoutOcr,
-      ]);
-      manifestsService.processOcrForManifest.mockResolvedValue(createMockOcrResult());
-      costEstimateService.estimateCost.mockResolvedValue(mockEstimate);
-
-      const result = await controller.extractBulk(mockUser, {
-        manifestIds: [1, 2],
-        llmModelId: 'llm-model-1',
-        textExtractorId: 'extractor-1',
-        dryRun: true,
-      });
-
-      expect(result).toEqual({
-        manifestCount: 2,
-        estimatedCost: { min: 0.02, max: 0.03 },
-        currency: 'USD',
-      });
-      expect(manifestsService.processOcrForManifest).toHaveBeenCalledWith(
-        manifestWithoutOcr,
-      );
-      expect(queueService.addExtractionJob).not.toHaveBeenCalled();
-    });
-
-    it('queues extraction jobs when dryRun is false', async () => {
+    it('queues extraction jobs', async () => {
       const manifests = [
         createMockManifest({
           id: 1,
@@ -537,7 +313,6 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
       ];
 
       manifestsService.findManyByIds.mockResolvedValue(manifests);
-      costEstimateService.estimateCost.mockResolvedValue(mockEstimate);
       queueService.addExtractionJob.mockResolvedValueOnce('job-1').mockResolvedValueOnce('job-2');
 
       const result = await controller.extractBulk(mockUser, {
@@ -548,7 +323,39 @@ describe('ManifestsController - OCR and Cost Endpoints Integration', () => {
       expect(queueService.addExtractionJob).toHaveBeenCalledTimes(2);
       expect(result.manifestCount).toBe(2);
       expect(result.jobIds).toEqual(['job-1', 'job-2']);
-      expect(result.estimatedCost).toEqual({ min: 0.02, max: 0.03 });
+    });
+  });
+
+  describe('POST /groups/:groupId/manifests/extract-filtered', () => {
+    it('queues jobs and returns job-to-manifest mapping', async () => {
+      const manifests = [
+        createMockManifest({
+          id: 11,
+          ocrResult: createMockOcrResult() as unknown as ManifestEntity['ocrResult'],
+        }),
+        createMockManifest({
+          id: 22,
+          ocrResult: createMockOcrResult() as unknown as ManifestEntity['ocrResult'],
+        }),
+      ];
+
+      manifestsService.findForFilteredExtraction.mockResolvedValue(manifests);
+      queueService.addExtractionJob
+        .mockResolvedValueOnce('job-11')
+        .mockResolvedValueOnce('job-22');
+
+      const result = await controller.extractFiltered(mockUser, 1, {
+        filters: {},
+        llmModelId: 'llm-model-1',
+      });
+
+      expect(queueService.addExtractionJob).toHaveBeenCalledTimes(2);
+      expect(result.manifestCount).toBe(2);
+      expect(result.jobIds).toEqual(['job-11', 'job-22']);
+      expect(result.jobs).toEqual([
+        { jobId: 'job-11', manifestId: 11 },
+        { jobId: 'job-22', manifestId: 22 },
+      ]);
     });
   });
 

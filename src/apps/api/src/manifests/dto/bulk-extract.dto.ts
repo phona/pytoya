@@ -2,7 +2,6 @@ import { Type } from 'class-transformer';
 import {
   ArrayNotEmpty,
   IsArray,
-  IsBoolean,
   IsInt,
   IsOptional,
   IsString,
@@ -27,9 +26,4 @@ export class BulkExtractDto {
   @IsInt()
   @Type(() => Number)
   promptId?: number;
-
-  @IsOptional()
-  @IsBoolean()
-  @Type(() => Boolean)
-  dryRun?: boolean;
 }

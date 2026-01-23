@@ -63,7 +63,6 @@ vi.mock('@/shared/hooks/use-modal-dialog', () => ({
 
 vi.mock('./PdfViewer', () => ({ PdfViewer: () => <div /> }));
 vi.mock('./OcrViewer', () => ({ OcrViewer: () => <div /> }));
-vi.mock('./ProgressBar', () => ({ ProgressBar: () => <div /> }));
 vi.mock('./OcrPreviewModal', () => ({ OcrPreviewModal: () => null }));
 vi.mock('./ExtractionHistoryPanel', () => ({ ExtractionHistoryPanel: () => <div /> }));
 vi.mock('./FieldHintDialog', () => ({ FieldHintDialog: () => null }));

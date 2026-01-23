@@ -21,6 +21,8 @@ type ModelFilters = {
   isActive?: boolean;
 };
 
+const MASKED_SECRET = '********';
+
 @Injectable()
 export class ModelsService {
   constructor(
@@ -85,6 +87,7 @@ export class ModelsService {
   async update(id: string, input: UpdateModelDto): Promise<ModelEntity> {
     const model = await this.findOne(id);
     const nextAdapterType = input.adapterType ?? model.adapterType;
+    const adapterTypeChanged = nextAdapterType !== model.adapterType;
 
     if (input.adapterType && input.parameters === undefined) {
       throw new BadRequestException(
@@ -92,17 +95,57 @@ export class ModelsService {
       );
     }
 
-    if (input.parameters) {
-      this.ensureValidParameters(nextAdapterType, input.parameters);
+    let nextParameters = model.parameters;
+    if (input.parameters !== undefined) {
+      const schema = adapterRegistry.getSchema(nextAdapterType);
+      const sanitized: Record<string, unknown> = { ...input.parameters };
+
+      for (const [key, definition] of Object.entries(schema?.parameters ?? {})) {
+        if (!definition.secret) continue;
+        if (sanitized[key] !== MASKED_SECRET) continue;
+
+        if (!adapterTypeChanged && model.parameters[key] !== undefined) {
+          delete sanitized[key];
+          continue;
+        }
+
+        // Adapter type changed or no existing value to fall back to:
+        // force callers to send an actual secret (not the masked placeholder).
+        delete sanitized[key];
+      }
+
+      nextParameters = adapterTypeChanged
+        ? sanitized
+        : { ...model.parameters, ...sanitized };
+
+      this.ensureValidParameters(nextAdapterType, nextParameters);
     }
 
     Object.assign(model, {
       name: input.name ?? model.name,
       adapterType: nextAdapterType,
-      parameters: input.parameters ?? model.parameters,
+      parameters: input.parameters !== undefined ? nextParameters : model.parameters,
       description: input.description ?? model.description,
       isActive: input.isActive ?? model.isActive,
     });
+
+    if (input.pricing) {
+      this.ensurePricingPayload(input.pricing);
+      this.ensurePricingCategory(model, input.pricing);
+
+      const now = new Date().toISOString();
+      const nextPricing = this.mergePricing(model.pricing, input.pricing, now);
+      const history = this.appendPricingHistory(
+        model.pricing,
+        model.pricingHistory,
+        now,
+      );
+
+      Object.assign(model, {
+        pricing: nextPricing,
+        pricingHistory: history,
+      });
+    }
 
     return this.modelRepository.save(model);
   }
@@ -111,24 +154,7 @@ export class ModelsService {
     id: string,
     pricing: ModelPricingDto,
   ): Promise<ModelEntity> {
-    const model = await this.findOne(id);
-    this.ensurePricingPayload(pricing);
-    this.ensurePricingCategory(model, pricing);
-
-    const now = new Date().toISOString();
-    const nextPricing = this.mergePricing(model.pricing, pricing, now);
-    const history = this.appendPricingHistory(
-      model.pricing,
-      model.pricingHistory,
-      now,
-    );
-
-    Object.assign(model, {
-      pricing: nextPricing,
-      pricingHistory: history,
-    });
-
-    return this.modelRepository.save(model);
+    return this.update(id, { pricing });
   }
 
   async seedDefaultPricing(): Promise<{

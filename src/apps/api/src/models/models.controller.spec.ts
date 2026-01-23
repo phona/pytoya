@@ -32,6 +32,15 @@ describe('ModelsController', () => {
       .compile();
 
     app = moduleRef.createNestApplication();
+    app.use((req: any, _res: any, next: any) => {
+      const roleHeader = String(req.headers['x-test-role'] ?? '').toLowerCase();
+      req.user = {
+        id: 1,
+        username: 'test-user',
+        role: roleHeader === 'user' ? 'user' : 'admin',
+      };
+      next();
+    });
     await app.init();
   });
 
@@ -160,7 +169,7 @@ describe('ModelsController', () => {
       updatedAt: new Date(),
     } as ModelEntity;
 
-    modelsService.updatePricing.mockResolvedValue(model);
+    modelsService.update.mockResolvedValue(model);
 
     const response = await request(app.getHttpServer())
       .patch('/models/model-4/pricing')
@@ -175,14 +184,71 @@ describe('ModelsController', () => {
       })
       .expect(200);
 
-    expect(modelsService.updatePricing).toHaveBeenCalledWith('model-4', {
-      llm: {
-        inputPrice: 0.15,
-        outputPrice: 0.6,
-        currency: 'USD',
+    expect(modelsService.update).toHaveBeenCalledWith('model-4', {
+      pricing: {
+        llm: {
+          inputPrice: 0.15,
+          outputPrice: 0.6,
+          currency: 'USD',
+        },
       },
     });
     expect(response.body.id).toBe('model-4');
     expect(response.body.pricing?.llm?.inputPrice).toBe(0.15);
+  });
+
+  it('forbids non-admin updates to pricing via model update', async () => {
+    await request(app.getHttpServer())
+      .patch('/models/model-6')
+      .set('x-test-role', 'user')
+      .send({
+        pricing: {
+          llm: {
+            inputPrice: 1,
+            outputPrice: 2,
+            currency: 'USD',
+          },
+        },
+      })
+      .expect(403);
+
+    expect(modelsService.update).not.toHaveBeenCalled();
+  });
+
+  it('allows admin updates to pricing via model update', async () => {
+    const model: ModelEntity = {
+      id: 'model-7',
+      name: 'Admin Updated',
+      adapterType: 'openai',
+      description: null,
+      parameters: {},
+      pricing: {
+        llm: { inputPrice: 1, outputPrice: 2, currency: 'USD' },
+        effectiveDate: new Date('2025-01-10T00:00:00.000Z'),
+      } as any,
+      pricingHistory: [],
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as ModelEntity;
+
+    modelsService.update.mockResolvedValue(model);
+
+    const response = await request(app.getHttpServer())
+      .patch('/models/model-7')
+      .set('x-test-role', 'admin')
+      .send({
+        pricing: {
+          llm: { inputPrice: 1, outputPrice: 2, currency: 'USD' },
+        },
+      })
+      .expect(200);
+
+    expect(modelsService.update).toHaveBeenCalledWith('model-7', {
+      pricing: {
+        llm: { inputPrice: 1, outputPrice: 2, currency: 'USD' },
+      },
+    });
+    expect(response.body.id).toBe('model-7');
   });
 });

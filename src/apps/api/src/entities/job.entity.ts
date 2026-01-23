@@ -47,8 +47,8 @@ export class JobEntity {
 
   @Column({
     type: 'decimal',
-    precision: 10,
-    scale: 4,
+    precision: 18,
+    scale: 9,
     name: 'estimated_cost',
     nullable: true,
   })
@@ -56,8 +56,8 @@ export class JobEntity {
 
   @Column({
     type: 'decimal',
-    precision: 10,
-    scale: 4,
+    precision: 18,
+    scale: 9,
     name: 'actual_cost',
     nullable: true,
   })
@@ -65,8 +65,8 @@ export class JobEntity {
 
   @Column({
     type: 'decimal',
-    precision: 10,
-    scale: 4,
+    precision: 18,
+    scale: 9,
     name: 'ocr_estimated_cost',
     nullable: true,
   })
@@ -74,8 +74,8 @@ export class JobEntity {
 
   @Column({
     type: 'decimal',
-    precision: 10,
-    scale: 4,
+    precision: 18,
+    scale: 9,
     name: 'ocr_actual_cost',
     nullable: true,
   })
@@ -83,8 +83,8 @@ export class JobEntity {
 
   @Column({
     type: 'decimal',
-    precision: 10,
-    scale: 4,
+    precision: 18,
+    scale: 9,
     name: 'llm_estimated_cost',
     nullable: true,
   })
@@ -92,12 +92,15 @@ export class JobEntity {
 
   @Column({
     type: 'decimal',
-    precision: 10,
-    scale: 4,
+    precision: 18,
+    scale: 9,
     name: 'llm_actual_cost',
     nullable: true,
   })
   llmActualCost!: number | null;
+
+  @Column({ type: 'varchar', name: 'cost_currency', nullable: true })
+  costCurrency!: string | null;
 
   @Column({ type: 'int', name: 'llm_input_tokens', nullable: true })
   llmInputTokens!: number | null;

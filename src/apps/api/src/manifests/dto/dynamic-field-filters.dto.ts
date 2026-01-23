@@ -2,7 +2,6 @@ import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsDate,
-  IsEnum,
   IsIn,
   IsInt,
   IsNumber,
@@ -14,11 +13,19 @@ import {
   Min,
 } from 'class-validator';
 
-import { ManifestStatus } from '../../entities/manifest.entity';
 import {
   JsonPathConstraint,
   JsonPathMapConstraint,
 } from '../validators/json-path.validator';
+
+const MANIFEST_STATUS_VALUES = [
+  'pending',
+  'processing',
+  'completed',
+  'failed',
+] as const;
+
+type ManifestStatusValue = (typeof MANIFEST_STATUS_VALUES)[number];
 
 export class DynamicFieldFiltersDto {
   @IsOptional()
@@ -52,8 +59,8 @@ export class DynamicFieldFiltersDto {
   pageSize?: number;
 
   @IsOptional()
-  @IsEnum(ManifestStatus)
-  status?: ManifestStatus;
+  @IsIn(MANIFEST_STATUS_VALUES)
+  status?: ManifestStatusValue;
 
   @IsOptional()
   @IsString()

@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Separator } from '@/shared/components/ui/separator';
+import { formatCostWithCurrency } from '@/shared/utils/cost';
 
 type CostBreakdownPanelProps = {
   textCost?: number | null;
@@ -8,15 +9,6 @@ type CostBreakdownPanelProps = {
   currency?: string;
   textLabel?: string;
   llmLabel?: string;
-};
-
-const formatCurrency = (value: number, currency?: string) => {
-  const code = currency ?? 'USD';
-  try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).format(value);
-  } catch {
-    return `$${value.toFixed(4)}`;
-  }
 };
 
 export function CostBreakdownPanel({
@@ -52,7 +44,7 @@ export function CostBreakdownPanel({
           <span className="text-muted-foreground">{textLabel}</span>
           <span className="font-medium">
             {textCost !== null && textCost !== undefined
-              ? formatCurrency(textCost, currency)
+              ? formatCostWithCurrency(textCost, currency)
               : 'N/A'}
           </span>
         </div>
@@ -60,7 +52,7 @@ export function CostBreakdownPanel({
           <span className="text-muted-foreground">{llmLabel}</span>
           <span className="font-medium">
             {llmCost !== null && llmCost !== undefined
-              ? formatCurrency(llmCost, currency)
+              ? formatCostWithCurrency(llmCost, currency)
               : 'N/A'}
           </span>
         </div>
@@ -69,7 +61,7 @@ export function CostBreakdownPanel({
           <span className="font-medium">Total</span>
           <span className="text-lg font-semibold">
             {totalCost !== null && totalCost !== undefined
-              ? formatCurrency(totalCost, currency)
+              ? formatCostWithCurrency(totalCost, currency)
               : 'N/A'}
           </span>
         </div>

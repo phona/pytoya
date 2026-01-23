@@ -72,7 +72,7 @@ export function PricingConfigForm({ schema, control }: PricingConfigFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel htmlFor="pricing-currency">Currency *</FormLabel>
-                <Select value={(field.value as string) || 'USD'} onValueChange={field.onChange}>
+                <Select value={(field.value as string) || undefined} onValueChange={field.onChange}>
                   <FormControl>
                     <SelectTrigger id="pricing-currency">
                       <SelectValue placeholder="Select currency..." />

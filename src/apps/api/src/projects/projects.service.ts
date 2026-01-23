@@ -102,15 +102,18 @@ export class ProjectsService {
     dateRange?: { from?: string; to?: string },
   ): Promise<{
     projectId: number;
-    totalExtractionCost: number;
+    totalExtractionCost: number | null;
+    currency?: string | null;
+    totalsByCurrency?: Array<{ currency: string; totalExtractionCost: number }>;
     costByExtractor: Array<{
       extractorId: string | null;
       extractorName: string | null;
+      currency: string;
       totalCost: number;
       extractionCount: number;
       averageCost: number;
     }>;
-    costOverTime: Array<{ date: string; extractionCost: number }>;
+    costOverTime: Array<{ date: string; currency: string; extractionCost: number }>;
     dateRange?: { from: string; to: string };
   }> {
     await this.findOne(user, projectId);
@@ -129,41 +132,63 @@ export class ProjectsService {
       baseQuery.andWhere('manifest.createdAt <= :to', { to: dateRange.to });
     }
 
-    const totals = await baseQuery
+    const totalsByCurrencyRows = await baseQuery
       .clone()
-      .select('COALESCE(SUM(manifest.extractionCost), 0)', 'totalCost')
-      .getRawOne<{ totalCost: string }>();
-    const totalExtractionCost = Number(totals?.totalCost ?? 0);
+      .select(`COALESCE(manifest.extractionCostCurrency, 'unknown')`, 'currency')
+      .addSelect('COALESCE(SUM(manifest.extractionCost), 0)', 'totalCost')
+      .groupBy(`COALESCE(manifest.extractionCostCurrency, 'unknown')`)
+      .orderBy('currency', 'ASC')
+      .getRawMany<{ currency: string; totalCost: string }>();
+
+    const totalsByCurrency = totalsByCurrencyRows.map((row) => ({
+      currency: row.currency,
+      totalExtractionCost: Number(row.totalCost ?? 0),
+    }));
+
+    const hasSingleCurrency = totalsByCurrency.length === 1;
+    const totalExtractionCost = hasSingleCurrency
+      ? totalsByCurrency[0].totalExtractionCost
+      : null;
+    const currency = hasSingleCurrency ? totalsByCurrency[0].currency : null;
 
     const costByExtractor = await baseQuery
       .clone()
       .leftJoin('manifest.textExtractor', 'extractor')
       .select('extractor.id', 'extractorId')
       .addSelect('extractor.name', 'extractorName')
+      .addSelect(`COALESCE(manifest.extractionCostCurrency, 'unknown')`, 'currency')
       .addSelect('COUNT(*)', 'extractionCount')
       .addSelect('COALESCE(SUM(manifest.extractionCost), 0)', 'totalCost')
       .groupBy('extractor.id')
       .addGroupBy('extractor.name')
+      .addGroupBy(`COALESCE(manifest.extractionCostCurrency, 'unknown')`)
       .orderBy('extractor.name', 'ASC')
-      .getRawMany<{ extractorId: string | null; extractorName: string | null; extractionCount: string; totalCost: string }>();
+      .addOrderBy('currency', 'ASC')
+      .getRawMany<{ extractorId: string | null; extractorName: string | null; currency: string; extractionCount: string; totalCost: string }>();
 
     const costOverTime = await baseQuery
       .clone()
       .select("TO_CHAR(manifest.createdAt, 'YYYY-MM-DD')", 'date')
+      .addSelect(`COALESCE(manifest.extractionCostCurrency, 'unknown')`, 'currency')
       .addSelect('COALESCE(SUM(manifest.extractionCost), 0)', 'extractionCost')
       .groupBy("TO_CHAR(manifest.createdAt, 'YYYY-MM-DD')")
+      .addGroupBy(`COALESCE(manifest.extractionCostCurrency, 'unknown')`)
       .orderBy('date', 'ASC')
-      .getRawMany<{ date: string; extractionCost: string }>();
+      .addOrderBy('currency', 'ASC')
+      .getRawMany<{ date: string; currency: string; extractionCost: string }>();
 
     return {
       projectId,
       totalExtractionCost,
+      currency,
+      totalsByCurrency: totalsByCurrency.length > 1 ? totalsByCurrency : undefined,
       costByExtractor: costByExtractor.map((row) => {
         const totalCost = Number(row.totalCost);
         const extractionCount = Number(row.extractionCount);
         return {
           extractorId: row.extractorId,
           extractorName: row.extractorName,
+          currency: row.currency,
           totalCost,
           extractionCount,
           averageCost: extractionCount ? totalCost / extractionCount : 0,
@@ -171,6 +196,7 @@ export class ProjectsService {
       }),
       costOverTime: costOverTime.map((row) => ({
         date: row.date,
+        currency: row.currency,
         extractionCost: Number(row.extractionCost),
       })),
       dateRange: dateRange?.from && dateRange?.to ? { from: dateRange.from, to: dateRange.to } : undefined,

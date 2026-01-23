@@ -1,8 +1,16 @@
-import { Controller, Get, Query, UseGuards, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query, UseGuards, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { UserEntity } from '../entities/user.entity';
 import { CostMetricsService } from './cost-metrics.service';
+
+const parseDateOrThrow = (value: string, field: string): Date => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new BadRequestException(`${field} must be a valid date`);
+  }
+  return parsed;
+};
 
 @UseGuards(JwtAuthGuard)
 @Controller('metrics')
@@ -59,5 +67,16 @@ export class MetricsController {
   @Get('dashboard')
   async getDashboardMetrics(@CurrentUser() user: UserEntity) {
     return this.metricsService.getAggregatedMetrics(user.id);
+  }
+
+  @Get('cost-dashboard')
+  async getCostDashboardMetrics(
+    @CurrentUser() user: UserEntity,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    const fromDate = from ? parseDateOrThrow(from, 'from') : undefined;
+    const toDate = to ? parseDateOrThrow(to, 'to') : undefined;
+    return this.metricsService.getCostDashboardMetrics(user.id, fromDate, toDate);
   }
 }

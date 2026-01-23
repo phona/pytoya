@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Extractor } from '@/api/extractors';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
+import { formatCurrencyCode } from '@/shared/utils/cost';
 import {
   Dialog,
   DialogContent,
@@ -22,14 +23,15 @@ type ExtractorSelectDialogProps = {
 const getPricingSummary = (extractor: Extractor) => {
   const pricing = (extractor.config?.pricing as { mode?: string; currency?: string; pricePerPage?: number; fixedCost?: number; inputPricePerMillionTokens?: number; outputPricePerMillionTokens?: number } | undefined);
   if (!pricing) return 'Pricing not set';
+  const currency = formatCurrencyCode(pricing.currency);
   if (pricing.mode === 'token') {
-    return `Token: ${pricing.inputPricePerMillionTokens ?? 0}/${pricing.outputPricePerMillionTokens ?? 0} per 1M ${pricing.currency ?? 'USD'}`;
+    return `Token: ${pricing.inputPricePerMillionTokens ?? 0}/${pricing.outputPricePerMillionTokens ?? 0} per 1M ${currency}`;
   }
   if (pricing.mode === 'page') {
-    return `Per page: ${pricing.pricePerPage ?? 0} ${pricing.currency ?? 'USD'}`;
+    return `Per page: ${pricing.pricePerPage ?? 0} ${currency}`;
   }
   if (pricing.mode === 'fixed') {
-    return `Fixed: ${pricing.fixedCost ?? 0} ${pricing.currency ?? 'USD'}`;
+    return `Fixed: ${pricing.fixedCost ?? 0} ${currency}`;
   }
   return 'No cost (free)';
 };

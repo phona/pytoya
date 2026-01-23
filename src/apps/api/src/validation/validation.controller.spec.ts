@@ -17,6 +17,7 @@ describe('ValidationController route order', () => {
     update: jest.fn(),
     remove: jest.fn(),
     validateScriptSyntax: jest.fn(),
+    testValidationScript: jest.fn(),
     generateScriptTemplate: jest.fn(),
     runValidation: jest.fn(),
     runBatchValidation: jest.fn(),
@@ -57,6 +58,21 @@ describe('ValidationController route order', () => {
       .expect(201);
 
     expect(validationService.generateScriptTemplate).toHaveBeenCalledTimes(1);
+    expect(validationService.update).not.toHaveBeenCalled();
+  });
+
+  it('routes POST /validation/scripts/test to the test handler (not scripts/:id)', async () => {
+    validationService.testValidationScript.mockResolvedValue({
+      result: { issues: [], errorCount: 0, warningCount: 0, validatedAt: new Date().toISOString() },
+      debug: { logs: [] },
+    });
+
+    await request(app.getHttpServer())
+      .post('/validation/scripts/test')
+      .send({ script: 'function validate() { return []; }', extractedData: {}, debug: true })
+      .expect(201);
+
+    expect(validationService.testValidationScript).toHaveBeenCalledTimes(1);
     expect(validationService.update).not.toHaveBeenCalled();
   });
 });

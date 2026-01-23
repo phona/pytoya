@@ -14,10 +14,13 @@ export function getStatusBadgeClasses(status: StatusBadgeStatus): string {
   return manifestStatusClasses[status as ManifestStatusKey];
 }
 
-export function getGroupStatusBadgeClasses(status: 'pending' | 'failed' | 'verified'): string {
+export function getGroupStatusBadgeClasses(
+  status: 'pending' | 'failed' | 'completed' | 'verified',
+): string {
   const groupStatusClasses = {
     pending: 'bg-[color:var(--status-pending-bg)] text-[color:var(--status-pending-text)]',
     failed: 'bg-[color:var(--status-failed-bg)] text-[color:var(--status-failed-text)]',
+    completed: 'bg-[color:var(--status-completed-bg)] text-[color:var(--status-completed-text)]',
     verified: 'bg-[color:var(--status-verified-bg)] text-[color:var(--status-verified-text)]',
   } as const;
   return groupStatusClasses[status];

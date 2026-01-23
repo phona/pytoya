@@ -51,4 +51,5 @@ export interface ExtractionWorkflowState {
   textCost?: number;
   llmCost?: number;
   extractionCost?: number;
+  currency?: string;
 }

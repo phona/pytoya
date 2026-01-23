@@ -42,6 +42,7 @@ vi.mock('@/shared/hooks/use-schemas', () => ({
 vi.mock('@/shared/hooks/use-validation-scripts', () => ({
   useValidateScriptSyntax: () => ({ mutateAsync: vi.fn() }),
   useGenerateValidationScript: () => ({ mutateAsync: generateMutateAsync }),
+  useTestValidationScript: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 vi.mock('@/shared/hooks/use-modal-dialog', () => ({

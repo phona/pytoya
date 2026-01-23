@@ -25,6 +25,7 @@ export type Group = Jsonify<GroupResponseDto> & {
   statusCounts?: {
     pending?: number;
     failed?: number;
+    completed?: number;
     verified?: number;
   };
 };

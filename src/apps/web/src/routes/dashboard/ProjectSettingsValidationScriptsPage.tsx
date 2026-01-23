@@ -7,12 +7,15 @@ import { CreateValidationScriptDto, UpdateValidationScriptDto, ValidationScript 
 import { ValidationScriptForm } from '@/shared/components/ValidationScriptForm';
 import { ProjectSettingsShell } from '@/shared/components/ProjectSettingsShell';
 import { Button } from '@/shared/components/ui/button';
+import { Dialog, DialogDescription, DialogHeader, DialogSideContent, DialogTitle } from '@/shared/components/ui/dialog';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { useProjectValidationScripts, useValidationScripts } from '@/shared/hooks/use-validation-scripts';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 export function ProjectSettingsValidationScriptsPage() {
   const queryClient = useQueryClient();
   const { confirm, ModalDialog } = useModalDialog();
+  const { t } = useI18n();
   const params = useParams();
   const projectId = Number(params.id);
 
@@ -30,7 +33,8 @@ export function ProjectSettingsValidationScriptsPage() {
     isDeleting,
   } = useValidationScripts();
 
-  const [showForm, setShowForm] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editDialogDirty, setEditDialogDirty] = useState(false);
   const [editingScript, setEditingScript] = useState<ValidationScript | null>(null);
 
   const refresh = async () => {
@@ -40,14 +44,18 @@ export function ProjectSettingsValidationScriptsPage() {
   const handleCreate = async (data: CreateValidationScriptDto) => {
     await createScript({ ...data, projectId: projectId.toString() });
     await refresh();
-    setShowForm(false);
+    setEditDialogOpen(false);
+    setEditingScript(null);
+    setEditDialogDirty(false);
   };
 
   const handleUpdate = async (data: UpdateValidationScriptDto) => {
     if (editingScript) {
       await updateScript({ id: editingScript.id, data });
       await refresh();
+      setEditDialogOpen(false);
       setEditingScript(null);
+      setEditDialogDirty(false);
     }
   };
 
@@ -61,9 +69,10 @@ export function ProjectSettingsValidationScriptsPage() {
 
   const handleDelete = async (id: number) => {
     const confirmed = await confirm({
-      title: 'Delete validation script',
-      message: 'Are you sure you want to delete this validation script?',
-      confirmText: 'Delete',
+      title: t('validationScripts.deleteTitle'),
+      message: t('validationScripts.deleteMessage'),
+      confirmText: t('common.delete'),
+      cancelText: t('common.cancel'),
       destructive: true,
     });
     if (!confirmed) return;
@@ -73,7 +82,8 @@ export function ProjectSettingsValidationScriptsPage() {
 
   const handleEdit = (script: ValidationScript) => {
     setEditingScript(script);
-    setShowForm(false);
+    setEditDialogOpen(true);
+    setEditDialogDirty(false);
   };
 
   const handleToggleEnabled = async (script: ValidationScript) => {
@@ -94,61 +104,64 @@ export function ProjectSettingsValidationScriptsPage() {
     await refresh();
   };
 
+  const requestCloseDialog = async () => {
+    if (isCreating || isUpdating || isDeleting) return;
+    if (editDialogDirty) {
+      const confirmed = await confirm({
+        title: t('common.discardTitle'),
+        message: t('common.discardMessage'),
+        confirmText: t('common.discard'),
+        cancelText: t('common.cancel'),
+        destructive: true,
+      });
+      if (!confirmed) return;
+    }
+    setEditDialogOpen(false);
+    setEditingScript(null);
+    setEditDialogDirty(false);
+  };
+
   return (
     <ProjectSettingsShell projectId={projectId} activeTab="scripts">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Validation Scripts</h1>
+          <h1 className="text-3xl font-bold text-foreground">{t('validationScripts.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {scripts.length} {scripts.length === 1 ? 'script' : 'scripts'}
+            {t('validationScripts.countLine', { count: scripts.length, plural: scripts.length === 1 ? '' : 's' })}
           </p>
         </div>
         <Button
           type="button"
           onClick={() => {
-            setShowForm(true);
             setEditingScript(null);
+            setEditDialogOpen(true);
+            setEditDialogDirty(false);
           }}
         >
-          New Script
+          {t('validationScripts.new')}
         </Button>
       </div>
-
-      {(showForm || editingScript) && (
-        <div className="mb-8 bg-card rounded-lg shadow-sm border border-border p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">
-            {editingScript ? 'Edit Validation Script' : 'Create New Validation Script'}
-          </h2>
-          <ValidationScriptForm
-            script={editingScript ?? undefined}
-            fixedProjectId={projectId}
-            showProjectField={false}
-            onSubmit={handleFormSubmit}
-            onCancel={() => {
-              setShowForm(false);
-              setEditingScript(null);
-            }}
-            isLoading={isCreating || isUpdating}
-          />
-        </div>
-      )}
 
       {isLoading ? (
         <div className="text-center py-12">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-          <p className="mt-2 text-sm text-muted-foreground">Loading validation scripts...</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t('validationScripts.loading')}</p>
         </div>
       ) : scripts.length === 0 ? (
         <div className="text-center py-12">
           <Code2 className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-2 text-sm font-medium text-foreground">No validation scripts</h3>
+          <h3 className="mt-2 text-sm font-medium text-foreground">{t('validationScripts.emptyTitle')}</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Create validation scripts to verify data integrity after extraction.
+            {t('validationScripts.emptyMessage')}
           </p>
           <div className="mt-6">
-            <Button type="button" onClick={() => setShowForm(true)}>
+            <Button type="button" onClick={() => {
+              setEditingScript(null);
+              setEditDialogOpen(true);
+              setEditDialogDirty(false);
+            }}>
               <Plus className="mr-2 h-5 w-5" />
-              New Script
+              {t('validationScripts.new')}
             </Button>
           </div>
         </div>
@@ -174,63 +187,98 @@ export function ProjectSettingsValidationScriptsPage() {
                     </span>
                     {!script.enabled && (
                       <span className="px-2 py-0.5 text-xs font-medium rounded bg-muted text-muted-foreground">
-                        Disabled
+                        {t('validationScripts.disabledBadge')}
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">Project ID: {script.projectId}</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {t('validationScripts.projectIdLine', { id: script.projectId })}
+                  </p>
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEdit(script)}
-                    className="text-muted-foreground hover:text-foreground text-sm font-medium"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDuplicate(script)}
-                    className="text-muted-foreground hover:text-foreground text-sm font-medium"
-                  >
-                    Duplicate
-                  </button>
+                    <button
+                      onClick={() => handleEdit(script)}
+                      className="text-muted-foreground hover:text-foreground text-sm font-medium"
+                    >
+                      {t('common.edit')}
+                    </button>
+                    <button
+                      onClick={() => handleDuplicate(script)}
+                      className="text-muted-foreground hover:text-foreground text-sm font-medium"
+                    >
+                      {t('validationScripts.duplicate')}
+                    </button>
                   <button
                     onClick={() => handleDelete(script.id)}
                     className="text-destructive hover:text-destructive text-sm font-medium"
-                    disabled={isDeleting}
+                      disabled={isDeleting}
+                    >
+                      {t('common.delete')}
+                    </button>
+                  </div>
+                </div>
+                {script.description && (
+                  <p className="text-sm text-muted-foreground mb-4">{script.description}</p>
+                )}
+                <div className="text-sm text-muted-foreground mb-4">
+                  <p>{t('validationScripts.createdLine', { date: format(new Date(script.createdAt), 'PP') })}</p>
+                  <p>{t('validationScripts.updatedLine', { date: format(new Date(script.updatedAt), 'PP') })}</p>
+                </div>
+                <div className="flex items-center justify-between pt-4 border-t border-border">
+                  <button
+                    onClick={() => handleToggleEnabled(script)}
+                    className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                      script.enabled
+                        ? 'bg-muted text-foreground hover:bg-muted'
+                        : 'bg-[color:var(--status-completed-bg)] text-[color:var(--status-completed-text)]'
+                    }`}
                   >
-                    Delete
+                    {script.enabled ? t('validationScripts.disable') : t('validationScripts.enable')}
                   </button>
+                  <code className="text-xs bg-muted px-2 py-1 rounded">
+                    {t('validationScripts.codeSampleValidateFunction')}
+                  </code>
                 </div>
               </div>
-              {script.description && (
-                <p className="text-sm text-muted-foreground mb-4">{script.description}</p>
-              )}
-              <div className="text-sm text-muted-foreground mb-4">
-                <p>Created: {format(new Date(script.createdAt), 'PP')}</p>
-                <p>Updated: {format(new Date(script.updatedAt), 'PP')}</p>
-              </div>
-              <div className="flex items-center justify-between pt-4 border-t border-border">
-                <button
-                  onClick={() => handleToggleEnabled(script)}
-                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                    script.enabled
-                      ? 'bg-muted text-foreground hover:bg-muted'
-                      : 'bg-[color:var(--status-completed-bg)] text-[color:var(--status-completed-text)]'
-                  }`}
-                >
-                  {script.enabled ? 'Disable' : 'Enable'}
-                </button>
-                <code className="text-xs bg-muted px-2 py-1 rounded">
-                  function validate()
-                </code>
-              </div>
-            </div>
-          ))}
+            ))}
         </div>
       )}
+
+      <Dialog
+        open={editDialogOpen}
+        onOpenChange={(next) => {
+          if (next) {
+            setEditDialogOpen(true);
+            setEditDialogDirty(false);
+            return;
+          }
+          void requestCloseDialog();
+        }}
+      >
+        <DialogSideContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingScript ? t('validationScripts.editTitle') : t('validationScripts.createTitle')}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {editingScript ? t('validationScripts.editTitle') : t('validationScripts.createTitle')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <ValidationScriptForm
+              script={editingScript ?? undefined}
+              fixedProjectId={projectId}
+              showProjectField={false}
+              onSubmit={handleFormSubmit}
+              onCancel={() => void requestCloseDialog()}
+              onDirtyChange={setEditDialogDirty}
+              isLoading={isCreating || isUpdating}
+            />
+          </div>
+        </DialogSideContent>
+      </Dialog>
 
       <ModalDialog />
     </ProjectSettingsShell>
   );
 }
-

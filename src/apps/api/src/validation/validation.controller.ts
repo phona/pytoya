@@ -18,6 +18,7 @@ import { ERROR_CODES } from '../common/errors/error-codes';
 import { CreateValidationScriptDto } from './dto/create-validation-script.dto';
 import { UpdateValidationScriptDto } from './dto/update-validation-script.dto';
 import { ValidateScriptSyntaxDto } from './dto/validate-script-syntax.dto';
+import { TestValidationScriptDto } from './dto/test-validation-script.dto';
 import { RunValidationDto } from './dto/run-validation.dto';
 import { BatchValidationDto } from './dto/batch-validation.dto';
 import { ValidationScriptResponseDto } from './dto/validation-script-response.dto';
@@ -71,6 +72,11 @@ export class ValidationController {
   @Post('scripts/validate-syntax')
   async validateScriptSyntax(@Body() validateDto: ValidateScriptSyntaxDto) {
     return this.validationService.validateScriptSyntax(validateDto.script);
+  }
+
+  @Post('scripts/test')
+  async testScript(@Body() testDto: TestValidationScriptDto) {
+    return this.validationService.testValidationScript(testDto);
   }
 
   @Post('scripts/generate')

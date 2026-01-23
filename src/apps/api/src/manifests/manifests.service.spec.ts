@@ -28,6 +28,7 @@ describe('ManifestsService', () => {
   let manifestRepository: jest.Mocked<Repository<ManifestEntity>>;
   let jobRepository: jest.Mocked<Repository<JobEntity>>;
   let groupsService: jest.Mocked<GroupsService>;
+  let storageService: { saveFile: jest.Mock };
   let queryBuilder: ReturnType<typeof createQueryBuilder>;
 
   beforeEach(async () => {
@@ -35,6 +36,9 @@ describe('ManifestsService', () => {
 
     manifestRepository = {
       createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
     } as unknown as jest.Mocked<Repository<ManifestEntity>>;
 
     jobRepository = {} as jest.Mocked<Repository<JobEntity>>;
@@ -42,6 +46,10 @@ describe('ManifestsService', () => {
     groupsService = {
       findOne: jest.fn().mockResolvedValue({ id: 1, projectId: 1 }),
     } as unknown as jest.Mocked<GroupsService>;
+
+    storageService = {
+      saveFile: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -52,7 +60,7 @@ describe('ManifestsService', () => {
         { provide: getRepositoryToken(ModelEntity), useValue: {} },
         { provide: getRepositoryToken(PromptEntity), useValue: {} },
         { provide: GroupsService, useValue: groupsService },
-        { provide: StorageService, useValue: {} },
+        { provide: StorageService, useValue: storageService },
         { provide: TextExtractorService, useValue: {} },
         { provide: WebSocketService, useValue: {} },
         { provide: 'IFileAccessService', useValue: {} },
@@ -114,5 +122,84 @@ describe('ManifestsService', () => {
       'manifest.status = :statusFilter',
       { statusFilter: 'completed' },
     );
+  });
+
+  it('returns existing manifest as duplicate when content hash matches', async () => {
+    const existing = { id: 123, groupId: 1 } as any;
+    manifestRepository.findOne.mockResolvedValueOnce(existing);
+
+    const result = await service.create(
+      { id: 1 } as any,
+      1,
+      {
+        mimetype: 'application/pdf',
+        buffer: Buffer.from('same'),
+        size: 10,
+        originalname: 'invoice.pdf',
+      } as any,
+    );
+
+    expect(result).toEqual({ manifest: existing, isDuplicate: true });
+    expect(storageService.saveFile).not.toHaveBeenCalled();
+    expect(manifestRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('creates a new manifest when content is new', async () => {
+    manifestRepository.findOne.mockResolvedValueOnce(null);
+    storageService.saveFile.mockResolvedValueOnce({
+      filename: 'stored.pdf',
+      originalFilename: 'invoice.pdf',
+      storagePath: '/stored.pdf',
+      fileSize: 10,
+    });
+
+    const created = { id: 999 } as any;
+    manifestRepository.create.mockReturnValueOnce(created);
+    manifestRepository.save.mockResolvedValueOnce(created);
+
+    const result = await service.create(
+      { id: 1 } as any,
+      1,
+      {
+        mimetype: 'application/pdf',
+        buffer: Buffer.from('new'),
+        size: 10,
+        originalname: 'invoice.pdf',
+      } as any,
+    );
+
+    expect(result).toEqual({ manifest: created, isDuplicate: false });
+    expect(storageService.saveFile).toHaveBeenCalled();
+    expect(manifestRepository.save).toHaveBeenCalledWith(created);
+  });
+
+  it('treats unique constraint race as duplicate', async () => {
+    manifestRepository.findOne
+      .mockResolvedValueOnce(null) // first existence check
+      .mockResolvedValueOnce({ id: 555, groupId: 1 } as any); // raced re-check
+
+    storageService.saveFile.mockResolvedValueOnce({
+      filename: 'stored.pdf',
+      originalFilename: 'invoice.pdf',
+      storagePath: '/stored.pdf',
+      fileSize: 10,
+    });
+
+    manifestRepository.create.mockReturnValueOnce({} as any);
+    manifestRepository.save.mockRejectedValueOnce(new Error('unique_violation'));
+
+    const result = await service.create(
+      { id: 1 } as any,
+      1,
+      {
+        mimetype: 'application/pdf',
+        buffer: Buffer.from('race'),
+        size: 10,
+        originalname: 'invoice.pdf',
+      } as any,
+    );
+
+    expect(result.isDuplicate).toBe(true);
+    expect(result.manifest.id).toBe(555);
   });
 });

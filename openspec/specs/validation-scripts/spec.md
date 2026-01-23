@@ -28,28 +28,14 @@ The system SHALL allow users to create and manage validation scripts per project
 - **AND** validationResults referencing it are cleared
 
 ### Requirement: Validation Execution
-The system SHALL execute validation scripts on extracted data.
 
-#### Scenario: Run validation on single manifest
-- **WHEN** authenticated user triggers validation on completed manifest
-- **THEN** all enabled scripts for project's schema are executed
-- **AND** each script receives manifest.extractedData as input
-- **AND** validation issues are collected from all scripts
-- **AND** results are cached in ManifestEntity.validationResults
-- **AND** results are returned to UI for display
+The system SHALL execute validation scripts on extracted data, and SHALL support using validation results to gate user actions in the audit flow (e.g., saving a manifest as Human Verified).
 
-#### Scenario: Run validation on batch of manifests
-- **WHEN** user triggers batch validation on multiple manifests
-- **THEN** validation runs for each manifest in parallel
-- **AND** progress is reported via WebSocket
-- **AND** results are aggregated by manifest
+#### Scenario: Validation is used to gate Human Verified
 
-#### Scenario: Invalid script handling
-- **WHEN** validation script throws error during execution
-- **THEN** error is logged with script name and manifest ID
-- **AND** error is returned as validation issue with severity 'error'
-- **AND** other scripts continue to execute
-- **AND** manifest is not marked as failed
+- **WHEN** the user attempts to save a manifest as Human Verified
+- **THEN** the system SHALL run validation for that manifest
+- **AND** validation results SHALL be returned to the UI so the user can decide whether to proceed when errors exist
 
 ### Requirement: Validation Results Display
 The system SHALL display validation results in human review UI.
@@ -134,4 +120,43 @@ The system SHALL provide actions for addressing validation issues.
 - **THEN** edit is saved to manifest.extractedData
 - **AND** validation results are cleared (marked stale)
 - **AND** user is prompted to re-run validation
+
+### Requirement: Validation Script Test Panel
+The system SHALL provide a debug/test panel for validation scripts that allows users to run the current script against provided input data and see logs and errors.
+
+#### Scenario: Test script with input JSON
+- **GIVEN** the user is editing a validation script
+- **WHEN** the user provides extracted data as JSON and runs a test
+- **THEN** the system SHALL execute the script in the same restricted sandbox used for real validation
+- **AND** the system SHALL return validation issues and counts to the UI
+
+#### Scenario: View console logs while testing
+- **GIVEN** a script calls `console.log()` (or `console.warn()` / `console.error()`)
+- **WHEN** the user runs a test
+- **THEN** the system SHALL return captured console output to the UI test panel
+- **AND** the UI SHALL display logs in a dedicated Logs view
+
+#### Scenario: View runtime errors with stack snippet
+- **GIVEN** a script throws during execution
+- **WHEN** the user runs a test
+- **THEN** the system SHALL return a user-visible runtime error message
+- **AND** the system SHOULD return a sanitized stack snippet that references the script filename and line numbers
+
+### Requirement: Invalid script handling
+When a validation script fails during execution, the system SHALL return the failure as a validation issue so users can identify a script implementation problem.
+
+#### Scenario: Script throws during execution
+- **WHEN** a validation script throws an exception during a validation run
+- **THEN** the system SHALL log the error with script identification
+- **AND** the system SHALL append a validation issue with:
+  - `field="__script__"`
+  - `severity="error"`
+  - a message indicating it is a script implementation error
+- **AND** the system SHALL continue executing remaining scripts
+
+#### Scenario: Script returns invalid result shape
+- **WHEN** a validation script returns a non-array result (invalid contract)
+- **THEN** the system SHALL treat this as a script implementation error
+- **AND** the system SHALL return an error validation issue as described above
+- **AND** the system SHALL continue executing remaining scripts
 

@@ -99,7 +99,8 @@ export class ManifestExtractionProcessor extends WorkerHost {
       const costBreakdown = {
         text: result.textCost ?? 0,
         llm: result.llmCost ?? 0,
-        total: result.extractionCost ?? 0,
+        total: result.extractionCost ?? null,
+        currency: result.currency ?? null,
       };
       await this.manifestsService.updateJobCompleted(
         String(job.id),
@@ -109,6 +110,7 @@ export class ManifestExtractionProcessor extends WorkerHost {
           total: costBreakdown.total,
           text: costBreakdown.text,
           llm: costBreakdown.llm,
+          currency: costBreakdown.currency,
           pagesProcessed: result.textResult?.metadata.pagesProcessed,
           llmInputTokens: result.extractionResult?.tokenUsage?.promptTokens,
           llmOutputTokens: result.extractionResult?.tokenUsage?.completionTokens,
@@ -123,6 +125,7 @@ export class ManifestExtractionProcessor extends WorkerHost {
         cost: result.extractionCost,
         costBreakdown,
         extractorId: result.textResult?.metadata.extractorId ?? null,
+        currency: result.currency ?? null,
       });
       this.webSocketService.emitManifestUpdate({
         manifestId,
@@ -131,6 +134,7 @@ export class ManifestExtractionProcessor extends WorkerHost {
         cost: result.extractionCost,
         costBreakdown,
         extractorId: result.textResult?.metadata.extractorId ?? null,
+        currency: result.currency ?? null,
       });
       this.logger.log(
         `Completed extraction job ${job.id} for manifest ${manifestId}`,
@@ -164,9 +168,20 @@ export class ManifestExtractionProcessor extends WorkerHost {
         throw error;
       }
 
-      this.logger.error(
-        `Extraction job ${job.id} failed: ${this.formatError(error)}`,
-      );
+      const errorMessage = this.formatError(error);
+      const line = [
+        'event=fail',
+        `jobId=${String(job.id)}`,
+        `manifestId=${manifestId}`,
+        `attemptsMade=${job.attemptsMade}`,
+        `lastProgress=${lastProgress}`,
+        `error=${JSON.stringify(errorMessage)}`,
+      ].join(' ');
+      if (error instanceof Error) {
+        this.logger.error(line, error.stack);
+      } else {
+        this.logger.error(line);
+      }
       await this.manifestsService.updateStatus(
         manifestId,
         ManifestStatus.FAILED,
@@ -177,7 +192,6 @@ export class ManifestExtractionProcessor extends WorkerHost {
         job.attemptsMade,
       );
       // Emit WebSocket error update
-      const errorMessage = this.formatError(error);
       this.webSocketService.emitJobUpdate({
         jobId: String(job.id),
         manifestId,

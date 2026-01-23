@@ -7,12 +7,14 @@ import {
   MinLength,
   Validate,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   AdapterParametersConstraint,
   AdapterTypeConstraint,
 } from './create-model.dto';
+import { ModelPricingDto } from './update-model-pricing.dto';
 
 export class UpdateModelDto {
   @ApiPropertyOptional({ example: 'OpenAI GPT-4o' })
@@ -53,4 +55,10 @@ export class UpdateModelDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ type: ModelPricingDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ModelPricingDto)
+  pricing?: ModelPricingDto;
 }

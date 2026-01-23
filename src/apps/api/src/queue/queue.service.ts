@@ -42,6 +42,7 @@ export class QueueService {
     customPrompt?: string,
     textContextSnippet?: string,
     estimatedCost?: number,
+    currency?: string,
   ): Promise<string> {
     try {
       const job = await this.extractionQueue.add(
@@ -64,6 +65,7 @@ export class QueueService {
         llmModelId,
         promptId,
         estimatedCost,
+        currency,
         fieldName,
       );
       this.logger.log(
@@ -212,6 +214,7 @@ export class QueueService {
     return jobs.map((job) => ({
       estimatedCost: this.normalizeDecimal(job.estimatedCost),
       actualCost: this.normalizeDecimal(job.actualCost),
+      currency: job.costCurrency ?? null,
       id: job.id,
       manifestId: job.manifestId,
       status: job.status,

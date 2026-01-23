@@ -44,17 +44,17 @@ The system SHALL process extraction jobs asynchronously via BullMQ with cost tra
 
 - **WHEN** user triggers extraction for manifest(s)
 - **THEN** job is added to BullMQ queue
-- **AND** job record includes estimated cost
+- **AND** job record includes estimated cost **and currency**
 - **AND** job status is set to queued
 - **AND** job includes reference to cached OCR result
 
 #### Scenario: Job completion with cost
 
 - **WHEN** extraction completes successfully
-- **THEN** system stores actual token usage and cost
+- **THEN** system stores actual token usage and cost **with currency**
 - **AND** manifest `extraction_cost` is updated
-- **AND** job record is updated with actual cost
-- **AND** WebSocket event includes cost information
+- **AND** job record is updated with actual cost **and currency**
+- **AND** WebSocket event includes cost information **and currency**
 
 ### Requirement: Field-level Re-extraction
 
@@ -222,7 +222,7 @@ The system SHALL allow users to select specific manifests for extraction.
 - **WHEN** user clicks "Extract Selected" button
 - **THEN** system shows confirmation modal with:
   - Number of manifests to extract
-  - Estimated cost range (min-max)
+  - Estimated cost range (min-max) **and currency**
   - Selected model and prompt
 - **AND** user confirms extraction
 - **THEN** system queues BullMQ job for each manifest
@@ -231,7 +231,7 @@ The system SHALL allow users to select specific manifests for extraction.
 #### Scenario: Extract single manifest
 
 - **GIVEN** user clicks "Extract" button on single manifest row
-- **THEN** system shows confirmation with estimated cost
+- **THEN** system shows confirmation with estimated cost **and currency**
 - **AND** upon confirmation, queues single extraction job
 
 #### Scenario: Cost estimation
@@ -241,7 +241,7 @@ The system SHALL allow users to select specific manifests for extraction.
   - Number of manifests
   - Average OCR result token count
   - Selected model's token pricing
-- **AND** returns estimated cost range (min and max)
+- **AND** returns estimated cost range (min and max) **and currency**
 
 ### Requirement: Extraction Cost Tracking
 The system SHALL calculate and store text extraction cost when pricing configuration is provided.
@@ -249,31 +249,40 @@ The system SHALL calculate and store text extraction cost when pricing configura
 #### Scenario: Store extraction cost metadata
 - **GIVEN** an extractor returns cost metadata
 - **WHEN** extraction completes
-- **THEN** the manifest SHALL store extractionCost as a numeric total
-- **AND** the API SHALL return extractionCost in manifest responses
-- **AND** the API SHALL return textCost and llmCost breakdown when available
+- **THEN** the manifest SHALL store extractionCost as a numeric total **and currency**
+- **AND** the API SHALL return extractionCost **and currency** in manifest responses
+- **AND** the API SHALL return textCost and llmCost breakdown when available (same currency)
 
 #### Scenario: Text extraction cost uses textCost naming
 - **GIVEN** a text extractor returns a calculated cost
 - **WHEN** the extraction job completes
 - **THEN** the system SHALL expose the value as textCost (actual usage)
-- **AND** the total extractionCost SHALL include textCost + llmCost
+- **AND** the total extractionCost SHALL include textCost + llmCost (same currency)
+
+#### Scenario: Deterministic rounding
+- **GIVEN** a manifest has token usage and pricing configured
+- **WHEN** the system calculates cost for storage/transport
+- **THEN** the system SHALL calculate using integer nano units (1e-9) internally
+- **AND** the system SHALL round once at the boundary to a numeric value with up to 9 fractional digits
 
 #### Scenario: Retrieve extractor cost summary
 - **GIVEN** cost data exists for an extractor
 - **WHEN** a client calls `GET /api/extractors/:id/cost-summary`
 - **THEN** the system SHALL return total cost and average cost per extraction
-- **AND** the response SHALL include textCost + llmCost breakdown when available
+- **AND** the response SHALL include currency
+- **AND** the response SHALL NOT sum costs across different currencies
 
 #### Scenario: Retrieve project cost summary
 - **GIVEN** a project has extraction cost data
 - **WHEN** a client calls `GET /api/projects/:id/cost-summary`
 - **THEN** the system SHALL return total extraction cost and cost by extractor
+- **AND** totals SHALL be grouped by currency when multiple currencies exist
 
 #### Scenario: Retrieve project cost over time
 - **GIVEN** a project has extraction cost history
 - **WHEN** a client calls `GET /api/projects/:id/cost-by-date-range`
 - **THEN** the system SHALL return cost totals grouped by date
+- **AND** totals SHALL be grouped by currency when multiple currencies exist
 
 ### Requirement: Field-level Re-extraction with OCR Context
 
@@ -530,4 +539,64 @@ The system SHALL store extractor information with extraction results.
 - **THEN** the API response SHALL include the extractorId
 - **AND** the response SHALL include extractor metadata
 - **AND** the web UI SHALL display this information
+
+### Requirement: Filtered Bulk Extraction
+
+The system SHALL support triggering extraction for all manifests matching a set of manifest list filters, without requiring the client to enumerate manifest IDs across pages.
+
+#### Scenario: Dry-run estimate for filtered extraction
+
+- **WHEN** an authenticated user requests a filtered extraction estimate with `dryRun=true`
+- **THEN** the system SHALL return the total matching manifest count
+- **AND** the system SHALL return an estimated cost range and currency
+
+#### Scenario: Queue jobs for filtered extraction
+
+- **WHEN** an authenticated user requests filtered extraction with `dryRun=false`
+- **THEN** the system SHALL enqueue one extraction job per matching manifest
+- **AND** the system SHALL return a batch job identifier and jobIds
+- **AND** WebSocket updates SHALL be emitted per manifest as jobs progress and complete
+
+#### Scenario: Default filtered extraction skips completed and processing
+
+- **WHEN** an authenticated user requests filtered extraction without explicit behavior overrides
+- **THEN** the system SHALL include only manifests in status `pending` or `failed`
+- **AND** the system SHALL skip manifests in status `completed` or `processing`
+
+#### Scenario: Processing manifests require explicit force include
+
+- **GIVEN** the filtered result set includes one or more `processing` manifests
+- **WHEN** the request does not explicitly enable “include processing”
+- **THEN** the system SHALL skip `processing` manifests
+- **AND** **WHEN** the request explicitly enables “include processing”
+- **THEN** the system SHALL include `processing` manifests
+
+### Requirement: Currency-Aware Cost Dashboard Metrics API
+The system SHALL provide a cost dashboard metrics endpoint that aggregates usage and costs without mixing currencies.
+
+#### Scenario: Retrieve cost dashboard metrics grouped by currency
+- **GIVEN** jobs and manifests exist with costs in one or more currencies
+- **WHEN** a client calls `GET /api/metrics/cost-dashboard`
+- **THEN** the system SHALL return totals grouped by currency
+- **AND** the system SHALL include LLM token usage totals (input/output) in the response
+- **AND** the system SHALL include text extraction usage totals (pages processed) in the response
+
+#### Scenario: Filter dashboard metrics by date range
+- **GIVEN** cost data exists over multiple days
+- **WHEN** a client calls `GET /api/metrics/cost-dashboard?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- **THEN** the system SHALL aggregate results only within the requested date range
+
+#### Scenario: Do not sum costs across different currencies
+- **GIVEN** jobs exist in multiple currencies
+- **WHEN** a client calls `GET /api/metrics/cost-dashboard`
+- **THEN** the system SHALL NOT return a single total that sums across currencies
+- **AND** each returned total SHALL be associated with an explicit currency code (or `unknown`)
+
+### Requirement: LLM Token Metrics Use Stored Usage Fields
+The system SHALL calculate dashboard token metrics using stored per-job token usage fields.
+
+#### Scenario: Group token metrics by LLM model id
+- **GIVEN** jobs include `llm_input_tokens` and `llm_output_tokens`
+- **WHEN** the system aggregates token metrics for the dashboard
+- **THEN** metrics SHALL be grouped by the job `llm_model_id` value
 

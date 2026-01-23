@@ -176,4 +176,36 @@ describe('ModelsService', () => {
     expect(result).toHaveLength(1);
     expect(result[0].adapterType).toBe('openai');
   });
+
+  it('does not overwrite masked secrets on update', async () => {
+    const existing: ModelEntity = {
+      id: 'id-1',
+      name: 'Model',
+      adapterType: 'openai',
+      parameters: {
+        baseUrl: 'https://api.openai.com/v1',
+        apiKey: 'sk-real',
+        modelName: 'gpt-4o',
+      },
+      pricing: { effectiveDate: new Date().toISOString() } as any,
+      pricingHistory: [],
+      description: null,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as ModelEntity;
+
+    modelRepository.findOne.mockResolvedValue(existing);
+    modelRepository.save.mockImplementation(async (value: any) => value);
+
+    const updated = await service.update('id-1', {
+      parameters: {
+        baseUrl: 'https://api.openai.com/v1',
+        apiKey: '********',
+        modelName: 'gpt-4o',
+      },
+    });
+
+    expect(updated.parameters.apiKey).toBe('sk-real');
+  });
 });

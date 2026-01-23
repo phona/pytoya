@@ -104,6 +104,22 @@ The web application SHALL use modal dialogs for entity creation and editing form
 - **THEN** the system SHALL navigate to the manifest audit page route
 - **AND** the system SHALL NOT open a modal dialog for this flow
 
+#### Scenario: Group create/edit uses modal
+- **WHEN** a user creates or edits a Group from the Project Detail page
+- **THEN** the system SHALL open a modal dialog for the Group form
+- **AND** the current page scroll position SHALL be preserved after closing
+
+#### Scenario: Long editors use side-sheet dialogs
+- **WHEN** a user creates or edits a Schema, Prompt, or Validation Script
+- **THEN** the system SHOULD open a side-sheet style dialog (scrollable content area)
+- **AND** the system SHALL NOT navigate away from the current route
+
+#### Scenario: Dirty form close confirmation
+- **GIVEN** a user has modified a form in an open dialog (dirty state)
+- **WHEN** the user attempts to close the dialog (Escape, backdrop click, close button, or Cancel)
+- **THEN** the system SHALL prompt the user to confirm discarding changes
+- **AND** closing SHALL proceed only after explicit confirmation
+
 ### Requirement: Schema-Driven Manifest Audit Form
 The web application SHALL render manifest audit form fields dynamically from the project JSON Schema.
 
@@ -853,6 +869,20 @@ The manifest list SHALL display manifests with extraction controls and OCR quali
 - **THEN** the table SHALL render a minimal set of non-schema columns suitable for a summary view (e.g., Filename, Status, Actions)
 - **AND** the table MAY render a selection checkbox column only when batch actions are enabled
 
+#### Scenario: Optional system columns (default hidden)
+
+- **GIVEN** additional manifest system fields exist (e.g., Confidence, Verified, Invoice Date, Department, Purchase Order, Cost, OCR Quality, OCR Processed At, Extractor, File Size, File Type, Created, Updated, ID)
+- **WHEN** the user opens the Columns dropdown
+- **THEN** the user SHALL be able to toggle those additional system columns
+- **AND** those optional system columns SHALL be hidden by default
+
+#### Scenario: Filter by system field using column header controls
+
+- **GIVEN** the manifest list table is visible
+- **WHEN** the user applies a filter via a system column header control
+- **THEN** the manifest list query SHALL include the corresponding system filter query params (e.g., `status`, `humanVerified`, `confidenceMin`, `confidenceMax`, `dateFrom`, `dateTo`, `department`, `poNo`, `ocrQualityMin`, `ocrQualityMax`, `costMin`, `costMax`, `textExtractorId`, `extractorType`)
+- **AND** the results SHALL update to show only matching manifests
+
 #### Scenario: Use schema-defined table columns
 
 - **GIVEN** the project's active JSON Schema defines `x-table-columns` as a non-empty ordered list of dot-paths (e.g., `invoice.po_no`, `department.code`)
@@ -1152,23 +1182,27 @@ The web application SHALL display extraction costs when cost data is available.
 - **WHEN** the Extractors page loads
 - **THEN** each extractor card SHALL show average cost per extraction
 - **AND** each card SHALL show total spend when available
+- **AND** the UI SHALL show a currency code for displayed cost values
 
 #### Scenario: Show cost in manifest list
 - **GIVEN** manifests include extraction cost data
 - **WHEN** the manifests list loads
 - **THEN** each manifest row SHALL show the extraction cost
+- **AND** the UI SHALL show a currency code when available
 
 #### Scenario: Show cost breakdown in manifest detail
 - **GIVEN** a manifest with extraction cost data
 - **WHEN** the manifest detail panel opens
 - **THEN** the system SHALL display a cost breakdown panel
 - **AND** the panel SHALL show text extraction cost, LLM cost, and total cost when available
+- **AND** the panel SHALL show a currency code for each cost value (or “unknown” when missing)
 
 #### Scenario: Project cost summary page
 - **GIVEN** a project with extraction cost history
 - **WHEN** the user navigates to `/projects/:id/costs`
 - **THEN** the system SHALL show total extraction costs and cost by extractor
 - **AND** the system SHALL show cost over time
+- **AND** the UI SHALL support multi-currency totals by showing one total per currency
 
 ### Requirement: Secure API Key Handling
 The web application SHALL handle extractor API keys securely in the UI.
@@ -1324,4 +1358,196 @@ The web application SHALL present localized error messages based on backend erro
 - **GIVEN** an API call fails with an unknown `error.code`
 - **WHEN** the UI displays an error message
 - **THEN** the UI SHALL display a localized generic error message
+
+### Requirement: Bulk Extraction Action With User Choice
+
+The web application SHALL provide an “Extract” action that clearly explains side effects and lets the user choose between extracting selected manifests or all manifests matching the current filters.
+
+#### Scenario: Extract selected manifests from list
+
+- **GIVEN** the user has selected one or more manifests in the manifests list
+- **WHEN** the user clicks “Extract”
+- **THEN** the system SHALL offer “Selected manifests (N)” as a scope option
+- **AND** the system SHALL show a confirmation notice describing what will happen
+- **AND** upon confirmation the system SHALL start extraction jobs for the selected manifests
+- **AND** jobs SHALL be visible in the global Jobs panel
+
+#### Scenario: Extract all manifests matching current filters
+
+- **GIVEN** the user has applied filters in the manifests list
+- **AND** the filtered result set contains more manifests than the current page
+- **WHEN** the user selects “All matching current filters”
+- **THEN** the system SHALL estimate and display the extraction cost for the full filtered set
+- **AND** the system SHALL require explicit user confirmation before queueing jobs
+
+#### Scenario: Default bulk extraction skips completed and processing
+
+- **GIVEN** the user opens the “Extract” modal with no explicit behavior overrides
+- **WHEN** the user confirms extraction
+- **THEN** the system SHALL extract only manifests that are not `completed`
+- **AND** the system SHALL skip manifests that are `processing`
+
+#### Scenario: Processing is skipped unless user forces inclusion
+
+- **GIVEN** the filtered result set includes one or more `processing` manifests
+- **WHEN** the user does not enable a “force include processing” option
+- **THEN** the system SHALL skip `processing` manifests
+- **AND** **WHEN** the user explicitly enables “force include processing”
+- **THEN** the system SHALL include `processing` manifests in the extraction request
+
+#### Scenario: Audit panel includes Extract action
+
+- **GIVEN** the user is on the manifest audit page
+- **WHEN** the user clicks “Extract”
+- **THEN** the system SHALL start extraction for the current manifest
+
+### Requirement: Duplicate Upload Warning
+The web application SHALL warn the user when one or more uploaded manifest files were detected as duplicates.
+
+#### Scenario: Upload shows duplicate summary
+- **GIVEN** the user uploads one or more manifest files
+- **WHEN** the upload response includes one or more items with `isDuplicate=true`
+- **THEN** the UI shows a clear summary (e.g. "Created N, duplicates M")
+- **AND** the UI offers an action to review duplicates
+
+#### Scenario: Review duplicates
+- **GIVEN** the upload summary indicates duplicates occurred
+- **WHEN** the user selects "Review duplicates"
+- **THEN** the UI lists duplicated filenames
+- **AND** each item provides an "Open existing" action that navigates to the existing manifest
+
+### Requirement: Remove Prompts Management Page
+
+The web application SHALL NOT provide a dedicated prompt template management page at the `/prompts` route.
+
+#### Scenario: Navigating to /prompts
+- **GIVEN** the user is authenticated
+- **WHEN** the user navigates to `/prompts`
+- **THEN** the system SHALL NOT render a prompt-template CRUD page
+
+#### Scenario: Sidebar does not include a Prompts link
+- **WHEN** the dashboard sidebar navigation is rendered
+- **THEN** the system SHALL NOT show a “Prompts” navigation link
+
+### Requirement: Unused Web UI Cleanup
+
+The web application SHALL remove unused pages and components that are not reachable from the router or referenced by production code.
+
+#### Scenario: Unreachable dashboard pages are removed
+- **GIVEN** the dashboard router configuration does not reference a page component
+- **WHEN** an unreachable page is identified as unused
+- **THEN** the system SHALL remove the page implementation to avoid shipping dead UI
+
+#### Scenario: Test-only UI is either integrated or removed
+- **GIVEN** a UI component is referenced only by tests and not by production code
+- **WHEN** the component is not part of an approved user-facing workflow
+- **THEN** the system SHALL remove the component and its tests
+
+### Requirement: Group Status Indicators
+The system SHALL display manifest status counts on each GroupCard, including a count for manifests with status "completed".
+
+#### Scenario: Show status breakdown includes completed
+- **WHEN** a GroupCard is rendered for a group
+- **THEN** the system SHALL display counts for pending, error (failed), completed, and verified manifests in that group
+- **AND** the completed count SHALL include manifests with `status="completed"`
+- **AND** the verified count SHALL include manifests with `humanVerified=true`
+
+### Requirement: Human Verified Requires Validation Gate
+
+The web application SHALL gate saving `manifest.humanVerified=true` behind a validation run, and SHALL require explicit user confirmation when validation returns one or more errors.
+
+#### Scenario: Save as Human Verified with no validation errors
+
+- **GIVEN** a user is auditing a manifest
+- **AND** the user has marked the manifest as Human Verified (intent to save `humanVerified=true`)
+- **WHEN** the user clicks Save
+- **THEN** the system SHALL save the latest audit edits to the manifest
+- **AND** the system SHALL run validation for that manifest
+- **AND** **WHEN** validation returns `errorCount = 0`
+- **THEN** the system SHALL persist `manifest.humanVerified=true`
+
+#### Scenario: Save as Human Verified with validation errors requires confirmation
+
+- **GIVEN** a user is auditing a manifest
+- **AND** the user has marked the manifest as Human Verified (intent to save `humanVerified=true`)
+- **WHEN** the user clicks Save
+- **THEN** the system SHALL run validation for that manifest
+- **AND** **WHEN** validation returns `errorCount > 0`
+- **THEN** the system SHALL prompt the user for confirmation before persisting `humanVerified=true`
+- **AND** **WHEN** the user cancels the confirmation
+- **THEN** the system SHALL keep `manifest.humanVerified=false`
+- **AND** **WHEN** the user confirms
+- **THEN** the system SHALL persist `manifest.humanVerified=true`
+
+#### Scenario: Run validation without leaving current audit section
+
+- **WHEN** the user triggers “Run validation” from the audit header
+- **THEN** the system SHALL run validation for the manifest
+- **AND** the UI SHOULD display a summary of validation results without forcing navigation
+- **AND** the UI SHOULD provide an explicit user action to open the Validation section
+
+### Requirement: Manifest list batch actions use consistent scope modals
+The web application SHALL present a consistent scope confirmation modal UX for the Manifests list batch actions: Export CSV, Run validation, and Extract.
+
+#### Scenario: Default scope is filtered
+- **GIVEN** a user is on the Manifests list page with any selection state
+- **WHEN** the user opens Export CSV, Run validation, or Extract
+- **THEN** the system SHALL default the scope to “All matching current filters”
+
+#### Scenario: Selected-only scope is available when there is a selection
+- **GIVEN** a user has selected one or more manifests on the Manifests list page
+- **WHEN** the user opens Export CSV, Run validation, or Extract
+- **THEN** the system SHALL allow switching the scope to “Selected only”
+
+#### Scenario: Selected-only scope is disabled when there is no selection
+- **GIVEN** a user has selected zero manifests on the Manifests list page
+- **WHEN** the user opens Export CSV, Run validation, or Extract
+- **THEN** the system SHALL disable “Selected only” scope selection
+
+#### Scenario: Validation eligibility is communicated
+- **GIVEN** a user opens the Run validation modal on the Manifests list page
+- **WHEN** the system determines which manifests are eligible for validation
+- **THEN** the UI SHALL communicate that only completed extractions with extracted data will be validated
+
+### Requirement: Embedded Cost Dashboard Widget
+The web application SHALL embed a cost dashboard widget on existing dashboard pages to summarize usage and spend with multi-currency support.
+
+#### Scenario: Models page shows embedded LLM cost widget
+- **WHEN** the user navigates to `/models`
+- **THEN** the system SHALL render an embedded cost dashboard widget
+- **AND** the widget SHALL display LLM token usage and cost metrics grouped by currency
+- **AND** the widget SHALL include a date range filter
+
+#### Scenario: Extractors page shows embedded text cost widget
+- **WHEN** the user navigates to `/extractors`
+- **THEN** the system SHALL render an embedded cost dashboard widget
+- **AND** the widget SHALL display text extraction usage and cost metrics grouped by currency
+- **AND** the widget SHALL include a date range filter
+
+#### Scenario: Multi-currency totals are displayed without summing
+- **GIVEN** cost data exists in multiple currencies
+- **WHEN** the embedded cost dashboard widget renders totals
+- **THEN** the UI SHALL display one total per currency code
+- **AND** the UI SHALL NOT display a single mixed-currency grand total
+
+### Requirement: Token Cost Dashboard (LLM)
+The web application SHALL display LLM token usage and token-based cost metrics in the embedded cost dashboard widget.
+
+#### Scenario: Show token usage by model
+- **GIVEN** LLM jobs include stored token usage
+- **WHEN** the user views the LLM tab in the cost dashboard
+- **THEN** the system SHALL display input tokens, output tokens, and total tokens grouped by model and currency
+
+#### Scenario: Show cost per 1k tokens
+- **GIVEN** LLM jobs include stored token usage and cost
+- **WHEN** the user views model rows in the LLM tab
+- **THEN** the system SHALL display cost per 1k total tokens (and currency code) for each model row
+
+### Requirement: Text Extractor Cost Dashboard (Text)
+The web application SHALL display text extraction usage and cost metrics in the embedded cost dashboard widget.
+
+#### Scenario: Show pages and cost per page
+- **GIVEN** text extraction jobs include page counts and cost
+- **WHEN** the user views the Text tab in the cost dashboard
+- **THEN** the system SHALL display pages processed and cost per page grouped by extractor and currency
 

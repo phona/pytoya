@@ -1,7 +1,7 @@
 import { ManifestResponseDto } from './manifest-response.dto';
 import { FileType, ManifestEntity, ManifestStatus } from '../../entities/manifest.entity';
 
-const createManifest = (overrides?: Partial<ManifestEntity>): ManifestEntity => ({
+const createManifest = (overrides: Partial<ManifestEntity> = {}): ManifestEntity => ({
   id: 1,
   filename: 'invoice-001.pdf',
   originalFilename: 'invoice-001.pdf',
@@ -30,6 +30,10 @@ const createManifest = (overrides?: Partial<ManifestEntity>): ManifestEntity => 
   manifestItems: [],
   extractionHistory: [],
   ...overrides,
+  contentSha256: overrides.contentSha256 ?? null,
+  textCost: overrides.textCost ?? null,
+  llmCost: overrides.llmCost ?? null,
+  extractionCostCurrency: overrides.extractionCostCurrency ?? null,
 });
 
 describe('ManifestResponseDto', () => {

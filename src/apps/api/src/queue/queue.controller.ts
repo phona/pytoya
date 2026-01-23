@@ -47,19 +47,6 @@ export class QueueController {
     return this.queueService.resumeQueue();
   }
 
-  @Get('history')
-  async getJobHistory(
-    @Query('manifestId') manifestId?: string,
-    @Query('limit') limit?: string,
-  ) {
-    const parsedManifestId = this.parseOptionalNumber(manifestId);
-    const parsedLimit = this.parseOptionalNumber(limit);
-    return this.queueService.getJobHistory(
-      parsedManifestId ?? undefined,
-      parsedLimit ?? undefined,
-    );
-  }
-
   @Delete(':id')
   async removeJob(@Param('id') jobId: string) {
     await this.queueService.removeJob(jobId);
@@ -73,16 +60,5 @@ export class QueueController {
     @Body() body: CancelJobDto,
   ) {
     return this.queueService.requestCancelJob(user, jobId, body.reason);
-  }
-
-  private parseOptionalNumber(value?: string): number | null {
-    if (value === undefined || value === null || value === '') {
-      return null;
-    }
-    const parsed = Number(value);
-    if (Number.isNaN(parsed)) {
-      return null;
-    }
-    return parsed;
   }
 }

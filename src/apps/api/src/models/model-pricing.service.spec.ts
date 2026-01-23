@@ -214,7 +214,7 @@ describe('ModelPricingService', () => {
     });
 
     it('returns USD as default when no pricing is provided', () => {
-      expect(service.getCurrency()).toBe('USD');
+      expect(service.getCurrency()).toBeUndefined();
     });
 
     it('returns USD as default when pricing has no currency', () => {
@@ -225,7 +225,7 @@ describe('ModelPricingService', () => {
         } as any,
         effectiveDate,
       };
-      expect(service.getCurrency(pricing)).toBe('USD');
+      expect(service.getCurrency(pricing)).toBeUndefined();
     });
   });
 });

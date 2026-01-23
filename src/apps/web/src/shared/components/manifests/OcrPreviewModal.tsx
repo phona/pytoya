@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Download, FileText, RefreshCw } from 'lucide-react';
-import { useOcrResult, useTriggerOcr } from '@/shared/hooks/use-manifests';
-import { useExtractionStore } from '@/shared/stores/extraction';
+import { Download, FileText } from 'lucide-react';
+import { useOcrResult } from '@/shared/hooks/use-manifests';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Button } from '@/shared/components/ui/button';
@@ -32,8 +31,6 @@ const getQualityBadge = (
 export function OcrPreviewModal({ manifestId, open, onClose, onExtract }: OcrPreviewModalProps) {
   const { t } = useI18n();
   const { data, isLoading, error } = useOcrResult(manifestId, open);
-  const triggerOcr = useTriggerOcr();
-  const setOcrResult = useExtractionStore((state) => state.setOcrResult);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightConfidence, setHighlightConfidence] = useState(false);
@@ -75,13 +72,6 @@ export function OcrPreviewModal({ manifestId, open, onClose, onExtract }: OcrPre
     link.click();
     URL.revokeObjectURL(url);
     document.body.removeChild(link);
-  };
-
-  const handleTriggerOcr = async () => {
-    const result = await triggerOcr.mutateAsync({ manifestId });
-    if (result.ocrResult) {
-      setOcrResult(manifestId, result.ocrResult);
-    }
   };
 
   return (
@@ -151,10 +141,9 @@ export function OcrPreviewModal({ manifestId, open, onClose, onExtract }: OcrPre
                   <FileText className="h-4 w-4" />
                   {t('audit.ocrPreview.notProcessed')}
                 </div>
-                <Button size="sm" onClick={handleTriggerOcr} disabled={triggerOcr.isPending}>
-                  <RefreshCw className={`mr-2 h-4 w-4 ${triggerOcr.isPending ? 'animate-spin' : ''}`} />
-                  {t('audit.ocrPreview.runTextExtraction')}
-                </Button>
+                <div className="text-xs text-muted-foreground">
+                  {t('manifests.extractModal.notice')}
+                </div>
               </div>
             )}
             {ocrResult && (

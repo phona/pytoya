@@ -96,11 +96,43 @@ describe('ModelsPage', () => {
       renderWithProviders(<ModelsPage />);
     });
 
-    await screen.findByText('OpenAI GPT-4o');
+    await screen.findByRole('heading', { name: 'OpenAI GPT-4o' });
     expect(screen.queryByText('PaddleX OCR')).not.toBeInTheDocument();
     expect(
       screen.getByText(/Models power structured extraction/i),
     ).toBeInTheDocument();
+  });
+
+  it('does not crash when dashboard metrics totals are strings', async () => {
+    setupListHandlers();
+    server.use(
+      http.get('/api/metrics/cost-dashboard', () => {
+        return HttpResponse.json({
+          totalsByCurrency: [
+            {
+              currency: 'USD',
+              documentCount: 7,
+              totalCost: '12.3456',
+              textCost: '2.5',
+              llmCost: '9.8456',
+              pagesProcessed: '120',
+              llmInputTokens: '120000',
+              llmOutputTokens: '24000',
+            },
+          ],
+          costOverTime: [],
+          llmByModel: [],
+          textByExtractor: [],
+        });
+      }),
+    );
+
+    await act(async () => {
+      renderWithProviders(<ModelsPage />);
+    });
+
+    await screen.findByRole('heading', { name: 'OpenAI GPT-4o' });
+    expect(await screen.findByText(/9\.8456 USD/)).toBeInTheDocument();
   });
 
   it('creates a model via UI', async () => {
@@ -128,7 +160,7 @@ describe('ModelsPage', () => {
     await act(async () => {
       renderWithProviders(<ModelsPage />);
     });
-    await screen.findByText('OpenAI GPT-4o');
+    await screen.findByRole('heading', { name: 'OpenAI GPT-4o' });
 
     await click(user, screen.getByRole('button', { name: /New Model/i }));
     await click(user, screen.getByRole('button', { name: /Next/i }));
@@ -173,7 +205,7 @@ describe('ModelsPage', () => {
     await act(async () => {
       renderWithProviders(<ModelsPage />);
     });
-    await screen.findByText('OpenAI GPT-4o');
+    await screen.findByRole('heading', { name: 'OpenAI GPT-4o' });
 
     await click(user, screen.getByRole('button', { name: /Model actions/i }));
     await click(user, screen.getByRole('menuitem', { name: /Edit/i }));
@@ -187,6 +219,9 @@ describe('ModelsPage', () => {
     await waitFor(() => {
       expect(patched).toMatchObject({ name: 'Updated OCR' });
     });
+
+    const patchedParameters = (patched.parameters ?? {}) as Record<string, unknown>;
+    expect(patchedParameters.apiKey).toBeUndefined();
 
     await click(user, screen.getByRole('button', { name: /Model actions/i }));
     await click(user, screen.getByRole('menuitem', { name: /Test Connection/i }));

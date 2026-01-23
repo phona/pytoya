@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { getApiErrorText } from '@/api/client';
 import { AdapterSchema, CreateModelDto, Model, UpdateModelDto } from '@/api/models';
+import { CostDashboardWidget } from '@/shared/components/CostDashboardWidget';
 import { ModelCard } from '@/shared/components/ModelCard';
 import { ModelForm } from '@/shared/components/ModelForm';
 import { getAdapterByType, useModelAdapters, useModelMutations, useModels } from '@/shared/hooks/use-models';
 import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -16,15 +18,18 @@ import {
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { useI18n } from '@/shared/providers/I18nProvider';
+import { useAuthStore } from '@/shared/stores/auth';
 
 export function ModelsPage() {
   const { confirm, alert, ModalDialog } = useModalDialog();
   const { t } = useI18n();
+  const user = useAuthStore((state) => state.user);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<Model | null>(null);
   const [selectedAdapterType, setSelectedAdapterType] = useState<string>('');
   const [createStep, setCreateStep] = useState<'select' | 'form'>('select');
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   const { models, isLoading } = useModels();
   const { adapters, isLoading: adaptersLoading } = useModelAdapters();
@@ -36,10 +41,18 @@ export function ModelsPage() {
     [adapters],
   );
 
-  const filteredModels = useMemo(
-    () => models.filter((model) => model.category === 'llm'),
-    [models],
-  );
+  const filteredModels = useMemo(() => {
+    const llmModels = models.filter((model) => model.category === 'llm');
+    const term = search.trim().toLowerCase();
+    if (!term) return llmModels;
+    return llmModels.filter((model) => {
+      return (
+        model.name.toLowerCase().includes(term) ||
+        (model.description ?? '').toLowerCase().includes(term) ||
+        model.adapterType.toLowerCase().includes(term)
+      );
+    });
+  }, [models, search]);
 
   const activeAdapter: AdapterSchema | undefined = useMemo(() => {
     if (editingModel) {
@@ -104,7 +117,7 @@ export function ModelsPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground">{t('models.title')}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -117,12 +130,27 @@ export function ModelsPage() {
               {t('models.subtitle')}
             </p>
           </div>
-          <Button
-            type="button"
-            onClick={openCreateForm}
-          >
-            {t('models.new')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              onClick={openCreateForm}
+            >
+              {t('models.new')}
+            </Button>
+          </div>
+        </div>
+
+        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t('models.searchPlaceholder')}
+            className="max-w-sm"
+          />
+        </div>
+
+        <div className="mb-6">
+          <CostDashboardWidget mode="llm" />
         </div>
 
         <Dialog
@@ -222,6 +250,7 @@ export function ModelsPage() {
                     key={`${editingModel?.id ?? 'new'}-${activeAdapter.type}`}
                     adapter={activeAdapter}
                     model={editingModel ?? undefined}
+                    canEditPricing={user?.role === 'admin'}
                     onSubmit={handleFormSubmit}
                     onCancel={() => {
                       setIsDialogOpen(false);

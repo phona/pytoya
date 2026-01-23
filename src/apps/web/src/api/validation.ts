@@ -5,6 +5,10 @@ import type {
   GenerateValidationScriptDto,
   GeneratedValidationScriptResponseDto,
   RunValidationDto,
+  TestValidationScriptDto,
+  TestValidationScriptResponseDto,
+  ValidationScriptConsoleEntry,
+  ValidationScriptConsoleLevel,
   UpdateValidationScriptDto,
   ValidateScriptSyntaxDto,
   ValidationSeverity,
@@ -23,7 +27,10 @@ export type {
   GenerateValidationScriptDto,
   RunValidationDto,
   BatchValidationDto,
+  TestValidationScriptDto,
 };
+export type { TestValidationScriptResponseDto };
+export type { ValidationScriptConsoleEntry, ValidationScriptConsoleLevel };
 
 export interface ValidateScriptSyntaxResult {
   valid: boolean;
@@ -66,6 +73,11 @@ export const validationApi = {
   // Script syntax validation
   validateScriptSyntax: async (data: ValidateScriptSyntaxDto) => {
     const response = await apiClient.post<ValidateScriptSyntaxResult>('/validation/scripts/validate-syntax', data);
+    return response.data;
+  },
+
+  testScript: async (data: TestValidationScriptDto) => {
+    const response = await apiClient.post<TestValidationScriptResponseDto>('/validation/scripts/test', data);
     return response.data;
   },
 

@@ -76,16 +76,31 @@ const mockExtractorTypes = [
       model: { type: 'string', required: true, label: 'Model' },
     },
     pricingSchema: {
+      mode: {
+        type: 'enum',
+        required: true,
+        label: 'Pricing Mode',
+        validation: { enum: ['token', 'page', 'fixed', 'none'] },
+      },
+      currency: {
+        type: 'string',
+        required: true,
+        label: 'Currency',
+        placeholder: 'USD',
+      },
       inputPricePerMillionTokens: {
         type: 'number',
-        required: true,
+        required: false,
         label: 'Input Price (per 1M tokens)',
       },
       outputPricePerMillionTokens: {
         type: 'number',
-        required: true,
+        required: false,
         label: 'Output Price (per 1M tokens)',
       },
+      pricePerPage: { type: 'number', required: false, label: 'Price Per Page' },
+      fixedCost: { type: 'number', required: false, label: 'Fixed Cost' },
+      minimumCharge: { type: 'number', required: false, label: 'Minimum Charge' },
     },
   },
   {
@@ -99,7 +114,23 @@ const mockExtractorTypes = [
       baseUrl: { type: 'string', required: true, label: 'Base URL' },
     },
     pricingSchema: {
-      pricePerPage: { type: 'number', required: false, label: 'Price per Page' },
+      mode: {
+        type: 'enum',
+        required: true,
+        label: 'Pricing Mode',
+        validation: { enum: ['token', 'page', 'fixed', 'none'] },
+      },
+      currency: {
+        type: 'string',
+        required: true,
+        label: 'Currency',
+        placeholder: 'USD',
+      },
+      inputPricePerMillionTokens: { type: 'number', required: false, label: 'Input Price (per 1M tokens)' },
+      outputPricePerMillionTokens: { type: 'number', required: false, label: 'Output Price (per 1M tokens)' },
+      pricePerPage: { type: 'number', required: false, label: 'Price Per Page' },
+      fixedCost: { type: 'number', required: false, label: 'Fixed Cost' },
+      minimumCharge: { type: 'number', required: false, label: 'Minimum Charge' },
     },
   },
 ];
@@ -146,6 +177,74 @@ export const handlers = [
       id: 1,
       username: 'test-user',
       role: 'user',
+    });
+  }),
+
+  http.get('/api/metrics/dashboard', () => {
+    return HttpResponse.json({
+      thisMonth: {
+        total: 12.3456,
+        ocr: 2.5,
+        llm: 9.8456,
+        documentCount: 7,
+      },
+      lastMonth: {
+        total: 3.21,
+        documentCount: 2,
+      },
+    });
+  }),
+
+  http.get('/api/metrics/cost-dashboard', () => {
+    return HttpResponse.json({
+      totalsByCurrency: [
+        {
+          currency: 'USD',
+          documentCount: 7,
+          totalCost: 12.3456,
+          textCost: 0.24,
+          llmCost: 12.1056,
+          pagesProcessed: 120,
+          llmInputTokens: 120000,
+          llmOutputTokens: 24000,
+        },
+      ],
+      costOverTime: [
+        {
+          date: '2025-01-13',
+          currency: 'USD',
+          documentCount: 7,
+          totalCost: 12.3456,
+          textCost: 0.24,
+          llmCost: 12.1056,
+          pagesProcessed: 120,
+          llmInputTokens: 120000,
+          llmOutputTokens: 24000,
+        },
+      ],
+      llmByModel: [
+        {
+          llmModelId: '11111111-1111-1111-1111-111111111111',
+          llmModelName: 'OpenAI GPT-4o',
+          currency: 'USD',
+          documentCount: 7,
+          llmCost: 12.1056,
+          llmInputTokens: 120000,
+          llmOutputTokens: 24000,
+          costPer1kTotalTokens: 0.0841,
+        },
+      ],
+      textByExtractor: [
+        {
+          extractorId: 'extractor-1',
+          extractorName: 'PaddleOCR VL',
+          currency: 'USD',
+          documentCount: 7,
+          textCost: 0.24,
+          pagesProcessed: 120,
+          costPerPage: 0.002,
+        },
+      ],
     });
   }),
 
@@ -209,16 +308,19 @@ export const handlers = [
     return HttpResponse.json({
       projectId: Number(params.id),
       totalExtractionCost: 0.25,
+      currency: 'USD',
+      totalsByCurrency: [{ currency: 'USD', totalExtractionCost: 0.25 }],
       costByExtractor: [
         {
           extractorId: 'extractor-1',
           extractorName: 'Vision LLM - GPT-4o',
+          currency: 'USD',
           totalCost: 0.2,
           extractionCount: 4,
           averageCost: 0.05,
         },
       ],
-      costOverTime: [{ date: '2025-01-13', extractionCost: 0.25 }],
+      costOverTime: [{ date: '2025-01-13', currency: 'USD', extractionCost: 0.25 }],
     });
   }),
   http.get('/api/projects/:id/cost-by-date-range', ({ request, params }) => {
@@ -228,16 +330,19 @@ export const handlers = [
     return HttpResponse.json({
       projectId: Number(params.id),
       totalExtractionCost: 0.12,
+      currency: 'USD',
+      totalsByCurrency: [{ currency: 'USD', totalExtractionCost: 0.12 }],
       costByExtractor: [
         {
           extractorId: 'extractor-1',
           extractorName: 'Vision LLM - GPT-4o',
+          currency: 'USD',
           totalCost: 0.12,
           extractionCount: 2,
           averageCost: 0.06,
         },
       ],
-      costOverTime: [{ date: from, extractionCost: 0.12 }],
+      costOverTime: [{ date: from, currency: 'USD', extractionCost: 0.12 }],
       dateRange: { from, to },
     });
   }),
@@ -568,67 +673,6 @@ export const handlers = [
     return HttpResponse.json({ ok: true, message: 'ok' });
   }),
 
-  // Prompts endpoints
-  http.get('/api/prompts', () => {
-    return HttpResponse.json([
-      {
-        id: 1,
-        name: 'System Prompt',
-        type: 'system',
-        content: 'Test prompt content with {{variable}}',
-        variables: ['variable'],
-        createdAt: '2025-01-13T00:00:00.000Z',
-        updatedAt: '2025-01-13T00:00:00.000Z',
-      },
-    ]);
-  }),
-
-  http.get('/api/prompts/:id', ({ params }) => {
-    if (params.id === '999') {
-      return HttpResponse.json({ message: 'Prompt not found' }, { status: 404 });
-    }
-    return HttpResponse.json({
-      id: Number(params.id),
-      name: 'Test Prompt',
-      type: 'system',
-      content: 'Test content {{field}}',
-      variables: ['field'],
-      createdAt: '2025-01-13T00:00:00.000Z',
-      updatedAt: '2025-01-13T00:00:00.000Z',
-    });
-  }),
-
-  http.post('/api/prompts', async ({ request }) => {
-    const body = await parseJsonBody(request);
-    const type = typeof body.type === 'string' ? body.type : 'system';
-    return HttpResponse.json({
-      id: 2,
-      name: typeof body.name === 'string' ? body.name : 'New Prompt',
-      type,
-      content: typeof body.content === 'string' ? body.content : 'New content',
-      variables: Array.isArray(body.variables) ? body.variables : [],
-      createdAt: '2025-01-13T00:00:00.000Z',
-      updatedAt: '2025-01-13T00:00:00.000Z',
-    });
-  }),
-
-  http.patch('/api/prompts/:id', async ({ request, params }) => {
-    const body = await parseJsonBody(request);
-    return HttpResponse.json({
-      id: Number(params.id),
-      name: typeof body.name === 'string' ? body.name : 'Updated Prompt',
-      type: 'system',
-      content: typeof body.content === 'string' ? body.content : 'Updated content',
-      variables: Array.isArray(body.variables) ? body.variables : [],
-      createdAt: '2025-01-13T00:00:00.000Z',
-      updatedAt: '2025-01-13T00:00:00.000Z',
-    });
-  }),
-
-  http.delete('/api/prompts/:id', () => {
-    return new HttpResponse(null, { status: 204 });
-  }),
-
   // Extraction endpoints
   http.post('/api/extraction/optimize-prompt', async ({ request }) => {
     const body = await parseJsonBody(request);
@@ -828,6 +872,34 @@ export const handlers = [
   // Specific routes must come before :id parameterized routes to avoid matching issues
   http.post('/api/validation/scripts/validate-syntax', () => {
     return HttpResponse.json({ valid: true });
+  }),
+
+  http.post('/api/validation/scripts/test', async ({ request }) => {
+    const body = await parseJsonBody(request);
+    const script = typeof body.script === 'string' ? body.script : '';
+
+    const runtimeError = script.includes('throw')
+      ? { message: 'Mock runtime error', stack: 'Error: Mock runtime error\nvalidation-script.js:1:1' }
+      : undefined;
+
+    const logs = script.includes('console.')
+      ? [{ level: 'log', message: 'Mock console output' }]
+      : [];
+
+    const issues = runtimeError
+      ? [{ field: '__script__', message: `Validation script test failed: ${runtimeError.message}`, severity: 'error' }]
+      : [];
+
+    return HttpResponse.json({
+      result: {
+        issues,
+        errorCount: issues.filter((i) => i.severity === 'error').length,
+        warningCount: issues.filter((i) => i.severity === 'warning').length,
+        validatedAt: '2025-01-13T00:00:00.000Z',
+      },
+      debug: { logs },
+      runtimeError,
+    });
   }),
 
   http.post('/api/validation/scripts/generate', () => {

@@ -4,23 +4,27 @@
 TBD - created by archiving change implement-manifest-upload. Update Purpose after archive.
 ## Requirements
 ### Requirement: File Upload
-The system SHALL accept PDF file uploads and store them in local filesystem.
+The system SHALL accept PDF file uploads and store them in local filesystem, and SHALL detect duplicate uploads within a group.
 
-#### Scenario: Single file upload
-- **WHEN** authenticated user uploads single PDF file to a group
-- **THEN** file is saved to `projects/{projectId}/groups/{groupId}/manifests/{filename}`
-- **AND** manifest record is created in database
+#### Scenario: Single file upload (non-duplicate)
+- **WHEN** authenticated user uploads a PDF file to a group
+- **THEN** the system saves the file to `projects/{projectId}/groups/{groupId}/manifests/{filename}`
+- **AND** the system creates a manifest record in the database
+- **AND** the upload response indicates `isDuplicate=false`
 
-#### Scenario: Batch file upload
-- **WHEN** authenticated user selects multiple PDF files
-- **THEN** all files are uploaded
-- **AND** manifest records are created for each file
+#### Scenario: Single file upload (duplicate)
+- **GIVEN** a manifest already exists in the group with identical file content
+- **WHEN** authenticated user uploads the same PDF content to the group
+- **THEN** the system SHALL NOT create a new manifest record
+- **AND** the system SHALL NOT store an additional copy of the PDF
+- **AND** the system returns the existing manifest
+- **AND** the upload response indicates `isDuplicate=true`
+
+#### Scenario: Batch file upload with duplicates
+- **WHEN** authenticated user selects multiple PDF files for a group (including duplicates)
+- **THEN** the system processes each file independently
+- **AND** each response item includes `isDuplicate` so the client can compute a summary
 - **AND** upload progress is shown
-
-#### Scenario: File organization
-- **WHEN** files are uploaded
-- **THEN** storage structure follows `projects/{projectId}/groups/{groupId}/manifests/`
-- **AND** filenames are preserved or timestamped to avoid conflicts
 
 ### Requirement: Manifest CRUD
 The system SHALL provide full CRUD operations for manifest records with server-side filtering, sorting, and pagination support.

@@ -5,6 +5,7 @@ import { modelsApi } from '@/api/models';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
+import { formatCurrencyCode } from '@/shared/utils/cost';
 import {
   Select,
   SelectContent,
@@ -37,7 +38,7 @@ interface PricingFormState {
 const initialFormState: PricingFormState = {
   llmInputPrice: '',
   llmOutputPrice: '',
-  currency: 'USD',
+  currency: '',
   minimumCharge: '',
 };
 
@@ -73,7 +74,7 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
     setFormData({
       llmInputPrice: model.pricing?.llm?.inputPrice?.toString() || '0',
       llmOutputPrice: model.pricing?.llm?.outputPrice?.toString() || '0',
-      currency: model.pricing?.llm?.currency || 'USD',
+      currency: model.pricing?.llm?.currency ?? '',
       minimumCharge: model.pricing?.llm?.minimumCharge?.toString() || '',
     });
   };
@@ -131,12 +132,14 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
   const formatPricing = (model: Model) => {
     const inputPrice = model.pricing?.llm?.inputPrice ?? 0;
     const outputPrice = model.pricing?.llm?.outputPrice ?? 0;
-    return `$${formatTokenPrice(inputPrice)} in / $${formatTokenPrice(outputPrice)} out per 1M`;
+    const currency = formatCurrencyCode(model.pricing?.llm?.currency);
+    return `${formatTokenPrice(inputPrice)} in / ${formatTokenPrice(outputPrice)} out per 1M ${currency}`;
   };
 
   const formatHistoryEntry = (entry: PricingHistoryEntry) => {
     if (entry.llm?.inputPrice !== undefined && entry.llm?.outputPrice !== undefined) {
-      return `$${formatTokenPrice(entry.llm.inputPrice)} in / $${formatTokenPrice(entry.llm.outputPrice)} out`;
+      const currency = formatCurrencyCode(entry.llm.currency);
+      return `${formatTokenPrice(entry.llm.inputPrice)} in / ${formatTokenPrice(entry.llm.outputPrice)} out ${currency}`;
     }
     return 'Not set';
   };
@@ -225,7 +228,7 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
                               <Button
                                 size="sm"
                                 onClick={handleSave}
-                                disabled={isSaving}
+                                disabled={isSaving || !formData.currency.trim()}
                               >
                                 {isSaving ? (
                                   <>
@@ -270,11 +273,11 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
                             <div>
                               <Label htmlFor="llm-currency">Currency</Label>
                               <Select
-                                value={formData.currency}
+                                value={formData.currency || undefined}
                                 onValueChange={(value) => setFormData({ ...formData, currency: value })}
                               >
                                 <SelectTrigger id="llm-currency" className="mt-1">
-                                  <SelectValue />
+                                  <SelectValue placeholder="Select currency" />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="USD">USD</SelectItem>

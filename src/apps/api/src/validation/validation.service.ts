@@ -17,6 +17,7 @@ import { CreateValidationScriptDto } from './dto/create-validation-script.dto';
 import { UpdateValidationScriptDto } from './dto/update-validation-script.dto';
 import { RunValidationDto } from './dto/run-validation.dto';
 import { BatchValidationDto } from './dto/batch-validation.dto';
+import { TestValidationScriptDto, TestValidationScriptResponseDto } from './dto/test-validation-script.dto';
 import { ValidationScriptNotFoundException } from './exceptions/validation-script-not-found.exception';
 import { ScriptExecutorService } from './script-executor.service';
 import { ProjectOwnershipException } from '../projects/exceptions/project-ownership.exception';
@@ -271,6 +272,42 @@ export class ValidationService {
       errorCount,
       warningCount,
       validatedAt: new Date().toISOString(),
+    };
+  }
+
+  // ========== Script Testing (Debug Panel) ==========
+
+  async testValidationScript(input: TestValidationScriptDto): Promise<TestValidationScriptResponseDto> {
+    const syntaxCheck = this.scriptExecutor.validateSyntax(input.script);
+    if (!syntaxCheck.valid) {
+      throw new BadRequestException(syntaxCheck.error);
+    }
+
+    const debug = input.debug ?? true;
+
+    if (!debug) {
+      const issues = await this.scriptExecutor.executeScript(input.script, input.extractedData);
+      return { result: this.buildValidationResult(issues) };
+    }
+
+    const { issues, logs, runtimeError } = await this.scriptExecutor.executeScriptWithDebug(
+      input.script,
+      input.extractedData,
+    );
+
+    const allIssues: ValidationIssue[] = [...issues];
+    if (runtimeError) {
+      allIssues.push({
+        field: '__script__',
+        message: `Validation script test failed: ${runtimeError.message}`,
+        severity: 'error',
+      });
+    }
+
+    return {
+      result: this.buildValidationResult(allIssues),
+      debug: { logs },
+      runtimeError,
     };
   }
 

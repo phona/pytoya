@@ -8,6 +8,13 @@ import {
   TextExtractor,
   TextExtractorConfig,
 } from './types/extractor.types';
+import {
+  applyMinimumCharge,
+  calculateTokenCostNano,
+  multiplyNanoAmounts,
+  nanoToNumber,
+  numberToNano,
+} from '../common/cost/nano';
 
 export abstract class BaseTextExtractor<TConfig extends TextExtractorConfig = TextExtractorConfig>
   implements TextExtractor {
@@ -22,10 +29,10 @@ export abstract class BaseTextExtractor<TConfig extends TextExtractorConfig = Te
   abstract extract(input: Parameters<TextExtractor['extract']>[0]): ReturnType<TextExtractor['extract']>;
 
   protected getPricing(): PricingConfig {
-    const pricing = this.config.pricing ?? { mode: 'none', currency: 'USD' };
+    const pricing = this.config.pricing ?? { mode: 'none' };
     return {
       mode: pricing.mode ?? 'none',
-      currency: pricing.currency ?? 'USD',
+      currency: pricing.currency ?? undefined,
       inputPricePerMillionTokens: pricing.inputPricePerMillionTokens,
       outputPricePerMillionTokens: pricing.outputPricePerMillionTokens,
       pricePerPage: pricing.pricePerPage,
@@ -39,18 +46,14 @@ export abstract class BaseTextExtractor<TConfig extends TextExtractorConfig = Te
     if (pricing.mode !== 'token') {
       return 0;
     }
-    const safeInput = Math.max(0, inputTokens);
-    const safeOutput = Math.max(0, outputTokens);
-    const inputCost =
-      pricing.inputPricePerMillionTokens
-        ? (safeInput / 1_000_000) * pricing.inputPricePerMillionTokens
-        : 0;
-    const outputCost =
-      pricing.outputPricePerMillionTokens
-        ? (safeOutput / 1_000_000) * pricing.outputPricePerMillionTokens
-        : 0;
-    const total = inputCost + outputCost;
-    return pricing.minimumCharge ? Math.max(total, pricing.minimumCharge) : total;
+    const inputPrice = pricing.inputPricePerMillionTokens ?? 0;
+    const outputPrice = pricing.outputPricePerMillionTokens ?? 0;
+
+    const costNano = applyMinimumCharge(
+      calculateTokenCostNano(inputTokens, outputTokens, inputPrice, outputPrice),
+      numberToNano(pricing.minimumCharge),
+    );
+    return nanoToNumber(costNano);
   }
 
   protected calculatePageCost(pagesProcessed: number): number {
@@ -59,8 +62,15 @@ export abstract class BaseTextExtractor<TConfig extends TextExtractorConfig = Te
       return 0;
     }
     const safePages = Math.max(0, pagesProcessed);
-    const cost = pricing.pricePerPage ? safePages * pricing.pricePerPage : 0;
-    return pricing.minimumCharge ? Math.max(cost, pricing.minimumCharge) : cost;
+    const pagesNano = numberToNano(safePages);
+    const priceNano = numberToNano(pricing.pricePerPage ?? 0);
+    const rawCostNano = multiplyNanoAmounts(pagesNano, priceNano);
+
+    const costNano = applyMinimumCharge(
+      rawCostNano,
+      numberToNano(pricing.minimumCharge),
+    );
+    return nanoToNumber(costNano);
   }
 
   protected calculateFixedCost(): number {
@@ -68,8 +78,12 @@ export abstract class BaseTextExtractor<TConfig extends TextExtractorConfig = Te
     if (pricing.mode !== 'fixed') {
       return 0;
     }
-    const cost = pricing.fixedCost ?? 0;
-    return pricing.minimumCharge ? Math.max(cost, pricing.minimumCharge) : cost;
+    const rawCostNano = numberToNano(pricing.fixedCost ?? 0);
+    const costNano = applyMinimumCharge(
+      rawCostNano,
+      numberToNano(pricing.minimumCharge),
+    );
+    return nanoToNumber(costNano);
   }
 
   protected validateConfig(): void {
@@ -92,8 +106,10 @@ export abstract class BaseTextExtractor<TConfig extends TextExtractorConfig = Te
     const pricing = this.getPricing();
     const errors: string[] = [];
 
-    if (!pricing.currency || typeof pricing.currency !== 'string') {
-      errors.push('Pricing currency is required');
+    if (pricing.mode !== 'none') {
+      if (!pricing.currency || typeof pricing.currency !== 'string') {
+        errors.push('Pricing currency is required');
+      }
     }
 
     if (pricing.mode === 'token') {

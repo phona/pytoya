@@ -7,7 +7,6 @@ import {
   ChevronUp,
   Clock,
   Copy,
-  DollarSign,
   Download,
   GitCompare,
   Loader2,
@@ -28,6 +27,7 @@ import {
   TableRow,
 } from '@/shared/components/ui/table';
 import { useI18n } from '@/shared/providers/I18nProvider';
+import { formatCostWithCurrency } from '@/shared/utils/cost';
 
 export type ExtractionHistoryEntry = ManifestExtractionHistoryEntry;
 
@@ -56,9 +56,20 @@ export function ExtractionHistoryPanel({
   });
 
   const stats = useMemo(() => {
-    const totalCost = history.reduce((sum, entry) => sum + (entry.actualCost ?? entry.estimatedCost ?? 0), 0);
-    const totalTextCost = history.reduce((sum, entry) => sum + (entry.textActualCost ?? entry.textEstimatedCost ?? 0), 0);
-    const totalLlmCost = history.reduce((sum, entry) => sum + (entry.llmActualCost ?? entry.llmEstimatedCost ?? 0), 0);
+    const totalsByCurrency = new Map<string, { total: number; text: number; llm: number }>();
+    for (const entry of history) {
+      const currency = entry.currency ?? 'unknown';
+      const total = entry.actualCost ?? entry.estimatedCost ?? 0;
+      const text = entry.textActualCost ?? entry.textEstimatedCost ?? 0;
+      const llm = entry.llmActualCost ?? entry.llmEstimatedCost ?? 0;
+      const existing = totalsByCurrency.get(currency) ?? { total: 0, text: 0, llm: 0 };
+      totalsByCurrency.set(currency, {
+        total: existing.total + total,
+        text: existing.text + text,
+        llm: existing.llm + llm,
+      });
+    }
+
     const completedCount = history.filter((e) => e.status === 'completed').length;
     const failedCount = history.filter((e) => e.status === 'failed').length;
     const canceledCount = history.filter((e) => e.status === 'canceled').length;
@@ -70,9 +81,9 @@ export function ExtractionHistoryPanel({
       Math.max(1, history.filter((e) => e.durationMs).length);
 
     return {
-      totalCost,
-      totalTextCost,
-      totalLlmCost,
+      totalsByCurrency: Array.from(totalsByCurrency.entries())
+        .map(([currency, values]) => ({ currency, ...values }))
+        .sort((a, b) => a.currency.localeCompare(b.currency)),
       completedCount,
       failedCount,
       canceledCount,
@@ -185,7 +196,19 @@ export function ExtractionHistoryPanel({
             </div>
             <div>
               <div className="text-xs text-muted-foreground">{t('audit.extractionHistory.stats.totalSpent')}</div>
-              <div className="text-2xl font-semibold">${stats.totalCost.toFixed(4)}</div>
+              {stats.totalsByCurrency.length <= 1 ? (
+                <div className="text-2xl font-semibold">
+                  {formatCostWithCurrency(stats.totalsByCurrency[0]?.total ?? 0, stats.totalsByCurrency[0]?.currency)}
+                </div>
+              ) : (
+                <div className="space-y-0.5">
+                  {stats.totalsByCurrency.map((row) => (
+                    <div key={row.currency} className="text-sm font-semibold tabular-nums">
+                      {formatCostWithCurrency(row.total, row.currency)}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <div className="text-xs text-muted-foreground">{t('audit.extractionHistory.stats.successRate')}</div>
@@ -212,17 +235,23 @@ export function ExtractionHistoryPanel({
 
           <div className="mt-4 pt-4 border-t border-border">
             <div className="text-sm font-medium mb-2">{t('audit.extractionHistory.costBreakdown.title')}</div>
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-1">
-                <DollarSign className="h-3 w-3 text-blue-500" />
-                <span className="text-muted-foreground">{t('audit.extractionHistory.costBreakdown.text')}:</span>
-                <span className="font-medium">${stats.totalTextCost.toFixed(4)}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <DollarSign className="h-3 w-3 text-purple-500" />
-                <span className="text-muted-foreground">{t('audit.extractionHistory.costBreakdown.llm')}:</span>
-                <span className="font-medium">${stats.totalLlmCost.toFixed(4)}</span>
-              </div>
+            <div className="flex flex-col gap-2 text-sm">
+              {stats.totalsByCurrency.map((row) => (
+                <div key={row.currency} className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">{t('audit.extractionHistory.costBreakdown.text')}:</span>
+                    <span className="font-medium tabular-nums">
+                      {formatCostWithCurrency(row.text, row.currency)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">{t('audit.extractionHistory.costBreakdown.llm')}:</span>
+                    <span className="font-medium tabular-nums">
+                      {formatCostWithCurrency(row.llm, row.currency)}
+                    </span>
+                  </div>
+                </div>
+              ))}
               {stats.avgDurationMs ? (
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3 text-muted-foreground" />
@@ -309,14 +338,13 @@ export function ExtractionHistoryPanel({
                     </div>
 
                     <div className="text-right">
-                      <div className="flex items-center gap-1 text-sm font-medium">
-                        <DollarSign className="h-4 w-4" />
-                        {totalCost.toFixed(4)}
+                      <div className="text-sm font-medium tabular-nums">
+                        {formatCostWithCurrency(totalCost, entry.currency)}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {t('audit.extractionHistory.costLine', {
-                          text: textCost.toFixed(4),
-                          llm: llmCost.toFixed(4),
+                          text: formatCostWithCurrency(textCost, entry.currency),
+                          llm: formatCostWithCurrency(llmCost, entry.currency),
                         })}
                       </div>
                     </div>
@@ -522,13 +550,13 @@ export function ExtractionHistoryPanel({
                     <TableCell className="text-sm">{entry.llmModelName ?? entry.llmModelId ?? t('audit.extractionHistory.defaultModel')}</TableCell>
                     <TableCell>{getStatusBadge(entry.status)}</TableCell>
                     <TableCell className="text-sm text-right">
-                      ${(entry.textActualCost ?? entry.textEstimatedCost ?? 0).toFixed(4)}
+                      {formatCostWithCurrency(entry.textActualCost ?? entry.textEstimatedCost ?? 0, entry.currency)}
                     </TableCell>
                     <TableCell className="text-sm text-right">
-                      ${(entry.llmActualCost ?? entry.llmEstimatedCost ?? 0).toFixed(4)}
+                      {formatCostWithCurrency(entry.llmActualCost ?? entry.llmEstimatedCost ?? 0, entry.currency)}
                     </TableCell>
                     <TableCell className="text-sm text-right font-medium">
-                      ${(entry.actualCost ?? entry.estimatedCost ?? 0).toFixed(4)}
+                      {formatCostWithCurrency(entry.actualCost ?? entry.estimatedCost ?? 0, entry.currency)}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -142,26 +142,6 @@ export function useTriggerExtraction() {
   });
 }
 
-export function useTriggerOcr() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      manifestId,
-      force,
-      data,
-    }: {
-      manifestId: number;
-      force?: boolean;
-      data?: Parameters<typeof manifestsApi.triggerOcr>[1];
-    }) => manifestsApi.triggerOcr(manifestId, data, force),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId] });
-      queryClient.invalidateQueries({ queryKey: ['ocr', variables.manifestId] });
-    },
-  });
-}
-
 export function useOcrResult(manifestId: number, enabled = true) {
   return useQuery({
     queryKey: ['ocr', manifestId],
@@ -206,20 +186,6 @@ export function useExtractBulk() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['manifests', 'group'] });
     },
-  });
-}
-
-export function useCostEstimate() {
-  return useMutation({
-    mutationFn: ({
-      manifestIds,
-      llmModelId,
-      textExtractorId,
-    }: {
-      manifestIds: number[];
-      llmModelId?: string;
-      textExtractorId?: string;
-    }) => manifestsApi.getCostEstimate(manifestIds, llmModelId, textExtractorId),
   });
 }
 

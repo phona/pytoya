@@ -6,12 +6,10 @@ import { useGroups, useProject } from '@/shared/hooks/use-projects';
 import { useProjectSchemas } from '@/shared/hooks/use-schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import { ManifestList } from '@/shared/components/manifests/ManifestList';
-import { ManifestFilters } from '@/shared/components/manifests/ManifestFilters';
 import { UploadDialog } from '@/shared/components/UploadDialog';
 import { AppBreadcrumbs } from '@/shared/components/AppBreadcrumbs';
 import { ManifestFilterValues, ManifestSort } from '@/shared/types/manifests';
 import { Button } from '@/shared/components/ui/button';
-import { Dialog, DialogDescription, DialogHeader, DialogSideContent, DialogTitle } from '@/shared/components/ui/dialog';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useI18n } from '@/shared/providers/I18nProvider';
 import { deriveSchemaTableColumns } from '@/shared/utils/schema';
@@ -40,7 +38,6 @@ export function ManifestsPage() {
   const exportSelectedToCsv = useExportSelectedToCsv();
 
   const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const [filters, setFilters] = useState<ManifestFilterValues>({});
   const [sort, setSort] = useState<ManifestSort>({
@@ -164,13 +161,8 @@ export function ManifestsPage() {
       document.body.removeChild(a);
     } catch (error) {
       console.error('Export failed:', error);
+      throw error;
     }
-  };
-
-  const handleBatchReExtract = (manifestIds: number[]) => {
-    // This would trigger re-extraction for selected manifests
-    // Implementation depends on backend API
-    void manifestIds;
   };
 
   if (isLoading) {
@@ -220,13 +212,6 @@ export function ManifestsPage() {
             <div className="flex items-center gap-2">
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => setIsAdvancedFiltersOpen(true)}
-              >
-                {t('manifests.filters.title')}
-              </Button>
-              <Button
-                type="button"
                 onClick={() => setIsUploadOpen(true)}
               >
                 {t('manifests.uploadButton')}
@@ -238,15 +223,17 @@ export function ManifestsPage() {
         {/* Main Content */}
         <div className="min-w-0">
           <ManifestList
+            groupId={groupId}
             manifests={manifests}
             totalManifests={meta?.total ?? 0}
+            filters={filters}
+            onFiltersChange={setFilters}
             sort={sort}
             onViewModeChange={setViewMode}
             onSortChange={setSort}
             onSelectManifest={handleSelectManifest}
             viewMode={viewMode}
             onBatchExport={handleBatchExport}
-            onBatchReExtract={handleBatchReExtract}
             currentPage={meta?.page ?? currentPage}
             pageSize={meta?.pageSize ?? pageSize}
             totalPages={meta?.totalPages ?? 0}
@@ -259,26 +246,8 @@ export function ManifestsPage() {
         </div>
       </div>
 
-      <Dialog open={isAdvancedFiltersOpen} onOpenChange={setIsAdvancedFiltersOpen}>
-        <DialogSideContent>
-          <DialogHeader>
-            <DialogTitle>{t('manifests.filters.title')}</DialogTitle>
-            <DialogDescription className="sr-only">
-              {t('manifests.filters.title')}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-4">
-            <ManifestFilters
-              values={filters}
-              onChange={setFilters}
-              manifestCount={meta?.total ?? 0}
-              variant="dialog"
-            />
-          </div>
-        </DialogSideContent>
-      </Dialog>
-
       <UploadDialog
+        projectId={projectId}
         groupId={groupId}
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}

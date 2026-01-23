@@ -29,7 +29,7 @@ export type PricingMode = 'token' | 'page' | 'fixed' | 'none';
 
 export interface PricingConfig {
   mode: PricingMode;
-  currency: string;
+  currency?: string;
   inputPricePerMillionTokens?: number;
   outputPricePerMillionTokens?: number;
   pricePerPage?: number;

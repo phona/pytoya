@@ -24,6 +24,7 @@ export class ManifestExtractionHistoryEntryDto {
   textActualCost!: number | null;
   llmEstimatedCost!: number | null;
   llmActualCost!: number | null;
+  currency!: string | null;
 
   llmInputTokens!: number | null;
   llmOutputTokens!: number | null;
@@ -68,6 +69,7 @@ export class ManifestExtractionHistoryEntryDto {
       textActualCost: this.parseNullableDecimal(job.ocrActualCost),
       llmEstimatedCost: this.parseNullableDecimal(job.llmEstimatedCost),
       llmActualCost: this.parseNullableDecimal(job.llmActualCost),
+      currency: job.costCurrency ?? null,
       llmInputTokens: job.llmInputTokens ?? null,
       llmOutputTokens: job.llmOutputTokens ?? null,
       pagesProcessed: job.pagesProcessed ?? null,

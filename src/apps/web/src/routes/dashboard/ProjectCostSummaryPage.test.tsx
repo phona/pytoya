@@ -37,6 +37,9 @@ describe('ProjectCostSummaryPage', () => {
       expect(screen.getByText('Project Cost Summary')).toBeInTheDocument();
     });
 
-    expect(screen.getAllByText('$0.2500').length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText((_, el) => Boolean(el?.textContent?.includes('0.25') && el.textContent.includes('USD')))
+        .length,
+    ).toBeGreaterThan(0);
   });
 });

@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { getApiErrorText } from '@/api/client';
 import { CreateExtractorDto, UpdateExtractorDto, ExtractorCostSummary, extractorsApi } from '@/api/extractors';
+import { CostDashboardWidget } from '@/shared/components/CostDashboardWidget';
 import { ExtractorFormDialog } from '@/shared/components/ExtractorFormDialog';
 import { ExtractorCard } from '@/shared/components/ExtractorCard';
 import { useExtractors, useExtractorMutations, useExtractorPresets, useExtractorTypes } from '@/shared/hooks/use-extractors';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { useI18n } from '@/shared/providers/I18nProvider';
@@ -48,8 +48,6 @@ export function ExtractorsPage() {
     });
     return map;
   }, [costSummariesQuery.data]);
-
-  const totalSpend = costSummariesQuery.data?.reduce((sum, summary) => sum + (summary.totalCost ?? 0), 0) ?? 0;
 
   const filteredExtractors = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -123,17 +121,10 @@ export function ExtractorsPage() {
             placeholder={t('extractors.searchPlaceholder')}
             className="max-w-sm"
           />
-          <Card className="md:max-w-sm w-full">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{t('extractors.totalSpend')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-semibold">${totalSpend.toFixed(4)}</div>
-              <p className="text-xs text-muted-foreground">
-                {t('extractors.totalSpendSubtitle', { count: extractors.length })}
-              </p>
-            </CardContent>
-          </Card>
+        </div>
+
+        <div className="mb-6">
+          <CostDashboardWidget mode="text" />
         </div>
 
         {isLoading ? (

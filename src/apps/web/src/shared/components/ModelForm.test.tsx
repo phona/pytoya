@@ -185,6 +185,114 @@ describe('ModelForm', () => {
       );
     });
   });
+
+  it('omits pricing on update when unchanged', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <ModelForm
+        adapter={adapter}
+        model={{
+          id: 'model-1',
+          name: 'OpenAI GPT-4o',
+          adapterType: 'openai',
+          description: null,
+          category: 'llm',
+          parameters: {
+            baseUrl: 'https://api.openai.com/v1',
+            apiKey: 'sk-test',
+            modelFamily: 'gpt-4o',
+          },
+          pricing: {
+            effectiveDate: '2025-01-13T00:00:00.000Z',
+            llm: { inputPrice: 2.5, outputPrice: 10, currency: 'USD' },
+          },
+          pricingHistory: [],
+          isActive: true,
+          createdAt: '2025-01-13T00:00:00.000Z',
+          updatedAt: '2025-01-13T00:00:00.000Z',
+        } as any}
+        canEditPricing
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    const submitButton = screen.getByRole('button', { name: /Update Model/i });
+    const form = submitButton.closest('form');
+    if (!form) {
+      throw new Error('Expected ModelForm to render inside a form element.');
+    }
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalled();
+    });
+
+    expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('pricing');
+  });
+
+  it('includes pricing on update when changed', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+
+    render(
+      <ModelForm
+        adapter={adapter}
+        model={{
+          id: 'model-2',
+          name: 'OpenAI GPT-4o',
+          adapterType: 'openai',
+          description: null,
+          category: 'llm',
+          parameters: {
+            baseUrl: 'https://api.openai.com/v1',
+            apiKey: 'sk-test',
+            modelFamily: 'gpt-4o',
+          },
+          pricing: {
+            effectiveDate: '2025-01-13T00:00:00.000Z',
+            llm: { inputPrice: 2.5, outputPrice: 10, currency: 'USD' },
+          },
+          pricingHistory: [],
+          isActive: true,
+          createdAt: '2025-01-13T00:00:00.000Z',
+          updatedAt: '2025-01-13T00:00:00.000Z',
+        } as any}
+        canEditPricing
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    await clear(user, screen.getByLabelText(/Input price/i));
+    await type(user, screen.getByLabelText(/Input price/i), '0.2');
+
+    const submitButton = screen.getByRole('button', { name: /Update Model/i });
+    const form = submitButton.closest('form');
+    if (!form) {
+      throw new Error('Expected ModelForm to render inside a form element.');
+    }
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pricing: {
+            llm: expect.objectContaining({
+              inputPrice: 0.2,
+              outputPrice: 10,
+              currency: 'USD',
+            }),
+          },
+        }),
+      );
+    });
+  });
 });
 
 

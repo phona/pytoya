@@ -5,9 +5,11 @@ import { ManifestTable, type ManifestTableSchemaColumn } from './ManifestTable';
 import { ManifestCard } from './ManifestCard';
 import { Pagination } from './Pagination';
 import { OcrPreviewModal } from './OcrPreviewModal';
+import { ExtractFilteredModal } from './ExtractFilteredModal';
+import { ManifestBatchScopeModal } from './ManifestBatchScopeModal';
 import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/shared/hooks/use-websocket';
 import { useRunBatchValidation } from '@/shared/hooks/use-validation-scripts';
-import { ManifestSort } from '@/shared/types/manifests';
+import { ManifestFilterValues, ManifestSort } from '@/shared/types/manifests';
 import { useExtractorTypes, useExtractors } from '@/shared/hooks/use-extractors';
 import {
   Tooltip,
@@ -26,17 +28,20 @@ import {
 } from '@/shared/components/ui/dropdown-menu';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { useI18n } from '@/shared/providers/I18nProvider';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface ManifestListProps {
+  groupId: number;
   manifests: Manifest[];
   totalManifests: number;
+  filters: ManifestFilterValues;
+  onFiltersChange: (filters: ManifestFilterValues) => void;
   sort: ManifestSort;
   viewMode: 'table' | 'card';
   onViewModeChange: (mode: 'table' | 'card') => void;
   onSortChange: (sort: ManifestSort) => void;
   onSelectManifest: (manifestId: number) => void;
-  onBatchExport?: (manifestIds: number[]) => void;
-  onBatchReExtract?: (manifestIds: number[]) => void;
+  onBatchExport?: (manifestIds: number[]) => Promise<void> | void;
   currentPage: number;
   pageSize: number;
   totalPages: number;
@@ -47,21 +52,18 @@ interface ManifestListProps {
   onSchemaColumnFilterChange?: (fieldPath: string, value: string) => void;
 }
 
-interface BatchValidationSummary {
-  errorCount?: number;
-  warningCount?: number;
-}
-
 export function ManifestList({
+  groupId,
   manifests,
   totalManifests,
+  filters,
+  onFiltersChange,
   sort,
   viewMode,
   onViewModeChange,
   onSortChange,
   onSelectManifest,
   onBatchExport,
-  onBatchReExtract,
   currentPage,
   pageSize,
   totalPages,
@@ -72,18 +74,37 @@ export function ManifestList({
   onSchemaColumnFilterChange,
 }: ManifestListProps) {
   const { t } = useI18n();
+  const queryClient = useQueryClient();
   const { alert, ModalDialog } = useModalDialog();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() => {
+    const defaultHiddenSystemColumns = [
+      'extractionStatus',
+      'humanVerified',
+      'confidence',
+      'poNo',
+      'department',
+      'invoiceDate',
+      'extractionCost',
+      'ocrQualityScore',
+      'ocrProcessedAt',
+      'extractorType',
+      'textExtractorId',
+      'fileSize',
+      'fileType',
+      'createdAt',
+      'updatedAt',
+      'id',
+    ] as const;
+    return Object.fromEntries(defaultHiddenSystemColumns.map((id) => [id, false]));
+  });
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [validationModalOpen, setValidationModalOpen] = useState(false);
+  const [extractModalOpen, setExtractModalOpen] = useState(false);
   const [ocrPreviewManifestId, setOcrPreviewManifestId] = useState<number | null>(null);
   const [ocrPreviewOpen, setOcrPreviewOpen] = useState(false);
   const [manifestProgress, setManifestProgress] = useState<Record<number, { progress: number; status: string; error?: string }>>({});
-  const [validationProgress, setValidationProgress] = useState<{
-    completed: number;
-    total: number;
-    results: Record<number, BatchValidationSummary>;
-  }>({ completed: 0, total: 0, results: {} });
 
   const runBatchValidation = useRunBatchValidation();
   const { extractors } = useExtractors();
@@ -105,6 +126,21 @@ export function ManifestList({
       return acc;
     }, {});
   }, [extractorTypeLookup, extractors]);
+
+  const extractorTypeOptions = useMemo(
+    () => extractorTypes.map((type) => ({ id: type.id, name: type.name })),
+    [extractorTypes],
+  );
+
+  const extractorOptions = useMemo(
+    () =>
+      extractors.map((extractor) => ({
+        id: extractor.id,
+        name: extractor.name,
+        extractorType: extractor.extractorType,
+      })),
+    [extractors],
+  );
 
   // Handle WebSocket updates
   const handleJobUpdate = useCallback((data: JobUpdateEvent) => {
@@ -150,74 +186,41 @@ export function ManifestList({
   };
 
   const handleBatchExport = () => {
-    if (onBatchExport && selectedIds.size > 0) {
-      onBatchExport(Array.from(selectedIds));
-    }
+    setExportModalOpen(true);
   };
 
-  const handleBatchReExtract = () => {
-    if (onBatchReExtract && selectedIds.size > 0) {
-      onBatchReExtract(Array.from(selectedIds));
-    }
+  const handleBatchValidate = () => {
+    setValidationModalOpen(true);
   };
 
-  const handleBatchValidate = async () => {
-    if (selectedIds.size === 0) return;
+  const selectedManifests = useMemo(() => {
+    if (selectedIds.size === 0) return [];
+    return manifests.filter((m) => selectedIds.has(m.id));
+  }, [manifests, selectedIds]);
 
-    // Filter manifests that are completed
-    const completedManifests = manifests.filter(m => selectedIds.has(m.id) && m.status === 'completed');
-    if (completedManifests.length === 0) {
-      void alert({
-        title: t('manifests.list.batchValidation.title'),
-        message: t('manifests.list.batchValidation.onlyCompletedMessage'),
-      });
-      return;
-    }
+  const validationEligibility = useMemo(() => {
+    return {
+      hint: t('manifests.batchAction.validation.eligibilityHint'),
+      isEligible: (manifest: Manifest) => manifest.status === 'completed' && Boolean(manifest.extractedData),
+    };
+  }, [t]);
 
-    const manifestIdsToValidate = completedManifests.map(m => m.id);
+  const handleStartValidation = useCallback(async (manifestIds: number[]) => {
+    const results = await runBatchValidation.mutateAsync({ manifestIds });
+    const totalErrors = Object.values(results).reduce((sum, r) => sum + (r.errorCount ?? 0), 0);
+    const totalWarnings = Object.values(results).reduce((sum, r) => sum + (r.warningCount ?? 0), 0);
 
-    setValidationProgress({
-      completed: 0,
-      total: manifestIdsToValidate.length,
-      results: {},
+    const message = t('manifests.list.batchValidation.summaryMessage', {
+      count: manifestIds.length,
+      errors: totalErrors,
+      warnings: totalWarnings,
     });
+    await alert({ title: t('manifests.list.batchValidation.completeTitle'), message });
 
-    try {
-      const results = await runBatchValidation.mutateAsync({ manifestIds: manifestIdsToValidate });
-
-      // Process results
-      const totalErrors = Object.values(results).reduce((sum, r) => sum + (r.errorCount ?? 0), 0);
-      const totalWarnings = Object.values(results).reduce((sum, r) => sum + (r.warningCount ?? 0), 0);
-
-      setValidationProgress({
-        completed: manifestIdsToValidate.length,
-        total: manifestIdsToValidate.length,
-        results,
-      });
-
-      // Show summary
-      const message = t('manifests.list.batchValidation.summaryMessage', {
-        count: manifestIdsToValidate.length,
-        errors: totalErrors,
-        warnings: totalWarnings,
-      });
-      void alert({ title: t('manifests.list.batchValidation.completeTitle'), message });
-
-      // Clear selection and progress after a delay
-      setTimeout(() => {
-        setValidationProgress({ completed: 0, total: 0, results: {} });
-        setSelectedIds(new Set());
-        setSelectAll(false);
-      }, 3000);
-    } catch (error) {
-      console.error('Batch validation failed:', error);
-      void alert({
-        title: t('manifests.list.batchValidation.failedTitle'),
-        message: t('manifests.list.batchValidation.failedMessage'),
-      });
-      setValidationProgress({ completed: 0, total: 0, results: {} });
-    }
-  };
+    queryClient.invalidateQueries({ queryKey: ['manifests', 'group'] });
+    setSelectedIds(new Set());
+    setSelectAll(false);
+  }, [alert, queryClient, runBatchValidation, t]);
 
   const handlePageChange = useCallback((page: number) => {
     setSelectedIds(new Set());
@@ -263,6 +266,96 @@ export function ManifestList({
     }));
   }, [schemaColumns, schemaColumnFilters]);
 
+  const systemColumnOptions = useMemo(() => {
+    return [
+      {
+        id: 'status',
+        label: t('manifests.table.status'),
+        hasActiveFilter: Boolean(filters.status),
+      },
+      {
+        id: 'extractionStatus',
+        label: t('manifests.filters.extractionStatus.label'),
+        hasActiveFilter: Boolean(filters.extractionStatus),
+      },
+      {
+        id: 'humanVerified',
+        label: t('manifests.card.verified'),
+        hasActiveFilter: filters.humanVerified !== undefined,
+      },
+      {
+        id: 'confidence',
+        label: t('manifests.card.confidence'),
+        hasActiveFilter: filters.confidenceMin !== undefined || filters.confidenceMax !== undefined,
+      },
+      {
+        id: 'poNo',
+        label: t('manifests.filters.poNumber.label'),
+        hasActiveFilter: Boolean(filters.poNo?.trim()),
+      },
+      {
+        id: 'department',
+        label: t('manifests.filters.department.label'),
+        hasActiveFilter: Boolean(filters.department?.trim()),
+      },
+      {
+        id: 'invoiceDate',
+        label: t('manifests.filters.invoiceDate.label'),
+        hasActiveFilter: Boolean(filters.dateFrom) || Boolean(filters.dateTo),
+      },
+      {
+        id: 'extractionCost',
+        label: t('manifests.card.cost'),
+        hasActiveFilter: filters.costMin !== undefined || filters.costMax !== undefined,
+      },
+      {
+        id: 'ocrQualityScore',
+        label: t('manifests.table.ocrQuality'),
+        hasActiveFilter: filters.ocrQualityMin !== undefined || filters.ocrQualityMax !== undefined,
+      },
+      {
+        id: 'ocrProcessedAt',
+        label: t('manifests.table.ocrProcessedAt'),
+        hasActiveFilter: false,
+      },
+      {
+        id: 'extractorType',
+        label: t('manifests.filters.extractorType.label'),
+        hasActiveFilter: Boolean(filters.extractorType),
+      },
+      {
+        id: 'textExtractorId',
+        label: t('manifests.card.extractor'),
+        hasActiveFilter: Boolean(filters.textExtractorId),
+      },
+      {
+        id: 'fileSize',
+        label: t('manifests.card.size'),
+        hasActiveFilter: false,
+      },
+      {
+        id: 'fileType',
+        label: t('manifests.table.fileType'),
+        hasActiveFilter: false,
+      },
+      {
+        id: 'createdAt',
+        label: t('manifests.table.createdAt'),
+        hasActiveFilter: false,
+      },
+      {
+        id: 'updatedAt',
+        label: t('manifests.table.updatedAt'),
+        hasActiveFilter: false,
+      },
+      {
+        id: 'id',
+        label: t('manifests.table.id'),
+        hasActiveFilter: false,
+      },
+    ];
+  }, [filters, t]);
+
   const handlePreviewOcr = useCallback((manifestId: number) => {
     setOcrPreviewManifestId(manifestId);
     setOcrPreviewOpen(true);
@@ -277,39 +370,9 @@ export function ManifestList({
             {t('manifests.list.titleWithCount', { count: totalManifests })}
           </h2>
           {selectedIds.size > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                {t('manifests.list.selectedCount', { count: selectedIds.size })}
-              </span>
-              <Button
-                onClick={handleBatchExport}
-                size="sm"
-              >
-                {t('manifests.list.exportCsv')}
-              </Button>
-              <Button
-                onClick={handleBatchValidate}
-                disabled={runBatchValidation.isPending || validationProgress.total > 0}
-                size="sm"
-                variant="secondary"
-              >
-                {validationProgress.total > 0
-                  ? t('manifests.list.batchValidation.progressLabel', {
-                    completed: validationProgress.completed,
-                    total: validationProgress.total,
-                  })
-                  : runBatchValidation.isPending
-                    ? t('manifests.list.batchValidation.runningLabel')
-                    : t('manifests.list.batchValidation.runLabel')}
-              </Button>
-              <Button
-                onClick={handleBatchReExtract}
-                size="sm"
-                variant="outline"
-              >
-                {t('manifests.list.reextract')}
-              </Button>
-            </div>
+            <span className="text-sm text-muted-foreground">
+              {t('manifests.list.selectedCount', { count: selectedIds.size })}
+            </span>
           )}
         </div>
         <div className="flex items-center gap-4">
@@ -318,6 +381,23 @@ export function ManifestList({
               current: currentPage,
               total: totalPages || 1,
             })}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              onClick={handleBatchExport}
+              size="sm"
+              variant="outline"
+              disabled={!onBatchExport}
+            >
+              {t('manifests.list.exportCsv')}
+            </Button>
+            <Button type="button" onClick={handleBatchValidate} size="sm" variant="outline">
+              {t('manifests.list.batchValidation.runLabel')}
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setExtractModalOpen(true)}>
+              {t('manifests.list.extract')}
+            </Button>
           </div>
           {viewMode === 'table' && (
             <DropdownMenu>
@@ -328,13 +408,19 @@ export function ManifestList({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>{t('manifests.list.columns.system')}</DropdownMenuLabel>
-                <DropdownMenuCheckboxItem
-                  checked={isColumnVisible('status')}
-                  disabled={isColumnVisible('status') && sort.field === 'status'}
-                  onCheckedChange={(checked) => setColumnVisible('status', checked === true)}
-                >
-                  {t('manifests.table.status')}
-                </DropdownMenuCheckboxItem>
+                {systemColumnOptions.map((column) => (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    checked={isColumnVisible(column.id)}
+                    disabled={
+                      isColumnVisible(column.id) &&
+                      (sort.field === column.id || column.hasActiveFilter)
+                    }
+                    onCheckedChange={(checked) => setColumnVisible(column.id, checked === true)}
+                  >
+                    {column.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
 
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>{t('manifests.list.columns.schema')}</DropdownMenuLabel>
@@ -403,6 +489,43 @@ export function ManifestList({
       </div>
 
       <ModalDialog />
+      <ManifestBatchScopeModal
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title={t('manifests.batchAction.export.title')}
+        subtitle={t('manifests.batchAction.export.subtitle')}
+        startLabel={t('manifests.list.exportCsv')}
+        groupId={groupId}
+        filters={filters}
+        sort={sort}
+        selectedManifests={selectedManifests}
+        onStart={async (manifestIds) => {
+          if (!onBatchExport) return;
+          await Promise.resolve(onBatchExport(manifestIds));
+        }}
+      />
+      <ManifestBatchScopeModal
+        open={validationModalOpen}
+        onClose={() => setValidationModalOpen(false)}
+        title={t('manifests.batchAction.validation.title')}
+        subtitle={t('manifests.batchAction.validation.subtitle')}
+        startLabel={t('manifests.list.batchValidation.runLabel')}
+        groupId={groupId}
+        filters={filters}
+        sort={sort}
+        selectedManifests={selectedManifests}
+        eligibility={validationEligibility}
+        onStart={async (manifestIds) => handleStartValidation(manifestIds)}
+      />
+      <ExtractFilteredModal
+        open={extractModalOpen}
+        onClose={() => setExtractModalOpen(false)}
+        groupId={groupId}
+        totalManifests={totalManifests}
+        selectedManifestIds={Array.from(selectedIds)}
+        filters={filters}
+        sort={sort}
+      />
       <OcrPreviewModal
         manifestId={ocrPreviewManifestId ?? 0}
         open={ocrPreviewOpen}
@@ -426,6 +549,10 @@ export function ManifestList({
               sort={sort}
               onSortChange={onSortChange}
               onSelectManifest={onSelectManifest}
+              filters={filters}
+              onFiltersChange={onFiltersChange}
+              extractorTypeOptions={extractorTypeOptions}
+              extractorOptions={extractorOptions}
               selectedIds={selectedIds}
               onSelectToggle={handleToggleSelect}
               onSelectAll={handleToggleSelectAll}

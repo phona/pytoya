@@ -20,10 +20,18 @@ interface GroupFormProps {
   projectId?: number;
   onSubmit: (data: CreateGroupDto | UpdateGroupDto) => Promise<void>;
   onCancel: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
   isLoading?: boolean;
 }
 
-export function GroupForm({ group, projectId, onSubmit, onCancel, isLoading }: GroupFormProps) {
+export function GroupForm({
+  group,
+  projectId,
+  onSubmit,
+  onCancel,
+  onDirtyChange,
+  isLoading,
+}: GroupFormProps) {
   const { t } = useI18n();
   const form = useForm<GroupFormValues>({
     resolver: zodResolver(groupSchema),
@@ -35,6 +43,10 @@ export function GroupForm({ group, projectId, onSubmit, onCancel, isLoading }: G
   useEffect(() => {
     form.reset({ name: group?.name ?? '' });
   }, [form, group]);
+
+  useEffect(() => {
+    onDirtyChange?.(form.formState.isDirty);
+  }, [form.formState.isDirty, onDirtyChange]);
 
   const handleSubmit = async (values: GroupFormValues) => {
     const name = values.name.trim();

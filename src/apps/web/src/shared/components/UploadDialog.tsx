@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { manifestsApi } from '@/api/manifests';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/button';
 import {
   Dialog,
@@ -15,19 +16,22 @@ import { useI18n } from '@/shared/providers/I18nProvider';
 interface UploadProgress {
   fileName: string;
   progress: number;
-  status: 'pending' | 'uploading' | 'success' | 'error';
+  status: 'pending' | 'uploading' | 'success' | 'duplicate' | 'error';
+  manifestId?: number;
   error?: string;
 }
 
 interface UploadDialogProps {
+  projectId: number;
   groupId: number;
   isOpen: boolean;
   onClose: () => void;
   onComplete?: (uploaded: number) => void;
 }
 
-export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDialogProps) {
+export function UploadDialog({ projectId, groupId, isOpen, onClose, onComplete }: UploadDialogProps) {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [files, setFiles] = useState<File[]>([]);
   const [uploads, setUploads] = useState<UploadProgress[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -64,8 +68,12 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
         prev.map((u, i) => {
           const result = results[i];
           if (result.status === 'fulfilled') {
-            successCount++;
-            return { ...u, progress: 100, status: 'success' };
+            const isDuplicate = result.value?.isDuplicate === true;
+            const manifestId = result.value?.id;
+            if (!isDuplicate) {
+              successCount++;
+            }
+            return { ...u, progress: 100, status: isDuplicate ? 'duplicate' : 'success', manifestId };
           } else {
             return { ...u, status: 'error', error: result.reason?.message || t('upload.errorFallback') };
           }
@@ -89,6 +97,15 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
       onClose();
     }
   }, [isUploading, onClose]);
+
+  const summary = (() => {
+    if (isUploading) return null;
+    if (uploads.length === 0) return null;
+    const created = uploads.filter((u) => u.status === 'success').length;
+    const duplicates = uploads.filter((u) => u.status === 'duplicate').length;
+    const failed = uploads.filter((u) => u.status === 'error').length;
+    return { created, duplicates, failed };
+  })();
 
   return (
     <Dialog
@@ -123,6 +140,11 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
 
         {uploads.length > 0 && (
           <div className="mb-4 space-y-2" aria-live="polite">
+            {summary ? (
+              <div className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+                {t('upload.summary', summary)}
+              </div>
+            ) : null}
             {uploads.map((upload, index) => (
               <div key={index} className="border rounded-md p-3">
                 <div className="flex justify-between items-center mb-2">
@@ -133,6 +155,8 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
                     className={`text-xs px-2 py-1 rounded ${
                       upload.status === 'success'
                         ? 'bg-[color:var(--status-completed-bg)] text-[color:var(--status-completed-text)]'
+                        : upload.status === 'duplicate'
+                        ? 'bg-[color:var(--status-verified-bg)] text-[color:var(--status-verified-text)]'
                         : upload.status === 'error'
                         ? 'bg-[color:var(--status-failed-bg)] text-[color:var(--status-failed-text)]'
                         : upload.status === 'uploading'
@@ -142,6 +166,8 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
                   >
                     {upload.status === 'success'
                       ? t('upload.status.uploaded')
+                      : upload.status === 'duplicate'
+                      ? t('upload.status.duplicate')
                       : upload.status === 'error'
                       ? t('upload.status.failed')
                       : upload.status === 'uploading'
@@ -156,6 +182,21 @@ export function UploadDialog({ groupId, isOpen, onClose, onComplete }: UploadDia
                     indicatorClassName="bg-primary"
                   />
                 )}
+                {upload.status === 'duplicate' && upload.manifestId ? (
+                  <div className="mt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        handleClose();
+                        navigate(`/projects/${projectId}/groups/${groupId}/manifests/${upload.manifestId}`);
+                      }}
+                    >
+                      {t('upload.openExisting')}
+                    </Button>
+                  </div>
+                ) : null}
                 {upload.error && (
                   <p className="text-sm text-destructive mt-1">{upload.error}</p>
                 )}

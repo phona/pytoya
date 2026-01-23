@@ -69,7 +69,7 @@ export const modelsApi = {
   },
 
   updateModelPricing: async (id: string, pricing: UpdateModelPricingDto['pricing']) => {
-    const response = await apiClient.patch<Model>(`/models/${id}/pricing`, { pricing });
+    const response = await apiClient.patch<Model>(`/models/${id}`, { pricing });
     return response.data;
   },
 

@@ -3,6 +3,7 @@ import { ArrowRight, CheckCircle2, Clock } from 'lucide-react';
 import { Manifest } from '@/api/manifests';
 import { getStatusBadgeClasses } from '@/shared/styles/status-badges';
 import { useI18n } from '@/shared/providers/I18nProvider';
+import { formatCostWithCurrency } from '@/shared/utils/cost';
 
 interface ManifestCardProps {
   manifest: Manifest;
@@ -105,7 +106,7 @@ export function ManifestCard({ manifest, extractorInfo, onClick }: ManifestCardP
             <span className="text-muted-foreground">{t('manifests.card.cost')}:</span>
             <span className="text-foreground">
               {manifest.extractionCost !== null && manifest.extractionCost !== undefined
-                ? `$${Number(manifest.extractionCost).toFixed(4)}`
+                ? formatCostWithCurrency(Number(manifest.extractionCost), manifest.extractionCostCurrency)
                 : t('common.na')}
             </span>
           </div>

@@ -9,6 +9,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
+import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { getStatusBadgeClasses } from '@/shared/styles/status-badges';
 import { useI18n } from '@/shared/providers/I18nProvider';
 
@@ -40,44 +41,68 @@ export function AuditPanelFunctionsMenu({
 }: AuditPanelFunctionsMenuProps) {
   const { t } = useI18n();
   const activeTabLabel = t(getActiveTabLabelKey(activeTab));
+  const validationBadgeClasses = validationStatus ? getStatusBadgeClasses(validationStatus) : '';
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="gap-2"
-          title={t('audit.menu.sections')}
-          onClick={(event) => event.stopPropagation()}
-        >
-          {activeTabLabel}
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-        <DropdownMenuLabel>{t('audit.menu.sections')}</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={activeTab}
-          onValueChange={(value) => onTabChange(value as AuditPanelTab)}
-        >
-          {tabOptions.map((option) => (
-            <DropdownMenuRadioItem key={option.value} value={option.value}>
-              {t(option.label)}
-              {option.value === 'validation' && validationLabel ? (
-                <span
-                  className={`ml-auto px-2 py-0.5 text-xs font-medium rounded-full ${
-                    validationStatus ? getStatusBadgeClasses(validationStatus) : ''
-                  }`}
-                >
-                  {validationLabel}
-                </span>
-              ) : null}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="flex items-center">
+      <div className="hidden lg:flex">
+        <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as AuditPanelTab)}>
+          <TabsList className="h-8 p-0.5">
+            {tabOptions.map((option) => (
+              <TabsTrigger
+                key={option.value}
+                value={option.value}
+                className="gap-2 px-2 py-1 text-xs"
+                title={t(option.label)}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <span>{t(option.label)}</span>
+                {option.value === 'validation' && validationLabel ? (
+                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${validationBadgeClasses}`}>
+                    {validationLabel}
+                  </span>
+                ) : null}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </div>
+
+      <div className="lg:hidden">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              title={t('audit.menu.sections')}
+              onClick={(event) => event.stopPropagation()}
+            >
+              {activeTabLabel}
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+            <DropdownMenuLabel>{t('audit.menu.sections')}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={activeTab}
+              onValueChange={(value) => onTabChange(value as AuditPanelTab)}
+            >
+              {tabOptions.map((option) => (
+                <DropdownMenuRadioItem key={option.value} value={option.value}>
+                  {t(option.label)}
+                  {option.value === 'validation' && validationLabel ? (
+                    <span className={`ml-auto px-2 py-0.5 text-xs font-medium rounded-full ${validationBadgeClasses}`}>
+                      {validationLabel}
+                    </span>
+                  ) : null}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
   );
 }

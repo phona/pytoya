@@ -3,7 +3,7 @@ import { Cache } from 'cache-manager';
 import { Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ManifestEntity } from '../entities/manifest.entity';
 import { OcrResultDto } from '../manifests/dto/ocr-result.dto';
@@ -204,7 +204,7 @@ export class OcrCacheService {
     cacheHitRate: number;
   }> {
     const manifestsCount = await this.manifestRepository.count({
-      where: { ocrResult: { $ne: null } as any },
+      where: { ocrResult: Not(IsNull()) },
     });
 
     let cachedCount = 0;

@@ -8,11 +8,11 @@ import type {
   OcrResultResponseDto,
   ManifestExtractionHistoryEntryDto,
   ManifestExtractionHistoryEntryDetailsDto,
-  CostEstimateDto,
   BulkExtractDto,
+  ExtractFilteredDto,
+  ExtractFilteredResponseDto,
   ReExtractFieldPreviewDto,
   ReExtractFieldPreviewResponseDto,
-  TriggerOcrDto,
 } from '@pytoya/shared/types/manifests';
 
 export type Manifest = Jsonify<ManifestResponseDto>;
@@ -21,8 +21,8 @@ export type { UpdateManifestDto };
 export type OcrResultResponse = Jsonify<OcrResultResponseDto>;
 export type ManifestExtractionHistoryEntry = Jsonify<ManifestExtractionHistoryEntryDto>;
 export type ManifestExtractionHistoryEntryDetails = Jsonify<ManifestExtractionHistoryEntryDetailsDto>;
-export type CostEstimate = Jsonify<CostEstimateDto>;
 export type ReExtractFieldPreviewResponse = Jsonify<ReExtractFieldPreviewResponseDto>;
+export type ExtractFilteredResponse = Jsonify<ExtractFilteredResponseDto>;
 
 export interface ManifestItem {
   id: number;
@@ -226,18 +226,9 @@ export const manifestsApi = {
     return response.data;
   },
 
-  triggerOcr: async (manifestId: number, data?: TriggerOcrDto, force?: boolean) => {
-    const response = await apiClient.post<OcrResultResponse>(`/manifests/${manifestId}/ocr`, data ?? {}, {
-      params: force ? { force: 'true' } : undefined,
-    });
-    return response.data;
-  },
-
   extractManifest: async (manifestId: number, data?: { llmModelId?: string; promptId?: number }) => {
     const response = await apiClient.post<{
       jobId: string;
-      estimatedCost?: { min: number; max: number };
-      currency?: string;
     }>(`/manifests/${manifestId}/extract`, data ?? {});
     return response.data;
   },
@@ -246,21 +237,17 @@ export const manifestsApi = {
     const response = await apiClient.post<{
       jobId: string;
       jobIds?: string[];
+      jobs?: Array<{ jobId: string; manifestId: number }>;
       manifestCount: number;
-      estimatedCost: { min: number; max: number };
-      currency: string;
     }>('/manifests/extract-bulk', data);
     return response.data;
   },
 
-  getCostEstimate: async (manifestIds: number[], llmModelId?: string, textExtractorId?: string) => {
-    const params = new URLSearchParams();
-    if (manifestIds.length > 0) {
-      params.append('manifestIds', manifestIds.join(','));
-    }
-    if (llmModelId) params.append('llmModelId', llmModelId);
-    if (textExtractorId) params.append('textExtractorId', textExtractorId);
-    const response = await apiClient.get<CostEstimate>('/manifests/cost-estimate', { params });
+  extractFiltered: async (groupId: number, data: ExtractFilteredDto) => {
+    const response = await apiClient.post<ExtractFilteredResponse>(
+      `/groups/${groupId}/manifests/extract-filtered`,
+      data,
+    );
     return response.data;
   },
 

@@ -41,6 +41,4 @@ export class ReExtractFieldPreviewResponseDto {
   jobId?: string;
   fieldName!: string;
   ocrPreview?: OcrContextPreviewDto;
-  estimatedCost!: number;
-  currency!: string;
 }

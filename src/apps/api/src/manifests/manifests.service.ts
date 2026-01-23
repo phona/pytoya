@@ -1,6 +1,8 @@
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, SelectQueryBuilder } from 'typeorm';
+import { createHash } from 'crypto';
+import { promises as fs } from 'fs';
 
 import { JobEntity, JobStatus } from '../entities/job.entity';
 import { ManifestEntity, ManifestStatus, FileType } from '../entities/manifest.entity';
@@ -42,6 +44,14 @@ const SORTABLE_COLUMNS: Record<string, string> = {
   department: 'manifest.department',
   humanVerified: 'manifest.humanVerified',
   createdAt: 'manifest.createdAt',
+  updatedAt: 'manifest.updatedAt',
+  id: 'manifest.id',
+  extractionCost: 'manifest.extractionCost',
+  ocrQualityScore: 'manifest.ocrQualityScore',
+  ocrProcessedAt: 'manifest.ocrProcessedAt',
+  textExtractorId: 'manifest.textExtractorId',
+  fileSize: 'manifest.fileSize',
+  fileType: 'manifest.fileType',
 };
 
 type ManifestListMeta = {
@@ -83,7 +93,7 @@ export class ManifestsService {
     user: UserEntity,
     groupId: number,
     file: Express.Multer.File | undefined,
-  ): Promise<ManifestEntity> {
+  ): Promise<{ manifest: ManifestEntity; isDuplicate: boolean }> {
     const group = await this.groupsService.findOne(user, groupId);
     this.validateFile(file);
 
@@ -94,6 +104,15 @@ export class ManifestsService {
     const detectedFileType = detectFileType(file.mimetype);
     if (detectedFileType === 'unknown') {
       throw new InvalidFileTypeException();
+    }
+
+    const sha256 = await this.computeFileSha256(file);
+    const existing = await this.manifestRepository.findOne({
+      where: { groupId: group.id, contentSha256: sha256 },
+    });
+    if (existing) {
+      await this.cleanupTempUpload(file);
+      return { manifest: existing, isDuplicate: true };
     }
 
     const storedFile = await this.storageService.saveFile(
@@ -110,9 +129,52 @@ export class ManifestsService {
       fileType: detectedFileType === 'pdf' ? FileType.PDF : FileType.IMAGE,
       status: ManifestStatus.PENDING,
       groupId: group.id,
+      contentSha256: sha256,
     });
 
-    return this.manifestRepository.save(manifest);
+    try {
+      return { manifest: await this.manifestRepository.save(manifest), isDuplicate: false };
+    } catch (error) {
+      // Handle race: unique index on (group_id, content_sha256)
+      const raced = await this.manifestRepository.findOne({
+        where: { groupId: group.id, contentSha256: sha256 },
+      });
+      if (raced) {
+        return { manifest: raced, isDuplicate: true };
+      }
+      throw error;
+    }
+  }
+
+  private async computeFileSha256(file: Express.Multer.File): Promise<string> {
+    const hash = createHash('sha256');
+
+    const toBinaryLike = (buffer: Buffer): Uint8Array =>
+      new Uint8Array(
+        buffer.buffer as ArrayBuffer,
+        buffer.byteOffset,
+        buffer.byteLength,
+      );
+
+    if (file.path) {
+      const buffer: Buffer = await fs.readFile(file.path);
+      hash.update(toBinaryLike(buffer));
+      return hash.digest('hex');
+    }
+    if (file.buffer) {
+      hash.update(toBinaryLike(file.buffer));
+      return hash.digest('hex');
+    }
+    throw new FileNotFoundException();
+  }
+
+  private async cleanupTempUpload(file: Express.Multer.File): Promise<void> {
+    if (!file.path) return;
+    try {
+      await fs.unlink(file.path);
+    } catch {
+      // best-effort
+    }
   }
 
   async findByGroup(
@@ -155,6 +217,73 @@ export class ManifestsService {
         totalPages,
       },
     };
+  }
+
+  async findForFilteredExtraction(
+    user: UserEntity,
+    groupId: number,
+    filters: DynamicFieldFiltersDto,
+    behavior: { includeCompleted?: boolean; includeProcessing?: boolean } = {},
+    maxCount = 5000,
+  ): Promise<ManifestEntity[]> {
+    await this.groupsService.findOne(user, groupId);
+
+    const queryBuilder = this.manifestRepository
+      .createQueryBuilder('manifest')
+      .leftJoinAndSelect('manifest.group', 'group')
+      .leftJoinAndSelect('group.project', 'project')
+      .where('manifest.groupId = :groupId', { groupId });
+
+    this.applyStandardFilters(queryBuilder, filters);
+    this.applyJsonbFilters(queryBuilder, filters.filter);
+
+    const hasExplicitStatus =
+      filters.status !== undefined || filters.extractionStatus !== undefined;
+    if (!hasExplicitStatus) {
+      const includeCompleted = behavior.includeCompleted === true;
+      const includeProcessing = behavior.includeProcessing === true;
+      const statuses: ManifestStatus[] = [ManifestStatus.PENDING, ManifestStatus.FAILED];
+      if (includeProcessing) statuses.push(ManifestStatus.PROCESSING);
+      if (includeCompleted) statuses.push(ManifestStatus.COMPLETED);
+      queryBuilder.andWhere('manifest.status IN (:...allowedStatuses)', {
+        allowedStatuses: statuses,
+      });
+    }
+
+    const total = await queryBuilder.clone().getCount();
+    if (total > maxCount) {
+      throw new BadRequestException(
+        `Too many matching manifests (${total}). Please refine your filters.`,
+      );
+    }
+
+    return queryBuilder.getMany();
+  }
+
+  async setTextExtractorForManifests(
+    user: UserEntity,
+    groupId: number,
+    manifestIds: number[],
+    textExtractorId: string,
+  ): Promise<void> {
+    await this.groupsService.findOne(user, groupId);
+    const trimmed = textExtractorId.trim();
+    if (!trimmed) {
+      throw new BadRequestException('textExtractorId is required');
+    }
+    if (manifestIds.length === 0) {
+      return;
+    }
+
+    const result = await this.manifestRepository.update(
+      { groupId, id: In(manifestIds) },
+      { textExtractorId: trimmed },
+    );
+
+    const affected = result.affected ?? 0;
+    if (affected !== manifestIds.length) {
+      throw new BadRequestException('One or more manifests could not be updated');
+    }
   }
 
   async findOne(user: UserEntity, id: number): Promise<ManifestEntity> {
@@ -497,6 +626,7 @@ export class ManifestsService {
     llmModelId?: string,
     promptId?: number,
     estimatedCost?: number,
+    currency?: string,
     fieldName?: string,
   ): Promise<JobEntity> {
     const manifest = await this.manifestRepository.findOne({
@@ -518,6 +648,7 @@ export class ManifestsService {
       fieldName: fieldName?.trim() || null,
       progress: 0,
       estimatedCost: estimatedCost ?? null,
+      costCurrency: currency?.trim() || null,
     });
 
     return this.jobRepository.save(job);
@@ -554,9 +685,10 @@ export class ManifestsService {
     _result?: unknown,
     attemptCount?: number,
     cost?: {
-      total?: number;
+      total?: number | null;
       text?: number;
       llm?: number;
+      currency?: string | null;
       textExtractorId?: string;
       pagesProcessed?: number;
       llmInputTokens?: number;
@@ -575,13 +707,16 @@ export class ManifestsService {
     job.completedAt = new Date();
     job.error = null;
     if (cost?.total !== undefined) {
-      job.actualCost = cost.total;
+      job.actualCost = cost.total ?? null;
     }
     if (cost?.text !== undefined) {
       job.ocrActualCost = cost.text;
     }
     if (cost?.llm !== undefined) {
       job.llmActualCost = cost.llm;
+    }
+    if (cost?.currency !== undefined) {
+      job.costCurrency = cost.currency?.trim() || null;
     }
     if (cost?.pagesProcessed !== undefined) {
       job.pagesProcessed = cost.pagesProcessed;
