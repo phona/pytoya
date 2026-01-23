@@ -29,8 +29,8 @@
 ### Existing Users
 - Existing users are not forced to reset passwords automatically.
 - Recommend a reset policy if passwords are known to be weak.
-- Use `npm run cli -- audit-passwords` to flag users matching a common weak password list.
+- From `src/apps/api`, run `npm run cli -- audit-passwords` to flag users matching a common weak password list.
 
 ### Rollback
-- Disable `security.accountLockout` and `security.rateLimit` in `config.yaml` if lockouts/rate limits must be paused.
+- Disable `security.accountLockout` and `security.rateLimit` in `src/apps/api/config.yaml` if lockouts/rate limits must be paused.
 - For full rollback of password/username policy, deploy the previous release.

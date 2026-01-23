@@ -5,7 +5,7 @@ The system SHALL remove all deprecated Python code and related artifacts after m
 
 #### Scenario: Remove Python source files
 - **WHEN** TypeScript migration is complete
-- **THEN** `src/` directory containing Python files is deleted
+- **THEN** Python source under `src/` is deleted (`src/*.py` and `src/{commands,extraction,ocr,workflow}/`)
 - **AND** no Python code remains in repository
 
 #### Scenario: Remove YAML results directory

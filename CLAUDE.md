@@ -23,7 +23,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 ## Project Overview
 
-PyToYa is a hybrid invoice processing system combining a Python CLI tool (legacy) with a modern TypeScript web application. The system uses pluggable text extractors (PaddleOCR-VL, vision LLMs, etc.) to produce raw text and adapter-based LLM models (OpenAI-compatible endpoints) for structured data extraction from PDF invoices.
+PyToYa is an invoice processing system implemented as a TypeScript monorepo. It uses pluggable text extractors (PaddleOCR-VL, vision LLMs, etc.) to produce raw text and adapter-based LLM models (OpenAI-compatible endpoints) for structured data extraction from PDF invoices.
 
 **Architecture**: Monorepo with npm workspaces (`src/apps/api` for NestJS backend, `src/apps/web` for Vite frontend).
 
@@ -106,7 +106,6 @@ src/apps/
   api/                   # NestJS backend (port 3000)
   web/                   # Vite frontend (port 3001)
 src/shared/              # Shared DTO types workspace (@pytoya/shared)
-src/                     # Python CLI (legacy)
 openspec/                # Spec-driven development
 ```
 

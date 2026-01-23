@@ -23,7 +23,7 @@ Environment overrides:
 Environment overrides:
 - `ACCOUNT_LOCKOUT_ENABLED` (default: true)
 
-Thresholds are configured in `config.yaml` under `security.accountLockout.thresholds`.
+Thresholds are configured in `src/apps/api/config.yaml` under `security.accountLockout.thresholds`.
 
 ## Password Policy
 - Minimum length: 8
