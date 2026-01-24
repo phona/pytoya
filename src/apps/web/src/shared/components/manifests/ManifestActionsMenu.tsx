@@ -1,9 +1,9 @@
-import { useCallback, useMemo } from 'react';
-import { Eye, MoreVertical, Play, RefreshCw, ShieldCheck } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { Eye, MoreVertical, Play, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react';
 import type { Manifest } from '@/api/manifests';
 import { getApiErrorText } from '@/api/client';
 import { toast } from '@/shared/hooks/use-toast';
-import { useTriggerExtraction } from '@/shared/hooks/use-manifests';
+import { useDeleteManifest, useTriggerExtraction } from '@/shared/hooks/use-manifests';
 import { useRunValidation } from '@/shared/hooks/use-validation-scripts';
 import { Button } from '@/shared/components/ui/button';
 import {
@@ -15,6 +15,7 @@ import {
 } from '@/shared/components/ui/dropdown-menu';
 import { useI18n } from '@/shared/providers/I18nProvider';
 import type { ValidationResult } from '@/api/validation';
+import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 
 type ManifestActionsMenuProps = {
   manifest: Manifest;
@@ -40,6 +41,9 @@ export function ManifestActionsMenu({ manifest, onPreviewOcr }: ManifestActionsM
   const { t } = useI18n();
   const triggerExtraction = useTriggerExtraction();
   const runValidation = useRunValidation();
+  const deleteManifest = useDeleteManifest();
+  const { confirm, alert, ModalDialog } = useModalDialog();
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const canExtract = manifest.status === 'pending' || manifest.status === 'failed';
   const canReExtract = manifest.status === 'completed';
@@ -90,10 +94,11 @@ export function ManifestActionsMenu({ manifest, onPreviewOcr }: ManifestActionsM
   const showExtract = canExtract;
   const showReExtract = canReExtract;
   const showValidation = true;
+  const showDelete = true;
 
   const hasAnyActions = useMemo(
-    () => showPreview || showExtract || showReExtract || showValidation,
-    [showExtract, showPreview, showReExtract, showValidation],
+    () => showPreview || showExtract || showReExtract || showValidation || showDelete,
+    [showDelete, showExtract, showPreview, showReExtract, showValidation],
   );
 
   if (!hasAnyActions) {
@@ -101,58 +106,99 @@ export function ManifestActionsMenu({ manifest, onPreviewOcr }: ManifestActionsM
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground hover:text-foreground"
-          title={t('manifests.actions.menuTitle')}
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground"
+            title={t('manifests.actions.menuTitle')}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          id={`manifest-actions-menu-${manifest.id}`}
+          align="end"
           onClick={(event) => event.stopPropagation()}
         >
-          <MoreVertical className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        id={`manifest-actions-menu-${manifest.id}`}
-        align="end"
-        onClick={(event) => event.stopPropagation()}
-      >
-        {showPreview ? (
-          <DropdownMenuItem
-            onSelect={() => {
-              onPreviewOcr?.(manifest.id);
-            }}
-          >
-            <Eye className="h-4 w-4" />
-            {t('manifests.table.previewText')}
+          {showPreview ? (
+            <DropdownMenuItem
+              onSelect={() => {
+                onPreviewOcr?.(manifest.id);
+              }}
+            >
+              <Eye className="h-4 w-4" />
+              {t('manifests.table.previewText')}
+            </DropdownMenuItem>
+          ) : null}
+
+          {showPreview ? <DropdownMenuSeparator /> : null}
+
+          <DropdownMenuItem disabled={!canValidate || runValidation.isPending} onSelect={handleRunValidation}>
+            <ShieldCheck className="h-4 w-4" />
+            {t('audit.menu.runValidation')}
           </DropdownMenuItem>
-        ) : null}
 
-        {showPreview ? <DropdownMenuSeparator /> : null}
+          {showExtract || showReExtract ? <DropdownMenuSeparator /> : null}
 
-        <DropdownMenuItem disabled={!canValidate || runValidation.isPending} onSelect={handleRunValidation}>
-          <ShieldCheck className="h-4 w-4" />
-          {t('audit.menu.runValidation')}
-        </DropdownMenuItem>
+          {showExtract ? (
+            <DropdownMenuItem disabled={triggerExtraction.isPending} onSelect={handleExtract}>
+              <Play className="h-4 w-4" />
+              {t('manifests.table.extract')}
+            </DropdownMenuItem>
+          ) : null}
 
-        {showExtract || showReExtract ? <DropdownMenuSeparator /> : null}
+          {showReExtract ? (
+            <DropdownMenuItem disabled={triggerExtraction.isPending} onSelect={handleReExtract}>
+              <RefreshCw className="h-4 w-4" />
+              {t('manifests.table.reextract')}
+            </DropdownMenuItem>
+          ) : null}
 
-        {showExtract ? (
-          <DropdownMenuItem disabled={triggerExtraction.isPending} onSelect={handleExtract}>
-            <Play className="h-4 w-4" />
-            {t('manifests.table.extract')}
-          </DropdownMenuItem>
-        ) : null}
+          {showDelete ? <DropdownMenuSeparator /> : null}
 
-        {showReExtract ? (
-          <DropdownMenuItem disabled={triggerExtraction.isPending} onSelect={handleReExtract}>
-            <RefreshCw className="h-4 w-4" />
-            {t('manifests.table.reextract')}
-          </DropdownMenuItem>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          {showDelete ? (
+            <DropdownMenuItem
+              disabled={isDeleting || deleteManifest.isPending}
+              className="text-destructive focus:text-destructive"
+              onSelect={() => {
+                void (async () => {
+                  const confirmed = await confirm({
+                    title: t('manifests.deleteTitle'),
+                    message: t('manifests.deleteMessage', { name: manifest.originalFilename ?? manifest.filename }),
+                    confirmText: t('common.delete'),
+                    cancelText: t('common.cancel'),
+                    destructive: true,
+                  });
+                  if (!confirmed) return;
+                  setIsDeleting(true);
+                  try {
+                    await deleteManifest.mutateAsync(manifest.id);
+                    toast({
+                      title: t('manifests.deleteSuccessTitle'),
+                    });
+                  } catch (error) {
+                    void alert({
+                      title: t('common.deleteFailedTitle'),
+                      message: getApiErrorText(error, t),
+                    });
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                })();
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+              {t('common.delete')}
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ModalDialog />
+    </>
   );
 }

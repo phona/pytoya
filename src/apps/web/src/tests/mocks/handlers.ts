@@ -180,6 +180,29 @@ export const handlers = [
     });
   }),
 
+  http.post('/api/auth/change-password', async ({ request }) => {
+    const body = await parseJsonBody(request);
+    const currentPassword =
+      typeof body.currentPassword === 'string' ? body.currentPassword : '';
+
+    if (currentPassword === 'wrong') {
+      return HttpResponse.json(
+        {
+          error: {
+            code: 'UnauthorizedException',
+            message: 'Invalid current password',
+            requestId: 'mock-request-id',
+            timestamp: '2025-01-13T00:00:00.000Z',
+            path: '/api/auth/change-password',
+          },
+        },
+        { status: 401 },
+      );
+    }
+
+    return new HttpResponse(null, { status: 204 });
+  }),
+
   http.get('/api/metrics/dashboard', () => {
     return HttpResponse.json({
       thisMonth: {
@@ -405,6 +428,12 @@ export const handlers = [
         totalPages: 1,
       },
     });
+  }),
+
+  http.post('/api/groups/:groupId/manifests/delete-bulk', async ({ request }) => {
+    const body = await parseJsonBody(request);
+    const ids = Array.isArray(body.manifestIds) ? body.manifestIds : [];
+    return HttpResponse.json({ deletedCount: ids.length });
   }),
 
   // Schema validation endpoints

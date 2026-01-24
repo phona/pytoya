@@ -64,6 +64,17 @@ export type TextExtractionInput = {
   originalFilename?: string;
   mimeType?: string;
   pages?: ConvertedPage[];
+  onProgress?: (update: TextExtractionProgressUpdate) => void | Promise<void>;
+};
+
+export type TextExtractionProgressUpdate = {
+  pagesTotal: number;
+  pagesProcessed: number;
+  pageNumber: number;
+  markdownSoFar: string;
+  inputTokens: number;
+  outputTokens: number;
+  textCost: number;
 };
 
 export type TextExtractionMetadata = {

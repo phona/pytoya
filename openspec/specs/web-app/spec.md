@@ -1301,29 +1301,14 @@ The web application SHALL present JSON Schema previews using canonical ordering 
 - **THEN** the displayed JSON SHALL serialize `properties` in the canonical order derived from `x-ui-order`
 
 ### Requirement: Global Jobs Panel
-The web application SHALL provide a global Jobs panel to monitor queued and running background jobs.
+The web application SHALL provide a global Jobs panel to monitor queued and running background jobs, including OCR refresh jobs started from the Audit page.
 
-#### Scenario: Jobs are visible across navigation
-- **GIVEN** a user starts an extraction job
-- **WHEN** the user navigates to other dashboard pages
-- **THEN** the Jobs panel SHALL continue to show the job and its progress
-
-#### Scenario: Jobs survive page refresh
-- **GIVEN** a user has one or more recent jobs
-- **WHEN** the user refreshes the page
-- **THEN** the Jobs panel SHALL restore recent jobs from persisted state
-- **AND** the system SHOULD seed/update job entries from backend job history
-
-#### Scenario: Jobs update in real time
-- **GIVEN** an in-progress job is running on the backend
-- **WHEN** the backend emits a `job-update` event
-- **THEN** the Jobs panel SHALL update the job status/progress without requiring page refresh
-
-#### Scenario: Cancel a queued or running job
-- **GIVEN** a job is cancellable
-- **WHEN** the user clicks “Cancel” in the Jobs panel
-- **THEN** the system SHALL call the backend cancel endpoint
-- **AND** the Jobs panel SHALL reflect the cancellation request and final status
+#### Scenario: OCR refresh runs as a job
+- **GIVEN** a user is auditing a manifest
+- **WHEN** the user triggers “Refresh OCR cache”
+- **THEN** the system SHALL enqueue a background job and return immediately
+- **AND** the job SHALL be visible in the global Jobs panel with progress/status
+- **AND** the system SHALL refresh the manifest OCR view when the job completes
 
 ### Requirement: Internationalization (i18n) Support
 The web application SHALL support localized UI text and runtime language switching.
@@ -1550,4 +1535,151 @@ The web application SHALL display text extraction usage and cost metrics in the 
 - **GIVEN** text extraction jobs include page counts and cost
 - **WHEN** the user views the Text tab in the cost dashboard
 - **THEN** the system SHALL display pages processed and cost per page grouped by extractor and currency
+
+### Requirement: OCR History Section
+The manifest audit page SHALL provide a dedicated OCR history section to review OCR refresh runs separately from extraction history.
+
+#### Scenario: User reviews OCR refresh runs
+- **GIVEN** a manifest has one or more OCR refresh jobs
+- **WHEN** the user opens the audit page History tab
+- **THEN** the system SHALL display an OCR history section listing OCR refresh runs
+- **AND** the section SHALL show run status and timestamps
+- **AND** the section SHALL NOT be mixed into the extraction history list
+
+### Requirement: User Profile Password Change
+The web application SHALL provide a Profile page that allows authenticated users to change their password.
+
+#### Scenario: User opens Profile page
+- **GIVEN** an authenticated user
+- **WHEN** the user navigates to the Profile page
+- **THEN** the system SHALL show the current username and role
+- **AND** the system SHALL show a Change Password form
+
+#### Scenario: Password change success
+- **GIVEN** an authenticated user on the Profile page
+- **WHEN** the user submits the Change Password form with valid inputs
+- **THEN** the system SHALL call the backend change-password endpoint
+- **AND** the UI SHALL show a success message
+
+#### Scenario: Password change error
+- **GIVEN** an authenticated user on the Profile page
+- **WHEN** the backend returns an error (e.g. wrong current password)
+- **THEN** the UI SHALL show a user-friendly error message
+
+### Requirement: Audit header actions menu and shortcuts
+The web application SHALL present audit actions in a compact header and SHALL support keyboard shortcuts for common actions.
+
+#### Scenario: Header merges infrequent actions into Actions menu
+- **GIVEN** the user is on the manifest audit page
+- **THEN** the header SHALL show Save and Run validation as primary actions
+- **AND** the header SHALL provide an "Actions" menu containing Refresh results, Refresh OCR cache, and Extract
+
+#### Scenario: Keyboard shortcuts trigger actions when safe
+- **GIVEN** the user is on the manifest audit page
+- **AND** focus is not inside a text input/textarea/contenteditable element
+- **AND** no modal dialog is open
+- **WHEN** the user presses a supported shortcut key
+- **THEN** the corresponding action SHALL run (Save, Validation, Refresh results, Refresh OCR cache, Extract)
+
+### Requirement: Refresh OCR cache
+The web application SHALL allow users to rebuild the cached OCR result for a manifest.
+
+#### Scenario: Rebuild OCR cache from audit actions
+- **GIVEN** the user is on the manifest audit page
+- **WHEN** the user selects "Refresh OCR cache"
+- **THEN** the system SHALL rebuild and persist the OCR result for that manifest
+- **AND** the OCR view SHALL update to reflect the refreshed OCR result
+
+### Requirement: Audit action from manifests list
+The web application SHALL provide an Audit action on the manifests list that opens the manifest audit page for a chosen scope.
+
+#### Scenario: Audit filtered results from manifests list
+- **GIVEN** the user is viewing the manifests list with filters and sort applied
+- **WHEN** the user selects "Audit filtered results"
+- **THEN** the system SHALL open the manifest audit page on the first manifest in the current result ordering
+- **AND** the audit header SHALL indicate the scope is filtered results
+
+#### Scenario: Audit selected manifests from manifests list
+- **GIVEN** the user has selected one or more manifests in the manifests list
+- **WHEN** the user selects "Audit selected"
+- **THEN** the system SHALL open the manifest audit page on the first selected manifest (deterministic ordering)
+- **AND** the audit header SHALL indicate the scope is selected manifests
+
+#### Scenario: Audit all manifests in group from manifests list
+- **GIVEN** the user is viewing the manifests list for a group
+- **WHEN** the user selects "Audit all in group"
+- **THEN** the system SHALL open the manifest audit page on the first manifest in the group (current sort ordering)
+- **AND** the audit header SHALL indicate the scope is all manifests in the group
+
+### Requirement: Manifest audit navigation scope and counts
+The web application SHALL display the audited manifest’s position within the current navigation scope, and SHALL allow refreshing the scope results.
+
+#### Scenario: Open audit from a filtered manifests list
+- **GIVEN** the user is viewing the manifests list with filters and sort applied
+- **WHEN** the user opens the manifest audit page from a manifest row/card
+- **THEN** the audit header SHALL display `X of N` where `N` reflects the filtered total
+- **AND** the audit header SHALL display a scope label indicating filtered results
+
+#### Scenario: Refresh audit navigation scope results
+- **GIVEN** the user is on the manifest audit page with a known navigation scope
+- **WHEN** the user clicks "Refresh results"
+- **THEN** the system SHALL refetch the scope results and totals
+- **AND** the audit header `X of N` SHALL update to reflect the refreshed totals
+
+#### Scenario: Page boundary navigation within a known scope
+- **GIVEN** the user is auditing a manifest within a known scope
+- **WHEN** the user navigates Next/Previous beyond the current page boundary
+- **THEN** the system SHALL load the adjacent page within the same scope
+- **AND** the system SHALL navigate to the adjacent manifest in that scope
+
+#### Scenario: Deep link audit with unknown scope
+- **GIVEN** the user opens the manifest audit page via a deep link without list context
+- **THEN** the system SHALL load the manifest details
+- **AND** the system SHALL display an "Unknown scope" label (or equivalent)
+- **AND** list-based Next/Previous navigation SHALL be disabled
+
+### Requirement: Best-effort scope restore after refresh
+The web application SHALL attempt to restore the last-known audit navigation scope after a browser refresh within the same session.
+
+#### Scenario: Refresh the browser while auditing from a list
+- **GIVEN** the user opened the manifest audit page from the manifests list
+- **WHEN** the user refreshes the browser
+- **THEN** the system SHALL attempt to restore the prior navigation scope and display `X of N`
+- **AND** if scope restore fails, the system SHALL fall back to an unknown scope state
+
+### Requirement: Live Text Extraction Markdown Updates
+
+The web application SHALL update the displayed text extraction markdown for an in-progress extraction job without requiring a manual page reload.
+
+#### Scenario: Manifest audit page updates during page-by-page extraction
+
+- **GIVEN** a user is viewing a manifest audit/detail page while extraction is running
+- **WHEN** the backend completes processing page K of N for text extraction
+- **THEN** the UI SHALL update the displayed markdown to include pages `1..K`
+- **AND** the UI SHALL preserve stable page separators (e.g. `--- PAGE k ---`)
+- **AND** the UI SHALL continue to update as additional pages complete
+
+### Requirement: Manifest Delete Actions
+The web application SHALL provide single-manifest and batch delete actions from the Manifests list page with clear destructive UX and confirmation.
+
+#### Scenario: Delete a single manifest from row actions
+- **GIVEN** the manifests list page is displayed
+- **WHEN** the user opens the row `⋮` actions menu and clicks **Delete**
+- **THEN** the system SHALL show a confirmation dialog
+- **AND** upon confirmation the system SHALL call `DELETE /api/manifests/:id`
+- **AND** upon success the system SHALL refresh the manifests list
+
+#### Scenario: Delete selected manifests from toolbar
+- **GIVEN** the manifests list page is displayed
+- **AND** the user has selected one or more manifests
+- **WHEN** the user clicks the toolbar **Delete…** action
+- **THEN** the system SHALL show a scope modal with **Selected** available
+- **AND** upon confirmation the system SHALL call `POST /api/groups/:groupId/manifests/delete-bulk`
+
+#### Scenario: Disable filtered-scope delete when no filters
+- **GIVEN** the manifests list page is displayed
+- **AND** the user has applied no filters
+- **WHEN** the user opens the toolbar **Delete…** scope modal
+- **THEN** the system SHALL disable the **All matching current filters** scope option
+- **AND** the modal SHALL indicate that a filter is required to enable that option
 

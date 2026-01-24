@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { JobHistory } from '@/api/jobs';
 
-export type JobKind = 'extraction';
+export type JobKind = 'extraction' | 'ocr';
 
 export type JobStatus =
   | 'waiting'
@@ -29,6 +29,12 @@ const MAX_JOBS = 200;
 
 const normalizeStatus = (status: string): JobStatus => {
   const normalized = status.toLowerCase();
+  if (normalized === 'pending' || normalized === 'queued') {
+    return 'waiting';
+  }
+  if (normalized === 'processing' || normalized === 'running') {
+    return 'active';
+  }
   if (
     normalized === 'waiting' ||
     normalized === 'active' ||
@@ -77,7 +83,7 @@ export interface JobsState {
 
   upsertJob: (job: JobItem) => void;
   upsertFromHistory: (history: JobHistory[]) => void;
-  upsertFromJobUpdate: (update: { jobId?: string; manifestId: number; progress: number; status: string; error?: string }) => void;
+  upsertFromJobUpdate: (update: { jobId?: string; manifestId: number; kind?: JobKind; progress: number; status: string; error?: string }) => void;
 }
 
 export const useJobsStore = create<JobsState>()(
@@ -113,9 +119,10 @@ export const useJobsStore = create<JobsState>()(
           const id = entry.queueJobId ? String(entry.queueJobId) : `history-${entry.id}`;
           const updatedAt =
             entry.completedAt ?? entry.startedAt ?? entry.createdAt ?? now;
+          const kind = (entry.kind as JobKind | undefined) ?? 'extraction';
           get().upsertJob({
             id,
-            kind: 'extraction',
+            kind,
             manifestId: entry.manifestId,
             status: normalizeStatus(entry.status),
             progress: normalizeProgress(entry.progress),
@@ -132,9 +139,10 @@ export const useJobsStore = create<JobsState>()(
         const status = normalizeStatus(update.status);
         const progress = normalizeProgress(update.progress);
         const existing = get().jobs.find((j) => j.id === id);
+        const kind = update.kind ?? existing?.kind ?? 'extraction';
         get().upsertJob({
           id,
-          kind: 'extraction',
+          kind,
           manifestId: update.manifestId,
           status,
           progress,

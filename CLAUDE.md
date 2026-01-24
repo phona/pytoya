@@ -84,6 +84,7 @@ npm run migration:revert   # Revert last migration (ts-node/register)
 
 npm run cli -- serve       # Start API via CLI entrypoint
 npm run cli -- newadmin    # Seed default admin (create-only)
+npm run cli -- newuser     # Create a non-admin user (create-only)
 npm run cli -- audit-passwords # Flag users with common weak passwords
 npm run cli:dev -- serve   # Dev CLI (ts-node)
 ```

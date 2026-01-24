@@ -14,6 +14,11 @@ import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useI18n } from '@/shared/providers/I18nProvider';
 import { deriveSchemaTableColumns } from '@/shared/utils/schema';
 import type { ManifestTableSchemaColumn } from '@/shared/components/manifests/ManifestTable';
+import { manifestsApi } from '@/api/manifests';
+import { toast } from '@/shared/hooks/use-toast';
+import { toManifestListQueryParams } from '@/shared/utils/audit-navigation';
+import type { AuditNavigationContext } from '@/shared/utils/audit-navigation';
+import type { AuditScope } from '@/shared/components/manifests/ManifestList';
 
 const FALLBACK_SCHEMA_COLUMN_LIMIT = 4;
 
@@ -129,6 +134,27 @@ export function ManifestsPage() {
   const manifests = data?.data ?? [];
   const meta = data?.meta;
 
+  const hasAnyFilters = useMemo(() => {
+    return Boolean(
+      filters.status ||
+        filters.poNo ||
+        filters.dateFrom ||
+        filters.dateTo ||
+        filters.department ||
+        filters.confidenceMin !== undefined ||
+        filters.confidenceMax !== undefined ||
+        filters.ocrQualityMin !== undefined ||
+        filters.ocrQualityMax !== undefined ||
+        filters.extractionStatus ||
+        filters.costMin !== undefined ||
+        filters.costMax !== undefined ||
+        filters.humanVerified !== undefined ||
+        filters.textExtractorId ||
+        filters.extractorType ||
+        (filters.dynamicFilters && filters.dynamicFilters.length > 0),
+    );
+  }, [filters]);
+
   useEffect(() => {
     setCurrentPage(1);
   }, [filters, sort]);
@@ -143,10 +169,104 @@ export function ManifestsPage() {
   };
 
   const handleSelectManifest = (manifestId: number) => {
+    const auditNav: AuditNavigationContext = {
+      version: 1,
+      projectId,
+      groupId,
+      scope: hasAnyFilters ? 'filtered' : 'all',
+      filters: hasAnyFilters ? filters : undefined,
+      sort,
+      page: meta?.page ?? currentPage,
+      pageSize: meta?.pageSize ?? pageSize,
+      total: meta?.total ?? manifests.length,
+      totalPages: meta?.totalPages ?? 1,
+      pageIds: manifests.map((m: { id: number }) => m.id),
+      savedAt: Date.now(),
+    };
+
     navigate(`/projects/${projectId}/groups/${groupId}/manifests/${manifestId}`, {
-      state: { allManifestIds: manifests.map((m: { id: number }) => m.id) },
+      state: { auditNav },
     });
   };
+
+  const handleAuditScope = useCallback(
+    async (scope: AuditScope, selectedIds?: number[]) => {
+      if (!Number.isFinite(projectId) || !Number.isFinite(groupId)) {
+        return;
+      }
+
+      if (scope === 'selected') {
+        const orderedSelectedIds = (selectedIds ?? []).filter((id) => Number.isFinite(id));
+        const firstId = orderedSelectedIds[0];
+        if (!firstId) {
+          toast({ title: t('manifests.auditMenu.noSelectionTitle') });
+          return;
+        }
+
+        const auditNav: AuditNavigationContext = {
+          version: 1,
+          projectId,
+          groupId,
+          scope: 'selected',
+          page: 1,
+          pageSize: Math.max(orderedSelectedIds.length, 1),
+          total: orderedSelectedIds.length,
+          totalPages: 1,
+          selectedIds: orderedSelectedIds,
+          pageIds: orderedSelectedIds,
+          savedAt: Date.now(),
+        };
+
+        navigate(`/projects/${projectId}/groups/${groupId}/manifests/${firstId}`, { state: { auditNav } });
+        return;
+      }
+
+      const initialContext: AuditNavigationContext = {
+        version: 1,
+        projectId,
+        groupId,
+        scope: scope === 'all' ? 'all' : 'filtered',
+        filters: scope === 'all' ? undefined : filters,
+        sort,
+        page: 1,
+        pageSize,
+        total: 0,
+        totalPages: 0,
+        pageIds: [],
+        savedAt: Date.now(),
+      };
+
+      try {
+        const params = toManifestListQueryParams(initialContext);
+        const response = await queryClient.fetchQuery({
+          queryKey: ['manifests', 'group', groupId, params],
+          queryFn: () => manifestsApi.listManifests(groupId, params),
+        });
+
+        const firstManifestId = response.data?.[0]?.id;
+        if (!firstManifestId) {
+          toast({ title: t('manifests.list.empty.title') });
+          return;
+        }
+
+        const auditNav: AuditNavigationContext = {
+          ...initialContext,
+          page: response.meta?.page ?? 1,
+          pageSize: response.meta?.pageSize ?? pageSize,
+          total: response.meta?.total ?? response.data.length,
+          totalPages: response.meta?.totalPages ?? 1,
+          pageIds: response.data.map((m) => m.id),
+          savedAt: Date.now(),
+        };
+
+        navigate(`/projects/${projectId}/groups/${groupId}/manifests/${firstManifestId}`, { state: { auditNav } });
+      } catch (error) {
+        console.error('Failed to open audit scope:', error);
+        toast({ title: t('common.error'), description: String(error) });
+      }
+    },
+    [filters, groupId, navigate, pageSize, projectId, queryClient, sort, t],
+  );
 
   const handleBatchExport = async (manifestIds: number[]) => {
     try {
@@ -232,6 +352,7 @@ export function ManifestsPage() {
             onViewModeChange={setViewMode}
             onSortChange={setSort}
             onSelectManifest={handleSelectManifest}
+            onAudit={handleAuditScope}
             viewMode={viewMode}
             onBatchExport={handleBatchExport}
             currentPage={meta?.page ?? currentPage}

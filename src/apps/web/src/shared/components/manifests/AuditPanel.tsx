@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, X, Eye, Play, Save } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, X, Eye, Play, Save } from 'lucide-react';
 import {
   useManifest,
   useUpdateManifest,
   useManifestExtractionHistory,
   useReExtractFieldPreview,
+  useQueueOcrRefreshJob,
+  useManifestOcrHistory,
 } from '@/shared/hooks/use-manifests';
-import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/shared/hooks/use-websocket';
+import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent, OcrUpdateEvent } from '@/shared/hooks/use-websocket';
 import { useRunValidation } from '@/shared/hooks/use-validation-scripts';
 import { useExtractors } from '@/shared/hooks/use-extractors';
 import { useOcrResult } from '@/shared/hooks/use-manifests';
@@ -26,6 +28,7 @@ import { ValidationResultsPanel } from '@/shared/components/ValidationResultsPan
 import { CostBreakdownPanel } from '@/shared/components/CostBreakdownPanel';
 import { OcrPreviewModal } from './OcrPreviewModal';
 import { ExtractionHistoryPanel } from './ExtractionHistoryPanel';
+import { OcrHistoryPanel } from './OcrHistoryPanel';
 import { FieldHintDialog } from './FieldHintDialog';
 import { Manifest, ValidationResult } from '@/api/manifests';
 import { toast } from '@/shared/hooks/use-toast';
@@ -37,6 +40,17 @@ import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { useI18n } from '@/shared/providers/I18nProvider';
 import { useJobsStore } from '@/shared/stores/jobs';
 import { useUiStore } from '@/shared/stores/ui';
+import { saveAuditNavigationContext, toManifestListQueryParams } from '@/shared/utils/audit-navigation';
+import type { AuditNavigationContext } from '@/shared/utils/audit-navigation';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from '@/shared/components/ui/dropdown-menu';
 
 interface AuditPanelProps {
   projectId: number;
@@ -44,15 +58,17 @@ interface AuditPanelProps {
   manifestId: number;
   onClose: () => void;
   allManifestIds: number[];
+  auditNav?: AuditNavigationContext;
 }
 
-export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifestIds }: AuditPanelProps) {
+export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifestIds, auditNav }: AuditPanelProps) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: manifest, isLoading } = useManifest(manifestId);
   const updateManifest = useUpdateManifest();
   const runValidation = useRunValidation();
+  const queueOcrRefreshJob = useQueueOcrRefreshJob();
   const { confirm, ModalDialog } = useModalDialog();
   const reExtractFieldWithPreview = useReExtractFieldPreview();
   const { extractors } = useExtractors();
@@ -84,14 +100,84 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     return deriveExtractionHintMap(jsonSchema);
   }, [jsonSchema]);
 
+  const ocrRefreshPending = queueOcrRefreshJob.isPending;
+  const [navPending, setNavPending] = useState(false);
+  const [auditNavContext, setAuditNavContext] = useState<AuditNavigationContext | null>(auditNav ?? null);
+
+  useEffect(() => {
+    if (auditNavContext) {
+      saveAuditNavigationContext(auditNavContext);
+    }
+  }, [auditNavContext]);
+
   const [activeTab, setActiveTab] = useState<'form' | 'extraction' | 'ocr' | 'validation' | 'history'>('form');
-  const currentIndex = useMemo(() => allManifestIds.indexOf(manifestId), [allManifestIds, manifestId]);
+
+  const effectiveIds = useMemo(() => {
+    if (
+      auditNavContext?.scope === 'selected' &&
+      Array.isArray(auditNavContext.selectedIds) &&
+      auditNavContext.selectedIds.length > 0
+    ) {
+      return auditNavContext.selectedIds;
+    }
+    if (Array.isArray(auditNavContext?.pageIds) && auditNavContext.pageIds.length > 0) {
+      return auditNavContext.pageIds;
+    }
+    return allManifestIds;
+  }, [allManifestIds, auditNavContext?.pageIds, auditNavContext?.scope, auditNavContext?.selectedIds]);
+
+  const currentIndex = useMemo(() => effectiveIds.indexOf(manifestId), [effectiveIds, manifestId]);
   const displayIndex = currentIndex >= 0 ? currentIndex + 1 : 1;
+
+  const scopeLabel = useMemo(() => {
+    if (!auditNavContext) {
+      return t('audit.nav.scope.unknown');
+    }
+    if (auditNavContext.scope === 'filtered') return t('audit.nav.scope.filtered');
+    if (auditNavContext.scope === 'all') return t('audit.nav.scope.all');
+    if (auditNavContext.scope === 'selected') return t('audit.nav.scope.selected');
+    return t('audit.nav.scope.unknown');
+  }, [auditNavContext, t]);
+
+  const navTotal = useMemo(() => {
+    if (auditNavContext) return auditNavContext.total;
+    return effectiveIds.length;
+  }, [auditNavContext, effectiveIds.length]);
+
+  const positionText = useMemo(() => {
+    if (!auditNavContext) {
+      return t('audit.nav.positionOf', { current: displayIndex, total: navTotal });
+    }
+
+    if (currentIndex < 0) {
+      return t('audit.nav.positionUnknown', { total: navTotal });
+    }
+
+    const absoluteIndex = (auditNavContext.page - 1) * auditNavContext.pageSize + currentIndex + 1;
+    return t('audit.nav.positionOf', { current: absoluteIndex, total: navTotal });
+  }, [auditNavContext, currentIndex, displayIndex, navTotal, t]);
+
+  const canGoPrevious = useMemo(() => {
+    if (currentIndex > 0) return true;
+    if (!auditNavContext || auditNavContext.scope === 'selected') return false;
+    return auditNavContext.page > 1;
+  }, [auditNavContext, currentIndex]);
+
+  const canGoNext = useMemo(() => {
+    if (currentIndex >= 0 && currentIndex < effectiveIds.length - 1) return true;
+    if (!auditNavContext || auditNavContext.scope === 'selected') return false;
+    return currentIndex >= 0 && auditNavContext.page < auditNavContext.totalPages;
+  }, [auditNavContext, currentIndex, effectiveIds.length]);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
   const [explicitSavePending, setExplicitSavePending] = useState(false);
   const [formResetCounter, setFormResetCounter] = useState(0);
   const [jobProgress, setJobProgress] = useState<{ jobId?: string; progress: number; status: string; error?: string } | null>(null);
+  const [liveTextExtraction, setLiveTextExtraction] = useState<{
+    markdown: string;
+    pagesProcessed?: number;
+    pagesTotal?: number;
+  } | null>(null);
   const [showOcrPreviewModal, setShowOcrPreviewModal] = useState(false);
   const [fieldHistoryOpen, setFieldHistoryOpen] = useState(false);
   const [historyFieldFilter, setHistoryFieldFilter] = useState<string | null>(null);
@@ -102,6 +188,10 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
   const { data: ocrData, isLoading: isOcrLoading, error: ocrError } = useOcrResult(manifestId, activeTab === 'ocr');
   const { data: extractionHistory, isLoading: isHistoryLoading } = useManifestExtractionHistory(manifestId, {
     enabled: activeTab === 'history' || fieldHistoryOpen,
+    limit: 50,
+  });
+  const { data: ocrHistory, isLoading: isOcrHistoryLoading } = useManifestOcrHistory(manifestId, {
+    enabled: activeTab === 'history',
     limit: 50,
   });
   const latestDraftRef = useRef<Partial<Manifest> | null>(null);
@@ -124,6 +214,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
 
       // Clear local progress state once the job is done.
       setJobProgress(null);
+      setLiveTextExtraction(null);
     },
     [manifestId, queryClient],
   );
@@ -132,6 +223,13 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
   const { subscribeToManifest, unsubscribeFromManifest } = useWebSocket({
     onJobUpdate: useCallback((data: JobUpdateEvent) => {
       if (data.manifestId === manifestId) {
+        if (data.textMarkdownSoFar) {
+          setLiveTextExtraction({
+            markdown: data.textMarkdownSoFar,
+            pagesProcessed: data.textPagesProcessed,
+            pagesTotal: data.textPagesTotal,
+          });
+        }
         setJobProgress({
           jobId: data.jobId,
           progress: data.progress,
@@ -152,6 +250,13 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
         void handleTerminalJobStatus(data.status);
       }
     }, [handleTerminalJobStatus, manifestId]),
+    onOcrUpdate: useCallback((data: OcrUpdateEvent) => {
+      if (data.manifestId !== manifestId) {
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: ['ocr', manifestId] });
+      void queryClient.invalidateQueries({ queryKey: ['manifests', manifestId] });
+    }, [manifestId, queryClient]),
   });
 
   // Auto-subscribe when panel opens
@@ -163,31 +268,176 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
   }, [manifestId, subscribeToManifest, unsubscribeFromManifest]);
 
   // Navigation
+  const fetchScopePage = useCallback(
+    async (page: number) => {
+      if (!auditNavContext || auditNavContext.scope === 'selected') {
+        return null;
+      }
+
+      const nextContext: AuditNavigationContext = {
+        ...auditNavContext,
+        page,
+        savedAt: Date.now(),
+      };
+      const params = toManifestListQueryParams(nextContext);
+      return await queryClient.fetchQuery({
+        queryKey: ['manifests', 'group', groupId, params],
+        queryFn: () => manifestsApi.listManifests(groupId, params),
+      });
+    },
+    [auditNavContext, groupId, queryClient],
+  );
+
+  const handleRefreshResults = useCallback(async () => {
+    setNavPending(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: ['manifests', manifestId] });
+
+      if (!auditNavContext || auditNavContext.scope === 'selected') {
+        return;
+      }
+
+      const response = await fetchScopePage(auditNavContext.page);
+      if (!response) {
+        return;
+      }
+
+      setAuditNavContext((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          page: response.meta?.page ?? prev.page,
+          pageSize: response.meta?.pageSize ?? prev.pageSize,
+          total: response.meta?.total ?? prev.total,
+          totalPages: response.meta?.totalPages ?? prev.totalPages,
+          pageIds: response.data.map((m) => m.id),
+          savedAt: Date.now(),
+        };
+      });
+    } finally {
+      setNavPending(false);
+    }
+  }, [auditNavContext, fetchScopePage, manifestId, queryClient]);
+
+  const handleRefreshOcrCache = useCallback(async () => {
+    try {
+      await queueOcrRefreshJob.mutateAsync({ manifestId });
+      useUiStore.getState().setJobsPanelOpen(true);
+      toast({
+        title: t('audit.actions.refreshOcrCache'),
+        description: t('audit.actions.refreshOcrCacheQueued'),
+      });
+    } catch (error) {
+      console.error('Refresh OCR cache failed:', error);
+      toast({
+        title: t('common.error'),
+        description: getApiErrorText(error, t),
+        variant: 'destructive',
+      });
+    }
+  }, [manifestId, queueOcrRefreshJob, t]);
+
   const goToPrevious = useCallback(() => {
-    if (currentIndex <= 0) {
+    if (currentIndex < 0) {
       return;
     }
-    const previousManifestId = allManifestIds[currentIndex - 1];
-    if (!Number.isFinite(previousManifestId)) {
+
+    if (currentIndex > 0) {
+      const previousManifestId = effectiveIds[currentIndex - 1];
+      if (!Number.isFinite(previousManifestId)) {
+        return;
+      }
+      navigate(`/projects/${projectId}/groups/${groupId}/manifests/${previousManifestId}`);
       return;
     }
-    navigate(`/projects/${projectId}/groups/${groupId}/manifests/${previousManifestId}`, {
-      state: { allManifestIds },
-    });
-  }, [allManifestIds, currentIndex, groupId, navigate, projectId]);
+
+    if (!auditNavContext || auditNavContext.scope === 'selected') {
+      return;
+    }
+
+    if (auditNavContext.page <= 1) {
+      return;
+    }
+
+    void (async () => {
+      setNavPending(true);
+      try {
+        const previousPage = auditNavContext.page - 1;
+        const response = await fetchScopePage(previousPage);
+        if (!response) return;
+        const previousIds = response.data.map((m) => m.id);
+        const lastId = previousIds[previousIds.length - 1];
+        setAuditNavContext((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            page: response.meta?.page ?? previousPage,
+            pageSize: response.meta?.pageSize ?? prev.pageSize,
+            total: response.meta?.total ?? prev.total,
+            totalPages: response.meta?.totalPages ?? prev.totalPages,
+            pageIds: previousIds,
+            savedAt: Date.now(),
+          };
+        });
+        if (lastId) {
+          navigate(`/projects/${projectId}/groups/${groupId}/manifests/${lastId}`);
+        }
+      } finally {
+        setNavPending(false);
+      }
+    })();
+  }, [auditNavContext, currentIndex, effectiveIds, fetchScopePage, groupId, navigate, projectId]);
 
   const goToNext = useCallback(() => {
-    if (currentIndex < 0 || currentIndex >= allManifestIds.length - 1) {
+    if (currentIndex < 0) {
       return;
     }
-    const nextManifestId = allManifestIds[currentIndex + 1];
-    if (!Number.isFinite(nextManifestId)) {
+
+    if (currentIndex < effectiveIds.length - 1) {
+      const nextManifestId = effectiveIds[currentIndex + 1];
+      if (!Number.isFinite(nextManifestId)) {
+        return;
+      }
+      navigate(`/projects/${projectId}/groups/${groupId}/manifests/${nextManifestId}`);
       return;
     }
-    navigate(`/projects/${projectId}/groups/${groupId}/manifests/${nextManifestId}`, {
-      state: { allManifestIds },
-    });
-  }, [allManifestIds, currentIndex, groupId, navigate, projectId]);
+
+    if (!auditNavContext || auditNavContext.scope === 'selected') {
+      return;
+    }
+
+    if (auditNavContext.page >= auditNavContext.totalPages) {
+      return;
+    }
+
+    void (async () => {
+      setNavPending(true);
+      try {
+        const nextPage = auditNavContext.page + 1;
+        const response = await fetchScopePage(nextPage);
+        if (!response) return;
+        const nextIds = response.data.map((m) => m.id);
+        const firstId = nextIds[0];
+        setAuditNavContext((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            page: response.meta?.page ?? nextPage,
+            pageSize: response.meta?.pageSize ?? prev.pageSize,
+            total: response.meta?.total ?? prev.total,
+            totalPages: response.meta?.totalPages ?? prev.totalPages,
+            pageIds: nextIds,
+            savedAt: Date.now(),
+          };
+        });
+        if (firstId) {
+          navigate(`/projects/${projectId}/groups/${groupId}/manifests/${firstId}`);
+        }
+      } finally {
+        setNavPending(false);
+      }
+    })();
+  }, [auditNavContext, currentIndex, effectiveIds, fetchScopePage, groupId, navigate, projectId]);
 
   const handleSave = useCallback(async () => {
     if (debounceTimer) {
@@ -196,39 +446,6 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     // Trigger immediate save - the form will call this
     setSaveStatus('saving');
   }, [debounceTimer]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
-          e.preventDefault();
-          handleSave();
-        }
-        return;
-      }
-
-      switch (e.key) {
-        case 'ArrowLeft':
-          goToPrevious();
-          break;
-        case 'ArrowRight':
-          goToNext();
-          break;
-        case 'Escape':
-          // If a modal dialog is open (field history, OCR preview, etc.),
-          // let it handle Escape first instead of closing the whole audit panel.
-          if (document.querySelector('[data-state="open"][role="dialog"]')) {
-            break;
-          }
-          onClose();
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goToPrevious, goToNext, handleSave, onClose]);
 
   // Auto-save with debouncing
   const handleAutoSave = useCallback(
@@ -515,6 +732,75 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     }
   }, [confirm, manifest, t]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const isInputLike = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      if (target instanceof HTMLInputElement) return true;
+      if (target instanceof HTMLTextAreaElement) return true;
+      return target.isContentEditable;
+    };
+
+    const isDialogOpen = () => Boolean(document.querySelector('[data-state="open"][role="dialog"]'));
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isInputLike(e.target) || isDialogOpen()) {
+        if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          handleSave();
+        }
+        return;
+      }
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          goToPrevious();
+          break;
+        case 'ArrowRight':
+          goToNext();
+          break;
+        case 'r':
+        case 'R':
+          e.preventDefault();
+          void handleRefreshResults();
+          break;
+        case 'v':
+        case 'V':
+          e.preventDefault();
+          void handleRunValidationClick();
+          break;
+        case 'o':
+        case 'O':
+          e.preventDefault();
+          void handleRefreshOcrCache();
+          break;
+        case 'e':
+        case 'E':
+          e.preventDefault();
+          void handleExtractManifest();
+          break;
+        case 'Escape':
+          if (isDialogOpen()) {
+            break;
+          }
+          onClose();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    goToPrevious,
+    goToNext,
+    handleExtractManifest,
+    handleRefreshOcrCache,
+    handleRefreshResults,
+    handleRunValidationClick,
+    handleSave,
+    onClose,
+  ]);
+
   if (isLoading || !manifest) {
     return (
       <div className="h-full w-full flex items-center justify-center bg-background">
@@ -587,18 +873,21 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
           <div className="flex items-center gap-1">
             <button
               onClick={goToPrevious}
-              disabled={currentIndex <= 0}
+              disabled={!canGoPrevious || navPending}
               className="p-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
               title={t('audit.nav.previous')}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <span className="min-w-fit px-2 text-sm text-muted-foreground tabular-nums">
-              {displayIndex} / {allManifestIds.length}
+              <span className="mr-2 rounded border border-border bg-muted px-2 py-0.5 text-xs text-foreground">
+                {scopeLabel}
+              </span>
+              {positionText}
             </span>
             <button
               onClick={goToNext}
-              disabled={currentIndex < 0 || currentIndex >= allManifestIds.length - 1}
+              disabled={!canGoNext || navPending}
               className="p-2 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
               title={t('audit.nav.next')}
             >
@@ -611,9 +900,9 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
             variant="outline"
             size="sm"
             className="gap-2"
-            disabled={explicitSavePending || updateManifest.isPending || runValidation.isPending}
+            disabled={navPending || explicitSavePending || updateManifest.isPending || runValidation.isPending}
             onClick={() => void handleExplicitSave()}
-            title={t('common.save')}
+            title={`${t('common.save')} (Ctrl/Cmd+S)`}
           >
             <Save className="h-4 w-4" />
             {explicitSavePending ? t('common.saving') : t('common.save')}
@@ -624,32 +913,59 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
             variant="outline"
             size="sm"
             className="gap-2"
-            disabled={runValidation.isPending || explicitSavePending}
+            disabled={navPending || runValidation.isPending || explicitSavePending}
             onClick={() => void handleRunValidationClick()}
-            title={t('audit.menu.runValidation')}
+            title={`${t('audit.menu.runValidation')} (V)`}
           >
             <Play className="h-4 w-4" />
             {runValidation.isPending ? t('audit.menu.runningValidation') : t('audit.menu.runValidation')}
           </Button>
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            disabled={
-              !manifest ||
-              isLoading ||
-              manifest.status === 'processing' ||
-              jobProgress?.status === 'processing' ||
-              jobProgress?.status === 'canceling'
-            }
-            onClick={() => void handleExtractManifest()}
-            title={t('audit.extract.title')}
-          >
-            <Play className="h-4 w-4" />
-            {t('audit.extract.title')}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={navPending || ocrRefreshPending}
+                title={t('audit.actions.title')}
+              >
+                {t('audit.actions.title')}
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>{t('audit.actions.title')}</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => void handleRefreshResults()} disabled={navPending}>
+                {t('audit.nav.refresh')}
+                <DropdownMenuShortcut>R</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => void handleRefreshOcrCache()}
+                disabled={ocrRefreshPending}
+                title={t('audit.actions.refreshOcrCache')}
+              >
+                {t('audit.actions.refreshOcrCache')}
+                <DropdownMenuShortcut>O</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => void handleExtractManifest()}
+                disabled={
+                  !manifest ||
+                  isLoading ||
+                  manifest.status === 'processing' ||
+                  jobProgress?.status === 'processing' ||
+                  jobProgress?.status === 'canceling'
+                }
+                title={t('audit.extract.title')}
+              >
+                {t('audit.extract.title')}
+                <DropdownMenuShortcut>E</DropdownMenuShortcut>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Button
             type="button"
@@ -752,6 +1068,20 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
                 </button>
               </div>
 
+              {liveTextExtraction && jobProgress?.status === 'processing' ? (
+                <div className="rounded-lg border border-border p-4">
+                  <div className="text-sm font-medium text-foreground mb-2">
+                    Live text extraction
+                    {liveTextExtraction.pagesProcessed && liveTextExtraction.pagesTotal
+                      ? ` (${liveTextExtraction.pagesProcessed}/${liveTextExtraction.pagesTotal})`
+                      : ''}
+                  </div>
+                  <pre className="text-xs text-foreground whitespace-pre-wrap font-mono max-h-64 overflow-y-auto bg-background border border-border rounded p-3">
+                    {liveTextExtraction.markdown.trim()}
+                  </pre>
+                </div>
+              ) : null}
+
               <div className="rounded-lg border border-border p-4">
                 <div className="text-sm font-medium text-foreground mb-2">{t('audit.ocr.cachedTextTitle')}</div>
                 {isOcrLoading && <p className="text-sm text-muted-foreground">{t('audit.ocr.loadingText')}</p>}
@@ -777,7 +1107,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
               </div>
             </div>
           ) : activeTab === 'history' ? (
-            <div className="p-6">
+            <div className="p-6 space-y-4">
               {historyFieldFilter ? (
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <div className="text-sm text-muted-foreground">
@@ -798,6 +1128,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
                 history={(extractionHistory ?? []).filter((entry) => !historyFieldFilter || entry.fieldName === historyFieldFilter)}
                 loading={isHistoryLoading}
               />
+              <OcrHistoryPanel history={ocrHistory ?? []} loading={isOcrHistoryLoading} />
             </div>
           ) : activeTab === 'validation' ? (
             <ValidationResultsPanel

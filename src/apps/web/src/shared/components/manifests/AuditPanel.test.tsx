@@ -1,12 +1,15 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { act } from '@testing-library/react';
 import { fireEvent, renderWithProviders, screen } from '@/tests/utils';
 import { Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { AuditPanel } from './AuditPanel';
 
 const updateManifestMutateAsync = vi.hoisted(() => vi.fn());
 const runValidationMutateAsync = vi.hoisted(() => vi.fn());
+const queueOcrRefreshJobMutateAsync = vi.hoisted(() => vi.fn());
 const confirmMock = vi.hoisted(() => vi.fn());
 const toastMock = vi.hoisted(() => vi.fn());
+const webSocketOptionsRef = vi.hoisted(() => ({ current: null as any }));
 const manifest = vi.hoisted(
   () =>
     ({
@@ -24,15 +27,20 @@ vi.mock('@/shared/hooks/use-manifests', () => ({
   useManifest: () => ({ data: manifest, isLoading: false }),
   useUpdateManifest: () => ({ mutateAsync: updateManifestMutateAsync, isPending: false }),
   useManifestExtractionHistory: () => ({ data: [], isLoading: false }),
+  useManifestOcrHistory: () => ({ data: [], isLoading: false }),
   useReExtractFieldPreview: () => ({ mutateAsync: vi.fn() }),
   useOcrResult: () => ({ data: null, isLoading: false, error: null }),
+  useQueueOcrRefreshJob: () => ({ mutateAsync: queueOcrRefreshJobMutateAsync, isPending: false }),
 }));
 
 vi.mock('@/shared/hooks/use-websocket', () => ({
-  useWebSocket: () => ({
+  useWebSocket: (options: any) => {
+    webSocketOptionsRef.current = options;
+    return {
     subscribeToManifest: vi.fn(),
     unsubscribeFromManifest: vi.fn(),
-  }),
+    };
+  },
 }));
 
 vi.mock('@/shared/hooks/use-validation-scripts', () => ({
@@ -65,8 +73,15 @@ vi.mock('./PdfViewer', () => ({ PdfViewer: () => <div /> }));
 vi.mock('./OcrViewer', () => ({ OcrViewer: () => <div /> }));
 vi.mock('./OcrPreviewModal', () => ({ OcrPreviewModal: () => null }));
 vi.mock('./ExtractionHistoryPanel', () => ({ ExtractionHistoryPanel: () => <div /> }));
+vi.mock('./OcrHistoryPanel', () => ({ OcrHistoryPanel: () => <div /> }));
 vi.mock('./FieldHintDialog', () => ({ FieldHintDialog: () => null }));
-vi.mock('./AuditPanelFunctionsMenu', () => ({ AuditPanelFunctionsMenu: () => <div /> }));
+vi.mock('./AuditPanelFunctionsMenu', () => ({
+  AuditPanelFunctionsMenu: ({ onTabChange }: { onTabChange: (tab: string) => void }) => (
+    <div>
+      <button type="button" onClick={() => onTabChange('ocr')}>OCR Tab</button>
+    </div>
+  ),
+}));
 vi.mock('@/shared/components/ValidationResultsPanel', () => ({ ValidationResultsPanel: () => <div /> }));
 vi.mock('@/shared/components/CostBreakdownPanel', () => ({ CostBreakdownPanel: () => <div /> }));
 
@@ -86,6 +101,7 @@ describe('AuditPanel', () => {
     vi.useFakeTimers();
     updateManifestMutateAsync.mockReset();
     runValidationMutateAsync.mockReset();
+    queueOcrRefreshJobMutateAsync.mockReset();
     confirmMock.mockReset();
     toastMock.mockReset();
 
@@ -187,5 +203,73 @@ describe('AuditPanel', () => {
 
     fireEvent.click(screen.getByTitle('Previous (←)'));
     expect(screen.getByTestId('pathname')).toHaveTextContent('/projects/1/groups/1/manifests/2');
+  });
+
+  it('shows scoped position X of N when audit navigation context is provided', () => {
+    renderWithProviders(
+      <AuditPanel
+        projectId={1}
+        groupId={1}
+        manifestId={27}
+        onClose={vi.fn()}
+        allManifestIds={[27]}
+        auditNav={{
+          version: 1,
+          projectId: 1,
+          groupId: 1,
+          scope: 'filtered',
+          filters: {},
+          sort: { field: 'filename', order: 'asc' },
+          page: 2,
+          pageSize: 25,
+          total: 50,
+          totalPages: 2,
+          pageIds: [26, 27, 28],
+          savedAt: Date.now(),
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Filtered')).toBeInTheDocument();
+    expect(screen.getByText('27 of 50')).toBeInTheDocument();
+  });
+
+  it('supports OCR refresh shortcut (O)', async () => {
+    queueOcrRefreshJobMutateAsync.mockResolvedValue({ jobId: 'job-123' });
+
+    renderWithProviders(
+      <AuditPanel projectId={1} groupId={1} manifestId={1} onClose={vi.fn()} allManifestIds={[1]} />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Actions' })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'O' });
+
+    expect(queueOcrRefreshJobMutateAsync).toHaveBeenCalledWith({ manifestId: 1 });
+  });
+
+  it('renders live text extraction markdown from job-update events', async () => {
+    renderWithProviders(
+      <AuditPanel projectId={1} groupId={1} manifestId={1} onClose={vi.fn()} allManifestIds={[1]} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'OCR Tab' }));
+
+    expect(webSocketOptionsRef.current?.onJobUpdate).toBeTypeOf('function');
+
+    await act(async () => {
+      webSocketOptionsRef.current.onJobUpdate({
+        jobId: 'job-123',
+        manifestId: 1,
+        kind: 'extraction',
+        progress: 33,
+        status: 'processing',
+        textMarkdownSoFar: '--- PAGE 1 ---\nHello world',
+        textPagesProcessed: 1,
+        textPagesTotal: 2,
+      });
+    });
+
+    expect(screen.getByText(/Hello world/)).toBeInTheDocument();
   });
 });

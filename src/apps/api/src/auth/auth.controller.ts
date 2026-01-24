@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
 
 import { UserEntity } from '../entities/user.entity';
 import { UserRole } from '../entities/user.entity';
@@ -7,6 +7,7 @@ import { CurrentUser } from './current-user.decorator';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { AuthUserResponseDto } from './dto/auth-user-response.dto';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { Roles } from './roles.decorator';
 import { RolesGuard } from './roles.guard';
@@ -28,6 +29,16 @@ export class AuthController {
     @CurrentUser() user: UserEntity,
   ): Promise<AuthUserResponseDto> {
     return AuthUserResponseDto.fromEntity(user);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @HttpCode(204)
+  async changePassword(
+    @CurrentUser() user: UserEntity,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<void> {
+    await this.authService.changePassword(user, dto);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -4,7 +4,7 @@ import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 
-import { JobEntity, JobStatus } from '../entities/job.entity';
+import { JobEntity, JobKind, JobStatus } from '../entities/job.entity';
 import { ManifestEntity, ManifestStatus, FileType } from '../entities/manifest.entity';
 import { ManifestItemEntity } from '../entities/manifest-item.entity';
 import { ModelEntity } from '../entities/model.entity';
@@ -31,6 +31,7 @@ import { OcrResultDto } from './dto/ocr-result.dto';
 import { OcrContextPreviewDto } from './dto/re-extract-field-preview.dto';
 import { ManifestExtractionHistoryEntryDto } from './dto/manifest-extraction-history.dto';
 import { ManifestExtractionHistoryEntryDetailsDto } from './dto/manifest-extraction-history-details.dto';
+import { ManifestOcrHistoryEntryDto } from './dto/manifest-ocr-history.dto';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const DEFAULT_PAGE_SIZE = 25;
@@ -407,6 +408,24 @@ export class ManifestsService {
     );
   }
 
+  async listOcrHistory(
+    user: UserEntity,
+    manifestId: number,
+    options: { limit?: number } = {},
+  ): Promise<ManifestOcrHistoryEntryDto[]> {
+    await this.findOne(user, manifestId);
+
+    const limit = this.normalizeHistoryLimit(options.limit);
+
+    const jobs = await this.jobRepository.find({
+      where: { manifestId, kind: 'ocr' as any },
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+
+    return jobs.map((job) => ManifestOcrHistoryEntryDto.fromEntity(job));
+  }
+
   async getExtractionHistoryEntry(
     user: UserEntity,
     manifestId: number,
@@ -453,6 +472,40 @@ export class ManifestsService {
     }
 
     return this.manifestRepository.remove(manifest);
+  }
+
+  async removeMany(
+    user: UserEntity,
+    groupId: number,
+    manifestIds: number[],
+  ): Promise<{ deletedCount: number }> {
+    await this.groupsService.findOne(user, groupId);
+
+    const uniqueIds = Array.from(new Set(manifestIds)).filter((id) => Number.isFinite(id));
+    if (uniqueIds.length === 0) {
+      throw new BadRequestException('manifestIds is required');
+    }
+
+    const manifests = await this.manifestRepository.find({
+      where: { groupId, id: In(uniqueIds) },
+    });
+
+    if (manifests.length !== uniqueIds.length) {
+      throw new NotFoundException('One or more manifests not found');
+    }
+
+    for (const manifest of manifests) {
+      try {
+        await this.storageService.deleteFile(manifest.storagePath);
+      } catch (error) {
+        if (!(error instanceof FileNotFoundException)) {
+          throw error;
+        }
+      }
+    }
+
+    await this.manifestRepository.remove(manifests);
+    return { deletedCount: manifests.length };
   }
 
   async updateStatus(
@@ -628,6 +681,7 @@ export class ManifestsService {
     estimatedCost?: number,
     currency?: string,
     fieldName?: string,
+    kind: JobKind = 'extraction',
   ): Promise<JobEntity> {
     const manifest = await this.manifestRepository.findOne({
       where: { id: manifestId },
@@ -642,6 +696,7 @@ export class ManifestsService {
     const job = this.jobRepository.create({
       manifestId,
       queueJobId,
+      kind,
       status: JobStatus.PENDING,
       llmModelId: resolvedModelId,
       promptId: promptId ?? null,
@@ -650,6 +705,41 @@ export class ManifestsService {
       estimatedCost: estimatedCost ?? null,
       costCurrency: currency?.trim() || null,
     });
+
+    return this.jobRepository.save(job);
+  }
+
+  async findByIdForJobProcessing(id: number): Promise<ManifestEntity> {
+    const manifest = await this.manifestRepository.findOne({
+      where: { id },
+      relations: ['group', 'group.project'],
+    });
+
+    if (!manifest) {
+      throw new ManifestNotFoundException(id);
+    }
+
+    return manifest;
+  }
+
+  async updateJobProgressByQueueJobId(
+    queueJobId: string,
+    progress: number,
+  ): Promise<JobEntity | null> {
+    const job = await this.jobRepository.findOne({
+      where: { queueJobId },
+    });
+    if (!job) {
+      return null;
+    }
+
+    job.progress = this.normalizeProgress(progress);
+    if (job.status === JobStatus.PENDING || job.status === JobStatus.RUNNING) {
+      job.status = JobStatus.RUNNING;
+    }
+    if (!job.startedAt) {
+      job.startedAt = new Date();
+    }
 
     return this.jobRepository.save(job);
   }

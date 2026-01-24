@@ -23,7 +23,7 @@ Schema access is project-scoped and available from the project settings dropdown
 
 ## Dialog Patterns
 - Projects, Models, and Manifests use modal dialogs for create/edit flows.
-- Manifests audit opens in a dialog overlay.
+- Manifests audit opens in a dedicated audit page route (full-height split view).
 - Dialogs trap focus, close on Escape/backdrop, and return focus to the triggering element.
 - Dialogs are implemented with shadcn/ui components (`src/apps/web/src/shared/components/ui/dialog`).
 - Saving a manifest as **Human Verified** is gated by a validation run; if validation returns errors, the user must confirm before the flag is persisted.
@@ -58,9 +58,13 @@ Schema access is project-scoped and available from the project settings dropdown
 - Filters, sorting, and pagination are server-driven via `GET /api/groups/:groupId/manifests`.
 - Custom field filters accept dot-notation paths (e.g., `invoice.po_no`, `receipt.merchant.name`).
 - Pagination metadata (`total`, `page`, `pageSize`, `totalPages`) is returned when list parameters are present.
-- Toolbar batch actions (Export CSV, Run validation, Extract) use a scope confirmation modal:
+- Toolbar batch actions (Export CSV, Run validation, Extract, Delete) use a scope confirmation modal:
   - Default scope: **All matching current filters**
   - Optional scope: **Selected only** (available when selection exists)
+- The list toolbar also provides an **Audit** action menu for opening the audit page in a chosen scope:
+  - **Audit filtered results**
+  - **Audit selected**
+  - **Audit all in group**
 - Manifest table columns are schema-driven from the project's active JSON Schema:
   - If the schema defines root-level `x-table-columns` (dot-paths), the table renders those columns in order.
   - If `x-table-columns` is present but empty (`[]`), the table renders no schema-driven columns (explicit opt-out).
@@ -70,8 +74,9 @@ Schema access is project-scoped and available from the project settings dropdown
   - Header filter dropdown (search + value picker) to filter via `filter[<fieldPath>]=<value>`
 - Table view includes a `Columns` dropdown to show/hide schema columns (and Status); Filename and Actions are pinned.
 - Table row clicks are non-navigational; click the Filename to open the audit page.
-- The Actions column uses a single `⋮` menu for Preview OCR, Run validation, and Extract / Re-extract.
+- The Actions column uses a single `⋮` menu for Preview OCR, Run validation, Extract / Re-extract, and Delete.
 - System filters (status, extraction status, human verified, confidence, PO number, department, invoice date, cost, OCR quality, extractor type, extractor) are available from the corresponding system column headers.
+- The audit page header keeps Save + Run validation visible, and groups less-common actions under an `Actions` menu (Refresh results, Refresh OCR cache, Extract). Refresh OCR cache queues a background job; monitor progress in the Jobs panel and review runs in the History tab under a separate OCR history section.
 
 ## Responsive Layout
 - Filters live in column headers; on small screens the table scrolls horizontally.

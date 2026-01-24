@@ -9,6 +9,8 @@ import {
 } from 'typeorm';
 import { ManifestEntity } from './manifest.entity';
 
+export type JobKind = 'extraction' | 'ocr';
+
 export enum JobStatus {
   PENDING = 'pending',
   RUNNING = 'processing',
@@ -25,6 +27,10 @@ export class JobEntity {
   @Index()
   @Column({ type: 'int', name: 'manifest_id' })
   manifestId!: number;
+
+  @Index()
+  @Column({ type: 'varchar', default: 'extraction' })
+  kind!: JobKind;
 
   @Index()
   @Column({ type: 'enum', enum: JobStatus, default: JobStatus.PENDING })

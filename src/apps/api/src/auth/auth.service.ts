@@ -15,6 +15,8 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { AuthUserResponseDto } from './dto/auth-user-response.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { ERROR_CODES } from '../common/errors/error-codes';
 
 @Injectable()
 export class AuthService {
@@ -95,6 +97,30 @@ export class AuthService {
     await this.usersService.save(user);
 
     return this.toUserResponse(user);
+  }
+
+  async changePassword(
+    currentUser: { id: number },
+    dto: ChangePasswordDto,
+  ): Promise<void> {
+    const user = await this.usersService.findById(currentUser.id);
+    if (!user) {
+      throw new UnauthorizedException({
+        code: ERROR_CODES.AUTH_INVALID_TOKEN,
+        message: 'Invalid token',
+      });
+    }
+
+    const passwordMatches = await this.comparePassword(
+      dto.currentPassword,
+      user.password,
+    );
+    if (!passwordMatches) {
+      throw new UnauthorizedException('Invalid current password');
+    }
+
+    user.password = await this.hashPassword(dto.newPassword);
+    await this.usersService.save(user);
   }
 
   private async hashPassword(password: string): Promise<string> {

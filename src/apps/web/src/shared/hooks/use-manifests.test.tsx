@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useManifests, useManifest, useManifestItems, useUpdateManifest, useDeleteManifest, useReExtractField, useTriggerExtraction } from './use-manifests';
+import { useManifests, useManifest, useManifestItems, useUpdateManifest, useDeleteManifest, useReExtractField, useTriggerExtraction, useRefreshOcrResult } from './use-manifests';
 import { server } from '../../tests/mocks/server';
 import { http, HttpResponse } from 'msw';
 
@@ -197,6 +197,28 @@ describe('useManifests', () => {
       });
 
       // If we get here without throwing, the mutation succeeded
+      expect(true).toBe(true);
+    });
+  });
+
+  describe('useRefreshOcrResult', () => {
+    it('should refresh OCR result cache', async () => {
+      server.use(
+        http.post('/api/manifests/:manifestId/ocr/refresh', () => {
+          return HttpResponse.json({
+            manifestId: 1,
+            ocrResult: null,
+            hasOcr: false,
+            ocrProcessedAt: null,
+            qualityScore: null,
+          });
+        }),
+      );
+
+      const { result } = renderHook(() => useRefreshOcrResult(), { wrapper: createWrapper() });
+
+      await result.current.mutateAsync({ manifestId: 1 });
+
       expect(true).toBe(true);
     });
   });

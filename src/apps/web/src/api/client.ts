@@ -155,10 +155,17 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      useAuthStore.getState().clearAuth();
-      const nextUrl = `${window.location.pathname}${window.location.search}`;
-      if (window.location.pathname !== '/login') {
-        window.location.href = `/login?next_url=${encodeURIComponent(nextUrl)}`;
+      const code = isRecord(error.response?.data)
+        ? (error.response?.data as { error?: { code?: unknown } }).error?.code
+        : undefined;
+      const shouldLogout = code === 'AUTH_MISSING_TOKEN' || code === 'AUTH_INVALID_TOKEN';
+
+      if (shouldLogout) {
+        useAuthStore.getState().clearAuth();
+        const nextUrl = `${window.location.pathname}${window.location.search}`;
+        if (window.location.pathname !== '/login') {
+          window.location.href = `/login?next_url=${encodeURIComponent(nextUrl)}`;
+        }
       }
     }
     return Promise.reject(error);

@@ -8,9 +8,11 @@ import type {
   OcrResultResponseDto,
   ManifestExtractionHistoryEntryDto,
   ManifestExtractionHistoryEntryDetailsDto,
+  ManifestOcrHistoryEntryDto,
   BulkExtractDto,
   ExtractFilteredDto,
   ExtractFilteredResponseDto,
+  DeleteManifestsBulkResponseDto,
   ReExtractFieldPreviewDto,
   ReExtractFieldPreviewResponseDto,
 } from '@pytoya/shared/types/manifests';
@@ -21,8 +23,11 @@ export type { UpdateManifestDto };
 export type OcrResultResponse = Jsonify<OcrResultResponseDto>;
 export type ManifestExtractionHistoryEntry = Jsonify<ManifestExtractionHistoryEntryDto>;
 export type ManifestExtractionHistoryEntryDetails = Jsonify<ManifestExtractionHistoryEntryDetailsDto>;
+export type ManifestOcrHistoryEntry = Jsonify<ManifestOcrHistoryEntryDto>;
 export type ReExtractFieldPreviewResponse = Jsonify<ReExtractFieldPreviewResponseDto>;
 export type ExtractFilteredResponse = Jsonify<ExtractFilteredResponseDto>;
+export type DeleteManifestsBulkResponse = Jsonify<DeleteManifestsBulkResponseDto>;
+export type RefreshOcrRequest = { textExtractorId?: string };
 
 export interface ManifestItem {
   id: number;
@@ -141,6 +146,14 @@ export const manifestsApi = {
     return response.data;
   },
 
+  getOcrHistory: async (manifestId: number, params?: { limit?: number }) => {
+    const response = await apiClient.get<ManifestOcrHistoryEntry[]>(
+      `/manifests/${manifestId}/ocr-history`,
+      { params },
+    );
+    return response.data;
+  },
+
   getExtractionHistoryEntry: async (manifestId: number, jobId: number) => {
     const response = await apiClient.get<ManifestExtractionHistoryEntryDetails>(
       `/manifests/${manifestId}/extraction-history/${jobId}`,
@@ -194,6 +207,14 @@ export const manifestsApi = {
     await apiClient.delete(`/manifests/${manifestId}`);
   },
 
+  deleteManifestsBulk: async (groupId: number, manifestIds: number[]) => {
+    const response = await apiClient.post<DeleteManifestsBulkResponse>(
+      `/groups/${groupId}/manifests/delete-bulk`,
+      { manifestIds },
+    );
+    return response.data;
+  },
+
   // Get manifest items
   getManifestItems: async (manifestId: number) => {
     const response = await apiClient.get<ManifestItem[]>(`/manifests/${manifestId}/items`);
@@ -223,6 +244,16 @@ export const manifestsApi = {
 
   getOcrResult: async (manifestId: number) => {
     const response = await apiClient.get<OcrResultResponse>(`/manifests/${manifestId}/ocr`);
+    return response.data;
+  },
+
+  queueOcrRefreshJob: async (manifestId: number, data: RefreshOcrRequest = {}) => {
+    const response = await apiClient.post<{ jobId: string }>(`/manifests/${manifestId}/ocr/refresh-job`, data);
+    return response.data;
+  },
+
+  refreshOcrResult: async (manifestId: number, data: RefreshOcrRequest = {}) => {
+    const response = await apiClient.post<OcrResultResponse>(`/manifests/${manifestId}/ocr/refresh`, data);
     return response.data;
   },
 

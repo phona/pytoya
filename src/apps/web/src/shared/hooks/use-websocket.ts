@@ -8,6 +8,7 @@ import { useJobsStore } from '@/shared/stores/jobs';
 interface JobUpdateEvent {
   jobId?: string;
   manifestId: number;
+  kind?: 'extraction' | 'ocr';
   progress: number;
   status: string;
   error?: string;
@@ -17,6 +18,9 @@ interface JobUpdateEvent {
     llm?: number;
     total?: number;
   };
+  textMarkdownSoFar?: string;
+  textPagesProcessed?: number;
+  textPagesTotal?: number;
 }
 
 interface ManifestUpdateEvent {

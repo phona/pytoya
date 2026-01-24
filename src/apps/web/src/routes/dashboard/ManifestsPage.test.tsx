@@ -102,6 +102,44 @@ describe('ManifestsPage', () => {
       expect(screen.getByText('invoice.pdf')).toBeInTheDocument();
     });
   });
+
+  it('deletes manifests in bulk', async () => {
+    setupHandlers();
+
+    let bulkDeleteBody: unknown = null;
+    server.use(
+      http.post('/api/groups/:groupId/manifests/delete-bulk', async ({ request }) => {
+        bulkDeleteBody = await request.json();
+        return HttpResponse.json({ deletedCount: 1 });
+      }),
+    );
+
+    await act(async () => {
+      renderWithProviders(
+        <Routes>
+          <Route path="/projects/:id/groups/:groupId/manifests" element={<ManifestsPage />} />
+        </Routes>,
+        { route: '/projects/1/groups/2/manifests' },
+      );
+    });
+
+    await screen.findByText('invoice.pdf');
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select invoice.pdf' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete…' }));
+    await screen.findByText('Delete manifests');
+
+    const deleteButton = screen.getByRole('button', { name: 'Delete' });
+    await waitFor(() => expect(deleteButton).toBeEnabled());
+
+    fireEvent.click(deleteButton);
+
+    await waitFor(() => {
+      expect(bulkDeleteBody).not.toBeNull();
+    });
+
+    expect(bulkDeleteBody).toEqual({ manifestIds: [101] });
+  });
 });
 
 

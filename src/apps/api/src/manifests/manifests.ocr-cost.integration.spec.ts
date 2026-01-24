@@ -15,6 +15,7 @@ import { ModelEntity } from '../entities/model.entity';
 import { ManifestEntity, FileType, ManifestStatus } from '../entities/manifest.entity';
 import { UserEntity, UserRole } from '../entities/user.entity';
 import { OcrResultDto } from './dto/ocr-result.dto';
+import { ManifestOcrHistoryEntryDto } from './dto/manifest-ocr-history.dto';
 
 /**
  * Integration tests for OCR result preview endpoints.
@@ -146,6 +147,7 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
       setTextExtractorForManifests: jest.fn(),
       processOcrForManifest: jest.fn(),
       buildOcrContextPreview: jest.fn(),
+      listOcrHistory: jest.fn(),
     } as unknown as jest.Mocked<ManifestsService>;
 
     csvExportService = {
@@ -155,6 +157,7 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
 
     queueService = {
       addExtractionJob: jest.fn(),
+      addOcrRefreshJob: jest.fn(),
     } as unknown as jest.Mocked<QueueService>;
 
     storageService = {
@@ -234,6 +237,30 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
       manifestsService.findOne.mockRejectedValue(new NotFoundException('Manifest not found'));
 
       await expect(controller.getOcrResult(mockUser, 999)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('POST /manifests/:id/ocr/refresh', () => {
+    it('forces OCR rebuild and returns updated OCR result', async () => {
+      const ocrResult = createMockOcrResult();
+      const manifest = createMockManifest({ ocrResult: null });
+
+      manifestsService.findOne.mockResolvedValue(manifest);
+      manifestsService.processOcrForManifest.mockResolvedValue(ocrResult);
+
+      const result = await controller.refreshOcrResult(mockUser, 1, {});
+
+      expect(manifestsService.processOcrForManifest).toHaveBeenCalledWith(manifest, {
+        force: true,
+        textExtractorId: undefined,
+      });
+      expect(result).toEqual({
+        manifestId: 1,
+        ocrResult,
+        hasOcr: true,
+        ocrProcessedAt: null,
+        qualityScore: null,
+      });
     });
   });
 
@@ -378,6 +405,58 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
         1,
         'invoice.po_no',
       );
+    });
+  });
+
+  describe('POST /manifests/:id/ocr/refresh-job', () => {
+    it('should enqueue OCR refresh job and return jobId', async () => {
+      const manifest = createMockManifest();
+      manifestsService.findOne.mockResolvedValue(manifest);
+      queueService.addOcrRefreshJob.mockResolvedValue('job-123');
+
+      const result = await controller.queueOcrRefreshJob(mockUser, 1, { textExtractorId: 'extractor-1' });
+
+      expect(result).toEqual({ jobId: 'job-123' });
+      expect(manifestsService.findOne).toHaveBeenCalledWith(mockUser, 1);
+      expect(queueService.addOcrRefreshJob).toHaveBeenCalledWith(1, 'extractor-1');
+    });
+
+    it('should throw NotFoundException when manifest does not exist', async () => {
+      manifestsService.findOne.mockRejectedValue(new NotFoundException());
+
+      await expect(controller.queueOcrRefreshJob(mockUser, 999, {})).rejects.toBeInstanceOf(NotFoundException);
+      expect(queueService.addOcrRefreshJob).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /manifests/:id/ocr-history', () => {
+    it('should return OCR history entries', async () => {
+      const manifest = createMockManifest();
+      manifestsService.findOne.mockResolvedValue(manifest);
+
+      const now = new Date('2026-01-23T00:00:00.000Z');
+      const entries: ManifestOcrHistoryEntryDto[] = [
+        {
+          jobId: 1,
+          queueJobId: 'job-1',
+          status: 'completed',
+          attemptCount: 1,
+          error: null,
+          cancelReason: null,
+          cancelRequestedAt: null,
+          canceledAt: null,
+          createdAt: now,
+          startedAt: now,
+          completedAt: now,
+          durationMs: 0,
+        },
+      ];
+      manifestsService.listOcrHistory.mockResolvedValue(entries);
+
+      const result = await controller.getOcrHistory(mockUser, 1, '50');
+
+      expect(result).toEqual(entries);
+      expect(manifestsService.listOcrHistory).toHaveBeenCalledWith(mockUser, 1, { limit: 50 });
     });
   });
 });

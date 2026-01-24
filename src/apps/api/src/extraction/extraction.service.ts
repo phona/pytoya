@@ -27,7 +27,7 @@ import { IFileAccessService } from '../file-access/file-access.service';
 import { ExtractedData } from '../prompts/types/prompts.types';
 import { ModelPricingService } from '../models/model-pricing.service';
 import { TextExtractorService } from '../text-extractor/text-extractor.service';
-import { PricingConfig, TextExtractionMetadata } from '../text-extractor/types/extractor.types';
+import { PricingConfig, TextExtractionMetadata, TextExtractionProgressUpdate } from '../text-extractor/types/extractor.types';
 import { OcrResultDto } from '../manifests/dto/ocr-result.dto';
 import { ManifestsService } from '../manifests/manifests.service';
 import {
@@ -56,6 +56,7 @@ type ExtractionOptions = {
   fieldName?: string;
   customPrompt?: string;
   textContextSnippet?: string;
+  onTextProgress?: (update: TextExtractionProgressUpdate) => void | Promise<void>;
 };
 
 type StageLogExtras = {
@@ -322,6 +323,15 @@ export class ExtractionService {
                 manifest,
                 await this.fileSystem.readFile(manifest.storagePath),
                 textExtractorId,
+                async (update) => {
+                  if (update.pagesTotal > 0) {
+                    const range = 15;
+                    const fraction = Math.min(1, Math.max(0, update.pagesProcessed / update.pagesTotal));
+                    const progress = 25 + Math.floor(fraction * (range - 1));
+                    reportProgress(progress);
+                  }
+                  await options.onTextProgress?.(update);
+                },
               );
           state.textResult = textResult;
           reportProgress(40);
@@ -416,6 +426,7 @@ export class ExtractionService {
     manifest: ManifestEntity,
     buffer: Buffer,
     extractorId: string,
+    onProgress?: (update: TextExtractionProgressUpdate) => void | Promise<void>,
   ): Promise<TextExtractionState> {
     const mimeType = this.getMimeTypeFromFilename(manifest.originalFilename);
     const { extractor, result } = await this.textExtractorService.extract(extractorId, {
@@ -424,6 +435,7 @@ export class ExtractionService {
       filePath: manifest.storagePath,
       originalFilename: manifest.originalFilename,
       mimeType,
+      onProgress,
     });
 
     const ocrResult = result.metadata.ocrResult ?? null;

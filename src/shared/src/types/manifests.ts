@@ -5,6 +5,7 @@ export type { ManifestListResponseDto } from '../../../apps/api/src/manifests/dt
 export type { ExtractDto } from '../../../apps/api/src/manifests/dto/extract.dto';
 export type { ReExtractFieldDto } from '../../../apps/api/src/manifests/dto/re-extract-field.dto';
 export type { BulkExtractDto } from '../../../apps/api/src/manifests/dto/bulk-extract.dto';
+export type { DeleteManifestsBulkDto, DeleteManifestsBulkResponseDto } from '../../../apps/api/src/manifests/dto/delete-manifests-bulk.dto';
 export type { ExtractFilteredDto } from '../../../apps/api/src/manifests/dto/extract-filtered.dto';
 export type { ExtractFilteredResponseDto } from '../../../apps/api/src/manifests/dto/extract-filtered-response.dto';
 export type { ReExtractFieldPreviewDto, ReExtractFieldPreviewResponseDto, OcrContextPreviewDto } from '../../../apps/api/src/manifests/dto/re-extract-field-preview.dto';
@@ -15,3 +16,4 @@ export type { ManifestFiltersDto } from '../../../apps/api/src/manifests/dto/man
 export type { DynamicFieldFiltersDto } from '../../../apps/api/src/manifests/dto/dynamic-field-filters.dto';
 export type { ManifestExtractionHistoryEntryDto } from '../../../apps/api/src/manifests/dto/manifest-extraction-history.dto';
 export type { ManifestExtractionHistoryEntryDetailsDto } from '../../../apps/api/src/manifests/dto/manifest-extraction-history-details.dto';
+export type { ManifestOcrHistoryEntryDto } from '../../../apps/api/src/manifests/dto/manifest-ocr-history.dto';

@@ -4,6 +4,7 @@ import type { Jsonify } from '@/api/types';
 export interface JobHistoryDto {
   id: number;
   manifestId: number;
+  kind?: string;
   status: string;
   llmModelId: string | null;
   promptId: number | null;

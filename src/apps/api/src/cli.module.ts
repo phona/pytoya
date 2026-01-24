@@ -6,6 +6,7 @@ import { ModelsModule } from './models/models.module';
 import { SeedModelPricingCommand } from './models/model-pricing.command';
 import { UsersModule } from './users/users.module';
 import { NewAdminCommand } from './users/new-admin.command';
+import { NewUserCommand } from './users/new-user.command';
 import { PasswordAuditCommand } from './users/password-audit.command';
 import { ServeCommand } from './users/serve.command';
 import appConfig from './config/app.config';
@@ -23,6 +24,7 @@ import appConfig from './config/app.config';
   ],
   providers: [
     NewAdminCommand,
+    NewUserCommand,
     PasswordAuditCommand,
     ServeCommand,
     SeedModelPricingCommand,

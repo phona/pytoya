@@ -174,7 +174,7 @@ export function JobsPanel() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <div className="truncate text-sm font-semibold text-foreground">
-                          {t('jobs.extractionLabel', { manifestId: job.manifestId })}
+                          {t(job.kind === 'ocr' ? 'jobs.ocrLabel' : 'jobs.extractionLabel', { manifestId: job.manifestId })}
                         </div>
                         <Badge variant="outline" className="text-xs">
                           {t(`jobs.status.${job.status}`)}

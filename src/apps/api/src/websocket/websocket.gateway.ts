@@ -25,6 +25,7 @@ interface ManifestUpdatePayload {
 interface JobUpdatePayload {
   jobId: string;
   manifestId: number;
+  kind?: 'extraction' | 'ocr';
   progress: number;
   status: string;
   error?: string;
@@ -32,6 +33,9 @@ interface JobUpdatePayload {
   currency?: string | null;
   costBreakdown?: { text: number; llm: number; total: number | null; currency?: string | null };
   extractorId?: string | null;
+  textMarkdownSoFar?: string;
+  textPagesProcessed?: number;
+  textPagesTotal?: number;
 }
 
 interface OcrUpdatePayload {
@@ -116,12 +120,13 @@ export class ManifestGateway implements OnGatewayConnection, OnGatewayDisconnect
    * Called by BullMQ processor to broadcast job progress updates
    */
   emitJobUpdate(payload: JobUpdatePayload) {
-    const { jobId, manifestId, progress, status, error, cost, currency, costBreakdown, extractorId } = payload;
+    const { jobId, manifestId, kind, progress, status, error, cost, currency, costBreakdown, extractorId } = payload;
     this.logger.debug(`Emitting job update for manifest ${manifestId}: ${progress}%`);
 
     this.server.to(`manifest:${manifestId}`).emit('job-update', {
       jobId,
       manifestId,
+      kind,
       progress,
       status,
       error,

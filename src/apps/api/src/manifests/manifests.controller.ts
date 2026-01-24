@@ -29,6 +29,7 @@ import { StorageService } from '../storage/storage.service';
 import { FileNotFoundException } from '../storage/exceptions/file-not-found.exception';
 import { CsvExportService } from './csv-export.service';
 import { BulkExtractDto } from './dto/bulk-extract.dto';
+import { DeleteManifestsBulkDto, DeleteManifestsBulkResponseDto } from './dto/delete-manifests-bulk.dto';
 import { ExtractFilteredDto } from './dto/extract-filtered.dto';
 import { ExtractFilteredResponseDto } from './dto/extract-filtered-response.dto';
 import { ExportBulkDto } from './dto/export-bulk.dto';
@@ -37,12 +38,14 @@ import { ExportManifestsDto } from './dto/export-manifests.dto';
 import { ManifestResponseDto } from './dto/manifest-response.dto';
 import { ManifestItemResponseDto } from './dto/manifest-item-response.dto';
 import { OcrResultResponseDto } from './dto/ocr-result.dto';
+import { RefreshOcrDto } from './dto/refresh-ocr.dto';
 import { ReExtractFieldPreviewDto, ReExtractFieldPreviewResponseDto } from './dto/re-extract-field-preview.dto';
 import { ReExtractFieldDto } from './dto/re-extract-field.dto';
 import { UpdateManifestDto } from './dto/update-manifest.dto';
 import { DynamicFieldFiltersDto } from './dto/dynamic-field-filters.dto';
 import { ManifestExtractionHistoryEntryDto } from './dto/manifest-extraction-history.dto';
 import { ManifestExtractionHistoryEntryDetailsDto } from './dto/manifest-extraction-history-details.dto';
+import { ManifestOcrHistoryEntryDto } from './dto/manifest-ocr-history.dto';
 import { ManifestsService } from './manifests.service';
 import { QueueService } from '../queue/queue.service';
 import { GroupsService } from '../groups/groups.service';
@@ -163,6 +166,39 @@ export class ManifestsController {
       ocrProcessedAt: manifest.ocrProcessedAt ?? null,
       qualityScore: manifest.ocrQualityScore ?? null,
     };
+  }
+
+  @Post('manifests/:id/ocr/refresh')
+  async refreshOcrResult(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: RefreshOcrDto,
+  ): Promise<OcrResultResponseDto> {
+    const manifest = await this.manifestsService.findOne(user, id);
+
+    const ocrResult = await this.manifestsService.processOcrForManifest(manifest, {
+      force: true,
+      textExtractorId: body.textExtractorId,
+    });
+
+    return {
+      manifestId: manifest.id,
+      ocrResult,
+      hasOcr: Boolean(ocrResult),
+      ocrProcessedAt: manifest.ocrProcessedAt ?? null,
+      qualityScore: manifest.ocrQualityScore ?? null,
+    };
+  }
+
+  @Post('manifests/:id/ocr/refresh-job')
+  async queueOcrRefreshJob(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: RefreshOcrDto,
+  ): Promise<{ jobId: string }> {
+    await this.manifestsService.findOne(user, id);
+    const jobId = await this.queueService.addOcrRefreshJob(id, body.textExtractorId);
+    return { jobId };
   }
 
   @Get('manifests/:id/items')
@@ -373,6 +409,15 @@ export class ManifestsController {
     };
   }
 
+  @Post('groups/:groupId/manifests/delete-bulk')
+  async deleteBulk(
+    @CurrentUser() user: UserEntity,
+    @Param('groupId', ParseIntPipe) groupId: number,
+    @Body() body: DeleteManifestsBulkDto,
+  ): Promise<DeleteManifestsBulkResponseDto> {
+    return this.manifestsService.removeMany(user, groupId, body.manifestIds);
+  }
+
   @Post('manifests/:id/re-extract')
   async reExtract(
     @CurrentUser() user: UserEntity,
@@ -448,6 +493,18 @@ export class ManifestsController {
     const parsedLimit = this.parseOptionalNumber(limit ?? undefined);
     return this.manifestsService.listExtractionHistory(user, id, {
       limit: parsedLimit ?? undefined,
+    });
+  }
+
+  @Get('manifests/:id/ocr-history')
+  async getOcrHistory(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('limit') limit?: string,
+  ): Promise<ManifestOcrHistoryEntryDto[]> {
+    const parsedLimit = limit ? Number(limit) : undefined;
+    return this.manifestsService.listOcrHistory(user, id, {
+      limit: Number.isFinite(parsedLimit as number) ? (parsedLimit as number) : undefined,
     });
   }
 

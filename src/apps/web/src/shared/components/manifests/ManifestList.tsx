@@ -9,6 +9,7 @@ import { ExtractFilteredModal } from './ExtractFilteredModal';
 import { ManifestBatchScopeModal } from './ManifestBatchScopeModal';
 import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/shared/hooks/use-websocket';
 import { useRunBatchValidation } from '@/shared/hooks/use-validation-scripts';
+import { useDeleteManifestsBulk } from '@/shared/hooks/use-manifests';
 import { ManifestFilterValues, ManifestSort } from '@/shared/types/manifests';
 import { useExtractorTypes, useExtractors } from '@/shared/hooks/use-extractors';
 import {
@@ -23,12 +24,17 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
+  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { useI18n } from '@/shared/providers/I18nProvider';
 import { useQueryClient } from '@tanstack/react-query';
+import { getApiErrorText } from '@/api/client';
+import { toast } from '@/shared/hooks/use-toast';
+
+export type AuditScope = 'filtered' | 'selected' | 'all';
 
 interface ManifestListProps {
   groupId: number;
@@ -41,6 +47,7 @@ interface ManifestListProps {
   onViewModeChange: (mode: 'table' | 'card') => void;
   onSortChange: (sort: ManifestSort) => void;
   onSelectManifest: (manifestId: number) => void;
+  onAudit?: (scope: AuditScope, selectedIds?: number[]) => void;
   onBatchExport?: (manifestIds: number[]) => Promise<void> | void;
   currentPage: number;
   pageSize: number;
@@ -63,6 +70,7 @@ export function ManifestList({
   onViewModeChange,
   onSortChange,
   onSelectManifest,
+  onAudit,
   onBatchExport,
   currentPage,
   pageSize,
@@ -102,11 +110,13 @@ export function ManifestList({
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [validationModalOpen, setValidationModalOpen] = useState(false);
   const [extractModalOpen, setExtractModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [ocrPreviewManifestId, setOcrPreviewManifestId] = useState<number | null>(null);
   const [ocrPreviewOpen, setOcrPreviewOpen] = useState(false);
   const [manifestProgress, setManifestProgress] = useState<Record<number, { progress: number; status: string; error?: string }>>({});
 
   const runBatchValidation = useRunBatchValidation();
+  const deleteManifestsBulk = useDeleteManifestsBulk();
   const { extractors } = useExtractors();
   const { types: extractorTypes } = useExtractorTypes();
 
@@ -191,6 +201,10 @@ export function ManifestList({
 
   const handleBatchValidate = () => {
     setValidationModalOpen(true);
+  };
+
+  const handleBatchDelete = () => {
+    setDeleteModalOpen(true);
   };
 
   const selectedManifests = useMemo(() => {
@@ -361,6 +375,27 @@ export function ManifestList({
     setOcrPreviewOpen(true);
   }, []);
 
+  const hasAnyFilters = useMemo(() => {
+    return Boolean(
+      filters.status ||
+        filters.poNo ||
+        filters.dateFrom ||
+        filters.dateTo ||
+        filters.department ||
+        filters.confidenceMin !== undefined ||
+        filters.confidenceMax !== undefined ||
+        filters.ocrQualityMin !== undefined ||
+        filters.ocrQualityMax !== undefined ||
+        filters.extractionStatus ||
+        filters.costMin !== undefined ||
+        filters.costMax !== undefined ||
+        filters.humanVerified !== undefined ||
+        filters.textExtractorId ||
+        filters.extractorType ||
+        (filters.dynamicFilters && filters.dynamicFilters.length > 0),
+    );
+  }, [filters]);
+
   return (
     <div className="bg-card rounded-lg shadow-sm border border-border">
       {/* Toolbar */}
@@ -398,6 +433,34 @@ export function ManifestList({
             <Button type="button" size="sm" variant="outline" onClick={() => setExtractModalOpen(true)}>
               {t('manifests.list.extract')}
             </Button>
+            <Button type="button" size="sm" variant="destructive" onClick={handleBatchDelete}>
+              {t('manifests.list.deleteBulk')}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" size="sm" variant="outline" disabled={!onAudit || totalManifests <= 0}>
+                  {t('manifests.list.audit')}
+                </Button>
+              </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>{t('manifests.auditMenu.title')}</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => onAudit?.('filtered')}>
+                  {t('manifests.auditMenu.filtered', { count: totalManifests })}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={selectedIds.size === 0}
+                  onClick={() => onAudit?.('selected', Array.from(selectedIds))}
+                >
+                  {t('manifests.auditMenu.selected', { count: selectedIds.size })}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onAudit?.('all')}>
+                  {hasAnyFilters
+                    ? t('manifests.auditMenu.all')
+                    : t('manifests.auditMenu.allWithCount', { count: totalManifests })}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           {viewMode === 'table' && (
             <DropdownMenu>
@@ -516,6 +579,38 @@ export function ManifestList({
         selectedManifests={selectedManifests}
         eligibility={validationEligibility}
         onStart={async (manifestIds) => handleStartValidation(manifestIds)}
+      />
+      <ManifestBatchScopeModal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title={t('manifests.batchAction.delete.title')}
+        subtitle={t('manifests.batchAction.delete.subtitle')}
+        startLabel={t('common.delete')}
+        startVariant="destructive"
+        notice={t('manifests.batchAction.delete.notice')}
+        filteredScopeEnabled={hasAnyFilters}
+        filteredScopeDisabledHint={t('manifests.batchAction.delete.filteredDisabledHint')}
+        groupId={groupId}
+        filters={filters}
+        sort={sort}
+        selectedManifests={selectedManifests}
+        onStart={async (manifestIds) => {
+          try {
+            const result = await deleteManifestsBulk.mutateAsync({ groupId, manifestIds });
+            const deletedCount = result.deletedCount ?? manifestIds.length;
+            toast({
+              title: t('manifests.batchAction.delete.successTitle', {
+                count: deletedCount,
+                plural: deletedCount === 1 ? '' : 's',
+              }),
+            });
+            queryClient.invalidateQueries({ queryKey: ['manifests', 'group'] });
+            setSelectedIds(new Set());
+            setSelectAll(false);
+          } catch (error) {
+            throw new Error(getApiErrorText(error, t));
+          }
+        }}
       />
       <ExtractFilteredModal
         open={extractModalOpen}

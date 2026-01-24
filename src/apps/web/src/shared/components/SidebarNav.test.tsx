@@ -3,6 +3,7 @@ import { act, renderWithProviders, screen } from '@/tests/utils';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { SidebarNav } from './SidebarNav';
+import { useAuthStore } from '@/shared/stores/auth';
 
 const logoutMock = vi.hoisted(() => vi.fn());
 
@@ -13,9 +14,26 @@ vi.mock('@/shared/hooks/use-auth', () => ({
 describe('SidebarNav', () => {
   beforeEach(() => {
     logoutMock.mockClear();
+    act(() => {
+      useAuthStore.setState({
+        user: null,
+        token: null,
+        isAuthenticated: false,
+        hasHydrated: true,
+      });
+    });
   });
 
   it('highlights the active route', () => {
+    act(() => {
+      useAuthStore.setState({
+        user: { id: 1, username: 'admin', role: 'admin' },
+        token: 'token',
+        isAuthenticated: true,
+        hasHydrated: true,
+      });
+    });
+
     renderWithProviders(
       <Routes>
         <Route
@@ -42,6 +60,15 @@ describe('SidebarNav', () => {
   it('closes the sidebar on navigation', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
+
+    act(() => {
+      useAuthStore.setState({
+        user: { id: 1, username: 'admin', role: 'admin' },
+        token: 'token',
+        isAuthenticated: true,
+        hasHydrated: true,
+      });
+    });
 
     await act(async () => {
       renderWithProviders(
@@ -70,6 +97,26 @@ describe('SidebarNav', () => {
     });
 
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('hides admin-only links for non-admin users', async () => {
+    await act(async () => {
+      renderWithProviders(
+        <SidebarNav
+          isDesktop={false}
+          isDesktopCollapsed={false}
+          isOpen={false}
+          onClose={vi.fn()}
+          onDesktopCollapse={vi.fn()}
+          onDesktopExpand={vi.fn()}
+        />,
+      );
+    });
+
+    expect(screen.queryByRole('link', { name: 'Extractors' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Models' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Projects' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Profile' })).toBeInTheDocument();
   });
 
   it('invokes logout when sign out is clicked', async () => {

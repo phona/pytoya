@@ -49,6 +49,18 @@ export function useDeleteManifest() {
   });
 }
 
+export function useDeleteManifestsBulk() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ groupId, manifestIds }: { groupId: number; manifestIds: number[] }) =>
+      manifestsApi.deleteManifestsBulk(groupId, manifestIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['manifests', 'group'] });
+    },
+  });
+}
+
 export function useReExtractField() {
   const queryClient = useQueryClient();
 
@@ -150,11 +162,56 @@ export function useOcrResult(manifestId: number, enabled = true) {
   });
 }
 
+export function useQueueOcrRefreshJob() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ manifestId, textExtractorId }: { manifestId: number; textExtractorId?: string }) =>
+      manifestsApi.queueOcrRefreshJob(manifestId, { textExtractorId }),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId] });
+      const now = new Date().toISOString();
+      useJobsStore.getState().upsertJob({
+        id: String(data.jobId),
+        kind: 'ocr',
+        manifestId: variables.manifestId,
+        status: 'waiting',
+        progress: 0,
+        error: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+    },
+  });
+}
+
+export function useRefreshOcrResult() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ manifestId, textExtractorId }: { manifestId: number; textExtractorId?: string }) =>
+      manifestsApi.refreshOcrResult(manifestId, { textExtractorId }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['ocr', variables.manifestId] });
+      queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId] });
+    },
+  });
+}
+
 export function useManifestExtractionHistory(manifestId: number, options: { limit?: number; enabled?: boolean } = {}) {
   const enabled = options.enabled ?? true;
   return useQuery({
     queryKey: ['manifests', manifestId, 'extraction-history', options.limit],
     queryFn: () => manifestsApi.getExtractionHistory(manifestId, { limit: options.limit }),
+    enabled: enabled && manifestId > 0,
+  });
+}
+
+export function useManifestOcrHistory(manifestId: number, options: { limit?: number; enabled?: boolean } = {}) {
+  const enabled = options.enabled ?? true;
+  return useQuery({
+    queryKey: ['manifests', manifestId, 'ocr-history', options.limit],
+    queryFn: () => manifestsApi.getOcrHistory(manifestId, { limit: options.limit }),
     enabled: enabled && manifestId > 0,
   });
 }

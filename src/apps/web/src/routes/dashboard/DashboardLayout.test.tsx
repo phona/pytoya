@@ -1,10 +1,33 @@
 import { Routes, Route } from 'react-router-dom';
 import { act, renderWithProviders, screen } from '@/tests/utils';
 import userEvent from '@testing-library/user-event';
+import { useAuthStore } from '@/shared/stores/auth';
 import { useUiStore } from '@/shared/stores/ui';
 import { DashboardLayout } from './DashboardLayout';
 
 describe('DashboardLayout navigation', () => {
+  beforeEach(() => {
+    act(() => {
+      useAuthStore.setState({
+        user: { id: 1, username: 'admin', role: 'admin' },
+        token: 'token',
+        isAuthenticated: true,
+        hasHydrated: true,
+      });
+    });
+  });
+
+  afterEach(() => {
+    act(() => {
+      useAuthStore.setState({
+        user: null,
+        token: null,
+        isAuthenticated: false,
+        hasHydrated: true,
+      });
+    });
+  });
+
   it('allows toggling the sidebar on desktop', async () => {
     const user = userEvent.setup();
     const originalMatchMedia = (window as unknown as { matchMedia?: typeof window.matchMedia })
@@ -34,7 +57,7 @@ describe('DashboardLayout navigation', () => {
           <Routes>
             <Route element={<DashboardLayout />}>
               <Route path="/projects" element={<div>Projects Page</div>} />
-              <Route path="/models" element={<div>Models Page</div>} />
+              <Route path="/profile" element={<div>Profile Page</div>} />
             </Route>
           </Routes>,
           { route: '/projects' },
@@ -47,7 +70,7 @@ describe('DashboardLayout navigation', () => {
         await user.click(screen.getByRole('button', { name: 'Open sidebar' }));
       });
 
-      expect(screen.getByRole('link', { name: 'Models' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Profile' })).toBeInTheDocument();
     } finally {
       (window as unknown as { matchMedia?: typeof window.matchMedia }).matchMedia = originalMatchMedia;
       localStorage.removeItem('pytoya-desktop-sidebar-collapsed');
@@ -62,7 +85,7 @@ describe('DashboardLayout navigation', () => {
         <Routes>
           <Route element={<DashboardLayout />}>
             <Route path="/projects" element={<div>Projects Page</div>} />
-            <Route path="/models" element={<div>Models Page</div>} />
+            <Route path="/profile" element={<div>Profile Page</div>} />
           </Route>
         </Routes>,
         { route: '/projects' },
@@ -72,10 +95,10 @@ describe('DashboardLayout navigation', () => {
     expect(screen.getByText('Projects Page')).toBeInTheDocument();
 
     await act(async () => {
-      await user.click(screen.getByRole('link', { name: 'Models' }));
+      await user.click(screen.getByRole('link', { name: 'Profile' }));
     });
 
-    expect(await screen.findByText('Models Page')).toBeInTheDocument();
+    expect(await screen.findByText('Profile Page')).toBeInTheDocument();
   });
 });
 

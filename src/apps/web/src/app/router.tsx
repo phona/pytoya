@@ -18,6 +18,7 @@ import { ManifestAuditPage } from '../routes/dashboard/ManifestAuditPage';
 import { ModelsPage } from '../routes/dashboard/ModelsPage';
 import { ExtractorsPage } from '../routes/dashboard/ExtractorsPage';
 import { ProjectCostSummaryPage } from '../routes/dashboard/ProjectCostSummaryPage';
+import { ProfilePage } from '../routes/dashboard/ProfilePage';
 import { RootLayout } from '../routes/RootLayout';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
 
@@ -73,6 +74,7 @@ export const router = createBrowserRouter([
           ) },
           { path: 'projects/:id/groups/:groupId/manifests', element: <ManifestsPage /> },
           { path: 'projects/:id/groups/:groupId/manifests/:manifestId', element: <ManifestAuditPage /> },
+          { path: 'profile', element: <ProfilePage /> },
           { path: 'models', element: (
             <AdminRoute>
               <ModelsPage />

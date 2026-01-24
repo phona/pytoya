@@ -107,6 +107,56 @@ describe('AuthService', () => {
       expect(user.lockedUntil).toBeInstanceOf(Date);
     });
   });
+
+  describe('changePassword', () => {
+    it('updates the user password hash when current password matches', async () => {
+      const user = {
+        id: 1,
+        username: 'test-user',
+        password: 'old-hash',
+        role: 'user',
+      } as UserEntity;
+
+      usersService.findById.mockResolvedValue(user);
+      jest
+        .spyOn(service as any, 'comparePassword')
+        .mockResolvedValue(true);
+      jest
+        .spyOn(service as any, 'hashPassword')
+        .mockResolvedValue('new-hash');
+
+      await service.changePassword(
+        { id: 1 },
+        { currentPassword: 'CurrentPass1!', newPassword: 'StrongPass1!' },
+      );
+
+      expect(usersService.save).toHaveBeenCalledTimes(1);
+      expect(usersService.save).toHaveBeenCalledWith(
+        expect.objectContaining({ password: 'new-hash' }),
+      );
+    });
+
+    it('rejects when current password does not match', async () => {
+      const user = {
+        id: 1,
+        username: 'test-user',
+        password: 'old-hash',
+        role: 'user',
+      } as UserEntity;
+
+      usersService.findById.mockResolvedValue(user);
+      jest
+        .spyOn(service as any, 'comparePassword')
+        .mockResolvedValue(false);
+
+      await expect(
+        service.changePassword(
+          { id: 1 },
+          { currentPassword: 'WrongPass1!', newPassword: 'StrongPass1!' },
+        ),
+      ).rejects.toThrow('Invalid current password');
+    });
+  });
 });
 
 describe('AuthController', () => {

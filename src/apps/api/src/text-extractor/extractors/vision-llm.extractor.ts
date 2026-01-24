@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 
 import { LlmService } from '../../llm/llm.service';
 import { LlmChatMessage, LlmContentImage, LlmContentText } from '../../llm/llm.types';
+import { FileType } from '../../entities/manifest.entity';
 import { BaseTextExtractor } from '../base-text-extractor';
 import {
   ExtractorMetadata,
@@ -97,7 +98,6 @@ export class VisionLlmExtractor extends BaseTextExtractor<VisionLlmConfig> {
   async extract(input: TextExtractionInput): Promise<TextExtractionResult> {
     const start = Date.now();
     const prompt = this.config.prompt?.trim() || DEFAULT_PROMPT;
-    const messages = this.buildMessages(prompt, input);
 
     const providerConfig = {
       type: 'openai',
@@ -110,18 +110,99 @@ export class VisionLlmExtractor extends BaseTextExtractor<VisionLlmConfig> {
       supportsStructuredOutput: false,
     };
 
-    const response = await this.llmService.createChatCompletion(messages, {
+    const callOptions = {
       temperature: this.config.temperature,
       maxTokens: this.config.maxTokens,
       apiKey: this.config.apiKey,
       timeoutMs: this.configService?.get<number>('LLM_TIMEOUT'),
-    }, providerConfig);
+    };
+
+    const pages = input.pages ?? [];
+    const shouldProcessPdfByPage = input.fileType === FileType.PDF && pages.length > 0;
+
+    if (shouldProcessPdfByPage) {
+      const orderedPages = [...pages].sort(
+        (a, b) => (a.pageNumber ?? 0) - (b.pageNumber ?? 0),
+      );
+
+      const pagesTotal = orderedPages.length;
+      let pagesProcessed = 0;
+      let markdownSoFar = '';
+      let totalInputTokens = 0;
+      let totalOutputTokens = 0;
+
+      for (let index = 0; index < orderedPages.length; index += 1) {
+        const page = orderedPages[index];
+        const pageNumber = page.pageNumber ?? index + 1;
+        const messages = this.buildMessagesForPage(prompt, page);
+
+        const response = await this.llmService.createChatCompletion(
+          messages,
+          callOptions,
+          providerConfig,
+        );
+
+        const usage = response.usage;
+        totalInputTokens += usage?.prompt_tokens ?? 0;
+        totalOutputTokens += usage?.completion_tokens ?? 0;
+
+        pagesProcessed = index + 1;
+        const header = `--- PAGE ${pageNumber} ---`;
+        const body = (response.content ?? '').trim();
+        const section = body ? `${header}\n${body}` : header;
+        markdownSoFar = markdownSoFar ? `${markdownSoFar}\n\n${section}` : section;
+
+        const progressCost =
+          this.calculateTokenCost(totalInputTokens, totalOutputTokens) ||
+          this.calculatePageCost(pagesProcessed) ||
+          this.calculateFixedCost();
+
+        await input.onProgress?.({
+          pagesTotal,
+          pagesProcessed,
+          pageNumber,
+          markdownSoFar,
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          textCost: progressCost,
+        });
+      }
+
+      const textCost =
+        this.calculateTokenCost(totalInputTokens, totalOutputTokens) ||
+        this.calculatePageCost(pagesProcessed) ||
+        this.calculateFixedCost();
+
+      return {
+        text: markdownSoFar,
+        markdown: markdownSoFar,
+        metadata: {
+          extractorId: VisionLlmExtractor.metadata.id,
+          processingTimeMs: Date.now() - start,
+          textCost,
+          currency: this.getPricing().currency,
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          pagesProcessed,
+        },
+      };
+    }
+
+    const messages = this.buildMessages(prompt, input);
+    const response = await this.llmService.createChatCompletion(
+      messages,
+      callOptions,
+      providerConfig,
+    );
 
     const usage = response.usage;
     const inputTokens = usage?.prompt_tokens ?? 0;
     const outputTokens = usage?.completion_tokens ?? 0;
-    const textCost = this.calculateTokenCost(inputTokens, outputTokens) || this.calculateFixedCost();
-    const pagesProcessed = input.pages?.length ?? 1;
+    const pagesProcessed = pages.length > 0 ? pages.length : 1;
+    const textCost =
+      this.calculateTokenCost(inputTokens, outputTokens) ||
+      this.calculatePageCost(pagesProcessed) ||
+      this.calculateFixedCost();
 
     return {
       text: response.content,
@@ -166,6 +247,30 @@ export class VisionLlmExtractor extends BaseTextExtractor<VisionLlmConfig> {
         },
       });
     }
+
+    return [
+      {
+        role: 'user',
+        content,
+      },
+    ];
+  }
+
+  private buildMessagesForPage(
+    prompt: string,
+    page: { buffer: Buffer; mimeType: string; pageNumber?: number },
+  ): LlmChatMessage[] {
+    const base64 = page.buffer.toString('base64');
+    const content: Array<LlmContentText | LlmContentImage> = [
+      { type: 'text', text: prompt },
+      {
+        type: 'image_url',
+        image_url: {
+          url: `data:${page.mimeType};base64,${base64}`,
+          detail: this.config.detail ?? 'auto',
+        },
+      },
+    ];
 
     return [
       {

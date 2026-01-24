@@ -21,6 +21,10 @@ export function ManifestBatchScopeModal({
   title,
   subtitle,
   startLabel,
+  startVariant,
+  notice,
+  filteredScopeEnabled,
+  filteredScopeDisabledHint,
   groupId,
   filters,
   sort,
@@ -33,6 +37,10 @@ export function ManifestBatchScopeModal({
   title: string;
   subtitle: string;
   startLabel: string;
+  startVariant?: 'default' | 'destructive';
+  notice?: string;
+  filteredScopeEnabled?: boolean;
+  filteredScopeDisabledHint?: string;
   groupId: number;
   filters: ManifestFilterValues;
   sort: ManifestSort;
@@ -42,6 +50,8 @@ export function ManifestBatchScopeModal({
 }) {
   const { t } = useI18n();
   const hasSelection = selectedManifests.length > 0;
+  const resolvedStartVariant = startVariant ?? 'default';
+  const isFilteredScopeEnabled = filteredScopeEnabled !== false;
 
   const [scope, setScope] = useState<Scope>('filtered');
   const [filteredManifests, setFilteredManifests] = useState<Manifest[]>([]);
@@ -52,13 +62,20 @@ export function ManifestBatchScopeModal({
 
   useEffect(() => {
     if (!open) return;
-    setScope('filtered');
+    setScope(isFilteredScopeEnabled ? 'filtered' : 'selected');
     setError(null);
     setIsRunning(false);
-  }, [open]);
+  }, [isFilteredScopeEnabled, open]);
 
   useEffect(() => {
     if (!open) return;
+    if (!isFilteredScopeEnabled) {
+      setFilteredManifests([]);
+      setFilteredCount(null);
+      setIsLoadingFiltered(false);
+      setError(null);
+      return;
+    }
 
     const run = async () => {
       setIsLoadingFiltered(true);
@@ -105,7 +122,7 @@ export function ManifestBatchScopeModal({
     };
 
     void run();
-  }, [filters, groupId, open, sort, t]);
+  }, [filters, groupId, isFilteredScopeEnabled, open, sort, t]);
 
   const scopeManifests = scope === 'selected' ? selectedManifests : filteredManifests;
   const scopeCount = scope === 'selected' ? selectedManifests.length : filteredCount;
@@ -121,6 +138,7 @@ export function ManifestBatchScopeModal({
     !isRunning &&
     !isLoadingFiltered &&
     !error &&
+    (scope !== 'filtered' || isFilteredScopeEnabled) &&
     (scope !== 'selected' || hasSelection) &&
     eligibleCount > 0 &&
     (scope !== 'filtered' || (filteredCount ?? 0) > 0);
@@ -134,7 +152,11 @@ export function ManifestBatchScopeModal({
       onClose();
     } catch (e) {
       console.error('Batch action failed:', e);
-      setError(t('errors.generic'));
+      if (e instanceof Error && e.message.trim()) {
+        setError(e.message);
+      } else {
+        setError(t('errors.generic'));
+      }
     } finally {
       setIsRunning(false);
     }
@@ -159,13 +181,18 @@ export function ManifestBatchScopeModal({
                   name="batch-scope"
                   value="filtered"
                   checked={scope === 'filtered'}
+                  disabled={!isFilteredScopeEnabled}
                   onChange={() => setScope('filtered')}
                 />
                 <label htmlFor="batch-scope-filtered" className="min-w-0 cursor-pointer">
                   <div className="font-medium">
                     {t('manifests.extractModal.scopeFiltered', { count: filteredCount ?? 0 })}
                   </div>
-                  <div className="text-muted-foreground">{t('manifests.extractModal.scopeFilteredHint')}</div>
+                  {isFilteredScopeEnabled ? (
+                    <div className="text-muted-foreground">{t('manifests.extractModal.scopeFilteredHint')}</div>
+                  ) : filteredScopeDisabledHint ? (
+                    <div className="text-muted-foreground">{filteredScopeDisabledHint}</div>
+                  ) : null}
                 </label>
               </div>
 
@@ -210,13 +237,18 @@ export function ManifestBatchScopeModal({
           </div>
 
           {error ? <div className="text-sm text-destructive">{error}</div> : null}
+          {notice ? (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+              {notice}
+            </div>
+          ) : null}
         </div>
 
         <div className="flex items-center justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose} disabled={isRunning}>
             {t('common.cancel')}
           </Button>
-          <Button type="button" onClick={handleStart} disabled={!canStart}>
+          <Button type="button" variant={resolvedStartVariant} onClick={handleStart} disabled={!canStart}>
             {isRunning ? t('manifests.batchAction.running') : startLabel}
           </Button>
         </div>

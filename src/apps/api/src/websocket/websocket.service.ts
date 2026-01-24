@@ -8,6 +8,7 @@ export class WebSocketService {
   emitJobUpdate(data: {
     jobId: string;
     manifestId: number;
+    kind?: 'extraction' | 'ocr';
     progress: number;
     status: string;
     error?: string;
@@ -15,6 +16,9 @@ export class WebSocketService {
     currency?: string | null;
     costBreakdown?: { text: number; llm: number; total: number | null; currency?: string | null };
     extractorId?: string | null;
+    textMarkdownSoFar?: string;
+    textPagesProcessed?: number;
+    textPagesTotal?: number;
   }) {
     this.manifestGateway.emitJobUpdate(data);
   }

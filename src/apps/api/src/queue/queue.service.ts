@@ -9,7 +9,7 @@ import { ManifestsService } from '../manifests/manifests.service';
 import { UserEntity } from '../entities/user.entity';
 import { JobNotFoundException } from './exceptions/job-not-found.exception';
 import { QueueProcessingException } from './exceptions/queue-processing.exception';
-import { EXTRACTION_QUEUE, PROCESS_MANIFEST_JOB } from './queue.constants';
+import { EXTRACTION_QUEUE, PROCESS_MANIFEST_JOB, REFRESH_OCR_JOB } from './queue.constants';
 import { JobHistoryDto } from './dto/job-history.dto';
 import { JobResponseDto } from './dto/job-response.dto';
 
@@ -20,6 +20,11 @@ type ExtractionJobData = {
   fieldName?: string;
   customPrompt?: string;
   textContextSnippet?: string;
+};
+
+type OcrRefreshJobData = {
+  manifestId: number;
+  textExtractorId?: string;
 };
 
 @Injectable()
@@ -67,6 +72,7 @@ export class QueueService {
         estimatedCost,
         currency,
         fieldName,
+        'extraction',
       );
       this.logger.log(
         `Queued extraction job ${job.id} for manifest ${manifestId}${
@@ -81,6 +87,43 @@ export class QueueService {
       throw new QueueProcessingException(
         'Failed to queue extraction job',
       );
+    }
+  }
+
+  async addOcrRefreshJob(
+    manifestId: number,
+    textExtractorId?: string,
+  ): Promise<string> {
+    try {
+      const job = await this.extractionQueue.add(
+        REFRESH_OCR_JOB,
+        { manifestId, textExtractorId } satisfies OcrRefreshJobData,
+        {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 2000,
+          },
+          removeOnComplete: { count: 100 },
+          removeOnFail: { count: 500 },
+        },
+      );
+
+      await this.manifestsService.createJob(
+        manifestId,
+        String(job.id),
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'ocr',
+      );
+      this.logger.log(`Queued OCR refresh job ${job.id} for manifest ${manifestId}`);
+      return String(job.id);
+    } catch (error) {
+      this.logger.error(`Failed to queue OCR refresh job: ${this.formatError(error)}`);
+      throw new QueueProcessingException('Failed to queue OCR refresh job');
     }
   }
 
@@ -217,6 +260,7 @@ export class QueueService {
       currency: job.costCurrency ?? null,
       id: job.id,
       manifestId: job.manifestId,
+      kind: job.kind ?? 'extraction',
       status: job.status,
       llmModelId: job.llmModelId,
       promptId: job.promptId,

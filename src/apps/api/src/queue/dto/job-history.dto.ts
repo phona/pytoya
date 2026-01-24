@@ -3,6 +3,7 @@ import { JobStatus } from '../../entities/job.entity';
 export class JobHistoryDto {
   id!: number;
   manifestId!: number;
+  kind!: string;
   status!: JobStatus;
   llmModelId!: string | null;
   promptId!: number | null;

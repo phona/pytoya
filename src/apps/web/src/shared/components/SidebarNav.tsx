@@ -1,6 +1,7 @@
 import { ChevronLeft, Menu, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/shared/hooks/use-auth';
+import { useAuthStore } from '@/shared/stores/auth';
 import { ThemeToggle } from '@/shared/components/ThemeToggle';
 import { useI18n } from '@/shared/providers/I18nProvider';
 import { Button } from '@/shared/components/ui/button';
@@ -14,10 +15,26 @@ type SidebarNavProps = {
   onDesktopExpand: () => void;
 };
 
-const navItems = [
-  { labelKey: 'nav.projects', to: '/projects' },
-  { labelKey: 'nav.extractors', to: '/extractors' },
-  { labelKey: 'nav.models', to: '/models' },
+type NavItem = { labelKey: string; to: string };
+type NavSection = { titleKey: string; items: NavItem[]; adminOnly?: boolean };
+
+const navSections: NavSection[] = [
+  {
+    titleKey: 'sidebar.section.work',
+    items: [{ labelKey: 'nav.projects', to: '/projects' }],
+  },
+  {
+    titleKey: 'sidebar.section.systemAdminOnly',
+    adminOnly: true,
+    items: [
+      { labelKey: 'nav.extractors', to: '/extractors' },
+      { labelKey: 'nav.models', to: '/models' },
+    ],
+  },
+  {
+    titleKey: 'sidebar.section.account',
+    items: [{ labelKey: 'nav.profile', to: '/profile' }],
+  },
 ];
 
 const isPathActive = (currentPath: string, targetPath: string) => {
@@ -37,7 +54,12 @@ export function SidebarNav({
 }: SidebarNavProps) {
   const location = useLocation();
   const { logout } = useAuth();
+  const user = useAuthStore((state) => state.user);
   const { locale, setLocale, t } = useI18n();
+  const isAdmin = user?.role === 'admin';
+  const visibleSections = navSections.filter(
+    (section) => !section.adminOnly || isAdmin,
+  );
 
   return (
     <>
@@ -100,28 +122,37 @@ export function SidebarNav({
             </Button>
           )}
         </div>
-        <nav className="flex-1 space-y-1 px-3 py-4 text-sm font-medium text-muted-foreground">
-          {navItems.map((item) => {
-            const isActive = isPathActive(location.pathname, item.to);
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={onClose}
-                aria-current={isActive ? 'page' : undefined}
-                className={`flex items-center justify-between rounded-md px-3 py-2 transition ${
-                  isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
-              >
-                <span>{t(item.labelKey)}</span>
-                {isActive ? (
-                  <span className="h-2 w-2 rounded-full bg-primary/100" />
-                ) : null}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 px-3 py-4 text-sm font-medium text-muted-foreground">
+          <div className="space-y-5">
+            {visibleSections.map((section) => (
+              <div key={section.titleKey} className="space-y-1">
+                <div className="px-3 pb-1 text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground/80">
+                  {t(section.titleKey)}
+                </div>
+                {section.items.map((item) => {
+                  const isActive = isPathActive(location.pathname, item.to);
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      onClick={onClose}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`flex items-center justify-between rounded-md px-3 py-2 transition ${
+                        isActive
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      }`}
+                    >
+                      <span>{t(item.labelKey)}</span>
+                      {isActive ? (
+                        <span className="h-2 w-2 rounded-full bg-primary/100" />
+                      ) : null}
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </nav>
         <div className="border-t border-border px-3 py-4">
           <div className="mb-3 grid gap-3">
