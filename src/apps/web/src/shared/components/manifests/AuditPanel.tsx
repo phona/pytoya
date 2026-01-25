@@ -848,7 +848,6 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
             ]}
           />
           <h2 className="text-lg font-semibold text-foreground">{manifest.originalFilename}</h2>
-          <p className="text-sm text-muted-foreground">{manifest.storagePath}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           {/* Save Status */}

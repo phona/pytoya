@@ -10,10 +10,6 @@ interface ExportButtonProps {
     status?: string;
     groupId?: number;
     projectId?: number;
-    poNo?: string;
-    department?: string;
-    dateFrom?: string;
-    dateTo?: string;
     humanVerified?: boolean;
     confidenceMin?: number;
     confidenceMax?: number;

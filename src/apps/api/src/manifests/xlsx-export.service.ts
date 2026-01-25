@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import * as ExcelJS from 'exceljs';
 import { PassThrough } from 'stream';
 
@@ -9,6 +9,7 @@ import { ManifestEntity } from '../entities/manifest.entity';
 import { ManifestItemEntity } from '../entities/manifest-item.entity';
 import type { CsvExportFilters } from './csv-export.service';
 import { toXlsxCellValue } from './xlsx-export.util';
+import { assertValidJsonPath, buildJsonPathQuery } from './utils/json-path.util';
 
 const XLSX_MIME =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -250,26 +251,6 @@ export class XlsxExportService {
         projectId: filters.projectId,
       });
     }
-    if (filters.poNo) {
-      query.andWhere(
-        "manifest.extractedData -> 'invoice' ->> 'po_no' ILIKE :poNo",
-        { poNo: this.normalizePattern(filters.poNo) },
-      );
-    }
-    if (filters.department) {
-      query.andWhere(
-        "manifest.extractedData -> 'department' ->> 'code' ILIKE :department",
-        { department: this.normalizePattern(filters.department) },
-      );
-    }
-    if (filters.dateFrom) {
-      query.andWhere('manifest.createdAt >= :dateFrom', {
-        dateFrom: filters.dateFrom,
-      });
-    }
-    if (filters.dateTo) {
-      query.andWhere('manifest.createdAt <= :dateTo', { dateTo: filters.dateTo });
-    }
     if (filters.humanVerified !== undefined) {
       query.andWhere('manifest.humanVerified = :humanVerified', {
         humanVerified: filters.humanVerified,
@@ -286,7 +267,37 @@ export class XlsxExportService {
       });
     }
 
+    this.applyDynamicFilters(query, filters.filter);
+
     return query.getMany();
+  }
+
+  private applyDynamicFilters(
+    query: SelectQueryBuilder<ManifestEntity>,
+    filters?: Record<string, string>,
+  ): void {
+    if (!filters) {
+      return;
+    }
+
+    let index = 0;
+    for (const [fieldPath, rawValue] of Object.entries(filters)) {
+      if (rawValue === undefined || rawValue === null || rawValue === '') {
+        continue;
+      }
+      if (fieldPath === 'status') {
+        query.andWhere('manifest.status = :statusFilter', {
+          statusFilter: String(rawValue).toLowerCase(),
+        });
+        continue;
+      }
+      assertValidJsonPath(fieldPath);
+      const expression = buildJsonPathQuery('manifest', fieldPath);
+      const paramName = `filterValue${index++}`;
+      query.andWhere(`${expression} ILIKE :${paramName}`, {
+        [paramName]: this.normalizeLikePattern(String(rawValue)),
+      });
+    }
   }
 
   private async fetchManifestsByIds(
@@ -336,10 +347,10 @@ export class XlsxExportService {
     return {};
   }
 
-  private normalizePattern(input: string): string {
-    const trimmed = input.trim();
-    if (!trimmed) return '%';
-    return trimmed.includes('%') ? trimmed : `%${trimmed}%`;
+  private normalizeLikePattern(value: string): string {
+    if (value.includes('%') || value.includes('_')) {
+      return value;
+    }
+    return `%${value}%`;
   }
 }
-

@@ -1,4 +1,3 @@
-import { format } from 'date-fns';
 import { ArrowRight, CheckCircle2, Clock } from 'lucide-react';
 import { Manifest } from '@/api/manifests';
 import { getStatusBadgeClasses } from '@/shared/styles/status-badges';
@@ -64,28 +63,6 @@ export function ManifestCard({ manifest, extractorInfo, onClick }: ManifestCardP
               <span className="text-foreground">
                 {extractorInfo?.name ?? manifest.textExtractorId}
               </span>
-            </div>
-          )}
-          {manifest.purchaseOrder && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">{t('manifests.card.po')}:</span>
-              <span className="text-foreground">{manifest.purchaseOrder}</span>
-            </div>
-          )}
-
-          {manifest.invoiceDate && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">{t('manifests.card.date')}:</span>
-              <span className="text-foreground">
-                {format(new Date(manifest.invoiceDate), 'PP')}
-              </span>
-            </div>
-          )}
-
-          {manifest.department && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">{t('manifests.card.department')}:</span>
-              <span className="text-foreground">{manifest.department}</span>
             </div>
           )}
 

@@ -34,3 +34,21 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- .image -}}
 {{- end -}}
 {{- end }}
+
+{{- define "pytoya.basePath" -}}
+{{- $raw := default "" .Values.global.basePath -}}
+{{- $trimmed := trim $raw -}}
+{{- if or (eq $trimmed "") (eq $trimmed "/") -}}
+{{- "" -}}
+{{- else -}}
+{{- $withLeading := $trimmed -}}
+{{- if not (hasPrefix "/" $withLeading) -}}
+{{- $withLeading = printf "/%s" $withLeading -}}
+{{- end -}}
+{{- if hasSuffix "/" $withLeading -}}
+{{- trimSuffix "/" $withLeading -}}
+{{- else -}}
+{{- $withLeading -}}
+{{- end -}}
+{{- end -}}
+{{- end }}

@@ -94,7 +94,17 @@ export class JwtOrPublicGuard implements CanActivate {
   private resolveStoragePath(request: Request): string {
     const rawUrl = request.originalUrl ?? request.url;
     const pathWithoutQuery = rawUrl.split('?')[0];
-    const relativePath = pathWithoutQuery.replace(/^\/uploads/, '');
+    const apiUploadsMarker = '/api/uploads';
+    const legacyUploadsMarker = '/uploads';
+
+    let relativePath = '';
+    const apiIndex = pathWithoutQuery.indexOf(apiUploadsMarker);
+    if (apiIndex !== -1) {
+      relativePath = pathWithoutQuery.slice(apiIndex + apiUploadsMarker.length);
+    } else if (pathWithoutQuery.startsWith(legacyUploadsMarker)) {
+      relativePath = pathWithoutQuery.slice(legacyUploadsMarker.length);
+    }
+
     const safePath = path
       .normalize(decodeURIComponent(relativePath))
       .replace(/^(\.\.(\/|\\|$))+/, '');

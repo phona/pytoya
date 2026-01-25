@@ -1,19 +1,15 @@
-import { BadRequestException, HttpException, HttpStatus, ValidationPipe, LogLevel, Logger } from "@nestjs/common";
+import { BadRequestException, ValidationPipe, LogLevel, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { NestExpressApplication } from "@nestjs/platform-express";
-import * as express from "express";
-import * as path from "path";
-import type { NextFunction, Request, Response } from "express";
 import helmet from "helmet";
 import type { ValidationError } from "class-validator";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
-import { JwtOrPublicGuard } from "./common/guards/jwt-or-public.guard";
 import { RequestIdMiddleware } from "./common/middleware/request-id.middleware";
 import { SocketIoAdapter } from "./websocket/socket-io.adapter";
-import { ExecutionContextHost } from "@nestjs/core/helpers/execution-context-host";
 import { ERROR_CODES } from "./common/errors/error-codes";
+import { enableBasePathRouting } from "./bootstrap/enable-base-path-routing";
 
 function getLogLevels(level: string): LogLevel[] {
   switch (level.toLowerCase()) {
@@ -141,76 +137,7 @@ export async function createApp(): Promise<NestExpressApplication> {
   );
   app.useGlobalFilters(new AllExceptionsFilter(configService));
 
-  // Set global prefix for all REST controllers
-  app.setGlobalPrefix("api");
-
-  // Serve static files outside of /api prefix (must be before any middleware)
-  const uploadsPath = path.resolve(process.cwd(), "uploads");
-  const uploadsGuard = app.get(JwtOrPublicGuard);
-  app.use("/uploads", async (req: Request, res: Response, next: NextFunction) => {
-    const context = new ExecutionContextHost([req, res]);
-    try {
-      const allowed = await uploadsGuard.canActivate(context);
-      if (allowed) {
-        return next();
-      }
-      return res.sendStatus(HttpStatus.FORBIDDEN);
-    } catch (error) {
-      const requestId =
-        (req as Request & { id?: string }).id ??
-        (typeof req.headers["x-request-id"] === "string"
-          ? req.headers["x-request-id"]
-          : "unknown");
-      const status =
-        error instanceof HttpException ? error.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
-      const exceptionResponse =
-        error instanceof HttpException ? error.getResponse() : null;
-      const exceptionPayload =
-        exceptionResponse && typeof exceptionResponse === "object" && !Array.isArray(exceptionResponse)
-          ? (exceptionResponse as Record<string, unknown>)
-          : null;
-      const code =
-        error instanceof HttpException && exceptionPayload?.code && typeof exceptionPayload.code === "string"
-          ? exceptionPayload.code
-          : error instanceof HttpException
-            ? error.name
-            : ERROR_CODES.INTERNAL_SERVER_ERROR;
-      const messageFromException =
-        typeof exceptionResponse === "string"
-          ? exceptionResponse
-          : exceptionPayload?.message && typeof exceptionPayload.message === "string"
-            ? exceptionPayload.message
-            : undefined;
-      const message =
-        messageFromException ??
-        (error instanceof Error ? error.message : "An unexpected error occurred");
-      return res.status(status).json({
-        error: {
-          code,
-          message,
-          requestId,
-          timestamp: new Date().toISOString(),
-          path: req.originalUrl ?? req.url,
-        },
-      });
-    }
-  });
-  app.use("/uploads", express.static(uploadsPath));
-
-  // Compatibility middleware: rewrite legacy non-/api paths to /api/*
-  // Exclude /uploads and WebSocket paths (including namespaced socket.io paths)
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    const isUploads = req.path.startsWith("/uploads");
-    const isSocketIo = req.path.startsWith("/socket.io");
-    if (isUploads || isSocketIo) {
-      return next();
-    }
-    // If path doesn't start with /api and doesn't have a file extension, rewrite it
-    if (!req.path.startsWith("/api") && !path.extname(req.path)) {
-      req.url = `/api${req.path}`;
-    }
-    next();
-  });
+  enableBasePathRouting(app, configService);
 
   return app;
 }

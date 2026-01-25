@@ -3,14 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { PromptEntity } from '../entities/prompt.entity';
-import { INVOICE_JSON_SCHEMA } from './constants/invoice-json-schema.constant';
-import {
-  JSON_FEEDBACK_TEMPLATE,
-  OCR_SECTION,
-  PREVIOUS_RESULT_TEMPLATE as JSON_PREVIOUS_RESULT_TEMPLATE,
-  RE_EXTRACT_RETURN_JSON_INSTRUCTION,
-  RETURN_JSON_INSTRUCTION,
-} from './constants/json-prompt-templates.constant';
 import {
   RE_EXTRACT_SYSTEM_PROMPT,
   SYSTEM_PROMPT,
@@ -18,7 +10,6 @@ import {
 import { CreatePromptDto } from './dto/create-prompt.dto';
 import { UpdatePromptDto } from './dto/update-prompt.dto';
 import { PromptNotFoundException } from './exceptions/prompt-not-found.exception';
-import { ExtractedData } from './types/prompts.types';
 
 @Injectable()
 export class PromptsService {
@@ -80,83 +71,5 @@ export class PromptsService {
 
   getReExtractSystemPrompt(): string {
     return RE_EXTRACT_SYSTEM_PROMPT;
-  }
-
-  buildExtractionPrompt(ocrMarkdown: string): string {
-    const ocrSection = this.interpolateTemplate(OCR_SECTION, {
-      markdown_text: ocrMarkdown,
-    });
-    const schema = JSON.stringify(INVOICE_JSON_SCHEMA, null, 2);
-    const instruction = this.interpolateTemplate(RETURN_JSON_INSTRUCTION, {
-      schema,
-    });
-
-    return `${ocrSection}
-
-${instruction}`;
-  }
-
-  buildReExtractPrompt(
-    ocrMarkdown: string,
-    previousResult: ExtractedData,
-    missingFields?: string[],
-    errorMessage?: string,
-  ): string {
-    const errorStr = errorMessage ?? 'None';
-    const missingFieldsStr = (missingFields ?? [])
-      .map((field) => `  - ${field}`)
-      .join('\n');
-
-    const feedback = this.interpolateTemplate(JSON_FEEDBACK_TEMPLATE, {
-      error: errorStr,
-      missing_fields: missingFieldsStr,
-    });
-
-    const previousResultStr = this.formatResultAsJson(previousResult);
-    const previousResultSection = this.interpolateTemplate(
-      JSON_PREVIOUS_RESULT_TEMPLATE,
-      {
-        previous_json: previousResultStr,
-      },
-    );
-
-    const ocrSection = this.interpolateTemplate(OCR_SECTION, {
-      markdown_text: ocrMarkdown,
-    });
-
-    const schema = JSON.stringify(INVOICE_JSON_SCHEMA, null, 2);
-    const returnInstruction = this.interpolateTemplate(
-      RE_EXTRACT_RETURN_JSON_INSTRUCTION,
-      {
-        schema,
-      },
-    );
-
-    return `${feedback}
-
-${ocrSection}
-
-${previousResultSection}
-
-${returnInstruction}`;
-  }
-
-  formatResultAsJson(result: ExtractedData): string {
-    return JSON.stringify(result, null, 2);
-  }
-
-  getInvoiceJsonSchema(): Record<string, unknown> {
-    return INVOICE_JSON_SCHEMA;
-  }
-
-  private interpolateTemplate(
-    template: string,
-    values: Record<string, string>,
-  ): string {
-    return Object.entries(values).reduce(
-      (acc, [key, value]) =>
-        acc.split(`{${key}}`).join(value),
-      template,
-    );
   }
 }

@@ -57,6 +57,7 @@ export function SidebarNav({
   const user = useAuthStore((state) => state.user);
   const { locale, setLocale, t } = useI18n();
   const isAdmin = user?.role === 'admin';
+  const isSidebarHidden = isDesktop ? isDesktopCollapsed : !isOpen;
   const visibleSections = navSections.filter(
     (section) => !section.adminOnly || isAdmin,
   );
@@ -86,13 +87,14 @@ export function SidebarNav({
               }`
         }
         aria-label={t('a11y.sidebar')}
-        aria-hidden={isDesktop ? isDesktopCollapsed : undefined}
+        aria-hidden={isSidebarHidden}
       >
         <div className="flex h-16 items-center justify-between border-b border-border px-4">
           <Link
             to="/projects"
             className="text-lg font-semibold text-foreground"
             onClick={onClose}
+            tabIndex={isSidebarHidden ? -1 : 0}
           >
             {t('app.name')}
           </Link>
@@ -105,6 +107,7 @@ export function SidebarNav({
               className="text-muted-foreground hover:text-foreground"
               aria-label={t('a11y.closeSidebar')}
               title={t('a11y.closeSidebar')}
+              tabIndex={isSidebarHidden ? -1 : 0}
             >
               <ChevronLeft />
             </Button>
@@ -117,6 +120,7 @@ export function SidebarNav({
               className="text-muted-foreground hover:text-foreground"
               aria-label={t('a11y.closeSidebar')}
               title={t('a11y.closeSidebar')}
+              tabIndex={isSidebarHidden ? -1 : 0}
             >
               <X />
             </Button>
@@ -137,6 +141,7 @@ export function SidebarNav({
                       to={item.to}
                       onClick={onClose}
                       aria-current={isActive ? 'page' : undefined}
+                      tabIndex={isSidebarHidden ? -1 : 0}
                       className={`flex items-center justify-between rounded-md px-3 py-2 transition ${
                         isActive
                           ? 'bg-primary/10 text-primary'
@@ -166,6 +171,7 @@ export function SidebarNav({
                   const nextLocale = event.target.value === 'zh-CN' ? 'zh-CN' : 'en';
                   setLocale(nextLocale);
                 }}
+                tabIndex={isSidebarHidden ? -1 : 0}
               >
                 <option value="en">English</option>
                 <option value="zh-CN">中文</option>
@@ -175,6 +181,7 @@ export function SidebarNav({
           <button
             type="button"
             onClick={logout}
+            tabIndex={isSidebarHidden ? -1 : 0}
             className="flex w-full items-center justify-center rounded-md border border-border px-3 py-2 text-sm font-semibold text-foreground transition hover:border-primary/40 hover:text-foreground"
           >
             {t('common.signOut')}

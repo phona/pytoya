@@ -93,7 +93,7 @@ describe('ManifestsController', () => {
         id: 1,
         filename: 'test.pdf',
         originalFilename: 'test.pdf',
-        storagePath: '/uploads/test.pdf',
+        storagePath: '/api/uploads/test.pdf',
         fileSize: 1024,
         fileType: 'pdf',
         status: 'pending',

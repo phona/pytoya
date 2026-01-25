@@ -85,7 +85,7 @@ export class TextExtractorService {
   private buildFallbackOcrResult(result: TextExtractionResult, extractorName: string): OcrResultDto {
     return {
       document: {
-        type: 'invoice',
+        type: 'unknown',
         language: [],
         pages: 1,
       },

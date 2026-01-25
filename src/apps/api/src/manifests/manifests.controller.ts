@@ -42,6 +42,7 @@ import { ReExtractFieldPreviewDto, ReExtractFieldPreviewResponseDto } from './dt
 import { ReExtractFieldDto } from './dto/re-extract-field.dto';
 import { UpdateManifestDto } from './dto/update-manifest.dto';
 import { DynamicFieldFiltersDto } from './dto/dynamic-field-filters.dto';
+import { ManifestExportFiltersDto } from './dto/manifest-export-filters.dto';
 import { ManifestExtractionHistoryEntryDto } from './dto/manifest-extraction-history.dto';
 import { ManifestExtractionHistoryEntryDetailsDto } from './dto/manifest-extraction-history-details.dto';
 import { ManifestOcrHistoryEntryDto } from './dto/manifest-ocr-history.dto';
@@ -136,10 +137,6 @@ export class ManifestsController {
       query.order ||
       (query.filter && Object.keys(query.filter).length > 0) ||
       query.status ||
-      query.poNo ||
-      query.department ||
-      query.dateFrom ||
-      query.dateTo ||
       query.humanVerified !== undefined ||
       query.confidenceMin !== undefined ||
       query.confidenceMax !== undefined ||
@@ -226,35 +223,11 @@ export class ManifestsController {
   async exportCsv(
     @CurrentUser() user: UserEntity,
     @Res({ passthrough: true }) response: Response,
-    @Query('status') status?: string,
-    @Query('groupId') groupId?: string,
-    @Query('projectId') projectId?: string,
-    @Query('poNo') poNo?: string,
-    @Query('department') department?: string,
-    @Query('dateFrom') dateFrom?: string,
-    @Query('dateTo') dateTo?: string,
-    @Query('humanVerified') humanVerified?: string,
-    @Query('confidenceMin') confidenceMin?: string,
-    @Query('confidenceMax') confidenceMax?: string,
+    @Query() query: ManifestExportFiltersDto,
   ) {
-    const filters = {
-      status: this.parseOptionalStatus(status),
-      groupId: this.parseOptionalNumber(groupId) ?? undefined,
-      projectId: this.parseOptionalNumber(projectId) ?? undefined,
-      poNo: poNo || undefined,
-      department: department || undefined,
-      dateFrom: this.parseOptionalDate(dateFrom),
-      dateTo: this.parseOptionalDate(dateTo),
-      humanVerified: this.parseOptionalBoolean(humanVerified),
-      confidenceMin:
-        this.parseOptionalNumber(confidenceMin) ?? undefined,
-      confidenceMax:
-        this.parseOptionalNumber(confidenceMax) ?? undefined,
-    };
-
     const { filename, csv } = await this.csvExportService.exportCsv(
       user,
-      filters,
+      query,
     );
 
     response.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -270,32 +243,10 @@ export class ManifestsController {
   async exportXlsx(
     @CurrentUser() user: UserEntity,
     @Res({ passthrough: true }) response: Response,
-    @Query('status') status?: string,
-    @Query('groupId') groupId?: string,
-    @Query('projectId') projectId?: string,
-    @Query('poNo') poNo?: string,
-    @Query('department') department?: string,
-    @Query('dateFrom') dateFrom?: string,
-    @Query('dateTo') dateTo?: string,
-    @Query('humanVerified') humanVerified?: string,
-    @Query('confidenceMin') confidenceMin?: string,
-    @Query('confidenceMax') confidenceMax?: string,
+    @Query() query: ManifestExportFiltersDto,
   ) {
-    const filters = {
-      status: this.parseOptionalStatus(status),
-      groupId: this.parseOptionalNumber(groupId) ?? undefined,
-      projectId: this.parseOptionalNumber(projectId) ?? undefined,
-      poNo: poNo || undefined,
-      department: department || undefined,
-      dateFrom: this.parseOptionalDate(dateFrom),
-      dateTo: this.parseOptionalDate(dateTo),
-      humanVerified: this.parseOptionalBoolean(humanVerified),
-      confidenceMin: this.parseOptionalNumber(confidenceMin) ?? undefined,
-      confidenceMax: this.parseOptionalNumber(confidenceMax) ?? undefined,
-    };
-
     const { filename, stream, contentType } =
-      await this.xlsxExportService.exportXlsx(user, filters);
+      await this.xlsxExportService.exportXlsx(user, query);
 
     response.setHeader('Content-Type', contentType);
     response.setHeader(

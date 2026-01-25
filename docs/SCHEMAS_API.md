@@ -45,6 +45,15 @@ Content-Type: application/json
   "jsonSchema": { "type": "object", "properties": {} }
 }
 ```
+Notes:
+- Updating a schema creates a new schema version (new `id`) and returns the newly created schema.
+- Existing schema rules are copied to the new version.
+- If the updated schema was the project's active schema, the project’s `defaultSchemaId` is updated to the new schema version.
+- Changing the active schema invalidates cached manifest validation results for the project (stored `validationResults` are cleared).
+
+## Schema Versioning
+Schema responses include:
+- `schemaVersion`: a content hash of the schema contract used for audit/provenance.
 
 ## Field Ordering (UI)
 Postgres `jsonb` does not preserve JSON object key order. To control how schema-driven fields render in the UI, add `x-ui-order` (number) to property schemas.

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { createHash } from 'crypto';
 
 import { ValidationScriptEntity, ValidationSeverity } from '../entities/validation-script.entity';
 import { LlmChatMessage } from '../llm/llm.types';
@@ -12,6 +13,7 @@ import { LlmService } from '../llm/llm.service';
 import { ModelEntity } from '../entities/model.entity';
 import { ManifestEntity, ManifestStatus, ValidationResult, ValidationIssue } from '../entities/manifest.entity';
 import { ProjectEntity } from '../entities/project.entity';
+import { SchemaEntity } from '../entities/schema.entity';
 import { UserEntity } from '../entities/user.entity';
 import { CreateValidationScriptDto } from './dto/create-validation-script.dto';
 import { UpdateValidationScriptDto } from './dto/update-validation-script.dto';
@@ -35,6 +37,8 @@ export class ValidationService {
     private readonly manifestRepository: Repository<ManifestEntity>,
     @InjectRepository(ProjectEntity)
     private readonly projectRepository: Repository<ProjectEntity>,
+    @InjectRepository(SchemaEntity)
+    private readonly schemaRepository: Repository<SchemaEntity>,
     @InjectRepository(ModelEntity)
     private readonly modelRepository: Repository<ModelEntity>,
     private readonly scriptExecutor: ScriptExecutorService,
@@ -71,7 +75,9 @@ export class ValidationService {
       description: input.description ?? null,
     });
 
-    return this.validationScriptRepository.save(script);
+    const saved = await this.validationScriptRepository.save(script);
+    await this.invalidateValidationResultsForProject(project.id);
+    return saved;
   }
 
   async findAll(user: UserEntity): Promise<ValidationScriptEntity[]> {
@@ -117,6 +123,7 @@ export class ValidationService {
 
   async update(user: UserEntity, id: number, input: UpdateValidationScriptDto): Promise<ValidationScriptEntity> {
     const script = await this.findOne(user, id);
+    const projectId = script.projectId;
 
     // If script content is being updated, validate syntax
     if (input.script) {
@@ -128,12 +135,17 @@ export class ValidationService {
 
     Object.assign(script, input);
 
-    return this.validationScriptRepository.save(script);
+    const saved = await this.validationScriptRepository.save(script);
+    await this.invalidateValidationResultsForProject(projectId);
+    return saved;
   }
 
   async remove(user: UserEntity, id: number): Promise<ValidationScriptEntity> {
     const script = await this.findOne(user, id);
-    return this.validationScriptRepository.remove(script);
+    const projectId = script.projectId;
+    const removed = await this.validationScriptRepository.remove(script);
+    await this.invalidateValidationResultsForProject(projectId);
+    return removed;
   }
 
   // ========== Script Validation ==========
@@ -177,6 +189,13 @@ export class ValidationService {
       input.scriptIds,
     );
 
+    const schemaId = manifest.group.project.defaultSchemaId ?? null;
+    const schemaVersion = schemaId
+      ? (await this.schemaRepository.findOne({ where: { id: schemaId } }))?.schemaVersion ?? null
+      : null;
+    const validationScriptIds = scripts.map((script) => script.id).sort((a, b) => a - b);
+    const validationScriptsVersion = this.computeValidationScriptsVersion(scripts);
+
     // Run all enabled scripts
     const allIssues: ValidationIssue[] = [];
     for (const script of scripts) {
@@ -202,7 +221,12 @@ export class ValidationService {
       }
     }
 
-    const result = this.buildValidationResult(allIssues);
+    const result = this.buildValidationResult(allIssues, {
+      schemaId,
+      schemaVersion,
+      validationScriptsVersion,
+      validationScriptIds,
+    });
 
     // Cache results in manifest
     await this.manifestRepository.update(input.manifestId, {
@@ -263,7 +287,15 @@ export class ValidationService {
     });
   }
 
-  private buildValidationResult(issues: ValidationIssue[]): ValidationResult {
+  private buildValidationResult(
+    issues: ValidationIssue[],
+    provenance?: {
+      schemaId: number | null;
+      schemaVersion: string | null;
+      validationScriptsVersion: string | null;
+      validationScriptIds: number[];
+    },
+  ): ValidationResult {
     const errorCount = issues.filter((i) => i.severity === 'error').length;
     const warningCount = issues.filter((i) => i.severity === 'warning').length;
 
@@ -272,7 +304,38 @@ export class ValidationService {
       errorCount,
       warningCount,
       validatedAt: new Date().toISOString(),
+      schemaId: provenance?.schemaId ?? null,
+      schemaVersion: provenance?.schemaVersion ?? null,
+      validationScriptsVersion: provenance?.validationScriptsVersion ?? null,
+      validationScriptIds: provenance?.validationScriptIds ?? [],
     };
+  }
+
+  private computeValidationScriptsVersion(scripts: ValidationScriptEntity[]): string | null {
+    if (!scripts.length) {
+      return null;
+    }
+
+    const material = scripts
+      .map((script) => ({
+        id: script.id,
+        enabled: script.enabled,
+        severity: script.severity,
+        updatedAt: script.updatedAt ? new Date(script.updatedAt).toISOString() : null,
+        script: script.script,
+      }))
+      .sort((a, b) => a.id - b.id);
+
+    const hash = createHash('sha256');
+    hash.update(JSON.stringify(material));
+    return hash.digest('hex');
+  }
+
+  private async invalidateValidationResultsForProject(projectId: number): Promise<void> {
+    await this.manifestRepository.query(
+      `UPDATE manifests SET validation_results = NULL WHERE group_id IN (SELECT id FROM groups WHERE project_id = $1)`,
+      [projectId],
+    );
   }
 
   // ========== Script Testing (Debug Panel) ==========
@@ -335,7 +398,7 @@ export class ValidationService {
       {
         role: 'system',
         content:
-          'You generate invoice validation scripts. Return JSON only with fields: name, description, severity, script. ' +
+          'You generate extracted-data validation scripts. Return JSON only with fields: name, description, severity, script. ' +
           'severity must be "warning" or "error". script must define function validate(extractedData) that returns an array of issues.',
       },
       {

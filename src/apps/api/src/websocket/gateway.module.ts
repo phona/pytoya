@@ -4,6 +4,7 @@ import { JwtModule, type JwtSignOptions } from '@nestjs/jwt';
 import { ManifestGateway } from './websocket.gateway';
 import { WebSocketService } from './websocket.service';
 import { WebSocketJwtGuard } from './websocket-jwt.guard';
+import { ProgressPublisherService } from './progress-publisher.service';
 
 @Module({
   imports: [
@@ -22,8 +23,9 @@ import { WebSocketJwtGuard } from './websocket-jwt.guard';
   providers: [
     ManifestGateway,
     WebSocketService,
+    ProgressPublisherService,
     WebSocketJwtGuard,
   ],
-  exports: [ManifestGateway, WebSocketService],
+  exports: [ManifestGateway, WebSocketService, ProgressPublisherService],
 })
 export class GatewayModule {}

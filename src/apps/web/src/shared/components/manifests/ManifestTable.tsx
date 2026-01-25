@@ -212,6 +212,9 @@ function SchemaColumnHeader({
                 className="h-8 text-xs"
                 onChange={(event) => onFilterChange(path, event.target.value)}
               />
+              <div className="mt-2 text-xs text-muted-foreground">
+                {t('manifests.table.columnFilter.scopeThisPage')}
+              </div>
               <ScrollArea className="mt-2 max-h-56">
                 <div className="space-y-1">
                   {visibleValues.length === 0 ? (
@@ -465,14 +468,25 @@ export function ManifestTable({
           </button>
         ),
         cell: ({ row }) => (
-          <button
-            type="button"
-            className="text-sm font-medium text-foreground hover:underline underline-offset-4"
-            title={t('common.view')}
-            onClick={() => onSelectManifest(row.original.id)}
-          >
-            {row.original.originalFilename}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="text-sm font-medium text-foreground hover:underline underline-offset-4"
+              title={t('common.view')}
+              onClick={() => onSelectManifest(row.original.id)}
+            >
+              {row.original.originalFilename}
+            </button>
+            {typeof row.original.confidence === 'number' ? (
+              <Badge variant="outline" className="text-xs">
+                {row.original.confidence >= 0.9
+                  ? t('manifests.table.confidenceCue.high')
+                  : row.original.confidence >= 0.7
+                    ? t('manifests.table.confidenceCue.medium')
+                    : t('manifests.table.confidenceCue.low')}
+              </Badge>
+            ) : null}
+          </div>
         ),
       },
       {
@@ -674,91 +688,6 @@ export function ManifestTable({
           return (
             <span className="text-sm text-muted-foreground tabular-nums">
               {Math.round(confidence * 1000) / 10}%
-            </span>
-          );
-        },
-      },
-      {
-        id: 'poNo',
-        header: () => (
-          <SystemColumnHeader
-            id="poNo"
-            label={t('manifests.filters.poNumber.label')}
-            sortable={true}
-            onSort={handleSort}
-            renderSortIcon={renderSortIcon}
-            isFilterActive={Boolean(filters.poNo?.trim())}
-            filterContent={(
-              <Input
-                value={filters.poNo ?? ''}
-                placeholder={t('manifests.filters.poNumber.placeholder')}
-                onChange={(event) => updateFilters({ poNo: event.target.value || undefined })}
-              />
-            )}
-          />
-        ),
-        cell: ({ row }) => (
-          <span className="text-sm text-muted-foreground">{row.original.purchaseOrder ?? t('common.na')}</span>
-        ),
-      },
-      {
-        id: 'department',
-        header: () => (
-          <SystemColumnHeader
-            id="department"
-            label={t('manifests.filters.department.label')}
-            sortable={true}
-            onSort={handleSort}
-            renderSortIcon={renderSortIcon}
-            isFilterActive={Boolean(filters.department?.trim())}
-            filterContent={(
-              <Input
-                value={filters.department ?? ''}
-                placeholder={t('manifests.filters.department.placeholder')}
-                onChange={(event) => updateFilters({ department: event.target.value || undefined })}
-              />
-            )}
-          />
-        ),
-        cell: ({ row }) => (
-          <span className="text-sm text-muted-foreground">{row.original.department ?? t('common.na')}</span>
-        ),
-      },
-      {
-        id: 'invoiceDate',
-        header: () => (
-          <SystemColumnHeader
-            id="invoiceDate"
-            label={t('manifests.filters.invoiceDate.label')}
-            sortable={true}
-            onSort={handleSort}
-            renderSortIcon={renderSortIcon}
-            isFilterActive={Boolean(filters.dateFrom) || Boolean(filters.dateTo)}
-            filterContent={(
-              <div className="space-y-2">
-                <Input
-                  type="date"
-                  value={filters.dateFrom ?? ''}
-                  aria-label={t('manifests.filters.invoiceDate.fromAria')}
-                  onChange={(event) => updateFilters({ dateFrom: event.target.value || undefined })}
-                />
-                <Input
-                  type="date"
-                  value={filters.dateTo ?? ''}
-                  aria-label={t('manifests.filters.invoiceDate.toAria')}
-                  onChange={(event) => updateFilters({ dateTo: event.target.value || undefined })}
-                />
-              </div>
-            )}
-          />
-        ),
-        cell: ({ row }) => {
-          const value = row.original.invoiceDate;
-          if (!value) return <span className="text-sm text-muted-foreground">{t('common.na')}</span>;
-          const parsed = new Date(value);
-          return (
-            <span className="text-sm text-muted-foreground">
-              {Number.isNaN(parsed.getTime()) ? value : format(parsed, 'PP')}
             </span>
           );
         },

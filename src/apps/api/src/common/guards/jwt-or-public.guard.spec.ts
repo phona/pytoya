@@ -31,7 +31,7 @@ describe('JwtOrPublicGuard', () => {
       usersService as any,
       manifestRepository as any,
     );
-    const req = { headers: {}, originalUrl: '/uploads/file.pdf' };
+    const req = { headers: {}, originalUrl: '/api/uploads/file.pdf' };
     const context = createContext(req);
 
     await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
@@ -51,7 +51,7 @@ describe('JwtOrPublicGuard', () => {
     );
     const req = {
       headers: { authorization: 'Bearer token' },
-      originalUrl: '/uploads/file.pdf',
+      originalUrl: '/api/uploads/file.pdf',
     };
     const context = createContext(req);
 
@@ -72,7 +72,7 @@ describe('JwtOrPublicGuard', () => {
     );
     const req = {
       headers: { authorization: 'Bearer token' },
-      originalUrl: '/uploads/file.pdf',
+      originalUrl: '/api/uploads/file.pdf',
     };
     const context = createContext(req);
 
@@ -93,7 +93,7 @@ describe('JwtOrPublicGuard', () => {
     );
     const req = {
       headers: { authorization: 'Bearer token' },
-      originalUrl: '/uploads/file.pdf',
+      originalUrl: '/api/uploads/file.pdf',
     };
     const context = createContext(req);
 

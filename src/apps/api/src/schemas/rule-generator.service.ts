@@ -54,7 +54,7 @@ export class RuleGeneratorService {
       '- range_min/max: { "value": 0 }',
       '- length_min/max: { "value": 1 }',
       '- ocr_correction: { "mappings": [ { "from": "0", "to": "O" } ] }',
-      'Use fieldPath in dot notation (e.g., "invoice.po_no", "items[].unit").',
+      'Use fieldPath in dot notation (e.g., "document.field", "items[].unit").',
       'If unsure, return an empty rules array.',
     ].join('\n');
 

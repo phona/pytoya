@@ -19,6 +19,9 @@ export class SchemaEntity {
   @Column({ type: 'varchar' })
   name!: string;
 
+  @Column({ type: 'varchar', nullable: true, name: 'schema_version' })
+  schemaVersion!: string | null;
+
   @Column({ type: 'jsonb', name: 'json_schema' })
   jsonSchema!: Record<string, unknown>;
 

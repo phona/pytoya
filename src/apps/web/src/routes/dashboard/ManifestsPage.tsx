@@ -138,10 +138,6 @@ export function ManifestsPage() {
   const hasAnyFilters = useMemo(() => {
     return Boolean(
       filters.status ||
-        filters.poNo ||
-        filters.dateFrom ||
-        filters.dateTo ||
-        filters.department ||
         filters.confidenceMin !== undefined ||
         filters.confidenceMax !== undefined ||
         filters.ocrQualityMin !== undefined ||

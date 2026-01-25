@@ -290,7 +290,7 @@ Key configuration sections:
   - `admin`: username, password (optional)
 
 ### Security Notes
-- `/uploads` is protected by JWT and file ownership checks (admins bypass ownership).
+- `/api/uploads` (relative to the deployment base path) is protected by JWT and file ownership checks (admins bypass ownership).
 - Password policy enforces length, uppercase/lowercase, number, and special character requirements.
 - Username policy enforces length and pattern (starts with a letter, alphanumeric, `_` or `-`).
 - Accounts lock after repeated failed logins (configurable thresholds).

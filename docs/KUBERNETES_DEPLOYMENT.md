@@ -5,6 +5,7 @@ PyToYa ships with a Helm chart at `helm/pytoya/` that deploys:
 - Vite Web
 - PostgreSQL
 - Redis
+- Optional Worker (BullMQ)
 
 ## Architecture
 
@@ -36,6 +37,15 @@ docker push registry.dev.lan/pytoya/web:1.0.0
 Notes:
 - `NODE_IMAGE` MUST point to your internal mirror of `node:20-alpine` (examples: `registry.dev.lan/library/node:20-alpine` or `registry.dev.lan/node:20-alpine`).
 
+### Subpath deployment (example: `/pytoya`)
+If you deploy PyToYa under a base path, build the web image with:
+
+```bash
+docker build -t registry.dev.lan/pytoya/web:1.0.0 -f src/apps/web/Dockerfile . \
+  --build-arg VITE_API_URL=/pytoya/api \
+  --build-arg VITE_BASE_PATH=/pytoya
+```
+
 ## Deploy with Helm
 
 ```bash
@@ -45,10 +55,27 @@ helm upgrade --install pytoya helm/pytoya \
   --set global.imageRegistry=registry.dev.lan \
   --set api.tag=1.0.0 \
   --set web.tag=1.0.0 \
+  --set global.basePath=/pytoya \
   --set postgres.auth.password=change-me \
   --set secrets.dbPassword=change-me \
   --set secrets.jwtSecret=change-me \
   --set secrets.llmApiKey=change-me
+```
+
+### Smoke checks (subpath)
+- Web loads: `/pytoya/`
+- Deep link refresh: `/pytoya/projects` (refresh should still load)
+- API health: `/pytoya/api/health`
+- Uploads (authenticated): `/pytoya/api/uploads/*`
+- WebSocket transport path: `/pytoya/api/socket.io` (namespace remains `/manifests`)
+
+### Optional: separate worker deployment
+To scale BullMQ processing independently from HTTP, enable the worker deployment:
+
+```bash
+helm upgrade --install pytoya helm/pytoya \
+  --namespace pytoya \
+  --set worker.enabled=true
 ```
 
 ### Production Deployment

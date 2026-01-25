@@ -79,7 +79,7 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
     id: 1,
     filename: 'test.pdf',
     originalFilename: 'test.pdf',
-    storagePath: '/uploads/test.pdf',
+    storagePath: '/api/uploads/test.pdf',
     fileSize: 1024,
     fileType: FileType.PDF,
     status: ManifestStatus.PENDING,
@@ -120,7 +120,7 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
 
   const createMockOcrResult = (): OcrResultDto => ({
     document: {
-      type: 'invoice',
+      type: 'unknown',
       language: ['zh'],
       pages: 2,
     },

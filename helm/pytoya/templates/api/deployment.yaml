@@ -1,5 +1,10 @@
 {{- if .Values.api.enabled }}
 {{- $ns := default .Release.Namespace .Values.global.namespace -}}
+{{- $basePath := include "pytoya.basePath" . -}}
+{{- $healthPath := default "/api/health" .Values.api.healthCheck.path -}}
+{{- if $basePath -}}
+{{- $healthPath = printf "%s%s" $basePath $healthPath -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -49,6 +54,9 @@ spec:
           envFrom:
             - secretRef:
                 name: {{ include "pytoya.fullname" . }}-secrets
+          env:
+            - name: PYTOYA_WORKER_ENABLED
+              value: {{ ternary "false" "true" .Values.worker.enabled | quote }}
           volumeMounts:
             - name: config
               mountPath: /app/config.yaml
@@ -58,13 +66,13 @@ spec:
               mountPath: /app/uploads
           livenessProbe:
             httpGet:
-              path: {{ .Values.api.healthCheck.path }}
+              path: {{ $healthPath }}
               port: http
             initialDelaySeconds: {{ .Values.api.healthCheck.initialDelay }}
             periodSeconds: {{ .Values.api.healthCheck.period }}
           readinessProbe:
             httpGet:
-              path: {{ .Values.api.healthCheck.path }}
+              path: {{ $healthPath }}
               port: http
             initialDelaySeconds: {{ .Values.api.healthCheck.initialDelay }}
             periodSeconds: {{ .Values.api.healthCheck.period }}

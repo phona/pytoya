@@ -68,14 +68,6 @@ type StageLogExtras = {
   error?: string;
 };
 
-const DEFAULT_REQUIRED_FIELDS = [
-  'department.code',
-  'invoice.po_no',
-  'invoice.invoice_date',
-  'items',
-  '_extraction_info',
-];
-
 @Injectable()
 export class ExtractionService {
   private readonly logger = new Logger(ExtractionService.name);
@@ -169,14 +161,13 @@ export class ExtractionService {
 
   async optimizePrompt(description: string): Promise<{ prompt: string }> {
     const systemPrompt = [
-      'You are an expert prompt designer for invoice extraction.',
-      'Create a concise, production-ready system prompt for an LLM to extract structured data from Chinese invoices.',
+      'You are an expert prompt designer for document data extraction.',
+      'Create a concise, production-ready system prompt for an LLM to extract structured data from documents.',
       'Requirements to embed:',
-      '- Purchase order numbers are 7 digits, zero-padded (e.g., "0000009").',
-      '- Units must be one of KG, EA, or M.',
-      '- Preserve Chinese text accurately; do not translate unless asked.',
+      '- The prompt MUST be schema-driven and domain-neutral by default.',
+      '- Only include domain-specific rules if they are explicitly provided in the description (or in the schema/rules/settings outside this optimizer).',
+      '- Prefer null over guessing. Do not invent values.',
       '- Capture dates in ISO format (YYYY-MM-DD) when possible.',
-      '- Include a brief validation checklist for required fields.',
       'Return only the prompt text without quotes or extra commentary.',
     ].join('\n');
 
@@ -355,7 +346,7 @@ export class ExtractionService {
             enabledRules,
             isFieldReExtract && targetFieldName
               ? [targetFieldName]
-              : schema?.requiredFields ?? this.getRequiredFields(),
+              : schema?.requiredFields ?? [],
           );
           reportProgress(80);
         },
@@ -1112,12 +1103,6 @@ export class ExtractionService {
       }
     }
 
-    const items = data.items;
-    if (!Array.isArray(items) || items.length === 0) {
-      result.valid = false;
-      result.errors.push('No items found in extraction');
-    }
-
     return result;
   }
 
@@ -1228,30 +1213,6 @@ export class ExtractionService {
     const delayMs = baseDelaySeconds * 1000 * 2 ** (retryCount - 1);
     this.logger.warn(`Retrying in ${delayMs}ms`);
     await new Promise((resolve) => setTimeout(resolve, delayMs));
-  }
-
-  private getRequiredFields(): string[] {
-    const raw = this.configService.get<string>('EXTRACTION_REQUIRED_FIELDS');
-    if (!raw) {
-      return DEFAULT_REQUIRED_FIELDS;
-    }
-
-    const trimmed = raw.trim();
-    if (trimmed.startsWith('[')) {
-      try {
-        const parsed = JSON.parse(trimmed);
-        if (Array.isArray(parsed)) {
-          return parsed.filter((value): value is string => typeof value === 'string');
-        }
-      } catch (error) {
-        this.logger.warn(`Failed to parse EXTRACTION_REQUIRED_FIELDS JSON: ${this.formatError(error)}`);
-      }
-    }
-
-    return trimmed
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean);
   }
 
   private raiseError(state: ExtractionWorkflowState, message: string): never {

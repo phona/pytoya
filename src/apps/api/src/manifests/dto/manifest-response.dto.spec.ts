@@ -5,7 +5,7 @@ const createManifest = (overrides: Partial<ManifestEntity> = {}): ManifestEntity
   id: 1,
   filename: 'invoice-001.pdf',
   originalFilename: 'invoice-001.pdf',
-  storagePath: '/uploads/invoice-001.pdf',
+  storagePath: '/api/uploads/invoice-001.pdf',
   fileSize: 1024,
   fileType: FileType.PDF,
   status: ManifestStatus.PENDING,
@@ -39,7 +39,7 @@ const createManifest = (overrides: Partial<ManifestEntity> = {}): ManifestEntity
 describe('ManifestResponseDto', () => {
   it('omits OCR result by default', () => {
     const manifest = createManifest({
-      ocrResult: { document: { type: 'invoice', language: ['en'], pages: 1 } },
+      ocrResult: { document: { type: 'unknown', language: ['en'], pages: 1 } },
     });
 
     const result = ManifestResponseDto.fromEntity(manifest);
@@ -48,7 +48,7 @@ describe('ManifestResponseDto', () => {
   });
 
   it('includes OCR result when requested', () => {
-    const ocrResult = { document: { type: 'invoice', language: ['en'], pages: 1 } };
+    const ocrResult = { document: { type: 'unknown', language: ['en'], pages: 1 } };
     const manifest = createManifest({ ocrResult: ocrResult as any });
 
     const result = ManifestResponseDto.fromEntity(manifest, { includeOcr: true });

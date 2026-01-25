@@ -62,7 +62,7 @@ export const buildCachedOcrResult = (
 
   return {
     document: {
-      type: 'invoice',
+      type: 'unknown',
       language: language ? [language] : [],
       pages: pageResults.length || response.layout.num_pages,
     },

@@ -95,6 +95,10 @@ describe('DashboardLayout navigation', () => {
     expect(screen.getByText('Projects Page')).toBeInTheDocument();
 
     await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Open sidebar' }));
+    });
+
+    await act(async () => {
       await user.click(screen.getByRole('link', { name: 'Profile' }));
     });
 

@@ -29,6 +29,13 @@ export class JobEntity {
   manifestId!: number;
 
   @Index()
+  @Column({ type: 'int', name: 'schema_id', nullable: true })
+  schemaId!: number | null;
+
+  @Column({ type: 'varchar', name: 'schema_version', nullable: true })
+  schemaVersion!: string | null;
+
+  @Index()
   @Column({ type: 'varchar', default: 'extraction' })
   kind!: JobKind;
 

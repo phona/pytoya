@@ -1,0 +1,74 @@
+{{- if .Values.worker.enabled }}
+{{- $ns := default .Release.Namespace .Values.global.namespace -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pytoya.fullname" . }}-worker
+  namespace: {{ $ns }}
+  labels:
+    {{- include "pytoya.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "pytoya.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "pytoya.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      serviceAccountName: {{ include "pytoya.fullname" . }}-worker
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.global.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: worker
+          image: {{ include "pytoya.image" (dict "registry" .Values.global.imageRegistry "image" .Values.worker.image) }}:{{ .Values.worker.tag }}
+          imagePullPolicy: {{ .Values.worker.pullPolicy }}
+          command: ["node", "dist/worker.js"]
+          envFrom:
+            - secretRef:
+                name: {{ include "pytoya.fullname" . }}-secrets
+          env:
+            - name: PYTOYA_WORKER_ENABLED
+              value: "true"
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: uploads
+              mountPath: /app/uploads
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "pytoya.fullname" . }}-config
+        - name: uploads
+          {{- if .Values.api.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "pytoya.fullname" . }}-api-uploads
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+{{- end }}
+

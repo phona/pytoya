@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { JobEntity } from '../entities/job.entity';
+import { ManifestEntity } from '../entities/manifest.entity';
 import { ManifestsModule } from '../manifests/manifests.module';
 import { WebSocketModule } from '../websocket/websocket.module';
 import { EXTRACTION_QUEUE } from './queue.constants';
@@ -35,7 +36,7 @@ import { QueueService } from './queue.service';
     BullModule.registerQueue({
       name: EXTRACTION_QUEUE,
     }),
-    TypeOrmModule.forFeature([JobEntity]),
+    TypeOrmModule.forFeature([JobEntity, ManifestEntity]),
     ManifestsModule,
     WebSocketModule,
   ],

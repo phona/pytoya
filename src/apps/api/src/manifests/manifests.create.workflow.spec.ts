@@ -8,6 +8,7 @@ import { ManifestItemEntity } from '../entities/manifest-item.entity';
 import { JobEntity } from '../entities/job.entity';
 import { ModelEntity } from '../entities/model.entity';
 import { PromptEntity } from '../entities/prompt.entity';
+import { SchemaEntity } from '../entities/schema.entity';
 import { GroupsService } from '../groups/groups.service';
 import { StorageService } from '../storage/storage.service';
 import { TextExtractorService } from '../text-extractor/text-extractor.service';
@@ -69,6 +70,7 @@ describe('ManifestsService.create (business workflow, no DB)', () => {
         { provide: getRepositoryToken(JobEntity), useValue: {} },
         { provide: getRepositoryToken(ModelEntity), useValue: {} },
         { provide: getRepositoryToken(PromptEntity), useValue: {} },
+        { provide: getRepositoryToken(SchemaEntity), useValue: { findOne: jest.fn() } },
         { provide: GroupsService, useValue: groupsService },
         { provide: StorageService, useValue: storageService },
         { provide: TextExtractorService, useValue: {} },
@@ -114,9 +116,9 @@ describe('ManifestsService.create (business workflow, no DB)', () => {
     storageService.saveFile.mockResolvedValue({
       filename: 'stored.pdf',
       originalFilename: 'new.pdf',
-      storagePath: '/uploads/projects/1/groups/1/manifests/stored.pdf',
+      storagePath: '/api/uploads/projects/1/groups/1/manifests/stored.pdf',
       fileSize: 3,
-      publicPath: '/uploads/projects/1/groups/1/manifests/stored.pdf',
+      publicPath: '/api/uploads/projects/1/groups/1/manifests/stored.pdf',
     });
 
     const created = { id: 0 } as unknown as ManifestEntity;
@@ -144,9 +146,9 @@ describe('ManifestsService.create (business workflow, no DB)', () => {
     storageService.saveFile.mockResolvedValue({
       filename: 'stored.pdf',
       originalFilename: 'race.pdf',
-      storagePath: '/uploads/projects/1/groups/1/manifests/stored.pdf',
+      storagePath: '/api/uploads/projects/1/groups/1/manifests/stored.pdf',
       fileSize: 3,
-      publicPath: '/uploads/projects/1/groups/1/manifests/stored.pdf',
+      publicPath: '/api/uploads/projects/1/groups/1/manifests/stored.pdf',
     });
 
     manifestRepository.create.mockReturnValue({} as any);

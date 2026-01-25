@@ -7,6 +7,9 @@ import { ManifestItemEntity } from '../entities/manifest-item.entity';
 import { ModelEntity } from '../entities/model.entity';
 import { PromptEntity } from '../entities/prompt.entity';
 import { ExtractorEntity } from '../entities/extractor.entity';
+import { GroupEntity } from '../entities/group.entity';
+import { ProjectEntity } from '../entities/project.entity';
+import { SchemaEntity } from '../entities/schema.entity';
 import { GroupsModule } from '../groups/groups.module';
 import { ModelsModule } from '../models/models.module';
 import { TextExtractorModule } from '../text-extractor/text-extractor.module';
@@ -36,6 +39,9 @@ import {
       ModelEntity,
       PromptEntity,
       ExtractorEntity,
+      GroupEntity,
+      ProjectEntity,
+      SchemaEntity,
     ]),
     GroupsModule,
     ModelsModule,

@@ -9,6 +9,7 @@ import { ManifestEntity, ManifestStatus, FileType } from '../entities/manifest.e
 import { ManifestItemEntity } from '../entities/manifest-item.entity';
 import { ModelEntity } from '../entities/model.entity';
 import { PromptEntity } from '../entities/prompt.entity';
+import { SchemaEntity } from '../entities/schema.entity';
 import { UserEntity, UserRole } from '../entities/user.entity';
 import { GroupsService } from '../groups/groups.service';
 import { IFileAccessService } from '../file-access/file-access.service';
@@ -27,6 +28,7 @@ import {
   assertValidJsonPath,
   buildJsonPathQuery,
 } from './utils/json-path.util';
+import { resolveFieldSemanticFromJsonSchema } from './utils/schema-field-semantic.util';
 import { OcrResultDto } from './dto/ocr-result.dto';
 import { OcrContextPreviewDto } from './dto/re-extract-field-preview.dto';
 import { ManifestExtractionHistoryEntryDto } from './dto/manifest-extraction-history.dto';
@@ -39,10 +41,7 @@ const DEFAULT_PAGE_SIZE = 25;
 const SORTABLE_COLUMNS: Record<string, string> = {
   filename: 'manifest.filename',
   status: 'manifest.status',
-  poNo: 'manifest.purchaseOrder',
-  invoiceDate: 'manifest.invoiceDate',
   confidence: 'manifest.confidence',
-  department: 'manifest.department',
   humanVerified: 'manifest.humanVerified',
   createdAt: 'manifest.createdAt',
   updatedAt: 'manifest.updatedAt',
@@ -82,6 +81,8 @@ export class ManifestsService {
     private readonly modelRepository: Repository<ModelEntity>,
     @InjectRepository(PromptEntity)
     private readonly promptRepository: Repository<PromptEntity>,
+    @InjectRepository(SchemaEntity)
+    private readonly schemaRepository: Repository<SchemaEntity>,
     private readonly groupsService: GroupsService,
     private readonly storageService: StorageService,
     private readonly textExtractorService: TextExtractorService,
@@ -183,15 +184,16 @@ export class ManifestsService {
     groupId: number,
     query: DynamicFieldFiltersDto = {},
   ): Promise<ManifestListResult> {
-    await this.groupsService.findOne(user, groupId);
+    const group = await this.groupsService.findOne(user, groupId);
+    const activeSchema = await this.loadActiveSchemaForProject(group.project?.defaultSchemaId ?? null);
 
     const queryBuilder = this.manifestRepository
       .createQueryBuilder('manifest')
       .where('manifest.groupId = :groupId', { groupId });
 
     this.applyStandardFilters(queryBuilder, query);
-    this.applyJsonbFilters(queryBuilder, query.filter);
-    this.applySort(queryBuilder, query.sortBy, query.order);
+    this.applyJsonbFilters(queryBuilder, query.filter, activeSchema?.jsonSchema ?? null);
+    this.applySort(queryBuilder, query.sortBy, query.order, activeSchema?.jsonSchema ?? null);
 
     const shouldPaginate =
       query.page !== undefined || query.pageSize !== undefined;
@@ -227,7 +229,8 @@ export class ManifestsService {
     behavior: { includeCompleted?: boolean; includeProcessing?: boolean } = {},
     maxCount = 5000,
   ): Promise<ManifestEntity[]> {
-    await this.groupsService.findOne(user, groupId);
+    const group = await this.groupsService.findOne(user, groupId);
+    const activeSchema = await this.loadActiveSchemaForProject(group.project?.defaultSchemaId ?? null);
 
     const queryBuilder = this.manifestRepository
       .createQueryBuilder('manifest')
@@ -236,7 +239,7 @@ export class ManifestsService {
       .where('manifest.groupId = :groupId', { groupId });
 
     this.applyStandardFilters(queryBuilder, filters);
-    this.applyJsonbFilters(queryBuilder, filters.filter);
+    this.applyJsonbFilters(queryBuilder, filters.filter, activeSchema?.jsonSchema ?? null);
 
     const hasExplicitStatus =
       filters.status !== undefined || filters.extractionStatus !== undefined;
@@ -693,11 +696,18 @@ export class ManifestsService {
     }
 
     const resolvedModelId = llmModelId ?? manifest.group?.project?.llmModelId ?? null;
+    const schemaId =
+      kind === 'extraction' ? (manifest.group?.project?.defaultSchemaId ?? null) : null;
+    const schemaVersion = schemaId
+      ? (await this.schemaRepository.findOne({ where: { id: schemaId } }))?.schemaVersion ?? null
+      : null;
     const job = this.jobRepository.create({
       manifestId,
       queueJobId,
       kind,
       status: JobStatus.PENDING,
+      schemaId,
+      schemaVersion,
       llmModelId: resolvedModelId,
       promptId: promptId ?? null,
       fieldName: fieldName?.trim() || null,
@@ -1001,30 +1011,6 @@ export class ManifestsService {
       });
     }
 
-    if (filters.poNo) {
-      query.andWhere('manifest.purchaseOrder ILIKE :poNo', {
-        poNo: this.normalizeLikePattern(filters.poNo),
-      });
-    }
-
-    if (filters.department) {
-      query.andWhere('manifest.department ILIKE :department', {
-        department: this.normalizeLikePattern(filters.department),
-      });
-    }
-
-    if (filters.dateFrom) {
-      query.andWhere('manifest.invoiceDate >= :dateFrom', {
-        dateFrom: filters.dateFrom,
-      });
-    }
-
-    if (filters.dateTo) {
-      query.andWhere('manifest.invoiceDate <= :dateTo', {
-        dateTo: filters.dateTo,
-      });
-    }
-
     if (filters.humanVerified !== undefined) {
       query.andWhere('manifest.humanVerified = :humanVerified', {
         humanVerified: filters.humanVerified,
@@ -1137,6 +1123,7 @@ export class ManifestsService {
   private applyJsonbFilters(
     query: SelectQueryBuilder<ManifestEntity>,
     filters?: Record<string, string>,
+    jsonSchema?: Record<string, unknown> | null,
   ): void {
     if (!filters) {
       return;
@@ -1156,8 +1143,60 @@ export class ManifestsService {
       assertValidJsonPath(fieldPath);
       const expression = buildJsonPathQuery('manifest', fieldPath);
       const paramName = `filterValue${index++}`;
+
+      const semantic = resolveFieldSemanticFromJsonSchema(jsonSchema, fieldPath);
+      const trimmed = String(rawValue).trim();
+
+      if (semantic === 'number' || semantic === 'integer') {
+        const parsed = Number.parseFloat(trimmed);
+        if (Number.isFinite(parsed)) {
+          const numericExpression = `CASE WHEN ${expression} ~ '^[+-]?[0-9]+(\\\\.[0-9]+)?$' THEN (${expression})::numeric ELSE NULL END`;
+          query.andWhere(`${numericExpression} = :${paramName}`, {
+            [paramName]: parsed,
+          });
+          continue;
+        }
+      }
+
+      if (semantic === 'boolean') {
+        const lower = trimmed.toLowerCase();
+        const resolved =
+          lower === 'true' || lower === '1' || lower === 'yes'
+            ? true
+            : lower === 'false' || lower === '0' || lower === 'no'
+              ? false
+              : null;
+        if (resolved !== null) {
+          const booleanExpression = `CASE WHEN LOWER(${expression}) IN ('true','1','yes') THEN true WHEN LOWER(${expression}) IN ('false','0','no') THEN false ELSE NULL END`;
+          query.andWhere(`${booleanExpression} = :${paramName}`, {
+            [paramName]: resolved,
+          });
+          continue;
+        }
+      }
+
+      if (semantic === 'date') {
+        if (/^\\d{4}-\\d{2}-\\d{2}$/.test(trimmed)) {
+          const dateExpression = `CASE WHEN ${expression} ~ '^\\\\d{4}-\\\\d{2}-\\\\d{2}$' THEN (${expression})::date ELSE NULL END`;
+          query.andWhere(`${dateExpression} = CAST(:${paramName} AS date)`, {
+            [paramName]: trimmed,
+          });
+          continue;
+        }
+      }
+
+      if (semantic === 'date-time') {
+        if (/^\\d{4}-\\d{2}-\\d{2}T/.test(trimmed)) {
+          const dateTimeExpression = `CASE WHEN ${expression} ~ '^\\\\d{4}-\\\\d{2}-\\\\d{2}T' THEN (${expression})::timestamptz ELSE NULL END`;
+          query.andWhere(`${dateTimeExpression} = CAST(:${paramName} AS timestamptz)`, {
+            [paramName]: trimmed,
+          });
+          continue;
+        }
+      }
+
       query.andWhere(`${expression} ILIKE :${paramName}`, {
-        [paramName]: this.normalizeLikePattern(String(rawValue)),
+        [paramName]: this.normalizeLikePattern(trimmed),
       });
     }
   }
@@ -1166,6 +1205,7 @@ export class ManifestsService {
     query: SelectQueryBuilder<ManifestEntity>,
     sortBy?: string,
     order: 'asc' | 'desc' = 'asc',
+    jsonSchema?: Record<string, unknown> | null,
   ): void {
     const normalizedOrder = order === 'desc' ? 'DESC' : 'ASC';
 
@@ -1182,10 +1222,37 @@ export class ManifestsService {
 
     assertValidJsonPath(sortBy);
     const textExpression = buildJsonPathQuery('manifest', sortBy);
-    const numericExpression = `CASE WHEN ${textExpression} ~ '^[0-9]+(\\\\.[0-9]+)?$' THEN (${textExpression})::numeric ELSE NULL END`;
+    const semantic = resolveFieldSemanticFromJsonSchema(jsonSchema, sortBy);
 
-    query.orderBy(numericExpression, normalizedOrder, 'NULLS LAST');
-    query.addOrderBy(textExpression, normalizedOrder, 'NULLS LAST');
+    if (semantic === 'number' || semantic === 'integer') {
+      const numericExpression = `CASE WHEN ${textExpression} ~ '^[+-]?[0-9]+(\\\\.[0-9]+)?$' THEN (${textExpression})::numeric ELSE NULL END`;
+      query.orderBy(numericExpression, normalizedOrder, 'NULLS LAST');
+      query.addOrderBy(textExpression, normalizedOrder, 'NULLS LAST');
+      return;
+    }
+
+    if (semantic === 'date') {
+      const dateExpression = `CASE WHEN ${textExpression} ~ '^\\\\d{4}-\\\\d{2}-\\\\d{2}$' THEN (${textExpression})::date ELSE NULL END`;
+      query.orderBy(dateExpression, normalizedOrder, 'NULLS LAST');
+      query.addOrderBy(textExpression, normalizedOrder, 'NULLS LAST');
+      return;
+    }
+
+    if (semantic === 'date-time') {
+      const dateTimeExpression = `CASE WHEN ${textExpression} ~ '^\\\\d{4}-\\\\d{2}-\\\\d{2}T' THEN (${textExpression})::timestamptz ELSE NULL END`;
+      query.orderBy(dateTimeExpression, normalizedOrder, 'NULLS LAST');
+      query.addOrderBy(textExpression, normalizedOrder, 'NULLS LAST');
+      return;
+    }
+
+    if (semantic === 'boolean') {
+      const boolExpression = `CASE WHEN LOWER(${textExpression}) IN ('true','1','yes') THEN 1 WHEN LOWER(${textExpression}) IN ('false','0','no') THEN 0 ELSE NULL END`;
+      query.orderBy(boolExpression, normalizedOrder, 'NULLS LAST');
+      query.addOrderBy(textExpression, normalizedOrder, 'NULLS LAST');
+      return;
+    }
+
+    query.orderBy(textExpression, normalizedOrder, 'NULLS LAST');
   }
 
   private normalizeLikePattern(value: string): string {
@@ -1193,5 +1260,13 @@ export class ManifestsService {
       return value;
     }
     return `%${value}%`;
+  }
+
+  private async loadActiveSchemaForProject(schemaId: number | null): Promise<SchemaEntity | null> {
+    if (!schemaId) {
+      return null;
+    }
+    const schema = await this.schemaRepository.findOne({ where: { id: schemaId } });
+    return schema ?? null;
   }
 }

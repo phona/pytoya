@@ -36,6 +36,15 @@ docker build -t pytoya/web:latest -f src/apps/web/Dockerfile . \
   --build-arg VITE_API_URL=/api
 ```
 
+### Build Web for a subpath deployment (example: `/pytoya`)
+If you deploy behind a shared gateway under a base path, compile both values into the web bundle:
+
+```bash
+docker build -t pytoya/web:latest -f src/apps/web/Dockerfile . \
+  --build-arg VITE_API_URL=/pytoya/api \
+  --build-arg VITE_BASE_PATH=/pytoya
+```
+
 ### Building without Docker Hub
 If Docker Hub is blocked from your build environment, mirror the base image and pass it in:
 

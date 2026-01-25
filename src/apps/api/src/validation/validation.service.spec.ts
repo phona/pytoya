@@ -9,6 +9,7 @@ import { ValidationScriptEntity, ValidationSeverity } from '../entities/validati
 import { ManifestEntity, ManifestStatus } from '../entities/manifest.entity';
 import { ModelEntity } from '../entities/model.entity';
 import { ProjectEntity } from '../entities/project.entity';
+import { SchemaEntity } from '../entities/schema.entity';
 import { UserEntity, UserRole } from '../entities/user.entity';
 import { GroupEntity } from '../entities/group.entity';
 import { LlmService } from '../llm/llm.service';
@@ -248,6 +249,7 @@ describe('ValidationService', () => {
   let validationScriptRepository: jest.Mocked<Repository<ValidationScriptEntity>>;
   let manifestRepository: jest.Mocked<Repository<ManifestEntity>>;
   let projectRepository: jest.Mocked<Repository<ProjectEntity>>;
+  let schemaRepository: jest.Mocked<Repository<SchemaEntity>>;
   let modelRepository: jest.Mocked<Repository<ModelEntity>>;
   let llmService: jest.Mocked<LlmService>;
   let scriptExecutor: ScriptExecutorService;
@@ -347,11 +349,16 @@ describe('ValidationService', () => {
     manifestRepository = {
       findOne: jest.fn(),
       update: jest.fn(),
+      query: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<Repository<ManifestEntity>>;
 
     projectRepository = {
       findOne: jest.fn(),
     } as unknown as jest.Mocked<Repository<ProjectEntity>>;
+
+    schemaRepository = {
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<SchemaEntity>>;
 
     modelRepository = {
       findOne: jest.fn(),
@@ -376,6 +383,10 @@ describe('ValidationService', () => {
         {
           provide: getRepositoryToken(ProjectEntity),
           useValue: projectRepository,
+        },
+        {
+          provide: getRepositoryToken(SchemaEntity),
+          useValue: schemaRepository,
         },
         {
           provide: getRepositoryToken(ModelEntity),

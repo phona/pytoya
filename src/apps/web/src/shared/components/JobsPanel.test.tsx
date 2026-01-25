@@ -19,7 +19,7 @@ vi.mock('@/shared/hooks/use-websocket', () => ({
 }));
 
 vi.mock('@/shared/hooks/use-manifests', () => ({
-  useManifest: () => ({ data: { originalFilename: 'invoice42.pdf' } }),
+  useManifest: (manifestId: number) => ({ data: { originalFilename: `file-${manifestId}.pdf` } }),
 }));
 
 describe('JobsPanel', () => {
@@ -82,7 +82,42 @@ describe('JobsPanel', () => {
 
     await user.click(screen.getByRole('button', { name: /open jobs panel/i }));
     expect(screen.getAllByText('Jobs').length).toBeGreaterThan(0);
-    expect(screen.getByText('invoice42.pdf extraction')).toBeInTheDocument();
+    expect(screen.getByText('file-42.pdf extraction')).toBeInTheDocument();
+  });
+
+  it('filters terminal jobs into completed vs failed/canceled', async () => {
+    const now = new Date().toISOString();
+    useJobsStore.setState({
+      ownerUserId: 1,
+      hasHydrated: true,
+      jobs: [
+        { id: 'active', kind: 'extraction', manifestId: 1, status: 'active', progress: 10, error: null, createdAt: now, updatedAt: now },
+        { id: 'done', kind: 'extraction', manifestId: 2, status: 'completed', progress: 100, error: null, createdAt: now, updatedAt: now },
+        { id: 'failed', kind: 'extraction', manifestId: 3, status: 'failed', progress: 100, error: 'boom', createdAt: now, updatedAt: now },
+        { id: 'canceled', kind: 'extraction', manifestId: 4, status: 'canceled', progress: 20, error: 'canceled', createdAt: now, updatedAt: now },
+      ],
+    });
+
+    const user = userEvent.setup();
+    renderWithProviders(<JobsPanel />);
+
+    await user.click(screen.getByRole('button', { name: /open jobs panel/i }));
+
+    // Default tab: in progress
+    expect(screen.getByText('file-1.pdf extraction')).toBeInTheDocument();
+    expect(screen.queryByText('file-2.pdf extraction')).not.toBeInTheDocument();
+    expect(screen.queryByText('file-3.pdf extraction')).not.toBeInTheDocument();
+    expect(screen.queryByText('file-4.pdf extraction')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: /completed|done/i }));
+    expect(screen.getByText('file-2.pdf extraction')).toBeInTheDocument();
+    expect(screen.queryByText('file-3.pdf extraction')).not.toBeInTheDocument();
+    expect(screen.queryByText('file-4.pdf extraction')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: /failed/i }));
+    expect(screen.getByText('file-3.pdf extraction')).toBeInTheDocument();
+    expect(screen.getByText('file-4.pdf extraction')).toBeInTheDocument();
+    expect(screen.queryByText('file-2.pdf extraction')).not.toBeInTheDocument();
   });
 });
 

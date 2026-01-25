@@ -3,6 +3,7 @@ import { SchemaEntity } from '../../entities/schema.entity';
 export class SchemaResponseDto {
   id!: number;
   name!: string;
+  schemaVersion!: string | null;
   jsonSchema!: Record<string, unknown>;
   requiredFields!: string[];
   projectId!: number;
@@ -16,6 +17,7 @@ export class SchemaResponseDto {
     return {
       id: schema.id,
       name: schema.name,
+      schemaVersion: schema.schemaVersion ?? null,
       jsonSchema: schema.jsonSchema,
       requiredFields: schema.requiredFields,
       projectId: schema.projectId,

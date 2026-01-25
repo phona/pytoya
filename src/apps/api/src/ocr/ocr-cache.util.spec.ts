@@ -9,7 +9,7 @@ describe('OCR Cache Util', () => {
   describe('calculateOcrQualityScore', () => {
     const createMockOcrResult = (overrides?: Partial<OcrResultDto>): OcrResultDto => ({
       document: {
-        type: 'invoice',
+        type: 'unknown',
         language: ['zh'],
         pages: 1,
       },
@@ -329,7 +329,7 @@ describe('OCR Cache Util', () => {
       const mockResponse = createMockOcrResponse() as any;
       const result = buildCachedOcrResult(mockResponse, 1500, mockModel);
 
-      expect(result.document?.type).toBe('invoice');
+      expect(result.document?.type).toBe('unknown');
       expect(result.document?.pages).toBe(2);
       expect(result.pages).toHaveLength(2);
       expect(result.pages[0].pageNumber).toBe(1);

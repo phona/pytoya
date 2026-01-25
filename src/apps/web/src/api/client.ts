@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import { useAuthStore } from '@/shared/stores/auth';
+import { joinBasePath, normalizeBasePath } from '@/shared/utils/base-path';
 
 // Normalize API URL to ensure it ends with /api
 const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -7,7 +8,9 @@ const API_BASE_URL = rawApiUrl.endsWith('/api')
   ? rawApiUrl
   : `${rawApiUrl}/api`;
 
-// Derive WebSocket base URL by stripping /api suffix
+export const BASE_PATH = normalizeBasePath(import.meta.env.VITE_BASE_PATH);
+export const SOCKET_IO_PATH = joinBasePath(BASE_PATH, '/api/socket.io');
+
 const normalizeSocketIoBaseUrl = (value: string) => {
   const trimmed = value.trim();
   if (!trimmed) return trimmed;
@@ -17,10 +20,19 @@ const normalizeSocketIoBaseUrl = (value: string) => {
   return trimmed;
 };
 
-const WS_BASE_URL = normalizeSocketIoBaseUrl(
-  import.meta.env.VITE_WS_URL ||
-    (rawApiUrl.endsWith('/api') ? rawApiUrl.slice(0, -4) : rawApiUrl),
-);
+const defaultOrigin =
+  typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : 'http://localhost:3001';
+
+const WS_ORIGIN = (() => {
+  const candidate = normalizeSocketIoBaseUrl(import.meta.env.VITE_WS_URL || rawApiUrl);
+  try {
+    return new URL(candidate, defaultOrigin).origin;
+  } catch {
+    return defaultOrigin;
+  }
+})();
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -29,7 +41,7 @@ export const apiClient = axios.create({
   },
 });
 
-export { WS_BASE_URL };
+export { WS_ORIGIN };
 
 export const getApiErrorMessage = (
   error: unknown,
@@ -163,8 +175,12 @@ apiClient.interceptors.response.use(
       if (shouldLogout) {
         useAuthStore.getState().clearAuth();
         const nextUrl = `${window.location.pathname}${window.location.search}`;
-        if (window.location.pathname !== '/login') {
-          window.location.href = `/login?next_url=${encodeURIComponent(nextUrl)}`;
+        const loginPath = joinBasePath(BASE_PATH, '/login');
+        if (window.location.pathname !== loginPath) {
+          // Avoid hard navigation in tests; unit tests should not depend on jsdom navigation.
+          if (import.meta.env.MODE !== 'test') {
+            window.location.href = `${loginPath}?next_url=${encodeURIComponent(nextUrl)}`;
+          }
         }
       }
     }

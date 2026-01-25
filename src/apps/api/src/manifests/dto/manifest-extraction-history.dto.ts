@@ -12,6 +12,9 @@ export class ManifestExtractionHistoryEntryDto {
   queueJobId!: string | null;
   status!: ManifestExtractionRunStatus;
 
+  schemaId!: number | null;
+  schemaVersion!: string | null;
+
   llmModelId!: string | null;
   llmModelName!: string | null;
   promptId!: number | null;
@@ -58,6 +61,8 @@ export class ManifestExtractionHistoryEntryDto {
       jobId: job.id,
       queueJobId: job.queueJobId ?? null,
       status,
+      schemaId: job.schemaId ?? null,
+      schemaVersion: job.schemaVersion ?? null,
       llmModelId: job.llmModelId ?? null,
       llmModelName: lookups.llmModelName ?? null,
       promptId: job.promptId ?? null,

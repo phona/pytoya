@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { WS_BASE_URL } from '@/api/client';
+import { SOCKET_IO_PATH, WS_ORIGIN } from '@/api/client';
 import { useAuthStore } from '@/shared/stores/auth';
 import { useExtractionStore } from '@/shared/stores/extraction';
 import { useJobsStore } from '@/shared/stores/jobs';
@@ -146,7 +146,8 @@ const connectSocketIfNeeded = () => {
   setConnectionState({ isConnecting: true });
 
   try {
-    const socket = io(`${WS_BASE_URL}/manifests`, {
+    const socket = io(`${WS_ORIGIN}/manifests`, {
+      path: SOCKET_IO_PATH,
       auth: { token },
       reconnection: true,
       reconnectionDelay: 1000,

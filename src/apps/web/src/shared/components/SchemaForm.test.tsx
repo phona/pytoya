@@ -109,6 +109,7 @@ describe('SchemaForm', () => {
     const existingSchema: Schema = {
       id: 1,
       name: 'Existing Schema',
+      schemaVersion: null,
       projectId: 1,
       jsonSchema: { type: 'object', properties: { field: { type: 'string' } } },
       requiredFields: ['field'],

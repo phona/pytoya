@@ -19,7 +19,8 @@ import { formatCostWithCurrency } from '@/shared/utils/cost';
 type JobsTab = 'inProgress' | 'failed' | 'completed' | 'all';
 
 const isTerminal = (status: string) => ['completed', 'failed', 'canceled'].includes(status);
-const isFailed = (status: string) => status === 'failed';
+const isFailed = (status: string) => status === 'failed' || status === 'canceled';
+const isCompleted = (status: string) => status === 'completed';
 const isInProgress = (status: string) => !isTerminal(status);
 
 const isCancellable = (jobId: string, status: string) => {
@@ -182,7 +183,7 @@ export function JobsPanel() {
   const filteredJobs = useMemo(() => {
     if (tab === 'inProgress') return jobs.filter((job) => isInProgress(job.status));
     if (tab === 'failed') return jobs.filter((job) => isFailed(job.status));
-    if (tab === 'completed') return jobs.filter((job) => isTerminal(job.status));
+    if (tab === 'completed') return jobs.filter((job) => isCompleted(job.status));
     return jobs;
   }, [jobs, tab]);
 

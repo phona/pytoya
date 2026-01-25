@@ -13,6 +13,15 @@ Validation scripts allow you to verify data integrity after extraction. Scripts 
 
 Scripts are scoped to a project and can be managed from the project detail page.
 
+## Caching + Audit Provenance
+Validation results are cached on the manifest (`manifest.validationResults`) and include provenance fields:
+- `schemaId` / `schemaVersion`: which project schema contract was active when validation ran
+- `validationScriptIds` / `validationScriptsVersion`: which scripts (and script content/version) produced the results
+
+Cached validation results are automatically invalidated (cleared) when:
+- the project’s active schema changes (new schema version), or
+- validation scripts for the project change (create/update/delete/enable/disable).
+
 ## Script Function Signature
 
 ```javascript

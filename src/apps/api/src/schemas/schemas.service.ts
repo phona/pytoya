@@ -2,8 +2,12 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import Ajv from 'ajv';
 import { Repository } from 'typeorm';
+import { createHash } from 'crypto';
 
 import { SchemaEntity } from '../entities/schema.entity';
+import { ProjectEntity } from '../entities/project.entity';
+import { SchemaRuleEntity } from '../entities/schema-rule.entity';
+import { ManifestEntity } from '../entities/manifest.entity';
 import { CreateSchemaDto } from './dto/create-schema.dto';
 import { UpdateSchemaDto } from './dto/update-schema.dto';
 import { ValidateSchemaDto } from './dto/validate-schema.dto';
@@ -55,6 +59,12 @@ export class SchemasService {
   constructor(
     @InjectRepository(SchemaEntity)
     private readonly schemaRepository: Repository<SchemaEntity>,
+    @InjectRepository(ProjectEntity)
+    private readonly projectRepository: Repository<ProjectEntity>,
+    @InjectRepository(SchemaRuleEntity)
+    private readonly schemaRuleRepository: Repository<SchemaRuleEntity>,
+    @InjectRepository(ManifestEntity)
+    private readonly manifestRepository: Repository<ManifestEntity>,
   ) {
     this.ajv = new Ajv({ allErrors: true, strict: false });
   }
@@ -64,16 +74,31 @@ export class SchemasService {
     const name = this.deriveSchemaName(jsonSchema, input.projectId);
     const description = this.deriveSchemaDescription(jsonSchema);
     const requiredFields = this.deriveRequiredFields(jsonSchema);
+    const schemaVersion = this.computeSchemaVersion(jsonSchema);
+
+    const project = await this.projectRepository.findOne({
+      where: { id: input.projectId },
+    });
+    if (!project) {
+      throw new BadRequestException(`Project ${input.projectId} not found`);
+    }
     const schema = this.schemaRepository.create({
       jsonSchema,
       projectId: input.projectId,
       name,
       description,
       requiredFields,
+      schemaVersion,
       systemPromptTemplate: input.systemPromptTemplate ?? null,
       validationSettings: input.validationSettings ?? null,
     });
-    return this.schemaRepository.save(schema);
+    const saved = await this.schemaRepository.save(schema);
+    if (!project.defaultSchemaId) {
+      await this.projectRepository.update(project.id, {
+        defaultSchemaId: saved.id,
+      });
+    }
+    return saved;
   }
 
   async findAll(): Promise<SchemaEntity[]> {
@@ -91,50 +116,14 @@ export class SchemasService {
       throw new SchemaNotFoundException(id);
     }
 
-    const normalized = this.normalizeJsonSchema(schema.jsonSchema as Record<string, unknown>);
-    if (normalized.changed) {
-      const nextJsonSchema = normalized.schema;
-      Object.assign(schema, {
-        name: this.deriveSchemaName(nextJsonSchema, schema.projectId, schema.name),
-        jsonSchema: nextJsonSchema,
-        description: this.deriveSchemaDescription(nextJsonSchema),
-        requiredFields: this.deriveRequiredFields(nextJsonSchema),
-      });
-      await this.schemaRepository.save(schema);
-    }
-
     return schema;
   }
 
   async findByProject(projectId: number): Promise<SchemaEntity[]> {
-    const schemas = await this.schemaRepository.find({
+    return this.schemaRepository.find({
       where: { projectId },
       order: { createdAt: 'DESC' },
     });
-
-    const toUpdate = schemas.filter((schema) => this.normalizeJsonSchema(schema.jsonSchema as Record<string, unknown>).changed);
-    if (toUpdate.length === 0) {
-      return schemas;
-    }
-
-    const updated = await Promise.all(
-      schemas.map(async (schema) => {
-        const normalized = this.normalizeJsonSchema(schema.jsonSchema as Record<string, unknown>);
-        if (!normalized.changed) {
-          return schema;
-        }
-        const nextJsonSchema = normalized.schema;
-        Object.assign(schema, {
-          name: this.deriveSchemaName(nextJsonSchema, schema.projectId, schema.name),
-          jsonSchema: nextJsonSchema,
-          description: this.deriveSchemaDescription(nextJsonSchema),
-          requiredFields: this.deriveRequiredFields(nextJsonSchema),
-        });
-        return this.schemaRepository.save(schema);
-      }),
-    );
-
-    return updated;
   }
 
   async update(
@@ -146,23 +135,64 @@ export class SchemasService {
     const normalized = this.normalizeJsonSchema(nextJsonSchemaRaw as Record<string, unknown>);
     const nextJsonSchema = normalized.schema;
     const nextProjectId = input.projectId ?? schema.projectId;
+    const nextProject = await this.projectRepository.findOne({
+      where: { id: nextProjectId },
+    });
+    if (!nextProject) {
+      throw new BadRequestException(`Project ${nextProjectId} not found`);
+    }
     const requiredFields = this.deriveRequiredFields(nextJsonSchema);
     const name = this.deriveSchemaName(nextJsonSchema, nextProjectId, schema.name);
     const description = this.deriveSchemaDescription(nextJsonSchema);
+    const schemaVersion = this.computeSchemaVersion(nextJsonSchema);
 
-    Object.assign(schema, {
+    const next = this.schemaRepository.create({
       name,
       jsonSchema: nextJsonSchema,
       projectId: nextProjectId,
       description,
       requiredFields,
+      schemaVersion,
       systemPromptTemplate:
         input.systemPromptTemplate ?? schema.systemPromptTemplate,
       validationSettings:
         input.validationSettings ?? schema.validationSettings,
     });
 
-    return this.schemaRepository.save(schema);
+    const saved = await this.schemaRepository.save(next);
+
+    const existingRules = await this.schemaRuleRepository.find({
+      where: { schemaId: schema.id },
+    });
+    if (existingRules.length > 0) {
+      const cloned = existingRules.map((rule) =>
+        this.schemaRuleRepository.create({
+          schemaId: saved.id,
+          fieldPath: rule.fieldPath,
+          ruleType: rule.ruleType,
+          ruleOperator: rule.ruleOperator,
+          ruleConfig: rule.ruleConfig,
+          errorMessage: rule.errorMessage,
+          priority: rule.priority,
+          enabled: rule.enabled,
+          description: rule.description,
+        }),
+      );
+      await this.schemaRuleRepository.save(cloned);
+    }
+
+    if (!nextProject.defaultSchemaId || nextProject.defaultSchemaId === schema.id) {
+      await this.projectRepository.update(nextProject.id, {
+        defaultSchemaId: saved.id,
+      });
+    }
+
+    if (schema.projectId !== nextProjectId) {
+      await this.invalidateValidationResultsForProject(schema.projectId);
+    }
+    await this.invalidateValidationResultsForProject(nextProjectId);
+
+    return saved;
   }
 
   private normalizeJsonSchema(jsonSchema: Record<string, unknown>): { schema: Record<string, unknown>; changed: boolean } {
@@ -232,6 +262,40 @@ export class SchemasService {
   async remove(id: number): Promise<SchemaEntity> {
     const schema = await this.findOne(id);
     return this.schemaRepository.remove(schema);
+  }
+
+  private computeSchemaVersion(jsonSchema: Record<string, unknown>): string {
+    const stable = this.stableStringify(jsonSchema);
+    const hash = createHash('sha256');
+    hash.update(stable);
+    return hash.digest('hex');
+  }
+
+  private stableStringify(value: unknown): string {
+    const normalize = (current: unknown): unknown => {
+      if (Array.isArray(current)) {
+        return current.map(normalize);
+      }
+      if (!isRecord(current)) {
+        return current;
+      }
+
+      const record = current as Record<string, unknown>;
+      const next: Record<string, unknown> = {};
+      for (const key of Object.keys(record).sort()) {
+        next[key] = normalize(record[key]);
+      }
+      return next;
+    };
+
+    return JSON.stringify(normalize(value));
+  }
+
+  private async invalidateValidationResultsForProject(projectId: number): Promise<void> {
+    await this.manifestRepository.query(
+      `UPDATE manifests SET validation_results = NULL WHERE group_id IN (SELECT id FROM groups WHERE project_id = $1)`,
+      [projectId],
+    );
   }
 
   validateSchemaDefinition(

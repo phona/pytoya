@@ -102,6 +102,7 @@ Key values (see `values.yaml` for the full list):
 - `postgres.*`: PostgreSQL image, resources, persistence, and auth
 - `redis.*`: Redis image, resources, persistence
 - `api.*`: API image, replicas, env, persistence, service, health checks
+- `worker.*`: Optional worker deployment (BullMQ processors only)
 - `web.*`: Web image, replicas, env, service, health checks
 - `ingress.*`: Ingress settings (hosts, TLS, annotations, class)
 - `hpa.api.*`, `hpa.web.*`: Autoscaler settings
@@ -119,6 +120,17 @@ helm install pytoya helm/pytoya \
 
 ### Notes on `VITE_API_URL`
 `VITE_API_URL` is compiled into the web frontend at image build time. For the default Ingress routing (`/api/*` to the backend), use `--build-arg VITE_API_URL=/api` when building the web image.
+
+### Subpath deployments (`global.basePath` + `VITE_BASE_PATH`)
+To host PyToYa under a base path (example: `/pytoya`) behind a shared gateway:
+- Set Helm: `--set global.basePath=/pytoya`
+- Build the web image with:
+
+```bash
+docker build -t pytoya/web:latest -f src/apps/web/Dockerfile . \
+  --build-arg VITE_API_URL=/pytoya/api \
+  --build-arg VITE_BASE_PATH=/pytoya
+```
 
 ## Upgrading
 

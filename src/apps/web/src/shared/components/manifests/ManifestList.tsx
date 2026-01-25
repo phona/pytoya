@@ -92,9 +92,6 @@ export function ManifestList({
       'extractionStatus',
       'humanVerified',
       'confidence',
-      'poNo',
-      'department',
-      'invoiceDate',
       'extractionCost',
       'ocrQualityScore',
       'ocrProcessedAt',
@@ -304,21 +301,6 @@ export function ManifestList({
         hasActiveFilter: filters.confidenceMin !== undefined || filters.confidenceMax !== undefined,
       },
       {
-        id: 'poNo',
-        label: t('manifests.filters.poNumber.label'),
-        hasActiveFilter: Boolean(filters.poNo?.trim()),
-      },
-      {
-        id: 'department',
-        label: t('manifests.filters.department.label'),
-        hasActiveFilter: Boolean(filters.department?.trim()),
-      },
-      {
-        id: 'invoiceDate',
-        label: t('manifests.filters.invoiceDate.label'),
-        hasActiveFilter: Boolean(filters.dateFrom) || Boolean(filters.dateTo),
-      },
-      {
         id: 'extractionCost',
         label: t('manifests.card.cost'),
         hasActiveFilter: filters.costMin !== undefined || filters.costMax !== undefined,
@@ -379,10 +361,6 @@ export function ManifestList({
   const hasAnyFilters = useMemo(() => {
     return Boolean(
       filters.status ||
-        filters.poNo ||
-        filters.dateFrom ||
-        filters.dateTo ||
-        filters.department ||
         filters.confidenceMin !== undefined ||
         filters.confidenceMax !== undefined ||
         filters.ocrQualityMin !== undefined ||

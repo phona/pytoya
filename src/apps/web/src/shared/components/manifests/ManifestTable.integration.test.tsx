@@ -91,6 +91,7 @@ describe('ManifestTable Integration Tests', () => {
     expect(row1).toBeTruthy();
     expect(within(row1!).getByText('0000001')).toBeInTheDocument();
     expect(within(row1!).getByText('IT')).toBeInTheDocument();
+    expect(within(row1!).getByText('High confidence')).toBeInTheDocument();
 
     const row3 = screen.getByText('invoice3.pdf').closest('tr');
     expect(row3).toBeTruthy();
@@ -171,6 +172,7 @@ describe('ManifestTable Integration Tests', () => {
 
     await user.click(screen.getByRole('button', { name: 'Filter PO #' }));
     const popover = screen.getByRole('dialog');
+    expect(within(popover).getByText('Values from this page')).toBeInTheDocument();
     expect(within(popover).getByText('0000001')).toBeInTheDocument();
     expect(within(popover).getByText('0000009')).toBeInTheDocument();
   });

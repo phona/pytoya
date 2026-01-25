@@ -5,7 +5,7 @@ import { Job } from 'bullmq';
 
 import { ManifestStatus } from '../../entities/manifest.entity';
 import { ManifestsService } from '../../manifests/manifests.service';
-import { WebSocketService } from '../../websocket/websocket.service';
+import { ProgressPublisherService } from '../../websocket/progress-publisher.service';
 import {
   EXTRACTION_QUEUE,
   PROCESS_MANIFEST_JOB,
@@ -36,18 +36,28 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
     private readonly extractionService: ExtractionService,
     private readonly manifestsService: ManifestsService,
     private readonly configService: ConfigService,
-    private readonly webSocketService: WebSocketService,
+    private readonly progressPublisher: ProgressPublisherService,
   ) {
     super();
   }
 
   onApplicationBootstrap() {
+    if (!this.isWorkerEnabled()) {
+      this.logger.log('Extraction worker disabled (PYTOYA_WORKER_ENABLED=false)');
+      void this.worker.close();
+      return;
+    }
+
     const concurrency = this.resolveWorkerConcurrency();
     this.worker.concurrency = concurrency;
     this.logger.log(`Extraction worker concurrency set to ${concurrency}`);
   }
 
   async process(job: Job<ManifestExtractionJob | OcrRefreshJob>) {
+    if (!this.isWorkerEnabled()) {
+      this.logger.warn(`Received job ${String(job.id)} but worker is disabled`);
+      return;
+    }
     if (job.name === PROCESS_MANIFEST_JOB) {
       return this.processExtraction(job as Job<ManifestExtractionJob>);
     }
@@ -91,8 +101,7 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
       lastProgress = progress;
       void job.updateProgress(progress);
       void this.manifestsService.updateJobProgressByQueueJobId(String(job.id), progress);
-      // Emit WebSocket progress update
-      this.webSocketService.emitJobUpdate({
+      this.progressPublisher.publishJobUpdate({
         jobId: String(job.id),
         manifestId,
         kind: 'extraction',
@@ -106,7 +115,7 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
         throw new JobCanceledError(cancelReason);
       }
 
-      this.webSocketService.emitJobUpdate({
+      this.progressPublisher.publishJobUpdate({
         jobId: String(job.id),
         manifestId,
         kind: 'extraction',
@@ -154,8 +163,7 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
           llmOutputTokens: result.extractionResult?.tokenUsage?.completionTokens,
         },
       );
-      // Emit WebSocket completion update
-      this.webSocketService.emitJobUpdate({
+      this.progressPublisher.publishJobUpdate({
         jobId: String(job.id),
         manifestId,
         kind: 'extraction',
@@ -166,7 +174,7 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
         extractorId: result.textResult?.metadata.extractorId ?? null,
         currency: result.currency ?? null,
       });
-      this.webSocketService.emitManifestUpdate({
+      this.progressPublisher.publishManifestUpdate({
         manifestId,
         status: ManifestStatus.COMPLETED,
         progress: 100,
@@ -191,7 +199,7 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
         await this.manifestsService.updateStatus(manifestId, ManifestStatus.FAILED);
         await this.manifestsService.markJobCanceled(String(job.id), error.reason, job.attemptsMade);
 
-        this.webSocketService.emitJobUpdate({
+        this.progressPublisher.publishJobUpdate({
           jobId: String(job.id),
           manifestId,
           kind: 'extraction',
@@ -199,7 +207,7 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
           status: 'canceled',
           error: message,
         });
-        this.webSocketService.emitManifestUpdate({
+        this.progressPublisher.publishManifestUpdate({
           manifestId,
           status: ManifestStatus.FAILED,
           progress: lastProgress,
@@ -231,8 +239,7 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
         error,
         job.attemptsMade,
       );
-      // Emit WebSocket error update
-      this.webSocketService.emitJobUpdate({
+      this.progressPublisher.publishJobUpdate({
         jobId: String(job.id),
         manifestId,
         kind: 'extraction',
@@ -240,7 +247,7 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
         status: 'failed',
         error: errorMessage,
       });
-      this.webSocketService.emitManifestUpdate({
+      this.progressPublisher.publishManifestUpdate({
         manifestId,
         status: ManifestStatus.FAILED,
         progress: 0,
@@ -282,7 +289,7 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
       lastProgress = progress;
       void job.updateProgress(progress);
       void this.manifestsService.updateJobProgressByQueueJobId(String(job.id), progress);
-      this.webSocketService.emitJobUpdate({
+      this.progressPublisher.publishJobUpdate({
         jobId: String(job.id),
         manifestId,
         kind: 'ocr',
@@ -304,7 +311,7 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
       reportProgress(100);
       await this.manifestsService.updateJobCompleted(String(job.id), undefined, job.attemptsMade);
 
-      this.webSocketService.emitJobUpdate({
+      this.progressPublisher.publishJobUpdate({
         jobId: String(job.id),
         manifestId,
         kind: 'ocr',
@@ -324,7 +331,7 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
         await job.discard();
         await this.manifestsService.markJobCanceled(String(job.id), error.reason, job.attemptsMade);
 
-        this.webSocketService.emitJobUpdate({
+        this.progressPublisher.publishJobUpdate({
           jobId: String(job.id),
           manifestId,
           kind: 'ocr',
@@ -351,7 +358,7 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
       }
 
       await this.manifestsService.updateJobFailed(String(job.id), error, job.attemptsMade);
-      this.webSocketService.emitJobUpdate({
+      this.progressPublisher.publishJobUpdate({
         jobId: String(job.id),
         manifestId,
         kind: 'ocr',
@@ -386,6 +393,25 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
       return fallback;
     }
     return Math.min(Math.floor(parsed), max);
+  }
+
+  private isWorkerEnabled(): boolean {
+    const fromEnv = process.env.PYTOYA_WORKER_ENABLED;
+    if (typeof fromEnv === 'string' && fromEnv.trim().length > 0) {
+      const normalized = fromEnv.trim().toLowerCase();
+      return !['0', 'false', 'no', 'off'].includes(normalized);
+    }
+
+    const raw = this.configService.get<unknown>('queue.extraction.workerEnabled');
+    if (typeof raw === 'boolean') {
+      return raw;
+    }
+    if (typeof raw === 'string' && raw.trim().length > 0) {
+      const normalized = raw.trim().toLowerCase();
+      return !['0', 'false', 'no', 'off'].includes(normalized);
+    }
+
+    return true;
   }
 }
 

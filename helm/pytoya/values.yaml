@@ -1,6 +1,11 @@
 global:
   namespace: pytoya
   createNamespace: false
+  # Optional base path for subpath deployments (example: "/pytoya").
+  # When set, Ingress paths are derived as:
+  # - web: <basePath>
+  # - api: <basePath>/api
+  basePath: ""
   imageRegistry: ""
   imagePullSecrets: []
   nodeSelector: {}
@@ -76,6 +81,8 @@ api:
     enabled: true
     size: 50Gi
     storageClass: ""
+    accessModes:
+      - ReadWriteOnce
   config:
     server:
       port: 3000
@@ -139,9 +146,25 @@ api:
     features:
       manualExtraction: true
   healthCheck:
-    path: /health
+    path: /api/health
     initialDelay: 30
     period: 10
+
+worker:
+  # Optional separate worker deployment for BullMQ processing.
+  # When enabled, API pods disable in-process workers and only serve HTTP/WS.
+  enabled: false
+  replicaCount: 1
+  image: pytoya/api
+  tag: latest
+  pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: "1"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "2Gi"
 
 web:
   enabled: true

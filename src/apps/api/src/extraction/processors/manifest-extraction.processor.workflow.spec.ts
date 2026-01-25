@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { ManifestExtractionProcessor } from './manifest-extraction.processor';
 import { ExtractionService } from '../extraction.service';
 import { ManifestsService } from '../../manifests/manifests.service';
-import { WebSocketService } from '../../websocket/websocket.service';
+import { ProgressPublisherService } from '../../websocket/progress-publisher.service';
 import { PROCESS_MANIFEST_JOB } from '../../queue/queue.constants';
 import { ManifestStatus } from '../../entities/manifest.entity';
 
@@ -42,16 +42,16 @@ describe('ManifestExtractionProcessor (workflow without BullMQ/Redis)', () => {
       markJobCanceled: jest.fn(),
     } as unknown as jest.Mocked<ManifestsService>;
 
-    const webSocketService = {
-      emitJobUpdate: jest.fn(),
-      emitManifestUpdate: jest.fn(),
-    } as unknown as jest.Mocked<WebSocketService>;
+    const progressPublisher = {
+      publishJobUpdate: jest.fn(),
+      publishManifestUpdate: jest.fn(),
+    } as unknown as jest.Mocked<ProgressPublisherService>;
 
     const processor = new ManifestExtractionProcessor(
       extractionService,
       manifestsService,
       { get: jest.fn() } as unknown as ConfigService,
-      webSocketService,
+      progressPublisher,
     );
 
     const job = makeJob();
@@ -59,10 +59,10 @@ describe('ManifestExtractionProcessor (workflow without BullMQ/Redis)', () => {
 
     expect(job.updateProgress).toHaveBeenCalled();
     expect(manifestsService.updateJobCompleted).toHaveBeenCalled();
-    expect(webSocketService.emitJobUpdate).toHaveBeenCalledWith(
+    expect(progressPublisher.publishJobUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'completed', progress: 100 }),
     );
-    expect(webSocketService.emitManifestUpdate).toHaveBeenCalledWith(
+    expect(progressPublisher.publishManifestUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'completed', progress: 100 }),
     );
   });
@@ -89,16 +89,16 @@ describe('ManifestExtractionProcessor (workflow without BullMQ/Redis)', () => {
         markJobCanceled: jest.fn(),
       } as unknown as jest.Mocked<ManifestsService>;
 
-      const webSocketService = {
-        emitJobUpdate: jest.fn(),
-        emitManifestUpdate: jest.fn(),
-      } as unknown as jest.Mocked<WebSocketService>;
+      const progressPublisher = {
+        publishJobUpdate: jest.fn(),
+        publishManifestUpdate: jest.fn(),
+      } as unknown as jest.Mocked<ProgressPublisherService>;
 
       const processor = new ManifestExtractionProcessor(
         extractionService,
         manifestsService,
         { get: jest.fn() } as unknown as ConfigService,
-        webSocketService,
+        progressPublisher,
       );
 
       const job = makeJob();
@@ -112,7 +112,7 @@ describe('ManifestExtractionProcessor (workflow without BullMQ/Redis)', () => {
 
       expect(job.discard).toHaveBeenCalled();
       expect(manifestsService.markJobCanceled).toHaveBeenCalled();
-      expect(webSocketService.emitJobUpdate).toHaveBeenCalledWith(
+      expect(progressPublisher.publishJobUpdate).toHaveBeenCalledWith(
         expect.objectContaining({ status: 'canceled' }),
       );
     } finally {
@@ -134,16 +134,16 @@ describe('ManifestExtractionProcessor (workflow without BullMQ/Redis)', () => {
       markJobCanceled: jest.fn(),
     } as unknown as jest.Mocked<ManifestsService>;
 
-    const webSocketService = {
-      emitJobUpdate: jest.fn(),
-      emitManifestUpdate: jest.fn(),
-    } as unknown as jest.Mocked<WebSocketService>;
+    const progressPublisher = {
+      publishJobUpdate: jest.fn(),
+      publishManifestUpdate: jest.fn(),
+    } as unknown as jest.Mocked<ProgressPublisherService>;
 
     const processor = new ManifestExtractionProcessor(
       extractionService,
       manifestsService,
       { get: jest.fn() } as unknown as ConfigService,
-      webSocketService,
+      progressPublisher,
     );
 
     const job = makeJob();
@@ -155,7 +155,7 @@ describe('ManifestExtractionProcessor (workflow without BullMQ/Redis)', () => {
       ManifestStatus.FAILED,
     );
     expect(manifestsService.updateJobFailed).toHaveBeenCalled();
-    expect(webSocketService.emitJobUpdate).toHaveBeenCalledWith(
+    expect(progressPublisher.publishJobUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'failed' }),
     );
   });

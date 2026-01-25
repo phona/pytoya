@@ -125,8 +125,15 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
   const [isGeneratingRules, setIsGeneratingRules] = useState(false);
 
   const stepLabels = useMemo(() => {
-    return ['Basics', 'Extractor + LLM', 'Schema', 'Rules', 'Validation Scripts', 'Review'];
-  }, []);
+    return [
+      t('projects.guidedSetup.steps.basics'),
+      t('projects.guidedSetup.steps.extractorAndLlm'),
+      t('projects.guidedSetup.steps.schema'),
+      t('projects.guidedSetup.steps.rules'),
+      t('projects.guidedSetup.steps.validationScripts'),
+      t('projects.guidedSetup.steps.review'),
+    ];
+  }, [t]);
 
   const resetWizard = () => {
     setStep(1);
@@ -172,7 +179,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
   const getInvalidRulesMessage = () => {
     const invalidRule = rules.find((rule) => !rule.fieldPath || !rule.fieldPath.trim());
     if (invalidRule) {
-      return 'Rule field path cannot be empty.';
+      return t('projects.guidedSetup.errors.ruleFieldPathEmpty');
     }
     return null;
   };
@@ -332,10 +339,10 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
 
     try {
       if (!onCreated) {
-        throw new Error('Missing onCreated handler for create mode.');
+        throw new Error(t('projects.guidedSetup.errors.missingOnCreated'));
       }
       if (schemaJsonError) {
-        throw new Error('Schema JSON is invalid.');
+        throw new Error(t('projects.guidedSetup.errors.schemaInvalid'));
       }
       const project = await createProject(buildProjectPayload());
 
@@ -366,7 +373,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
         <div className="space-y-4">
           <div>
             <label htmlFor="project-name" className="block text-sm font-medium text-foreground">
-              Project Name *
+              {t('projects.guidedSetup.projectNameLabel')}
             </label>
             <Input
               id="project-name"
@@ -374,13 +381,13 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
               value={name}
               onChange={(event) => setName(event.target.value)}
               className="mt-1"
-              placeholder="Invoice Extraction Project"
+              placeholder={t('projects.guidedSetup.projectNamePlaceholder')}
               required
             />
           </div>
           <div>
             <label htmlFor="project-description" className="block text-sm font-medium text-foreground">
-              Description
+              {t('projects.guidedSetup.projectDescriptionLabel')}
             </label>
             <Textarea
               id="project-description"
@@ -388,7 +395,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
               onChange={(event) => setDescription(event.target.value)}
               rows={3}
               className="mt-1"
-              placeholder="Optional description..."
+              placeholder={t('projects.guidedSetup.projectDescriptionPlaceholder')}
             />
           </div>
         </div>
@@ -400,42 +407,42 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
         <div className="space-y-4">
           <div>
             <label htmlFor="text-extractor" className="block text-sm font-medium text-foreground">
-              Text Extractor *
+              {t('projects.guidedSetup.textExtractorLabel')}
             </label>
             <Select value={textExtractorId} onValueChange={setTextExtractorId}>
               <SelectTrigger id="text-extractor" className="mt-1">
-                <SelectValue placeholder="Select text extractor..." />
+                <SelectValue placeholder={t('projects.guidedSetup.textExtractorPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {extractors.map((extractor) => (
                   <SelectItem key={extractor.id} value={extractor.id}>
-                    {extractor.name} {extractor.isActive ? '' : '(Inactive)'}
+                    {extractor.name} {extractor.isActive ? '' : t('projects.guidedSetup.inactiveSuffix')}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <p className="mt-1 text-xs text-muted-foreground">
-              Choose the extractor used to turn documents into text.
+              {t('projects.guidedSetup.textExtractorHint')}
             </p>
           </div>
           <div>
             <label htmlFor="llm-model" className="block text-sm font-medium text-foreground">
-              LLM Model *
+              {t('projects.guidedSetup.llmModelLabel')}
             </label>
             <Select value={llmModelId} onValueChange={setLlmModelId}>
               <SelectTrigger id="llm-model" className="mt-1">
-                <SelectValue placeholder="Select LLM model..." />
+                <SelectValue placeholder={t('projects.guidedSetup.llmModelPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {llmModels.map((model) => (
                   <SelectItem key={model.id} value={model.id}>
-                    {model.name} {model.isActive ? '' : '(Inactive)'}
+                    {model.name} {model.isActive ? '' : t('projects.guidedSetup.inactiveSuffix')}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <p className="mt-1 text-xs text-muted-foreground">
-              The selected LLM will generate schema and rules.
+              {t('projects.guidedSetup.llmModelHint')}
             </p>
           </div>
         </div>
@@ -451,14 +458,14 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
               onClick={() => setShowGenerateModal(true)}
               variant="outline"
             >
-              Generate by LLM
+              {t('projects.guidedSetup.schema.generateByLlm')}
             </Button>
             <Button
               type="button"
               onClick={() => setShowImportModal(true)}
               variant="outline"
             >
-              Import File
+              {t('projects.guidedSetup.schema.importFile')}
             </Button>
           </div>
 
@@ -485,7 +492,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
         <div className="space-y-6">
           <div>
             <label htmlFor="rule-description" className="block text-sm font-medium text-foreground">
-              Describe validation requirements
+              {t('projects.guidedSetup.rules.descriptionLabel')}
             </label>
             <Textarea
               id="rule-description"
@@ -493,7 +500,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
               onChange={(event) => setRulesDescription(event.target.value)}
               rows={4}
               className="mt-1"
-              placeholder="PO number must be 7 digits. Units should be KG, EA, or M. Apply OCR corrections for common errors."
+              placeholder={t('projects.guidedSetup.rules.descriptionPlaceholder')}
             />
           </div>
           <div className="flex flex-wrap gap-3">
@@ -503,7 +510,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
               disabled={isGeneratingRules || !rulesDescription.trim()}
               variant="outline"
             >
-              {isGeneratingRules ? 'Generating...' : 'Generate Rules'}
+              {isGeneratingRules ? t('projects.guidedSetup.rules.generating') : t('projects.guidedSetup.rules.generate')}
             </Button>
             <Button
               type="button"
@@ -511,7 +518,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
               disabled={isGeneratingRules}
               variant="outline"
             >
-              Auto-Generate All
+              {t('projects.guidedSetup.rules.autoGenerateAll')}
             </Button>
           </div>
 
@@ -525,24 +532,24 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-sm font-semibold text-foreground">Validation Scripts</h3>
+              <h3 className="text-sm font-semibold text-foreground">{t('projects.guidedSetup.validationScripts.title')}</h3>
               <p className="text-sm text-muted-foreground">
-                Add validation scripts that run after extraction for this project.
+                {t('projects.guidedSetup.validationScripts.subtitle')}
               </p>
             </div>
             <Button
               type="button"
               onClick={handleAddScript}
             >
-              New Script
+              {t('projects.guidedSetup.validationScripts.newScript')}
             </Button>
           </div>
 
           {validationScripts.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border p-6">
               <EmptyState
-                title="No validation scripts"
-                description="Add one to enforce project-specific checks."
+                title={t('projects.guidedSetup.validationScripts.emptyTitle')}
+                description={t('projects.guidedSetup.validationScripts.emptyDescription')}
               />
             </div>
           ) : (
@@ -556,7 +563,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
                     <div>
                       <div className="flex items-center gap-2">
                         <h4 className="text-sm font-semibold text-foreground">
-                          {script.name || 'Untitled Script'}
+                          {script.name || t('projects.guidedSetup.validationScripts.untitled')}
                         </h4>
                         <span
                           className={`px-2 py-0.5 text-xs font-medium rounded ${
@@ -569,7 +576,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
                         </span>
                         {!script.enabled && (
                           <span className="px-2 py-0.5 text-xs font-medium rounded bg-muted text-muted-foreground">
-                            Disabled
+                            {t('projects.guidedSetup.validationScripts.disabled')}
                           </span>
                         )}
                       </div>
@@ -585,7 +592,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
                         size="sm"
                         className="text-muted-foreground hover:text-foreground"
                       >
-                        Edit
+                        {t('projects.guidedSetup.validationScripts.edit')}
                       </Button>
                       <Button
                         type="button"
@@ -594,7 +601,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
                         size="sm"
                         className="text-destructive hover:text-destructive"
                       >
-                        Remove
+                        {t('projects.guidedSetup.validationScripts.remove')}
                       </Button>
                     </div>
                   </div>
@@ -618,28 +625,36 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
     return (
       <div className="space-y-4 text-sm text-foreground">
         <div className="rounded-md border border-border p-4">
-          <div className="font-semibold">Project</div>
+          <div className="font-semibold">{t('projects.guidedSetup.review.projectTitle')}</div>
           <div className="mt-1">{name}</div>
           {description && <div className="mt-1 text-muted-foreground">{description}</div>}
         </div>
         <div className="rounded-md border border-border p-4">
-          <div className="font-semibold">Extraction Setup</div>
-          <div className="mt-1 text-muted-foreground">Extractor: {textExtractorId || 'None'}</div>
-          <div className="text-muted-foreground">LLM: {llmModelId || 'None'}</div>
-        </div>
-        <div className="rounded-md border border-border p-4">
-          <div className="font-semibold">Schema</div>
-          <div className="mt-1 text-muted-foreground">JSON Schema</div>
-          <div className="mt-2 text-xs text-muted-foreground">Required fields: {requiredCount}</div>
-        </div>
-        <div className="rounded-md border border-border p-4">
-          <div className="font-semibold">Rules</div>
-          <div className="mt-1 text-muted-foreground">{rules.length} rule{rules.length !== 1 ? 's' : ''}</div>
-        </div>
-        <div className="rounded-md border border-border p-4">
-          <div className="font-semibold">Validation Scripts</div>
+          <div className="font-semibold">{t('projects.guidedSetup.review.extractionSetupTitle')}</div>
           <div className="mt-1 text-muted-foreground">
-            {validationScripts.length} script{validationScripts.length !== 1 ? 's' : ''}
+            {t('projects.guidedSetup.review.extractorLine', { value: textExtractorId || t('projects.guidedSetup.review.none') })}
+          </div>
+          <div className="text-muted-foreground">
+            {t('projects.guidedSetup.review.llmLine', { value: llmModelId || t('projects.guidedSetup.review.none') })}
+          </div>
+        </div>
+        <div className="rounded-md border border-border p-4">
+          <div className="font-semibold">{t('projects.guidedSetup.review.schemaTitle')}</div>
+          <div className="mt-1 text-muted-foreground">{t('projects.guidedSetup.review.schemaSubtitle')}</div>
+          <div className="mt-2 text-xs text-muted-foreground">
+            {t('projects.guidedSetup.review.requiredFields', { count: requiredCount })}
+          </div>
+        </div>
+        <div className="rounded-md border border-border p-4">
+          <div className="font-semibold">{t('projects.guidedSetup.review.rulesTitle')}</div>
+          <div className="mt-1 text-muted-foreground">
+            {t('projects.guidedSetup.review.rulesCount', { count: rules.length })}
+          </div>
+        </div>
+        <div className="rounded-md border border-border p-4">
+          <div className="font-semibold">{t('projects.guidedSetup.review.validationScriptsTitle')}</div>
+          <div className="mt-1 text-muted-foreground">
+            {t('projects.guidedSetup.review.validationScriptsCount', { count: validationScripts.length })}
           </div>
         </div>
       </div>
@@ -657,9 +672,9 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
     >
       <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
-          <DialogTitle>Guided Project Setup</DialogTitle>
+          <DialogTitle>{t('projects.guidedSetup.title')}</DialogTitle>
           <DialogDescription>
-            Set up models, schema, rules, and validation scripts in a guided flow.
+            {t('projects.guidedSetup.subtitle')}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-6">
@@ -685,7 +700,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
           {renderStep()}
           <div className="flex items-center justify-between">
             <div className="text-xs text-muted-foreground">
-              Step {step} of {stepLabels.length}
+              {t('projects.guidedSetup.stepCounter', { step, total: stepLabels.length })}
             </div>
             <div className="flex items-center gap-3">
               <Button
@@ -694,7 +709,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
                 disabled={step === 1 || isSubmitting}
                 variant="outline"
               >
-                Back
+                {t('projects.guidedSetup.back')}
               </Button>
               {step < stepLabels.length ? (
                 <Button
@@ -702,7 +717,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
                   onClick={() => setStep((prev) => prev + 1)}
                   disabled={!canContinue() || isSubmitting}
                 >
-                  Next
+                  {t('projects.guidedSetup.next')}
                 </Button>
               ) : (
                 <Button
@@ -710,7 +725,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
                   onClick={handleCreate}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? 'Creating...' : 'Create Project'}
+                  {isSubmitting ? t('projects.guidedSetup.creating') : t('projects.guidedSetup.createProject')}
                 </Button>
               )}
             </div>
@@ -744,10 +759,12 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
           <DialogContent className="sm:max-w-3xl">
             <DialogHeader>
               <DialogTitle>
-                {editingValidationScript.id ? 'Edit Validation Script' : 'New Validation Script'}
+                {editingValidationScript.id
+                  ? t('projects.guidedSetup.validationScriptDialog.editTitle')
+                  : t('projects.guidedSetup.validationScriptDialog.newTitle')}
               </DialogTitle>
               <DialogDescription>
-                Configure validation logic that runs after extraction.
+                {t('projects.guidedSetup.validationScriptDialog.subtitle')}
               </DialogDescription>
             </DialogHeader>
             <ValidationScriptForm

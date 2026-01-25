@@ -40,6 +40,7 @@ describe('SchemasController', () => {
   const schema: SchemaEntity = {
     id: 1,
     name: 'Invoice Schema',
+    schemaVersion: null,
     jsonSchema: { type: 'object', properties: {} },
     requiredFields: [],
     projectId: 1,

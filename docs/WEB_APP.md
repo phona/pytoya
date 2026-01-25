@@ -73,6 +73,11 @@ Schema access is project-scoped and available from the project settings dropdown
 - Schema-driven columns support:
   - Click header to sort via `sortBy=<fieldPath>&order=<asc|desc>`
   - Header filter dropdown (search + value picker) to filter via `filter[<fieldPath>]=<value>`
+- Filter/sort semantics are schema-type-driven (based on JSON Schema `type`/`format`):
+  - `type=string` → ILIKE filter + lexicographic sort
+  - `type=number|integer` → numeric equality filter + numeric sort
+  - `format=date|date-time` → date/date-time equality filter + chronological sort
+  - `type=boolean` → boolean equality filter + boolean sort
 - Table view includes a `Columns` dropdown to show/hide schema columns (and Status); Filename and Actions are pinned.
 - Table row clicks are non-navigational; click the Filename to open the audit page.
 - The Actions column uses a single `⋮` menu for Preview OCR, Run validation, Extract / Re-extract, and Delete.

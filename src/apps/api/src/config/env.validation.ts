@@ -99,6 +99,10 @@ class ServerConfig {
 
   @IsOptional()
   @IsString()
+  basePath?: string;
+
+  @IsOptional()
+  @IsString()
   logLevel?: string;
 }
 

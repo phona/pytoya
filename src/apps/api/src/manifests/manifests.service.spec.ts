@@ -7,6 +7,7 @@ import { ManifestEntity } from '../entities/manifest.entity';
 import { ManifestItemEntity } from '../entities/manifest-item.entity';
 import { ModelEntity } from '../entities/model.entity';
 import { PromptEntity } from '../entities/prompt.entity';
+import { SchemaEntity } from '../entities/schema.entity';
 import { GroupsService } from '../groups/groups.service';
 import { TextExtractorService } from '../text-extractor/text-extractor.service';
 import { StorageService } from '../storage/storage.service';
@@ -27,6 +28,7 @@ describe('ManifestsService', () => {
   let service: ManifestsService;
   let manifestRepository: jest.Mocked<Repository<ManifestEntity>>;
   let jobRepository: jest.Mocked<Repository<JobEntity>>;
+  let schemaRepository: jest.Mocked<Repository<SchemaEntity>>;
   let groupsService: jest.Mocked<GroupsService>;
   let storageService: { saveFile: jest.Mock };
   let queryBuilder: ReturnType<typeof createQueryBuilder>;
@@ -43,8 +45,28 @@ describe('ManifestsService', () => {
 
     jobRepository = {} as jest.Mocked<Repository<JobEntity>>;
 
+    schemaRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 1,
+        jsonSchema: {
+          type: 'object',
+          properties: {
+            invoice: {
+              type: 'object',
+              properties: {
+                po_no: { type: 'string' },
+                total_amount: { type: 'number' },
+              },
+            },
+          },
+        },
+      } as any),
+    } as unknown as jest.Mocked<Repository<SchemaEntity>>;
+
     groupsService = {
-      findOne: jest.fn().mockResolvedValue({ id: 1, projectId: 1 }),
+      findOne: jest
+        .fn()
+        .mockResolvedValue({ id: 1, projectId: 1, project: { defaultSchemaId: 1 } } as any),
     } as unknown as jest.Mocked<GroupsService>;
 
     storageService = {
@@ -59,6 +81,7 @@ describe('ManifestsService', () => {
         { provide: getRepositoryToken(JobEntity), useValue: jobRepository },
         { provide: getRepositoryToken(ModelEntity), useValue: {} },
         { provide: getRepositoryToken(PromptEntity), useValue: {} },
+        { provide: getRepositoryToken(SchemaEntity), useValue: schemaRepository },
         { provide: GroupsService, useValue: groupsService },
         { provide: StorageService, useValue: storageService },
         { provide: TextExtractorService, useValue: {} },
@@ -94,15 +117,38 @@ describe('ManifestsService', () => {
     expect(queryBuilder.orderBy).toHaveBeenCalledWith('manifest.filename', 'DESC');
   });
 
-  it('sorts by jsonb fields with numeric hint', async () => {
+  it('sorts by jsonb string fields using lexicographic ordering', async () => {
     await service.findByGroup({ id: 1 } as any, 1, {
       sortBy: 'invoice.po_no',
       order: 'asc',
     });
 
     const [orderByExpression] = queryBuilder.orderBy.mock.calls[0];
-    expect(orderByExpression).toContain('CASE WHEN');
     expect(orderByExpression).toContain("manifest.extractedData -> 'invoice' ->> 'po_no'");
+  });
+
+  it('sorts by jsonb numeric fields using numeric ordering', async () => {
+    await service.findByGroup({ id: 1 } as any, 1, {
+      sortBy: 'invoice.total_amount',
+      order: 'desc',
+    });
+
+    const [orderByExpression] = queryBuilder.orderBy.mock.calls[0];
+    expect(orderByExpression).toContain('CASE WHEN');
+    expect(orderByExpression).toContain('::numeric');
+    expect(orderByExpression).toContain("manifest.extractedData -> 'invoice' ->> 'total_amount'");
+  });
+
+  it('filters jsonb numeric fields using numeric comparisons', async () => {
+    await service.findByGroup({ id: 1 } as any, 1, {
+      filter: { 'invoice.total_amount': '100' },
+    });
+
+    const [whereExpression, params] = queryBuilder.andWhere.mock.calls.find((call) =>
+      String(call[0]).includes('::numeric'),
+    ) as any;
+    expect(whereExpression).toContain('= :filterValue0');
+    expect(params).toEqual({ filterValue0: 100 });
   });
 
   it('rejects invalid field paths', async () => {

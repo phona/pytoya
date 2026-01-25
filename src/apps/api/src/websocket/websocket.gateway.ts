@@ -50,7 +50,7 @@ interface OcrUpdatePayload {
 })
 export class ManifestGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
-  server: Server;
+  server: Server | undefined;
 
   private readonly logger = new Logger(ManifestGateway.name);
   private readonly manifestSubscriptions = new Map<number, Set<string>>();
@@ -120,6 +120,9 @@ export class ManifestGateway implements OnGatewayConnection, OnGatewayDisconnect
    * Called by BullMQ processor to broadcast job progress updates
    */
   emitJobUpdate(payload: JobUpdatePayload) {
+    if (!this.server) {
+      return;
+    }
     const {
       jobId,
       manifestId,
@@ -158,6 +161,9 @@ export class ManifestGateway implements OnGatewayConnection, OnGatewayDisconnect
    * Called when manifest status changes
    */
   emitManifestUpdate(payload: ManifestUpdatePayload) {
+    if (!this.server) {
+      return;
+    }
     const { manifestId, status, progress, error, cost, currency, costBreakdown, extractorId } = payload;
     this.logger.debug(`Emitting manifest update for manifest ${manifestId}: ${status}`);
 
@@ -177,6 +183,9 @@ export class ManifestGateway implements OnGatewayConnection, OnGatewayDisconnect
    * Called when OCR processing completes
    */
   emitOcrUpdate(payload: OcrUpdatePayload) {
+    if (!this.server) {
+      return;
+    }
     const { manifestId, hasOcr, qualityScore, processedAt } = payload;
     this.logger.debug(`Emitting OCR update for manifest ${manifestId}`);
 

@@ -1,7 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
-  IsDate,
   IsIn,
   IsInt,
   IsNumber,
@@ -61,24 +60,6 @@ export class DynamicFieldFiltersDto {
   @IsOptional()
   @IsIn(MANIFEST_STATUS_VALUES)
   status?: ManifestStatusValue;
-
-  @IsOptional()
-  @IsString()
-  poNo?: string;
-
-  @IsOptional()
-  @IsString()
-  department?: string;
-
-  @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  dateFrom?: Date;
-
-  @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  dateTo?: Date;
 
   @IsOptional()
   @Transform(({ value }) => {

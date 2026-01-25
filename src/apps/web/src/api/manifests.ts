@@ -51,6 +51,10 @@ export interface ValidationResult {
   errorCount: number;
   warningCount: number;
   validatedAt: string;
+  schemaId?: number | null;
+  schemaVersion?: string | null;
+  validationScriptsVersion?: string | null;
+  validationScriptIds?: number[];
 }
 
 export interface UploadManifestDto {
@@ -110,10 +114,6 @@ export const manifestsApi = {
     const filters = params?.filters;
 
     if (filters?.status) searchParams.append('status', filters.status);
-    if (filters?.poNo) searchParams.append('poNo', filters.poNo);
-    if (filters?.department) searchParams.append('department', filters.department);
-    if (filters?.dateFrom) searchParams.append('dateFrom', filters.dateFrom);
-    if (filters?.dateTo) searchParams.append('dateTo', filters.dateTo);
     if (filters?.humanVerified !== undefined) {
       searchParams.append('humanVerified', String(filters.humanVerified));
     }
@@ -347,10 +347,6 @@ export const manifestsApi = {
     status?: string;
     groupId?: number;
     projectId?: number;
-    poNo?: string;
-    department?: string;
-    dateFrom?: string;
-    dateTo?: string;
     humanVerified?: boolean;
     confidenceMin?: number;
     confidenceMax?: number;
@@ -364,10 +360,6 @@ export const manifestsApi = {
     if (filters?.status) params.append('status', filters.status);
     if (filters?.groupId) params.append('groupId', filters.groupId.toString());
     if (filters?.projectId) params.append('projectId', filters.projectId.toString());
-    if (filters?.poNo) params.append('poNo', filters.poNo);
-    if (filters?.department) params.append('department', filters.department);
-    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
-    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
     if (filters?.humanVerified !== undefined) params.append('humanVerified', filters.humanVerified.toString());
     if (filters?.confidenceMin !== undefined) params.append('confidenceMin', filters.confidenceMin.toString());
     if (filters?.confidenceMax !== undefined) params.append('confidenceMax', filters.confidenceMax.toString());
@@ -389,10 +381,6 @@ export const manifestsApi = {
     status?: string;
     groupId?: number;
     projectId?: number;
-    poNo?: string;
-    department?: string;
-    dateFrom?: string;
-    dateTo?: string;
     humanVerified?: boolean;
     confidenceMin?: number;
     confidenceMax?: number;
@@ -406,10 +394,6 @@ export const manifestsApi = {
     if (filters?.status) params.append('status', filters.status);
     if (filters?.groupId) params.append('groupId', filters.groupId.toString());
     if (filters?.projectId) params.append('projectId', filters.projectId.toString());
-    if (filters?.poNo) params.append('poNo', filters.poNo);
-    if (filters?.department) params.append('department', filters.department);
-    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
-    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
     if (filters?.humanVerified !== undefined) params.append('humanVerified', filters.humanVerified.toString());
     if (filters?.confidenceMin !== undefined) params.append('confidenceMin', filters.confidenceMin.toString());
     if (filters?.confidenceMax !== undefined) params.append('confidenceMax', filters.confidenceMax.toString());

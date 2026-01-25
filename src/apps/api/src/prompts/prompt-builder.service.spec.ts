@@ -9,6 +9,7 @@ describe('PromptBuilderService', () => {
     const schema: SchemaEntity = {
       id: 1,
       name: 'Invoice Schema',
+      schemaVersion: null,
       jsonSchema: {
         type: 'object',
         properties: {
@@ -81,6 +82,7 @@ describe('PromptBuilderService', () => {
     const schema: SchemaEntity = {
       id: 1,
       name: 'Schema',
+      schemaVersion: null,
       jsonSchema: { type: 'object', properties: {} },
       requiredFields: [],
       projectId: 1,
@@ -102,6 +104,7 @@ describe('PromptBuilderService', () => {
     const schema = {
       id: 1,
       name: 'Schema',
+      schemaVersion: null,
       jsonSchema: { type: 'object', properties: {} },
       requiredFields: [],
       projectId: 1,
@@ -136,6 +139,7 @@ describe('PromptBuilderService', () => {
     const schema = {
       id: 1,
       name: 'Schema',
+      schemaVersion: null,
       jsonSchema: { type: 'object', properties: {} },
       requiredFields: [],
       projectId: 1,

@@ -40,7 +40,7 @@ This flag is blocked when `NODE_ENV=production`.
 - Allowed characters: letters, numbers, `_`, `-`
 
 ## File Access Protection
-The `/uploads` route requires a valid JWT and checks project ownership.
+The `/api/uploads` route (relative to the deployment base path) requires a valid JWT and checks project ownership.
 Admins bypass ownership checks.
 
 ## Request Tracing

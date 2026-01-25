@@ -36,6 +36,16 @@ if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
 
+// Blob URL helpers are not always present in jsdom
+if (typeof window !== 'undefined' && window.URL) {
+  if (!('createObjectURL' in window.URL)) {
+    (window.URL as any).createObjectURL = () => 'blob:mock';
+  }
+  if (!('revokeObjectURL' in window.URL)) {
+    (window.URL as any).revokeObjectURL = () => {};
+  }
+}
+
 // Suppress expected console errors in tests (unless debugging)
 const originalError = console.error;
 const originalWarn = console.warn;

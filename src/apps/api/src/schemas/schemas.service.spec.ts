@@ -10,6 +10,9 @@ describe('SchemasService', () => {
     find: jest.Mock;
     findOne: jest.Mock;
   };
+  let projectRepository: { findOne: jest.Mock; update: jest.Mock };
+  let schemaRuleRepository: { find: jest.Mock; create: jest.Mock; save: jest.Mock };
+  let manifestRepository: { query: jest.Mock };
 
   beforeEach(() => {
     schemaRepository = {
@@ -19,7 +22,16 @@ describe('SchemasService', () => {
       findOne: jest.fn(),
     };
 
-    service = new SchemasService(schemaRepository as any);
+    projectRepository = { findOne: jest.fn(), update: jest.fn() };
+    schemaRuleRepository = { find: jest.fn(), create: jest.fn(), save: jest.fn() };
+    manifestRepository = { query: jest.fn() };
+
+    service = new SchemasService(
+      schemaRepository as any,
+      projectRepository as any,
+      schemaRuleRepository as any,
+      manifestRepository as any,
+    );
   });
 
   it('validates a JSON schema definition', () => {

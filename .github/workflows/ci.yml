@@ -20,11 +20,14 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Test
-        run: npm run test
-
       - name: Lint
         run: npm run lint
 
       - name: Type Check
         run: npm run type-check
+
+      - name: Test (API)
+        run: npm run test --workspace=@pytoya/api
+
+      - name: Test + Coverage Gates (Web)
+        run: npm run test:coverage --workspace=@pytoya/web

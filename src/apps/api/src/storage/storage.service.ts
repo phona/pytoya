@@ -1,7 +1,5 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -19,6 +17,22 @@ type StoredFileInfo = {
 @Injectable()
 export class StorageService {
   private readonly uploadsRoot = path.resolve(process.cwd(), 'uploads');
+  private readonly publicUploadsBasePath: string;
+
+  constructor(private readonly configService: ConfigService) {
+    const normalizeBasePath = (value: unknown): string => {
+      if (typeof value !== 'string') return '';
+      const trimmed = value.trim();
+      if (!trimmed || trimmed === '/') return '';
+      const withLeading = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+      return withLeading.endsWith('/') ? withLeading.slice(0, -1) : withLeading;
+    };
+
+    const basePath = normalizeBasePath(this.configService.get('server.basePath'));
+    this.publicUploadsBasePath = basePath
+      ? `${basePath}/api/uploads`
+      : '/api/uploads';
+  }
 
   getStoragePath(projectId: number, groupId: number): string {
     return path.join(
@@ -97,6 +111,6 @@ export class StorageService {
   getPublicPath(filepath: string): string {
     const relativePath = path.relative(this.uploadsRoot, filepath);
     const normalizedPath = relativePath.split(path.sep).join('/');
-    return `/uploads/${normalizedPath}`;
+    return `${this.publicUploadsBasePath}/${normalizedPath}`;
   }
 }

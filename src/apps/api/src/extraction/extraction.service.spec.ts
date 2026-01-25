@@ -760,4 +760,220 @@ describe('ExtractionService', () => {
     expect(stageErrorCall).toBeDefined();
     expect(stageErrorCall?.[0]).toContain('manifestId=1');
   });
+
+  it('logs stage boundary lines in order', async () => {
+    const manifestRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 1,
+        storagePath: '/tmp/test.pdf',
+        originalFilename: 'test.pdf',
+        fileType: 'pdf',
+        status: ManifestStatus.PENDING,
+        extractedData: null,
+        group: {
+          project: {
+            id: 1,
+            llmModelId: 'model-1',
+            defaultSchemaId: 'schema-1',
+            textExtractorId: 'extractor-1',
+          },
+        },
+      }),
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const modelRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'model-1',
+        adapterType: 'openai',
+        parameters: {
+          baseUrl: 'https://api.openai.com/v1',
+          apiKey: 'sk-test',
+          modelName: 'gpt-4o',
+        },
+        pricing: {
+          effectiveDate: new Date().toISOString(),
+          llm: { inputPrice: 2, outputPrice: 4, currency: 'USD' },
+        },
+      }),
+    };
+
+    const promptRepository = { findOne: jest.fn().mockResolvedValue(null) };
+    const textExtractorService = {
+      extract: jest.fn().mockResolvedValue({
+        extractor: { id: 'extractor-1' },
+        result: {
+          text: 'extracted text',
+          markdown: 'extracted text',
+          metadata: { textCost: 0.05, currency: 'USD', processingTimeMs: 12 },
+        },
+      }),
+    };
+    const llmService = {
+      createChatCompletion: jest.fn().mockResolvedValue({
+        content: '{"items":[],"_extraction_info":{"confidence":0.9}}',
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      }),
+      providerSupportsStructuredOutput: jest.fn().mockReturnValue(true),
+    };
+    const promptBuilderService = {
+      buildExtractionPrompt: jest.fn().mockReturnValue({ systemContext: '', userInput: 'prompt' }),
+      buildReExtractPrompt: jest.fn().mockReturnValue({ systemContext: '', userInput: 'prompt' }),
+    };
+    const promptsService = {
+      getSystemPrompt: jest.fn().mockReturnValue('system'),
+      getReExtractSystemPrompt: jest.fn().mockReturnValue('system'),
+    };
+    const schemaRulesService = { findBySchema: jest.fn().mockResolvedValue([]) };
+    const schemasService = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'schema-1',
+        jsonSchema: {},
+        requiredFields: ['items'],
+        systemPromptTemplate: null,
+      }),
+      validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
+    };
+    const modelPricingService = {
+      calculateLlmCost: jest.fn().mockReturnValue(0.15),
+      getCurrency: jest.fn().mockReturnValue('USD'),
+    };
+    const configService = { get: jest.fn().mockReturnValue(undefined) };
+    const fileSystem = {
+      readFile: jest.fn().mockResolvedValue(Buffer.from('pdf')),
+      getFileStats: jest.fn().mockResolvedValue({ isFile: true, size: 100 }),
+    };
+    const manifestsService = {
+      updateJobPromptSnapshot: jest.fn(),
+      updateJobAssistantResponse: jest.fn(),
+    };
+
+    const service = new ExtractionService(
+      manifestRepository as any,
+      {} as any,
+      modelRepository as any,
+      promptRepository as any,
+      textExtractorService as any,
+      llmService as any,
+      promptBuilderService as any,
+      promptsService as any,
+      schemaRulesService as any,
+      schemasService as any,
+      modelPricingService as any,
+      configService as any,
+      fileSystem as any,
+      manifestsService as any,
+    );
+
+    await service.runExtraction(1);
+
+    const lines = logSpy.mock.calls.map((call) => String(call[0]));
+    const validatingStart = lines.findIndex((line) => line.includes('event=start') && line.includes('stage=VALIDATING'));
+    const textStart = lines.findIndex((line) => line.includes('event=start') && line.includes('stage=TEXT_EXTRACTING'));
+    const extractingStart = lines.findIndex((line) => line.includes('event=start') && line.includes('stage=EXTRACTING'));
+    const savingStart = lines.findIndex((line) => line.includes('event=start') && line.includes('stage=SAVING'));
+
+    expect(validatingStart).toBeGreaterThanOrEqual(0);
+    expect(textStart).toBeGreaterThan(validatingStart);
+    expect(extractingStart).toBeGreaterThan(textStart);
+    expect(savingStart).toBeGreaterThan(extractingStart);
+  });
+
+  it('attributes failures to a stage in logs', async () => {
+    const manifestRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 1,
+        storagePath: '/tmp/test.pdf',
+        originalFilename: 'test.pdf',
+        fileType: 'pdf',
+        status: ManifestStatus.PENDING,
+        extractedData: null,
+        group: {
+          project: {
+            id: 1,
+            llmModelId: 'model-1',
+            defaultSchemaId: 'schema-1',
+            textExtractorId: 'extractor-1',
+          },
+        },
+      }),
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const modelRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'model-1',
+        adapterType: 'openai',
+        parameters: {
+          baseUrl: 'https://api.openai.com/v1',
+          apiKey: 'sk-test',
+          modelName: 'gpt-4o',
+        },
+        pricing: {
+          effectiveDate: new Date().toISOString(),
+          llm: { inputPrice: 2, outputPrice: 4, currency: 'USD' },
+        },
+      }),
+    };
+
+    const promptRepository = { findOne: jest.fn().mockResolvedValue(null) };
+    const textExtractorService = { extract: jest.fn() };
+    const llmService = {
+      createChatCompletion: jest.fn(),
+      providerSupportsStructuredOutput: jest.fn().mockReturnValue(true),
+    };
+    const promptBuilderService = {
+      buildExtractionPrompt: jest.fn(),
+      buildReExtractPrompt: jest.fn(),
+    };
+    const promptsService = {
+      getSystemPrompt: jest.fn(),
+      getReExtractSystemPrompt: jest.fn(),
+    };
+    const schemaRulesService = { findBySchema: jest.fn().mockResolvedValue([]) };
+    const schemasService = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'schema-1',
+        jsonSchema: {},
+        requiredFields: ['items'],
+        systemPromptTemplate: null,
+      }),
+      validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
+    };
+    const modelPricingService = {
+      calculateLlmCost: jest.fn(),
+      getCurrency: jest.fn(),
+    };
+    const configService = { get: jest.fn().mockReturnValue(undefined) };
+    const fileSystem = {
+      readFile: jest.fn().mockRejectedValue(new Error('disk read failed')),
+      getFileStats: jest.fn().mockResolvedValue({ isFile: true, size: 100 }),
+    };
+    const manifestsService = {
+      updateJobPromptSnapshot: jest.fn(),
+      updateJobAssistantResponse: jest.fn(),
+    };
+
+    const service = new ExtractionService(
+      manifestRepository as any,
+      {} as any,
+      modelRepository as any,
+      promptRepository as any,
+      textExtractorService as any,
+      llmService as any,
+      promptBuilderService as any,
+      promptsService as any,
+      schemaRulesService as any,
+      schemasService as any,
+      modelPricingService as any,
+      configService as any,
+      fileSystem as any,
+      manifestsService as any,
+    );
+
+    await expect(service.runExtraction(1)).rejects.toThrow('disk read failed');
+
+    const errorLines = errorSpy.mock.calls.map((call) => String(call[0]));
+    expect(errorLines.some((line) => line.includes('event=fail') && line.includes('stage=TEXT_EXTRACTING') && line.includes('manifestId=1'))).toBe(true);
+  });
 });

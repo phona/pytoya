@@ -117,6 +117,14 @@ describe('AuditPanel', () => {
     vi.useRealTimers();
   });
 
+  it('does not show storagePath in the header', () => {
+    renderWithProviders(
+      <AuditPanel projectId={1} groupId={1} manifestId={1} onClose={vi.fn()} allManifestIds={[1]} />,
+    );
+
+    expect(screen.queryByText('/invoice.pdf')).not.toBeInTheDocument();
+  });
+
   it('requires confirmation before saving Human Verified when validation has errors', async () => {
     runValidationMutateAsync.mockResolvedValue({
       issues: [],

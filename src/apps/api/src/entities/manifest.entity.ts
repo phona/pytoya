@@ -28,6 +28,10 @@ export interface ValidationResult {
   errorCount: number;
   warningCount: number;
   validatedAt: string;
+  schemaId?: number | null;
+  schemaVersion?: string | null;
+  validationScriptsVersion?: string | null;
+  validationScriptIds?: number[];
 }
 
 export enum ManifestStatus {

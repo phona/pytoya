@@ -5,10 +5,6 @@ export type DynamicManifestFilter = {
 
 export type ManifestFilterValues = {
   status?: 'pending' | 'processing' | 'completed' | 'failed';
-  poNo?: string;
-  dateFrom?: string;
-  dateTo?: string;
-  department?: string;
   confidenceMin?: number;
   confidenceMax?: number;
   ocrQualityMin?: number;

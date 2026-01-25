@@ -42,7 +42,7 @@ describe('SidebarNav', () => {
             <SidebarNav
               isDesktop={false}
               isDesktopCollapsed={false}
-              isOpen={false}
+              isOpen={true}
               onClose={vi.fn()}
               onDesktopCollapse={vi.fn()}
               onDesktopExpand={vi.fn()}
@@ -105,7 +105,7 @@ describe('SidebarNav', () => {
         <SidebarNav
           isDesktop={false}
           isDesktopCollapsed={false}
-          isOpen={false}
+          isOpen={true}
           onClose={vi.fn()}
           onDesktopCollapse={vi.fn()}
           onDesktopExpand={vi.fn()}
@@ -127,7 +127,7 @@ describe('SidebarNav', () => {
         <SidebarNav
           isDesktop={false}
           isDesktopCollapsed={false}
-          isOpen={false}
+          isOpen={true}
           onClose={vi.fn()}
           onDesktopCollapse={vi.fn()}
           onDesktopExpand={vi.fn()}
@@ -164,6 +164,41 @@ describe('SidebarNav', () => {
     });
 
     expect(onDesktopCollapse).toHaveBeenCalledTimes(1);
+  });
+
+  it('removes sidebar links from a11y tree when mobile sidebar is closed', async () => {
+    await act(async () => {
+      renderWithProviders(
+        <SidebarNav
+          isDesktop={false}
+          isDesktopCollapsed={false}
+          isOpen={false}
+          onClose={vi.fn()}
+          onDesktopCollapse={vi.fn()}
+          onDesktopExpand={vi.fn()}
+        />,
+      );
+    });
+
+    expect(screen.queryByRole('link', { name: 'Projects' })).not.toBeInTheDocument();
+  });
+
+  it('removes sidebar links from a11y tree when desktop sidebar is collapsed', async () => {
+    await act(async () => {
+      renderWithProviders(
+        <SidebarNav
+          isDesktop={true}
+          isDesktopCollapsed={true}
+          isOpen={false}
+          onClose={vi.fn()}
+          onDesktopCollapse={vi.fn()}
+          onDesktopExpand={vi.fn()}
+        />,
+      );
+    });
+
+    expect(screen.queryByRole('link', { name: 'Projects' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open sidebar' })).toBeInTheDocument();
   });
 });
 

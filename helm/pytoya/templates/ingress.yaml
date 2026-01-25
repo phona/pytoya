@@ -8,8 +8,16 @@
 {{- if not $hosts }}
 {{- $hosts = .Values.web.ingress.hosts -}}
 {{- end }}
-{{- $apiPath := default "/api" .Values.api.ingress.paths -}}
-{{- $webPath := default "/" .Values.web.ingress.paths -}}
+{{- $basePath := include "pytoya.basePath" . -}}
+{{- $apiPath := "/api" -}}
+{{- $webPath := "/" -}}
+{{- if $basePath -}}
+{{- $apiPath = printf "%s/api" $basePath -}}
+{{- $webPath = $basePath -}}
+{{- else -}}
+{{- $apiPath = default "/api" .Values.api.ingress.paths -}}
+{{- $webPath = default "/" .Values.web.ingress.paths -}}
+{{- end -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

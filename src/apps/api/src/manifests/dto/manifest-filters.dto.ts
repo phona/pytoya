@@ -1,12 +1,10 @@
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
-  IsDate,
   IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
-  IsString,
   Max,
   Min,
 } from 'class-validator';
@@ -27,24 +25,6 @@ export class ManifestFiltersDto {
   @IsInt()
   @Type(() => Number)
   projectId?: number;
-
-  @IsOptional()
-  @IsString()
-  poNo?: string;
-
-  @IsOptional()
-  @IsString()
-  department?: string;
-
-  @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  dateFrom?: Date;
-
-  @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  dateTo?: Date;
 
   @IsOptional()
   @IsBoolean()
