@@ -2,6 +2,8 @@ import { Global, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { ModelEntity } from '../entities/model.entity';
+import { ManifestEntity } from '../entities/manifest.entity';
+import { ProjectEntity } from '../entities/project.entity';
 import { SchemaEntity } from '../entities/schema.entity';
 import { SchemaRuleEntity } from '../entities/schema-rule.entity';
 import { SchemasController } from './schemas.controller';
@@ -14,7 +16,15 @@ import { SchemasService } from './schemas.service';
 
 @Global()
 @Module({
-  imports: [TypeOrmModule.forFeature([ModelEntity, SchemaEntity, SchemaRuleEntity])],
+  imports: [
+    TypeOrmModule.forFeature([
+      ManifestEntity,
+      ModelEntity,
+      ProjectEntity,
+      SchemaEntity,
+      SchemaRuleEntity,
+    ]),
+  ],
   controllers: [SchemasController, SchemaRulesController],
   providers: [
     SchemasService,
