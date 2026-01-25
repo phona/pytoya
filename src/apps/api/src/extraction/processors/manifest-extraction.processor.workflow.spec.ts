@@ -4,6 +4,7 @@ import { ExtractionService } from '../extraction.service';
 import { ManifestsService } from '../../manifests/manifests.service';
 import { WebSocketService } from '../../websocket/websocket.service';
 import { PROCESS_MANIFEST_JOB } from '../../queue/queue.constants';
+import { ManifestStatus } from '../../entities/manifest.entity';
 
 describe('ManifestExtractionProcessor (workflow without BullMQ/Redis)', () => {
   const makeJob = (overrides: Partial<any> = {}) =>
@@ -117,5 +118,45 @@ describe('ManifestExtractionProcessor (workflow without BullMQ/Redis)', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('marks job failed when extraction throws', async () => {
+    const extractionService = {
+      runExtraction: jest.fn().mockRejectedValue(new Error('LLM failed')),
+    } as unknown as jest.Mocked<ExtractionService>;
+
+    const manifestsService = {
+      getJobCancelRequest: jest.fn().mockResolvedValue({ requested: false }),
+      updateJobProgressByQueueJobId: jest.fn(),
+      updateJobCompleted: jest.fn(),
+      updateStatus: jest.fn(),
+      updateJobFailed: jest.fn(),
+      markJobCanceled: jest.fn(),
+    } as unknown as jest.Mocked<ManifestsService>;
+
+    const webSocketService = {
+      emitJobUpdate: jest.fn(),
+      emitManifestUpdate: jest.fn(),
+    } as unknown as jest.Mocked<WebSocketService>;
+
+    const processor = new ManifestExtractionProcessor(
+      extractionService,
+      manifestsService,
+      { get: jest.fn() } as unknown as ConfigService,
+      webSocketService,
+    );
+
+    const job = makeJob();
+
+    await expect(processor.process(job)).rejects.toThrow('LLM failed');
+
+    expect(manifestsService.updateStatus).toHaveBeenCalledWith(
+      1,
+      ManifestStatus.FAILED,
+    );
+    expect(manifestsService.updateJobFailed).toHaveBeenCalled();
+    expect(webSocketService.emitJobUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'failed' }),
+    );
   });
 });

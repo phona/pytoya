@@ -217,7 +217,10 @@ vi.mock('socket.io-client', () => {
   socket.on = vi.fn((event: string, handler: Handler) => {
     addListener(event, handler);
     if (event === 'connect') {
-      queueMicrotask(() => handler());
+      queueMicrotask(() => {
+        socket.connected = true;
+        handler();
+      });
     }
     return socket;
   });

@@ -16,6 +16,9 @@ import { ManifestEntity, FileType, ManifestStatus } from '../entities/manifest.e
 import { UserEntity, UserRole } from '../entities/user.entity';
 import { OcrResultDto } from './dto/ocr-result.dto';
 import { ManifestOcrHistoryEntryDto } from './dto/manifest-ocr-history.dto';
+import { ExtractManifestsUseCase } from '../usecases/extract-manifests.usecase';
+import { UpdateManifestUseCase } from '../usecases/update-manifest.usecase';
+import { UploadManifestsUseCase } from '../usecases/upload-manifests.usecase';
 
 /**
  * Integration tests for OCR result preview endpoints.
@@ -32,6 +35,20 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
   let storageService: jest.Mocked<StorageService>;
   let webSocketService: jest.Mocked<WebSocketService>;
   let manifestRepository: jest.Mocked<Repository<ManifestEntity>>;
+  let uploadManifestsUseCase: {
+    uploadSingle: jest.Mock;
+    uploadBatch: jest.Mock;
+  };
+  let extractManifestsUseCase: {
+    extractSingle: jest.Mock;
+    extractBulk: jest.Mock;
+    extractFiltered: jest.Mock;
+    reExtract: jest.Mock;
+    reExtractField: jest.Mock;
+  };
+  let updateManifestUseCase: {
+    update: jest.Mock;
+  };
 
   // Mock user
   const mockUser: UserEntity = {
@@ -173,6 +190,23 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
       find: jest.fn(),
     } as unknown as jest.Mocked<Repository<ManifestEntity>>;
 
+    uploadManifestsUseCase = {
+      uploadSingle: jest.fn(),
+      uploadBatch: jest.fn(),
+    };
+
+    extractManifestsUseCase = {
+      extractSingle: jest.fn(),
+      extractBulk: jest.fn(),
+      extractFiltered: jest.fn(),
+      reExtract: jest.fn(),
+      reExtractField: jest.fn(),
+    };
+
+    updateManifestUseCase = {
+      update: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ManifestsController],
       providers: [
@@ -187,6 +221,18 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
         },
         { provide: StorageService, useValue: storageService },
         { provide: WebSocketService, useValue: webSocketService },
+        {
+          provide: UploadManifestsUseCase,
+          useValue: uploadManifestsUseCase,
+        },
+        {
+          provide: ExtractManifestsUseCase,
+          useValue: extractManifestsUseCase,
+        },
+        {
+          provide: UpdateManifestUseCase,
+          useValue: updateManifestUseCase,
+        },
         { provide: getRepositoryToken(ManifestEntity), useValue: manifestRepository },
         { provide: getRepositoryToken(ModelEntity), useValue: {} },
       ],
@@ -272,13 +318,11 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
     };
 
     it('should return OCR preview for field re-extraction', async () => {
-      const manifest = createMockManifest({
-        ocrResult: createMockOcrResult() as unknown as ManifestEntity['ocrResult'],
+      extractManifestsUseCase.reExtractField.mockResolvedValue({
+        fieldName: 'invoice.po_no',
+        ocrPreview: mockOcrPreview,
+        jobId: 'job-123',
       });
-
-      manifestsService.findOne.mockResolvedValue(manifest);
-      manifestsService.buildOcrContextPreview.mockReturnValue(mockOcrPreview);
-      queueService.addExtractionJob.mockResolvedValue('job-123');
 
       const result = await controller.reExtractField(mockUser, 1, {
         fieldName: 'invoice.po_no',
@@ -291,29 +335,41 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
         ocrPreview: mockOcrPreview,
         jobId: 'job-123',
       });
-      expect(manifestsService.buildOcrContextPreview).toHaveBeenCalledWith(manifest, 'invoice.po_no');
-      expect(queueService.addExtractionJob).toHaveBeenCalled();
+      expect(extractManifestsUseCase.reExtractField).toHaveBeenCalledWith(
+        mockUser,
+        1,
+        {
+          fieldName: 'invoice.po_no',
+          llmModelId: 'llm-model-1',
+          previewOnly: false,
+        },
+      );
     });
 
     it('rejects re-extract preview when OCR is not present', async () => {
-      const manifest = createMockManifest({ ocrResult: null });
+      extractManifestsUseCase.reExtractField.mockRejectedValue(new BadRequestException('OCR not present'));
 
-      manifestsService.findOne.mockResolvedValue(manifest);
       await expect(
         controller.reExtractField(mockUser, 1, {
           fieldName: 'invoice.po_no',
           previewOnly: false,
         }),
       ).rejects.toThrow(BadRequestException);
+      expect(extractManifestsUseCase.reExtractField).toHaveBeenCalledWith(
+        mockUser,
+        1,
+        {
+          fieldName: 'invoice.po_no',
+          previewOnly: false,
+        },
+      );
     });
 
     it('should only return preview when previewOnly is true', async () => {
-      const manifest = createMockManifest({
-        ocrResult: createMockOcrResult() as unknown as ManifestEntity['ocrResult'],
+      extractManifestsUseCase.reExtractField.mockResolvedValue({
+        fieldName: 'invoice.po_no',
+        ocrPreview: mockOcrPreview,
       });
-
-      manifestsService.findOne.mockResolvedValue(manifest);
-      manifestsService.buildOcrContextPreview.mockReturnValue(mockOcrPreview);
 
       const result = await controller.reExtractField(mockUser, 1, {
         fieldName: 'invoice.po_no',
@@ -325,72 +381,74 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
         fieldName: 'invoice.po_no',
         ocrPreview: mockOcrPreview,
       });
-      expect(queueService.addExtractionJob).not.toHaveBeenCalled();
+      expect(extractManifestsUseCase.reExtractField).toHaveBeenCalledWith(
+        mockUser,
+        1,
+        {
+          fieldName: 'invoice.po_no',
+          llmModelId: 'llm-model-1',
+          previewOnly: true,
+        },
+      );
     });
   });
 
   describe('POST /manifests/extract-bulk', () => {
     it('queues extraction jobs', async () => {
-      const manifests = [
-        createMockManifest({
-          id: 1,
-          ocrResult: createMockOcrResult() as unknown as ManifestEntity['ocrResult'],
-        }),
-        createMockManifest({ id: 2, ocrResult: createMockOcrResult() as unknown as ManifestEntity['ocrResult'] }),
-      ];
-
-      manifestsService.findManyByIds.mockResolvedValue(manifests);
-      queueService.addExtractionJob.mockResolvedValueOnce('job-1').mockResolvedValueOnce('job-2');
+      extractManifestsUseCase.extractBulk.mockResolvedValue({
+        manifestCount: 2,
+        jobIds: ['job-1', 'job-2'],
+      });
 
       const result = await controller.extractBulk(mockUser, {
         manifestIds: [1, 2],
         llmModelId: 'llm-model-1',
       });
 
-      expect(queueService.addExtractionJob).toHaveBeenCalledTimes(2);
-      expect(result.manifestCount).toBe(2);
-      expect(result.jobIds).toEqual(['job-1', 'job-2']);
+      expect(result).toEqual({
+        manifestCount: 2,
+        jobIds: ['job-1', 'job-2'],
+      });
+      expect(extractManifestsUseCase.extractBulk).toHaveBeenCalledWith(
+        mockUser,
+        { manifestIds: [1, 2], llmModelId: 'llm-model-1' },
+      );
     });
   });
 
   describe('POST /groups/:groupId/manifests/extract-filtered', () => {
     it('queues jobs and returns job-to-manifest mapping', async () => {
-      const manifests = [
-        createMockManifest({
-          id: 11,
-          ocrResult: createMockOcrResult() as unknown as ManifestEntity['ocrResult'],
-        }),
-        createMockManifest({
-          id: 22,
-          ocrResult: createMockOcrResult() as unknown as ManifestEntity['ocrResult'],
-        }),
-      ];
-
-      manifestsService.findForFilteredExtraction.mockResolvedValue(manifests);
-      queueService.addExtractionJob
-        .mockResolvedValueOnce('job-11')
-        .mockResolvedValueOnce('job-22');
+      extractManifestsUseCase.extractFiltered.mockResolvedValue({
+        manifestCount: 2,
+        jobIds: ['job-11', 'job-22'],
+        jobs: [
+          { jobId: 'job-11', manifestId: 11 },
+          { jobId: 'job-22', manifestId: 22 },
+        ],
+      });
 
       const result = await controller.extractFiltered(mockUser, 1, {
         filters: {},
         llmModelId: 'llm-model-1',
       });
 
-      expect(queueService.addExtractionJob).toHaveBeenCalledTimes(2);
       expect(result.manifestCount).toBe(2);
       expect(result.jobIds).toEqual(['job-11', 'job-22']);
       expect(result.jobs).toEqual([
         { jobId: 'job-11', manifestId: 11 },
         { jobId: 'job-22', manifestId: 22 },
       ]);
+      expect(extractManifestsUseCase.extractFiltered).toHaveBeenCalledWith(
+        mockUser,
+        1,
+        { filters: {}, llmModelId: 'llm-model-1' },
+      );
     });
   });
 
   describe('POST /manifests/:id/re-extract', () => {
     it('should queue re-extraction job for entire manifest', async () => {
-      const manifest = createMockManifest();
-      manifestsService.findOne.mockResolvedValue(manifest);
-      queueService.addExtractionJob.mockResolvedValue('job-456');
+      extractManifestsUseCase.reExtract.mockResolvedValue({ jobId: 'job-456' });
 
       const result = await controller.reExtract(mockUser, 1, {
         fieldName: 'invoice.po_no',
@@ -399,11 +457,14 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
       });
 
       expect(result).toEqual({ jobId: 'job-456' });
-      expect(queueService.addExtractionJob).toHaveBeenCalledWith(
+      expect(extractManifestsUseCase.reExtract).toHaveBeenCalledWith(
+        mockUser,
         1,
-        'llm-model-1',
-        1,
-        'invoice.po_no',
+        {
+          fieldName: 'invoice.po_no',
+          llmModelId: 'llm-model-1',
+          promptId: 1,
+        },
       );
     });
   });

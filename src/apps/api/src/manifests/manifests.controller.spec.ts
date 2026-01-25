@@ -9,7 +9,10 @@ import { CsvExportService } from './csv-export.service';
 import { QueueService } from '../queue/queue.service';
 import { StorageService } from '../storage/storage.service';
 import { ConfigService } from '@nestjs/config';
-import { GroupsService } from '../groups/groups.service';
+import { ExtractManifestsUseCase } from '../usecases/extract-manifests.usecase';
+import { UpdateManifestUseCase } from '../usecases/update-manifest.usecase';
+import { UploadManifestsUseCase } from '../usecases/upload-manifests.usecase';
+import { AllExceptionsFilter } from '../common/filters/all-exceptions.filter';
 
 describe('ManifestsController', () => {
   let app: INestApplication;
@@ -25,6 +28,23 @@ describe('ManifestsController', () => {
     addExtractionJob: jest.fn(),
   };
 
+  const uploadManifestsUseCase = {
+    uploadSingle: jest.fn(),
+    uploadBatch: jest.fn(),
+  };
+
+  const extractManifestsUseCase = {
+    extractSingle: jest.fn(),
+    extractBulk: jest.fn(),
+    extractFiltered: jest.fn(),
+    reExtract: jest.fn(),
+    reExtractField: jest.fn(),
+  };
+
+  const updateManifestUseCase = {
+    update: jest.fn(),
+  };
+
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [ManifestsController],
@@ -32,9 +52,11 @@ describe('ManifestsController', () => {
         { provide: ManifestsService, useValue: manifestsService },
         { provide: CsvExportService, useValue: {} },
         { provide: QueueService, useValue: queueService },
-        { provide: GroupsService, useValue: {} },
         { provide: StorageService, useValue: {} },
         { provide: ConfigService, useValue: { get: () => undefined } },
+        { provide: UploadManifestsUseCase, useValue: uploadManifestsUseCase },
+        { provide: ExtractManifestsUseCase, useValue: extractManifestsUseCase },
+        { provide: UpdateManifestUseCase, useValue: updateManifestUseCase },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -42,6 +64,7 @@ describe('ManifestsController', () => {
       .compile();
 
     app = moduleRef.createNestApplication();
+    app.useGlobalFilters(new AllExceptionsFilter());
     await app.init();
   });
 
@@ -56,7 +79,7 @@ describe('ManifestsController', () => {
   it('does not enqueue extraction jobs on upload', async () => {
     const controller = app.get(ManifestsController);
     const now = new Date('2026-01-23T00:00:00.000Z');
-    manifestsService.create.mockResolvedValue({
+    uploadManifestsUseCase.uploadSingle.mockResolvedValue({
       isDuplicate: false,
       manifest: {
         id: 1,
@@ -90,6 +113,38 @@ describe('ManifestsController', () => {
     await controller.uploadSingle({ id: 1 } as any, 1, {} as any);
 
     expect(queueService.addExtractionJob).not.toHaveBeenCalled();
+  });
+
+  it('delegates extract endpoint to ExtractManifestsUseCase', async () => {
+    const controller = app.get(ManifestsController);
+    extractManifestsUseCase.extractSingle.mockResolvedValue({ jobId: 'job-123' });
+
+    const result = await controller.extract({ id: 1 } as any, 1, { promptId: 2 } as any);
+
+    expect(extractManifestsUseCase.extractSingle).toHaveBeenCalledWith(
+      { id: 1 },
+      1,
+      { promptId: 2 },
+    );
+    expect(result).toEqual({ jobId: 'job-123' });
+  });
+
+  it('maps use-case errors to API error envelope', async () => {
+    extractManifestsUseCase.extractSingle.mockRejectedValue(new Error('boom'));
+
+    const response = await request(app.getHttpServer())
+      .post('/manifests/1/extract')
+      .set('x-request-id', 'req-1')
+      .send({})
+      .expect(500);
+
+    expect(response.body).toMatchObject({
+      error: {
+        requestId: 'req-1',
+      },
+    });
+    expect(typeof response.body.error.code).toBe('string');
+    expect(typeof response.body.error.message).toBe('string');
   });
 
   it('returns manifest items', async () => {

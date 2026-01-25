@@ -164,13 +164,15 @@ PromptEntity
 - **Key Principle**: Use dependency injection via `Test.createTestingModule()` with `overrideProvider()` instead of monkey patching
 - **Anti-patterns**: Avoid global `jest.mock()`, avoid patching require() or module exports
 - **Test Utilities**: `src/apps/api/test/helpers.ts` and `test/mocks/factories.ts`
+- **Use-Case Tests**: Use-case boundary tests in `src/apps/api/src/usecases/*.spec.ts` with fakes in `src/apps/api/src/test/usecases/`
 - **Coverage**: 70% threshold
 
-### Frontend (Next.js)
-- **Framework**: Jest + React Testing Library + MSW
+### Frontend (Vite)
+- **Framework**: Vitest + React Testing Library + MSW
 - **Key Principle**: Mock HTTP requests with MSW handlers, not service modules
-- **Test Utilities**: `src/apps/web/test/utils.tsx` for renderWithProviders
-- **MSW Setup**: Handlers in `test/mocks/handlers.ts`, server in `test/mocks/server.ts`
+- **Test Utilities**: `src/apps/web/src/tests/utils.tsx` for renderWithProviders
+- **MSW Setup**: Handlers in `src/apps/web/src/tests/mocks/handlers.ts`, server in `src/apps/web/src/tests/mocks/server.ts`
+- **Journey Tests**: Route-level flows in `src/apps/web/src/e2e/*.e2e.spec.tsx` using `src/apps/web/src/tests/journey/`
 - **Coverage**: 60% threshold
 
 ## Domain Knowledge

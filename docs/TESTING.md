@@ -56,6 +56,10 @@ For “business workflow” confidence without real Postgres/BullMQ:
 - Prefer naming these tests with `*.workflow.spec.ts` to make intent obvious.
 - Focus assertions on business invariants (duplicate detection, status transitions, cancel semantics, validation gating).
 
+For API “use-case boundary” tests (thin orchestration layer):
+- Use-cases live under `src/apps/api/src/usecases/` and are tested with Jest.
+- Prefer using test fakes under `src/apps/api/src/test/usecases/` (e.g., `InMemoryJobQueue`) rather than BullMQ/Redis.
+
 ### Example: Service Test
 
 ```typescript

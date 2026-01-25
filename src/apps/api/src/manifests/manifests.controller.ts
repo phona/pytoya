@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -26,7 +25,6 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FileType, ManifestStatus } from '../entities/manifest.entity';
 import { UserEntity } from '../entities/user.entity';
 import { StorageService } from '../storage/storage.service';
-import { FileNotFoundException } from '../storage/exceptions/file-not-found.exception';
 import { CsvExportService } from './csv-export.service';
 import { BulkExtractDto } from './dto/bulk-extract.dto';
 import { DeleteManifestsBulkDto, DeleteManifestsBulkResponseDto } from './dto/delete-manifests-bulk.dto';
@@ -48,11 +46,13 @@ import { ManifestExtractionHistoryEntryDetailsDto } from './dto/manifest-extract
 import { ManifestOcrHistoryEntryDto } from './dto/manifest-ocr-history.dto';
 import { ManifestsService } from './manifests.service';
 import { QueueService } from '../queue/queue.service';
-import { GroupsService } from '../groups/groups.service';
 import {
   PdfFileInterceptor,
   PdfFilesInterceptor,
 } from './interceptors/pdf-file.interceptor';
+import { ExtractManifestsUseCase } from '../usecases/extract-manifests.usecase';
+import { UpdateManifestUseCase } from '../usecases/update-manifest.usecase';
+import { UploadManifestsUseCase } from '../usecases/upload-manifests.usecase';
 
 @UseGuards(JwtAuthGuard)
 @Controller()
@@ -61,8 +61,10 @@ export class ManifestsController {
     private readonly csvExportService: CsvExportService,
     private readonly manifestsService: ManifestsService,
     private readonly queueService: QueueService,
-    private readonly groupsService: GroupsService,
     private readonly storageService: StorageService,
+    private readonly uploadManifestsUseCase: UploadManifestsUseCase,
+    private readonly extractManifestsUseCase: ExtractManifestsUseCase,
+    private readonly updateManifestUseCase: UpdateManifestUseCase,
   ) {}
 
   @Post('groups/:groupId/manifests/upload')
@@ -72,7 +74,11 @@ export class ManifestsController {
     @Param('groupId', ParseIntPipe) groupId: number,
     @UploadedFile() file: Express.Multer.File | undefined,
   ) {
-    const result = await this.manifestsService.create(user, groupId, file);
+    const result = await this.uploadManifestsUseCase.uploadSingle(
+      user,
+      groupId,
+      file,
+    );
     return { ...ManifestResponseDto.fromEntity(result.manifest), isDuplicate: result.isDuplicate };
   }
 
@@ -83,12 +89,10 @@ export class ManifestsController {
     @Param('groupId', ParseIntPipe) groupId: number,
     @UploadedFiles() files: Express.Multer.File[] | undefined,
   ) {
-    if (!files || files.length === 0) {
-      throw new FileNotFoundException();
-    }
-
-    const results = await Promise.all(
-      files.map((file) => this.manifestsService.create(user, groupId, file)),
+    const results = await this.uploadManifestsUseCase.uploadBatch(
+      user,
+      groupId,
+      files,
     );
     return results.map((r) => ({ ...ManifestResponseDto.fromEntity(r.manifest), isDuplicate: r.isDuplicate }));
   }
@@ -101,7 +105,11 @@ export class ManifestsController {
     @Param('groupId', ParseIntPipe) groupId: number,
     @UploadedFile() file: Express.Multer.File | undefined,
   ) {
-    const result = await this.manifestsService.create(user, groupId, file);
+    const result = await this.uploadManifestsUseCase.uploadSingle(
+      user,
+      groupId,
+      file,
+    );
     return { ...ManifestResponseDto.fromEntity(result.manifest), isDuplicate: result.isDuplicate };
   }
 
@@ -304,21 +312,7 @@ export class ManifestsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() body: ExtractDto,
   ) {
-    const manifest = await this.manifestsService.findOne(user, id);
-
-    const resolvedLlmModelId =
-      body.llmModelId ?? manifest.group?.project?.llmModelId ?? undefined;
-
-    const jobId = await this.queueService.addExtractionJob(
-      id,
-      resolvedLlmModelId,
-      body.promptId,
-      undefined,
-      undefined,
-      undefined,
-    );
-
-    return { jobId };
+    return this.extractManifestsUseCase.extractSingle(user, id, body);
   }
 
   @Post('manifests/extract-bulk')
@@ -326,36 +320,7 @@ export class ManifestsController {
     @CurrentUser() user: UserEntity,
     @Body() body: BulkExtractDto,
   ) {
-    const manifests = await this.manifestsService.findManyByIds(
-      user,
-      body.manifestIds,
-    );
-    const resolvedLlmModelId =
-      body.llmModelId ?? manifests[0]?.group?.project?.llmModelId ?? undefined;
-    const jobIds = await Promise.all(
-      manifests.map((manifest) =>
-        this.queueService.addExtractionJob(
-          manifest.id,
-          resolvedLlmModelId,
-          body.promptId,
-          undefined,
-          undefined,
-          undefined,
-        ),
-      ),
-    );
-    const jobs = jobIds.map((jobId, index) => ({
-      jobId,
-      manifestId: manifests[index].id,
-    }));
-    const batchId = `batch_${Date.now()}_${jobIds.length}`;
-
-    return {
-      jobId: batchId,
-      jobIds,
-      jobs,
-      manifestCount: manifests.length,
-    };
+    return this.extractManifestsUseCase.extractBulk(user, body);
   }
 
   @Post('groups/:groupId/manifests/extract-filtered')
@@ -364,49 +329,7 @@ export class ManifestsController {
     @Param('groupId', ParseIntPipe) groupId: number,
     @Body() body: ExtractFilteredDto,
   ): Promise<ExtractFilteredResponseDto> {
-    const group = await this.groupsService.findOne(user, groupId);
-    const resolvedLlmModelId =
-      body.llmModelId ?? group.project?.llmModelId ?? undefined;
-
-    const manifests = await this.manifestsService.findForFilteredExtraction(
-      user,
-      groupId,
-      body.filters,
-      body.behavior,
-    );
-
-    if (body.textExtractorId) {
-      await this.manifestsService.setTextExtractorForManifests(
-        user,
-        groupId,
-        manifests.map((m) => m.id),
-        body.textExtractorId,
-      );
-    }
-    const jobIds = await Promise.all(
-      manifests.map((manifest) =>
-        this.queueService.addExtractionJob(
-          manifest.id,
-          resolvedLlmModelId,
-          body.promptId,
-          undefined,
-          undefined,
-          undefined,
-        ),
-      ),
-    );
-    const jobs = jobIds.map((jobId, index) => ({
-      jobId,
-      manifestId: manifests[index].id,
-    }));
-    const batchId = `batch_${Date.now()}_${jobIds.length}`;
-
-    return {
-      jobId: batchId,
-      jobIds,
-      jobs,
-      manifestCount: manifests.length,
-    };
+    return this.extractManifestsUseCase.extractFiltered(user, groupId, body);
   }
 
   @Post('groups/:groupId/manifests/delete-bulk')
@@ -424,14 +347,7 @@ export class ManifestsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() body: ReExtractFieldDto,
   ) {
-    await this.manifestsService.findOne(user, id);
-    const jobId = await this.queueService.addExtractionJob(
-      id,
-      body.llmModelId,
-      body.promptId,
-      body.fieldName,
-    );
-    return { jobId };
+    return this.extractManifestsUseCase.reExtract(user, id, body);
   }
 
   @Post('manifests/:id/re-extract-field')
@@ -440,39 +356,7 @@ export class ManifestsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() body: ReExtractFieldPreviewDto,
   ): Promise<ReExtractFieldPreviewResponseDto> {
-    const manifest = await this.manifestsService.findOne(user, id);
-
-    if (!manifest.ocrResult) {
-      throw new BadRequestException('OCR result is required. Run extraction first.');
-    }
-
-    const includeOcrContext = body.includeOcrContext !== false;
-    const ocrPreview = this.manifestsService.buildOcrContextPreview(
-      manifest,
-      body.fieldName,
-    );
-
-    if (body.previewOnly) {
-      return {
-        fieldName: body.fieldName,
-        ocrPreview,
-      };
-    }
-
-    const jobId = await this.queueService.addExtractionJob(
-      id,
-      body.llmModelId,
-      body.promptId,
-      body.fieldName,
-      body.customPrompt,
-      includeOcrContext ? ocrPreview?.snippet : undefined,
-    );
-
-    return {
-      jobId,
-      fieldName: body.fieldName,
-      ocrPreview,
-    };
+    return this.extractManifestsUseCase.reExtractField(user, id, body);
   }
 
   @Get('manifests/:id')
@@ -565,7 +449,7 @@ export class ManifestsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateManifestDto: UpdateManifestDto,
   ) {
-    const manifest = await this.manifestsService.update(
+    const manifest = await this.updateManifestUseCase.update(
       user,
       id,
       updateManifestDto,

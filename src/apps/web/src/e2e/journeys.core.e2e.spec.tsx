@@ -159,4 +159,50 @@ describe('Core journeys (RTL + MSW)', () => {
       expect(useJobsStore.getState().jobs.some((job) => job.id === 'job-1')).toBe(true);
     });
   });
+
+  it('redirects / to /projects when authenticated', async () => {
+    useAuthStore.getState().setAuth(
+      { id: 1, username: 'test-user', role: 'user' },
+      'mock-jwt-token',
+    );
+    useAuthStore.getState().setHasHydrated(true);
+
+    const { router } = renderApp({ route: '/' });
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/projects');
+    });
+    expect(document.querySelector('a[href="/projects"][aria-current="page"]')).not.toBeNull();
+  });
+
+  it('redirects /models to /projects for non-admin users', async () => {
+    useAuthStore.getState().setAuth(
+      { id: 1, username: 'test-user', role: 'user' },
+      'mock-jwt-token',
+    );
+    useAuthStore.getState().setHasHydrated(true);
+
+    const { router } = renderApp({ route: '/models' });
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/projects');
+    });
+    expect(document.querySelector('a[href="/projects"][aria-current="page"]')).not.toBeNull();
+  });
+
+  it('allows admins to access /models', async () => {
+    useAuthStore.getState().setAuth(
+      { id: 1, username: 'admin-user', role: 'admin' },
+      'mock-jwt-token',
+    );
+    useAuthStore.getState().setHasHydrated(true);
+
+    const { router } = renderApp({ route: '/models' });
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/models');
+    });
+    expect(document.querySelector('a[href="/models"][aria-current="page"]')).not.toBeNull();
+    expect(router.state.location.pathname).toBe('/models');
+  });
 });
