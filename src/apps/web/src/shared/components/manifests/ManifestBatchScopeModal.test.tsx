@@ -121,4 +121,44 @@ describe('ManifestBatchScopeModal', () => {
 
     expect(onStart).toHaveBeenCalledWith([10], 'filtered', 'xlsx');
   });
+
+  it('fetches filtered scope using provided filters and sort', async () => {
+    mockListManifests.mockResolvedValue({
+      data: [{ id: 10, status: 'completed', extractedData: { ok: true } }],
+      meta: { total: 1, page: 1, pageSize: 200, totalPages: 1 },
+    });
+
+    const filters = {
+      status: 'completed',
+      dynamicFilters: [{ field: 'invoice.po_no', value: '000' }],
+    } as any;
+    const sort = { field: 'createdAt', order: 'desc' } as any;
+
+    renderWithProviders(
+      <ManifestBatchScopeModal
+        open={true}
+        onClose={() => {}}
+        title="Export"
+        subtitle="Export manifests."
+        startLabel="Export"
+        groupId={1}
+        filters={filters}
+        sort={sort}
+        selectedManifests={[]}
+        onStart={async () => {}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockListManifests).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          filters,
+          sort,
+          page: 1,
+          pageSize: 200,
+        }),
+      );
+    });
+  });
 });
