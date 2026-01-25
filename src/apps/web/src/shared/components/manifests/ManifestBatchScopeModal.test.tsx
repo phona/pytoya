@@ -84,4 +84,41 @@ describe('ManifestBatchScopeModal', () => {
 
     expect(screen.getByRole('radio', { name: /selected/i })).toBeDisabled();
   });
+
+  it('passes selected export format to onStart', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    const onStart = vi.fn().mockResolvedValue(undefined);
+
+    mockListManifests.mockResolvedValue({
+      data: [
+        { id: 10, status: 'completed', extractedData: { ok: true } },
+      ],
+      meta: { total: 1, page: 1, pageSize: 200, totalPages: 1 },
+    });
+
+    renderWithProviders(
+      <ManifestBatchScopeModal
+        open={true}
+        onClose={() => {}}
+        title="Export"
+        subtitle="Export manifests."
+        startLabel="Export"
+        groupId={1}
+        filters={{}}
+        sort={{ field: 'filename', order: 'asc' }}
+        selectedManifests={[]}
+        formatOptions={{ defaultFormat: 'csv' }}
+        onStart={onStart}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockListManifests).toHaveBeenCalled();
+    });
+
+    await user.click(screen.getByRole('radio', { name: /excel/i }));
+    await user.click(screen.getByRole('button', { name: /export/i }));
+
+    expect(onStart).toHaveBeenCalledWith([10], 'filtered', 'xlsx');
+  });
 });

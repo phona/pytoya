@@ -260,6 +260,7 @@ export const zhCNMessages: Record<string, string> = {
 
   'manifests.list.titleWithCount': '清单（{{count}}）',
   'manifests.list.selectedCount': '已选择 {{count}} 个',
+  'manifests.list.export': '导出…',
   'manifests.list.exportCsv': '导出 CSV',
   'manifests.list.extract': '提取',
   'manifests.list.audit': '审核',
@@ -276,8 +277,13 @@ export const zhCNMessages: Record<string, string> = {
   'manifests.deleteMessage': '删除“{{name}}”？这将从存储中删除文件。',
   'manifests.deleteSuccessTitle': '清单已删除。',
 
-  'manifests.batchAction.export.title': '导出 CSV',
-  'manifests.batchAction.export.subtitle': '按所选或筛选范围导出 CSV。',
+  'manifests.batchAction.export.title': '导出清单',
+  'manifests.batchAction.export.subtitle': '按所选或筛选范围导出 CSV 或 Excel（.xlsx）。',
+  'manifests.batchAction.formatTitle': '格式',
+  'manifests.batchAction.formatCsv': 'CSV（.csv）',
+  'manifests.batchAction.formatCsvHint': '适合简单的行数据导出。',
+  'manifests.batchAction.formatXlsx': 'Excel（.xlsx）',
+  'manifests.batchAction.formatXlsxHint': '包含多个工作表（Manifests + Items）。',
   'manifests.batchAction.validation.title': '运行校验',
   'manifests.batchAction.validation.subtitle': '对所选或筛选后的清单运行校验脚本。',
   'manifests.batchAction.delete.title': '删除清单',

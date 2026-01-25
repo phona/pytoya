@@ -253,6 +253,12 @@ export function useExportSelectedToCsv() {
   });
 }
 
+export function useExportSelectedToXlsx() {
+  return useMutation({
+    mutationFn: (manifestIds: number[]) => manifestsApi.exportSelectedToXlsx(manifestIds),
+  });
+}
+
 
 
 

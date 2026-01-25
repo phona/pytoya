@@ -19,6 +19,7 @@ import { ExtractManifestsUseCase } from '../usecases/extract-manifests.usecase';
 import { UpdateManifestUseCase } from '../usecases/update-manifest.usecase';
 import { UploadManifestsUseCase } from '../usecases/upload-manifests.usecase';
 import { CsvExportService } from './csv-export.service';
+import { XlsxExportService } from './xlsx-export.service';
 import { ManifestsController } from './manifests.controller';
 import { ManifestsService } from './manifests.service';
 import {
@@ -45,6 +46,7 @@ import {
   controllers: [ManifestsController],
   providers: [
     CsvExportService,
+    XlsxExportService,
     ManifestsService,
     PdfFileInterceptor,
     PdfFilesInterceptor,

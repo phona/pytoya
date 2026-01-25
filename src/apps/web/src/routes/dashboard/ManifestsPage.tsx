@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useManifests } from '@/shared/hooks/use-manifests';
-import { useExportSelectedToCsv } from '@/shared/hooks/use-manifests';
+import { useExportSelectedToCsv, useExportSelectedToXlsx } from '@/shared/hooks/use-manifests';
 import { useGroups, useProject } from '@/shared/hooks/use-projects';
 import { useProjectSchemas } from '@/shared/hooks/use-schemas';
 import { useQueryClient } from '@tanstack/react-query';
@@ -41,6 +41,7 @@ export function ManifestsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const exportSelectedToCsv = useExportSelectedToCsv();
+  const exportSelectedToXlsx = useExportSelectedToXlsx();
 
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
@@ -268,15 +269,20 @@ export function ManifestsPage() {
     [filters, groupId, navigate, pageSize, projectId, queryClient, sort, t],
   );
 
-  const handleBatchExport = async (manifestIds: number[]) => {
+  const handleBatchExport = async (manifestIds: number[], format: 'csv' | 'xlsx') => {
     try {
-      const blob = await exportSelectedToCsv.mutateAsync(manifestIds);
+      const blob = await (format === 'xlsx'
+        ? exportSelectedToXlsx.mutateAsync(manifestIds)
+        : exportSelectedToCsv.mutateAsync(manifestIds));
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `manifests-export-${Date.now()}.csv`;
+      a.download = `manifests-export-${Date.now()}.${format}`;
       document.body.appendChild(a);
-      a.click();
+      const isJsdom = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent);
+      if (!isJsdom) {
+        a.click();
+      }
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (error) {

@@ -58,9 +58,10 @@ Schema access is project-scoped and available from the project settings dropdown
 - Filters, sorting, and pagination are server-driven via `GET /api/groups/:groupId/manifests`.
 - Custom field filters accept dot-notation paths (e.g., `invoice.po_no`, `receipt.merchant.name`).
 - Pagination metadata (`total`, `page`, `pageSize`, `totalPages`) is returned when list parameters are present.
-- Toolbar batch actions (Export CSV, Run validation, Extract, Delete) use a scope confirmation modal:
+- Toolbar batch actions (Export CSV/Excel, Run validation, Extract, Delete) use a scope confirmation modal:
   - Default scope: **All matching current filters**
   - Optional scope: **Selected only** (available when selection exists)
+  - Export includes a **Format** choice (CSV or Excel `.xlsx`)
 - The list toolbar also provides an **Audit** action menu for opening the audit page in a chosen scope:
   - **Audit filtered results**
   - **Audit selected**

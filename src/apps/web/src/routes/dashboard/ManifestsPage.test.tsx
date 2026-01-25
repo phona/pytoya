@@ -1,6 +1,6 @@
 import { act, renderWithProviders, screen, fireEvent, waitFor, within } from '@/tests/utils';
 import { http, HttpResponse } from 'msw';
-import { afterAll, afterEach, beforeAll, describe, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Routes, Route } from 'react-router-dom';
 import { server } from '@/tests/mocks/server';
 import { ManifestsPage } from './ManifestsPage';
@@ -139,6 +139,72 @@ describe('ManifestsPage', () => {
     });
 
     expect(bulkDeleteBody).toEqual({ manifestIds: [101] });
+  });
+
+  it('exports selected manifests as Excel (.xlsx)', async () => {
+    setupHandlers();
+
+    if (!('createObjectURL' in window.URL)) {
+      // jsdom doesn't always provide blob URL helpers
+      (window.URL as any).createObjectURL = () => 'blob:mock';
+    }
+    if (!('revokeObjectURL' in window.URL)) {
+      (window.URL as any).revokeObjectURL = () => {};
+    }
+
+    const createObjectUrlSpy = vi.spyOn(window.URL, 'createObjectURL').mockReturnValue('blob:mock');
+    const revokeObjectUrlSpy = vi.spyOn(window.URL, 'revokeObjectURL').mockImplementation(() => {});
+    const appendSpy = vi.spyOn(document.body, 'appendChild');
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(123);
+
+    let exportBody: unknown = null;
+    server.use(
+      http.post('/api/manifests/export/xlsx', async ({ request }) => {
+        exportBody = await request.json();
+        return HttpResponse.arrayBuffer(new TextEncoder().encode('xlsx').buffer, {
+          headers: {
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          },
+        });
+      }),
+    );
+
+    await act(async () => {
+      renderWithProviders(
+        <Routes>
+          <Route path="/projects/:id/groups/:groupId/manifests" element={<ManifestsPage />} />
+        </Routes>,
+        { route: '/projects/1/groups/2/manifests' },
+      );
+    });
+
+    await screen.findByText('invoice.pdf');
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select invoice.pdf' }));
+    fireEvent.click(screen.getByRole('button', { name: /export/i }));
+
+    await screen.findByText('Export manifests');
+    const dialog = screen.getByRole('dialog');
+
+    fireEvent.click(within(dialog).getByRole('radio', { name: /selected/i }));
+    fireEvent.click(within(dialog).getByRole('radio', { name: /excel/i }));
+    fireEvent.click(within(dialog).getByRole('button', { name: /export/i }));
+
+    await waitFor(() => {
+      expect(exportBody).toEqual({ manifestIds: [101] });
+    });
+
+    expect(createObjectUrlSpy).toHaveBeenCalledTimes(1);
+
+    const anchorCalls = appendSpy.mock.calls
+      .map((call) => call[0])
+      .filter((node): node is HTMLAnchorElement => node instanceof HTMLAnchorElement);
+    expect(anchorCalls.some((a) => a.download === 'manifests-export-123.xlsx')).toBe(true);
+
+    nowSpy.mockRestore();
+    appendSpy.mockRestore();
+    createObjectUrlSpy.mockRestore();
+    revokeObjectUrlSpy.mockRestore();
   });
 });
 

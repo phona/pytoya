@@ -10,6 +10,7 @@ import {
   Query,
   Redirect,
   Res,
+  StreamableFile,
   UploadedFile,
   UploadedFiles,
   UseGuards,
@@ -53,12 +54,14 @@ import {
 import { ExtractManifestsUseCase } from '../usecases/extract-manifests.usecase';
 import { UpdateManifestUseCase } from '../usecases/update-manifest.usecase';
 import { UploadManifestsUseCase } from '../usecases/upload-manifests.usecase';
+import { XlsxExportService } from './xlsx-export.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller()
 export class ManifestsController {
   constructor(
     private readonly csvExportService: CsvExportService,
+    private readonly xlsxExportService: XlsxExportService,
     private readonly manifestsService: ManifestsService,
     private readonly queueService: QueueService,
     private readonly storageService: StorageService,
@@ -263,6 +266,46 @@ export class ManifestsController {
     return csv;
   }
 
+  @Get('manifests/export/xlsx')
+  async exportXlsx(
+    @CurrentUser() user: UserEntity,
+    @Res({ passthrough: true }) response: Response,
+    @Query('status') status?: string,
+    @Query('groupId') groupId?: string,
+    @Query('projectId') projectId?: string,
+    @Query('poNo') poNo?: string,
+    @Query('department') department?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('humanVerified') humanVerified?: string,
+    @Query('confidenceMin') confidenceMin?: string,
+    @Query('confidenceMax') confidenceMax?: string,
+  ) {
+    const filters = {
+      status: this.parseOptionalStatus(status),
+      groupId: this.parseOptionalNumber(groupId) ?? undefined,
+      projectId: this.parseOptionalNumber(projectId) ?? undefined,
+      poNo: poNo || undefined,
+      department: department || undefined,
+      dateFrom: this.parseOptionalDate(dateFrom),
+      dateTo: this.parseOptionalDate(dateTo),
+      humanVerified: this.parseOptionalBoolean(humanVerified),
+      confidenceMin: this.parseOptionalNumber(confidenceMin) ?? undefined,
+      confidenceMax: this.parseOptionalNumber(confidenceMax) ?? undefined,
+    };
+
+    const { filename, stream, contentType } =
+      await this.xlsxExportService.exportXlsx(user, filters);
+
+    response.setHeader('Content-Type', contentType);
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${filename}"`,
+    );
+
+    return new StreamableFile(stream);
+  }
+
   @Post('manifests/export-bulk')
   async exportBulk(
     @CurrentUser() user: UserEntity,
@@ -282,6 +325,25 @@ export class ManifestsController {
     );
 
     return csv;
+  }
+
+  // POST export for selected manifests (canonical path)
+  @Post('manifests/export/xlsx')
+  async exportManifestsXlsx(
+    @CurrentUser() user: UserEntity,
+    @Body() body: ExportManifestsDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { filename, stream, contentType } =
+      await this.xlsxExportService.exportXlsxByManifestIds(user, body.manifestIds);
+
+    response.setHeader('Content-Type', contentType);
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${filename}"`,
+    );
+
+    return new StreamableFile(stream);
   }
 
   // POST export for selected manifests (canonical path)

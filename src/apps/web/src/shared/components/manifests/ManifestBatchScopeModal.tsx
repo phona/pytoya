@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import type { ManifestFilterValues, ManifestSort } from '@/shared/types/manifests';
 
 type Scope = 'selected' | 'filtered';
+type ExportFormat = 'csv' | 'xlsx';
 
 const MAX_FILTERED_SCOPE = 5000;
 const API_MAX_PAGE_SIZE = 200;
@@ -30,6 +31,7 @@ export function ManifestBatchScopeModal({
   sort,
   selectedManifests,
   eligibility,
+  formatOptions,
   onStart,
 }: {
   open: boolean;
@@ -46,14 +48,19 @@ export function ManifestBatchScopeModal({
   sort: ManifestSort;
   selectedManifests: Manifest[];
   eligibility?: Eligibility;
-  onStart: (manifestIds: number[], scope: Scope) => Promise<void>;
+  formatOptions?: {
+    defaultFormat?: ExportFormat;
+  };
+  onStart: (manifestIds: number[], scope: Scope, format?: ExportFormat) => Promise<void>;
 }) {
   const { t } = useI18n();
   const hasSelection = selectedManifests.length > 0;
   const resolvedStartVariant = startVariant ?? 'default';
   const isFilteredScopeEnabled = filteredScopeEnabled !== false;
+  const isFormatEnabled = Boolean(formatOptions);
 
   const [scope, setScope] = useState<Scope>('filtered');
+  const [format, setFormat] = useState<ExportFormat>(formatOptions?.defaultFormat ?? 'csv');
   const [filteredManifests, setFilteredManifests] = useState<Manifest[]>([]);
   const [filteredCount, setFilteredCount] = useState<number | null>(null);
   const [isLoadingFiltered, setIsLoadingFiltered] = useState(false);
@@ -63,9 +70,10 @@ export function ManifestBatchScopeModal({
   useEffect(() => {
     if (!open) return;
     setScope(isFilteredScopeEnabled ? 'filtered' : 'selected');
+    setFormat(formatOptions?.defaultFormat ?? 'csv');
     setError(null);
     setIsRunning(false);
-  }, [isFilteredScopeEnabled, open]);
+  }, [formatOptions?.defaultFormat, isFilteredScopeEnabled, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -148,7 +156,7 @@ export function ManifestBatchScopeModal({
     setIsRunning(true);
     setError(null);
     try {
-      await onStart(eligibleIds, scope);
+      await onStart(eligibleIds, scope, isFormatEnabled ? format : undefined);
       onClose();
     } catch (e) {
       console.error('Batch action failed:', e);
@@ -217,6 +225,43 @@ export function ManifestBatchScopeModal({
               </div>
             </div>
           </div>
+
+          {isFormatEnabled ? (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-foreground">{t('manifests.batchAction.formatTitle')}</div>
+              <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
+                <div className="flex items-start gap-2 text-sm">
+                  <input
+                    id="batch-format-csv"
+                    type="radio"
+                    name="batch-format"
+                    value="csv"
+                    checked={format === 'csv'}
+                    onChange={() => setFormat('csv')}
+                  />
+                  <label htmlFor="batch-format-csv" className="min-w-0 cursor-pointer">
+                    <div className="font-medium">{t('manifests.batchAction.formatCsv')}</div>
+                    <div className="text-muted-foreground">{t('manifests.batchAction.formatCsvHint')}</div>
+                  </label>
+                </div>
+
+                <div className="flex items-start gap-2 text-sm">
+                  <input
+                    id="batch-format-xlsx"
+                    type="radio"
+                    name="batch-format"
+                    value="xlsx"
+                    checked={format === 'xlsx'}
+                    onChange={() => setFormat('xlsx')}
+                  />
+                  <label htmlFor="batch-format-xlsx" className="min-w-0 cursor-pointer">
+                    <div className="font-medium">{t('manifests.batchAction.formatXlsx')}</div>
+                    <div className="text-muted-foreground">{t('manifests.batchAction.formatXlsxHint')}</div>
+                  </label>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <div className="rounded-md border border-border bg-background p-3 text-sm">
             <div className="flex items-center justify-between">

@@ -264,6 +264,7 @@ export const enMessages: Record<string, string> = {
 
   'manifests.list.titleWithCount': 'Manifests ({{count}})',
   'manifests.list.selectedCount': '{{count}} selected',
+  'manifests.list.export': 'Export…',
   'manifests.list.exportCsv': 'Export CSV',
   'manifests.list.extract': 'Extract',
   'manifests.list.audit': 'Audit',
@@ -276,8 +277,13 @@ export const enMessages: Record<string, string> = {
   'manifests.auditMenu.allWithCount': 'Audit all in group ({{count}})',
   'manifests.auditMenu.noSelectionTitle': 'Select some manifests to audit.',
 
-  'manifests.batchAction.export.title': 'Export CSV',
-  'manifests.batchAction.export.subtitle': 'Export manifests as CSV for selected or filtered scope.',
+  'manifests.batchAction.export.title': 'Export manifests',
+  'manifests.batchAction.export.subtitle': 'Export manifests as CSV or Excel (.xlsx) for selected or filtered scope.',
+  'manifests.batchAction.formatTitle': 'Format',
+  'manifests.batchAction.formatCsv': 'CSV (.csv)',
+  'manifests.batchAction.formatCsvHint': 'Best for simple row exports.',
+  'manifests.batchAction.formatXlsx': 'Excel (.xlsx)',
+  'manifests.batchAction.formatXlsxHint': 'Includes multiple sheets (Manifests + Items).',
   'manifests.batchAction.validation.title': 'Run validation',
   'manifests.batchAction.validation.subtitle': 'Run validation scripts for selected or filtered manifests.',
   'manifests.batchAction.delete.title': 'Delete manifests',

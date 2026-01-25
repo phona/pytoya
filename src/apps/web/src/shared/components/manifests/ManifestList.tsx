@@ -35,6 +35,7 @@ import { getApiErrorText } from '@/api/client';
 import { toast } from '@/shared/hooks/use-toast';
 
 export type AuditScope = 'filtered' | 'selected' | 'all';
+export type ExportFormat = 'csv' | 'xlsx';
 
 interface ManifestListProps {
   groupId: number;
@@ -48,7 +49,7 @@ interface ManifestListProps {
   onSortChange: (sort: ManifestSort) => void;
   onSelectManifest: (manifestId: number) => void;
   onAudit?: (scope: AuditScope, selectedIds?: number[]) => void;
-  onBatchExport?: (manifestIds: number[]) => Promise<void> | void;
+  onBatchExport?: (manifestIds: number[], format: ExportFormat) => Promise<void> | void;
   currentPage: number;
   pageSize: number;
   totalPages: number;
@@ -425,7 +426,7 @@ export function ManifestList({
               variant="outline"
               disabled={!onBatchExport}
             >
-              {t('manifests.list.exportCsv')}
+              {t('manifests.list.export')}
             </Button>
             <Button type="button" onClick={handleBatchValidate} size="sm" variant="outline">
               {t('manifests.list.batchValidation.runLabel')}
@@ -557,14 +558,15 @@ export function ManifestList({
         onClose={() => setExportModalOpen(false)}
         title={t('manifests.batchAction.export.title')}
         subtitle={t('manifests.batchAction.export.subtitle')}
-        startLabel={t('manifests.list.exportCsv')}
+        startLabel={t('manifests.list.export')}
         groupId={groupId}
         filters={filters}
         sort={sort}
         selectedManifests={selectedManifests}
-        onStart={async (manifestIds) => {
+        formatOptions={{ defaultFormat: 'csv' }}
+        onStart={async (manifestIds, _scope, format) => {
           if (!onBatchExport) return;
-          await Promise.resolve(onBatchExport(manifestIds));
+          await Promise.resolve(onBatchExport(manifestIds, format ?? 'csv'));
         }}
       />
       <ManifestBatchScopeModal

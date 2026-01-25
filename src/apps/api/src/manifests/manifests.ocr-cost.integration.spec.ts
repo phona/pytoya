@@ -7,6 +7,7 @@ import { Repository } from 'typeorm';
 import { ManifestsController } from './manifests.controller';
 import { ManifestsService } from './manifests.service';
 import { CsvExportService } from './csv-export.service';
+import { XlsxExportService } from './xlsx-export.service';
 import { QueueService } from '../queue/queue.service';
 import { GroupsService } from '../groups/groups.service';
 import { StorageService } from '../storage/storage.service';
@@ -31,6 +32,7 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
   let controller: ManifestsController;
   let manifestsService: jest.Mocked<ManifestsService>;
   let csvExportService: jest.Mocked<CsvExportService>;
+  let xlsxExportService: jest.Mocked<XlsxExportService>;
   let queueService: jest.Mocked<QueueService>;
   let storageService: jest.Mocked<StorageService>;
   let webSocketService: jest.Mocked<WebSocketService>;
@@ -172,6 +174,11 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
       exportCsvByManifestIds: jest.fn(),
     } as unknown as jest.Mocked<CsvExportService>;
 
+    xlsxExportService = {
+      exportXlsx: jest.fn(),
+      exportXlsxByManifestIds: jest.fn(),
+    } as unknown as jest.Mocked<XlsxExportService>;
+
     queueService = {
       addExtractionJob: jest.fn(),
       addOcrRefreshJob: jest.fn(),
@@ -211,6 +218,7 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
       controllers: [ManifestsController],
       providers: [
         { provide: CsvExportService, useValue: csvExportService },
+        { provide: XlsxExportService, useValue: xlsxExportService },
         { provide: ManifestsService, useValue: manifestsService },
         { provide: QueueService, useValue: queueService },
         {

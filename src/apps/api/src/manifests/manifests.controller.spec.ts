@@ -13,6 +13,8 @@ import { ExtractManifestsUseCase } from '../usecases/extract-manifests.usecase';
 import { UpdateManifestUseCase } from '../usecases/update-manifest.usecase';
 import { UploadManifestsUseCase } from '../usecases/upload-manifests.usecase';
 import { AllExceptionsFilter } from '../common/filters/all-exceptions.filter';
+import { XlsxExportService } from './xlsx-export.service';
+import { Readable } from 'stream';
 
 describe('ManifestsController', () => {
   let app: INestApplication;
@@ -45,12 +47,18 @@ describe('ManifestsController', () => {
     update: jest.fn(),
   };
 
+  const xlsxExportService = {
+    exportXlsx: jest.fn(),
+    exportXlsxByManifestIds: jest.fn(),
+  };
+
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [ManifestsController],
       providers: [
         { provide: ManifestsService, useValue: manifestsService },
         { provide: CsvExportService, useValue: {} },
+        { provide: XlsxExportService, useValue: xlsxExportService },
         { provide: QueueService, useValue: queueService },
         { provide: StorageService, useValue: {} },
         { provide: ConfigService, useValue: { get: () => undefined } },
@@ -145,6 +153,54 @@ describe('ManifestsController', () => {
     });
     expect(typeof response.body.error.code).toBe('string');
     expect(typeof response.body.error.message).toBe('string');
+  });
+
+  it('streams filtered XLSX export', async () => {
+    xlsxExportService.exportXlsx.mockResolvedValue({
+      filename: 'test.xlsx',
+      contentType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      stream: Readable.from([Buffer.from('xlsx')]),
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/manifests/export/xlsx')
+      .buffer(true)
+      .parse((res, callback) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c) => chunks.push(Buffer.from(c)));
+        res.on('end', () => callback(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+
+    expect(response.headers['content-type']).toContain(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    expect(response.headers['content-disposition']).toContain('test.xlsx');
+    expect(response.body.toString('utf-8')).toBe('xlsx');
+  });
+
+  it('streams selected XLSX export', async () => {
+    xlsxExportService.exportXlsxByManifestIds.mockResolvedValue({
+      filename: 'selected.xlsx',
+      contentType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      stream: Readable.from([Buffer.from('xlsx-selected')]),
+    });
+
+    const response = await request(app.getHttpServer())
+      .post('/manifests/export/xlsx')
+      .send({ manifestIds: [1, 2] })
+      .buffer(true)
+      .parse((res, callback) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c) => chunks.push(Buffer.from(c)));
+        res.on('end', () => callback(null, Buffer.concat(chunks)));
+      })
+      .expect(201);
+
+    expect(response.headers['content-disposition']).toContain('selected.xlsx');
+    expect(response.body.toString('utf-8')).toBe('xlsx-selected');
   });
 
   it('returns manifest items', async () => {

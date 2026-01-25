@@ -4,7 +4,7 @@ import { Type } from 'class-transformer';
 export class ExportManifestsDto {
   @IsArray()
   @ArrayNotEmpty()
-  @ArrayMaxSize(1000)
+  @ArrayMaxSize(5000)
   @Type(() => Number)
   @IsNumber({}, { each: true })
   manifestIds!: number[];
