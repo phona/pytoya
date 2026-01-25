@@ -318,6 +318,8 @@ Test.createTestingModule({
 // Avoid: jest.mock() or manual patching
 ```
 
+For catching real module wiring issues (missing `TypeOrmModule.forFeature(...)`, missing exports, etc.), add a DI smoke test using `src/apps/api/src/test/di-smoke/di-smoke.util.ts` and run `npm run test:di --workspace=@pytoya/api`.
+
 ### Web Data Fetching
 - Use React Query (`@tanstack/react-query`) for server state
 - Use Zustand for client state (auth, UI state)

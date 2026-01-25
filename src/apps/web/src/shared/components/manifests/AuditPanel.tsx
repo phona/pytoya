@@ -553,7 +553,36 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
       queryClient.setQueryData(['manifests', manifestId], firstSave);
 
       if (shouldGateHumanVerifiedSave) {
-        const validation = await runValidation.mutateAsync({ manifestId: manifest.id });
+        let validation: ValidationResult;
+        try {
+          validation = await runValidation.mutateAsync({ manifestId: manifest.id });
+        } catch (error) {
+          toast({
+            variant: 'destructive',
+            title: t('audit.save.validationFailedTitle'),
+            description: `${t('audit.save.validationFailedDescription')} ${getApiErrorText(error, t)}`,
+            action: (
+              <ToastAction altText={t('common.retry')} onClick={() => void handleRunValidationClick()}>
+                {t('common.retry')}
+              </ToastAction>
+            ),
+          });
+
+          setSaveStatus('saved');
+          setTimeout(() => setSaveStatus('idle'), 2000);
+          return;
+        }
+
+        toast({
+          title: t('audit.save.validationTitle'),
+          description: formatValidationSummary(validation),
+          variant: validation.errorCount > 0 ? 'destructive' : 'default',
+          action: (
+            <ToastAction altText={t('common.view')} onClick={() => setActiveTab('validation')}>
+              {t('common.view')}
+            </ToastAction>
+          ),
+        });
 
         if (validation.errorCount > 0) {
           const confirmed = await confirm({
@@ -596,7 +625,20 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     } finally {
       setExplicitSavePending(false);
     }
-  }, [confirm, debounceTimer, latestDraftRef, manifest, manifestId, queryClient, runValidation, t, updateManifest]);
+  }, [
+    confirm,
+    debounceTimer,
+    formatValidationSummary,
+    handleRunValidationClick,
+    latestDraftRef,
+    manifest,
+    manifestId,
+    queryClient,
+    runValidation,
+    setActiveTab,
+    t,
+    updateManifest,
+  ]);
 
   const normalizeHintPath = useCallback((path: string) => path.replace(/\[(\d+)\]/g, '[]'), []);
 

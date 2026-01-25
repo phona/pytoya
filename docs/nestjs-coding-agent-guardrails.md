@@ -101,3 +101,4 @@ useGlobalPipes(ValidationPipe({
 ## Testing rules (keeps the agent honest)
 - New service methods SHOULD get unit tests (mock deps via DI).
 - Mocks must be typed; avoid `as any` unless last resort.
+- Add DI smoke tests for critical module graphs using `src/apps/api/src/test/di-smoke/di-smoke.util.ts` and co-located `*.module.di.spec.ts` files; run quickly with `npm run test:di --workspace=@pytoya/api`.

@@ -15,6 +15,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
+    "test:di": "jest --testPathPattern \"\\\\.di\\\\.spec\\\\.ts$\"",
     "migration:generate": "dotenv -e .env.local -- typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
     "migration:run": "dotenv -e .env.local -- typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
     "migration:revert": "dotenv -e .env.local -- typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",

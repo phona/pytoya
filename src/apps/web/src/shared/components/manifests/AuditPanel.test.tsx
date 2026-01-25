@@ -203,6 +203,61 @@ describe('AuditPanel', () => {
     });
   });
 
+  it('shows validation summary on Save when validation has warnings', async () => {
+    runValidationMutateAsync.mockResolvedValue({
+      issues: [],
+      errorCount: 0,
+      warningCount: 2,
+      validatedAt: new Date().toISOString(),
+    });
+
+    renderWithProviders(
+      <AuditPanel projectId={1} groupId={1} manifestId={1} onClose={vi.fn()} allManifestIds={[1]} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Human Verified' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await vi.runAllTimersAsync();
+
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Validation',
+        description: '2 warnings',
+      }),
+    );
+  });
+
+  it('shows a retryable error when Save-triggered validation fails', async () => {
+    runValidationMutateAsync.mockRejectedValue(new Error('Network down'));
+
+    renderWithProviders(
+      <AuditPanel projectId={1} groupId={1} manifestId={1} onClose={vi.fn()} allManifestIds={[1]} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Human Verified' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await vi.runAllTimersAsync();
+
+    expect(updateManifestMutateAsync).toHaveBeenCalledTimes(1);
+    expect(updateManifestMutateAsync.mock.calls[0]?.[0]).toMatchObject({
+      manifestId: 1,
+      data: { humanVerified: false },
+    });
+
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Validation failed',
+      }),
+    );
+
+    const toastArg = toastMock.mock.calls
+      .map((call) => call[0] as any)
+      .find((call) => call?.title === 'Validation failed');
+    expect(toastArg?.action).toBeTruthy();
+  });
+
   it('navigates to previous/next manifests via router state', () => {
     const allManifestIds = [1, 2, 3];
 

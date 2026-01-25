@@ -29,6 +29,7 @@ export const enMessages: Record<string, string> = {
   'common.signOut': 'Sign out',
   'common.update': 'Update',
   'common.view': 'View',
+  'common.retry': 'Retry',
   'common.deleteFailedTitle': 'Delete failed',
 
   'session.checking': 'Checking your session...',
@@ -531,6 +532,9 @@ export const enMessages: Record<string, string> = {
   'audit.save.saved': '✓ Saved',
   'audit.save.failed': '✗ Failed',
   'audit.save.saving': 'Saving...',
+  'audit.save.validationTitle': 'Validation',
+  'audit.save.validationFailedTitle': 'Validation failed',
+  'audit.save.validationFailedDescription': 'Validation could not run. Human Verified was not saved.',
 
   'audit.nav.previous': 'Previous (←)',
   'audit.nav.next': 'Next (→)',

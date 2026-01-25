@@ -29,6 +29,7 @@ export const zhCNMessages: Record<string, string> = {
   'common.signOut': '退出登录',
   'common.update': '更新',
   'common.view': '查看',
+  'common.retry': '重试',
   'common.deleteFailedTitle': '删除失败',
 
   'session.checking': '正在检查登录状态…',
@@ -520,6 +521,9 @@ export const zhCNMessages: Record<string, string> = {
   'audit.save.saved': '✓ 已保存',
   'audit.save.failed': '✗ 保存失败',
   'audit.save.saving': '正在保存…',
+  'audit.save.validationTitle': '校验',
+  'audit.save.validationFailedTitle': '校验失败',
+  'audit.save.validationFailedDescription': '校验未能运行，无法保存为人工确认。',
 
   'audit.nav.previous': '上一份（←）',
   'audit.nav.next': '下一份（→）',
