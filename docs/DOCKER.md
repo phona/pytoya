@@ -49,8 +49,8 @@ docker build -t pytoya/api:latest -f src/apps/api/Dockerfile . \
 The `docker-compose.yml` file is configured for local development and includes:
 - PostgreSQL database
 - Redis cache/queue
-- NestJS API (with hot reload)
-- Vite Web (with hot reload)
+- NestJS API (production container, config mounted)
+- Vite Web (production container, API URL compiled at build time)
 
 ### Start All Services
 ```bash
@@ -92,22 +92,23 @@ The API requires these environment variables (configured in docker-compose.yml):
 
 ```
 NODE_ENV=development
-PORT=3000
+SERVER_PORT=3000
 DB_HOST=postgres
 DB_PORT=5432
 DB_USERNAME=pytoya_user
 DB_PASSWORD=pytoya_pass
-DB_DATABASE=pytoya
+DB_NAME=pytoya
 REDIS_HOST=redis
 REDIS_PORT=6379
 # Optional: BullMQ extraction worker concurrency (default: 5)
 # EXTRACTION_WORKER_CONCURRENCY=5
 JWT_SECRET=dev-jwt-secret-change-in-production
- LLM_API_KEY=dev-llm-key
- PADDLEOCR_BASE_URL=http://localhost:8080
- # Optional if your OCR service uses a non-root endpoint (e.g. /layout_parsing)
- # PADDLEOCR_ENDPOINT=/layout-parsing
- ```
+LLM_API_KEY=dev-llm-key
+# OCR is external to docker-compose by default (host.docker.internal on Windows/macOS).
+PADDLEOCR_BASE_URL=http://host.docker.internal:8080
+```
+
+The API reads `config.yaml` at startup and `docker-compose.yml` mounts `src/apps/api/config.yaml` into the container at `/app/config.yaml`.
 
 ## Production Deployment with Helm
 

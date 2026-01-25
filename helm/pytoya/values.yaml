@@ -88,6 +88,9 @@ api:
     redis:
       host: ""
       port: 6379
+    queue:
+      extraction:
+        concurrency: 5
     jwt:
       expiration: 7d
     paddleocr:
@@ -133,6 +136,8 @@ api:
         minLength: 3
         maxLength: 50
         pattern: "^[a-zA-Z][a-zA-Z0-9_-]*$"
+    features:
+      manualExtraction: true
   healthCheck:
     path: /health
     initialDelay: 30
@@ -160,9 +165,6 @@ web:
     limits:
       cpu: "1"
       memory: "1Gi"
-  env:
-    VITE_API_URL: ""
-    VITE_WS_URL: ""
   healthCheck:
     path: /
     initialDelay: 30

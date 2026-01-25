@@ -8,4 +8,4 @@ The project SHALL be organized as a monorepo with separate applications, and SHA
 - **THEN** PostgreSQL, Redis, backend API, and web frontend start successfully
 - **AND** Docker builds succeed using the correct build context for each app Dockerfile
 - **AND** compose environment variables align with the API `config.yaml` template variables
-- **AND** web configuration follows the documented Vite strategy (build-time or runtime injection)
+- **AND** web configuration follows the documented Vite strategy (build-time configuration)

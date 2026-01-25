@@ -7,6 +7,7 @@ WORKDIR /repo
 COPY .npmrc package.json package-lock.json tsconfig.base.json ./
 COPY src/apps/api/package.json src/apps/api/nest-cli.json src/apps/api/tsconfig*.json ./src/apps/api/
 COPY src/apps/web/package.json ./src/apps/web/package.json
+COPY src/shared/package.json src/shared/tsconfig.json ./src/shared/
 RUN npm ci
 
 FROM deps AS builder

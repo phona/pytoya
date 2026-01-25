@@ -46,12 +46,6 @@ spec:
           ports:
             - name: http
               containerPort: {{ .Values.api.service.port }}
-          env:
-            - name: VITE_API_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "pytoya.fullname" . }}-config
-                  key: VITE_API_URL
           envFrom:
             - secretRef:
                 name: {{ include "pytoya.fullname" . }}-secrets

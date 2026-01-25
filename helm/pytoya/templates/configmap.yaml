@@ -17,18 +17,23 @@ data:
       host: {{ .Values.api.config.database.host | quote }}
       port: {{ .Values.api.config.database.port }}
       username: {{ .Values.api.config.database.username | quote }}
-      password: {{ "{{DB_PASSWORD}}" }}
+      password: "{{ "{{DB_PASSWORD}}" }}"
       database: {{ .Values.api.config.database.database | quote }}
     redis:
       host: {{ .Values.api.config.redis.host | quote }}
       port: {{ .Values.api.config.redis.port }}
+    queue:
+      extraction:
+        concurrency: {{ .Values.api.config.queue.extraction.concurrency | default 5 }}
     jwt:
-      secret: {{ "{{JWT_SECRET}}" }}
+      secret: "{{ "{{JWT_SECRET}}" }}"
       expiration: {{ .Values.api.config.jwt.expiration | default "7d" | quote }}
     paddleocr:
       baseUrl: {{ .Values.api.config.paddleocr.baseUrl | quote }}
     llm:
-      apiKey: {{ "{{LLM_API_KEY}}" }}
+      apiKey: "{{ "{{LLM_API_KEY}}" }}"
+    features:
+      manualExtraction: {{ .Values.api.config.features.manualExtraction | default true }}
     security:
       cors:
         enabled: {{ .Values.api.config.security.cors.enabled | default true }}
@@ -48,7 +53,7 @@ data:
       rateLimit:
         enabled: {{ .Values.api.config.security.rateLimit.enabled | default true }}
         ttl: {{ .Values.api.config.security.rateLimit.ttl | default 60000 }}
-        limit: {{ .Values.api.config.security.rateLimit.limit | default 10 }}
+        limit: {{ .Values.api.config.security.rateLimit.limit | default 120 }}
         storage: {{ .Values.api.config.security.rateLimit.storage | default "memory" | quote }}
       accountLockout:
         enabled: {{ .Values.api.config.security.accountLockout.enabled | default true }}
@@ -74,5 +79,3 @@ data:
         minLength: {{ .Values.api.config.security.usernamePolicy.minLength }}
         maxLength: {{ .Values.api.config.security.usernamePolicy.maxLength }}
         pattern: {{ .Values.api.config.security.usernamePolicy.pattern | quote }}
-  # Web env vars (remain as-is for frontend build)
-  VITE_API_URL: {{ .Values.web.env.VITE_API_URL | quote }}

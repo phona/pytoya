@@ -9,7 +9,7 @@ database:
   host: {{default DB_HOST "localhost"}}
   port: {{default DB_PORT "5432"}}
   username: {{default DB_USERNAME "pytoya_user"}}
-  password: {{DB_PASSWORD}}
+  password: "{{DB_PASSWORD}}"
   database: {{default DB_NAME "pytoya"}}
 
 redis:
@@ -21,14 +21,14 @@ queue:
     concurrency: {{default EXTRACTION_WORKER_CONCURRENCY "5"}}
 
 jwt:
-  secret: {{JWT_SECRET}}
+  secret: "{{JWT_SECRET}}"
   expiration: {{default JWT_EXPIRATION "7d"}}
 
 paddleocr:
   baseUrl: {{default PADDLEOCR_BASE_URL "http://localhost:8080"}}
 
 llm:
-  apiKey: {{LLM_API_KEY}}
+  apiKey: "{{LLM_API_KEY}}"
 
 features:
   manualExtraction: {{default FEATURE_MANUAL_EXTRACTION "true"}}

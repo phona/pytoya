@@ -34,53 +34,47 @@ services:
 
   api:
     build:
-      context: ./src/apps/api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: src/apps/api/Dockerfile
     container_name: pytoya-api
     environment:
       NODE_ENV: development
-      PORT: 3000
+      SERVER_PORT: 3000
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USERNAME: pytoya_user
       DB_PASSWORD: pytoya_pass
-      DB_DATABASE: pytoya
+      DB_NAME: pytoya
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: dev-jwt-secret-change-in-production
       LLM_API_KEY: dev-llm-key
-      PADDLEOCR_BASE_URL: http://localhost:8080
+      # OCR is external to compose by default.
+      # On Windows/macOS, host.docker.internal resolves to the Docker host.
+      PADDLEOCR_BASE_URL: http://host.docker.internal:8080
     ports:
       - "3000:3000"
     volumes:
-      - ./src/apps/api:/app
-      - /app/node_modules
+      - ./src/apps/api/config.yaml:/app/config.yaml:ro
       - api_uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: npm run start:dev
 
   web:
     build:
-      context: ./src/apps/web
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: src/apps/web/Dockerfile
+      args:
+        # Compile the API base URL into the frontend bundle.
+        VITE_API_URL: http://localhost:3000
     container_name: pytoya-web
-    environment:
-      NODE_ENV: development
-      PORT: 3000
-      VITE_API_URL: http://localhost:3000
     ports:
       - "3001:3000"
-    volumes:
-      - ./src/apps/web:/app
-      - /app/node_modules
-      - /app/dist
     depends_on:
       - api
-    command: npm run dev
 
 volumes:
   postgres_data:
