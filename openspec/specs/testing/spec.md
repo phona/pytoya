@@ -51,6 +51,11 @@ The system SHALL use Vitest with React Testing Library and MSW for API mocking, 
 - **AND** handlers are defined in test/mocks/handlers.ts
 - **AND** mock server is set up in test/setup.ts
 
+#### Scenario: Prefer integration tests over placeholders
+- **GIVEN** a UI feature depends on real browser APIs (e.g., WebSocket) where unit mocks become brittle
+- **WHEN** validating that behavior
+- **THEN** the system SHOULD use an integration or E2E test (e.g., Playwright) rather than a placeholder unit test
+
 ### Requirement: Test Coverage
 The system SHALL maintain minimum test coverage thresholds.
 
@@ -63,6 +68,7 @@ The system SHALL maintain minimum test coverage thresholds.
 - **WHEN** running tests
 - **THEN** coverage meets thresholds: branches 60%, functions 60%, lines 60%, statements 60%
 - **AND** excludes are configured for *.stories.tsx, *.d.ts
+- **AND** CI SHOULD enforce these thresholds to prevent regressions
 
 ### Requirement: Testing Documentation
 The system SHALL document testing conventions and best practices.
@@ -80,4 +86,59 @@ The system SHALL run linting in non-interactive mode for CI and automation.
 - **WHEN** developer runs `npm run lint`
 - **THEN** lint completes without interactive prompts
 - **AND** lint exits non-zero on violations
+
+### Requirement: Use-Case Tests (Business-Logic-First)
+The system SHALL support “use-case tests” that validate business workflows without HTTP, browser automation, Postgres, TypeORM, Redis, or BullMQ.
+
+#### Scenario: Use-case test covers a full workflow
+- **WHEN** testing the upload → extract → audit workflow
+- **THEN** the test SHALL call use-cases directly
+- **AND** external IO (repo/queue/storage/LLM/OCR) SHALL be provided via in-memory ports/adapters
+- **AND** assertions SHALL focus on business invariants (state transitions, validation outcomes, emitted events)
+
+#### Scenario: Deterministic async execution
+- **WHEN** a workflow enqueues background work (extraction, OCR refresh)
+- **THEN** tests SHALL run deterministically using an in-memory queue runner
+- **AND** tests SHALL NOT depend on timers or sleeps
+
+### Requirement: Thin API Wiring Tests
+The system SHALL keep API tests focused on boundary behavior, not business logic duplication.
+
+#### Scenario: Controller delegates to use-case
+- **WHEN** testing a controller endpoint (e.g., `POST /manifests/:id/extract`)
+- **THEN** the test SHALL validate input DTO handling and mapping
+- **AND** the controller SHALL call the corresponding use-case with correct inputs
+- **AND** the response shape/error mapping SHALL be asserted
+
+### Requirement: Web Journey Tests Use MSW Stubs
+The system SHALL support route-level “web journey tests” using Vitest + React Testing Library + MSW to cover most user journeys with minimal UI interactions.
+
+#### Scenario: Poll-based job progress in journey tests
+- **WHEN** the UI displays extraction progress
+- **THEN** journey tests SHALL simulate progress via stubbed polling endpoints
+- **AND** WebSocket behavior SHALL be mocked by default
+- **AND** one or two focused tests MAY cover websocket-driven updates separately
+- **AND** multipart upload flows MAY stub the API client boundary (e.g. `manifestsApi.uploadManifestsBatch`) when jsdom networking is brittle
+
+#### Scenario: Unhandled requests fail fast
+- **WHEN** a web journey test triggers an API call without an MSW handler
+- **THEN** the test run SHOULD fail fast to avoid silent contract drift
+
+### Requirement: Frontend CI Quality Gates
+The system SHALL enforce a minimum web app quality bar in CI.
+
+#### Scenario: Web checks run in CI
+- **WHEN** CI runs for a change that affects the repository
+- **THEN** CI SHALL run `npm run lint`
+- **AND** CI SHALL run `npm run type-check`
+- **AND** CI SHALL run `npm run test:coverage`
+- **AND** CI SHALL fail on violations or coverage below the configured thresholds
+
+### Requirement: Frontend Test Data Factories
+The frontend application SHALL provide test data factory functions for generating mock data in tests.
+
+#### Scenario: Factory function usage
+- **WHEN** writing tests that require mock data
+- **THEN** developers SHOULD use factory functions (e.g., `src/apps/web/src/tests/mocks/factories.ts`)
+- **AND** factories SHALL generate realistic data matching TypeScript types
 

@@ -4,49 +4,25 @@
 TBD - created by archiving change add-dynamic-manifest-filtering. Update Purpose after archive.
 ## Requirements
 ### Requirement: Dynamic Field Filtering
-The system SHALL support filtering manifests by any extracted data field using dot-notation paths.
+The system SHALL support filtering manifests by extracted data fields using dot-notation paths and SHALL NOT require invoice-centric “system filter” parameters for core functionality.
 
-#### Scenario: Filter by invoice PO number
+#### Scenario: Filter using dynamic extracted-data filters
 - **WHEN** authenticated user requests `GET /groups/1/manifests?filter[invoice.po_no]=0000009`
-- **THEN** only manifests with matching PO number are returned
-- **AND** filter uses case-insensitive partial match (ILIKE)
-
-#### Scenario: Filter by credit card ID
-- **WHEN** authenticated user requests `GET /groups/1/manifests?filter[credit_card.id_number]=4532`
-- **THEN** only manifests with matching credit card ID are returned
-
-#### Scenario: Filter by receipt merchant
-- **WHEN** authenticated user requests `GET /groups/1/manifests?filter[receipt.merchant]=Amazon`
-- **THEN** only receipts from that merchant are returned
-
-#### Scenario: Multiple filters (AND logic)
-- **WHEN** authenticated user requests `GET /groups/1/manifests?filter[invoice.po_no]=0000009&filter[department.code]=ENG`
-- **THEN** only manifests matching BOTH conditions are returned
-
-#### Scenario: Invalid field path rejected
-- **WHEN** authenticated user requests `GET /groups/1/manifests?filter[invo;ice.po]=value`
-- **THEN** request is rejected with 400 Bad Request
-- **AND** error message indicates invalid field path
+- **THEN** only manifests with matching extracted data are returned
+- **AND** the system SHALL NOT require `poNo=...` as a special-case parameter
 
 ### Requirement: Dynamic Field Sorting
-The system SHALL support sorting manifests by any extracted data field.
+The system SHALL support sorting manifests by extracted data fields using semantics derived from schema type information (not field-name business rules).
 
-#### Scenario: Sort by PO number ascending
+#### Scenario: Sort by schema string field
+- **GIVEN** a schema field path resolves to a `type=string` field
 - **WHEN** authenticated user requests `GET /groups/1/manifests?sortBy=invoice.po_no&order=asc`
-- **THEN** manifests are sorted by PO number in ascending order
-- **AND** PO numbers are compared as numeric values
+- **THEN** manifests are sorted using lexicographic string ordering (stable, deterministic)
 
-#### Scenario: Sort by invoice date descending
-- **WHEN** authenticated user requests `GET /groups/1/manifests?sortBy=invoice.invoice_date&order=desc`
-- **THEN** manifests are sorted by invoice date, newest first
-
-#### Scenario: Sort by credit card last 4 digits
-- **WHEN** authenticated user requests `GET /groups/1/manifests?sortBy=credit_card.last_4_digits&order=asc`
-- **THEN** manifests are sorted by last 4 digits as text
-
-#### Scenario: Sort with filter applied
-- **WHEN** authenticated user requests `GET /groups/1/manifests?filter[invoice.po_no]=0000&sortBy=invoice.total_amount&order=desc`
-- **THEN** filtered results are sorted by total amount descending
+#### Scenario: Sort by schema numeric field
+- **GIVEN** a schema field path resolves to a `type=number` or `type=integer` field
+- **WHEN** authenticated user requests `GET /groups/1/manifests?sortBy=invoice.total_amount&order=desc`
+- **THEN** manifests are sorted using numeric ordering
 
 ### Requirement: Pagination Support
 The system SHALL support pagination for manifest list responses.
@@ -95,4 +71,12 @@ The system SHALL convert dot-notation paths to PostgreSQL JSONB operators.
 #### Scenario: Deeply nested field
 - **WHEN** field path is `receipt.merchant.name`
 - **THEN** query uses `extractedData -> 'receipt' -> 'merchant' ->> 'name' ILIKE :value`
+
+### Requirement: Cancellation Outcome Is Visible
+The system SHALL expose user-initiated cancellation as a distinct outcome in user-facing history (not indistinguishable from failures).
+
+#### Scenario: UI shows canceled vs failed
+- **GIVEN** a job was canceled by the user
+- **WHEN** the job is displayed in UI/history
+- **THEN** it SHALL be labeled as canceled (not failed)
 

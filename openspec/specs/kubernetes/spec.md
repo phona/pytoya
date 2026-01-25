@@ -4,52 +4,31 @@
 TBD - created by archiving change deploy-kubernetes. Update Purpose after archive.
 ## Requirements
 ### Requirement: Kubernetes Deployment
-The system SHALL be deployable to Kubernetes with an optional Helm hook Job that seeds the default admin user when admin values are provided.
+The system SHALL support a worker topology that can be scaled independently from the HTTP API when deployed to Kubernetes.
 
-#### Scenario: Admin seed job runs on install/upgrade
-- **WHEN** Helm values include `admin.username` and `admin.password`
-- **THEN** a post-install/post-upgrade Job runs `node dist/cli newadmin`
-- **AND** the Job uses the same config/secrets as the API deployment
-
-#### Scenario: Admin seed job omitted when values missing
-- **WHEN** Helm values do not include admin credentials
-- **THEN** no admin seed Job is rendered
+#### Scenario: Worker runs as separate deployment
+- **GIVEN** Helm values enable a separate worker deployment
+- **WHEN** the chart is rendered
+- **THEN** a worker Deployment is created that:
+  - uses the same image tag as the API
+  - mounts the same `config.yaml` template
+  - receives the same Secret-derived environment variables
+- **AND** the API deployment remains responsible for HTTP routes
 
 ### Requirement: Dev K8s Dependency Setup
-The system SHALL provide a documented helper workflow to deploy dev dependencies (PostgreSQL and Redis) to Kubernetes using NodePort and configure local development environment variables.
-The helper SHALL output shell-exportable environment variable assignments for DB/Redis credential values.
-Helm charts SHALL render `src/apps/api/config.yaml` from values into a ConfigMap and mount it into the API deployment.
+Helm charts SHALL render an API `config.yaml` that passes API config validation, including required nested sections.
 
-Credential values SHALL be provided via Kubernetes Secrets and injected as environment variables.
-
-#### Scenario: Helm renders API config template
+#### Scenario: Helm renders complete API config template
 - **WHEN** the Helm chart is rendered for the API
-- **THEN** the ConfigMap includes a `config.yaml` entry with `{{VARIABLE}}` placeholders
-- **AND** the API deployment mounts the ConfigMap at `src/apps/api/config.yaml`
-- **AND** credential values are NOT included in the ConfigMap
+- **THEN** the ConfigMap MUST include a `config.yaml` entry with:
+  - `database`, `redis`, `jwt`, `llm`, `security`
+  - `queue.extraction.concurrency`
+  - `features.manualExtraction`
+- **AND** credential values MUST remain placeholders (populated by Secret-derived env vars)
 
-#### Scenario: Helm creates Secret from values
-- **WHEN** Helm values include credential fields
-- **THEN** a Kubernetes Secret MUST be created
-- **AND** the Secret MUST contain `db-password`, `jwt-secret`, and `llm-api-key` keys
-- **AND** the API deployment MUST inject these as environment variables
-
-#### Scenario: Deploy dev dependencies
-- **WHEN** a developer runs the helper with a POSTGRES_PASSWORD
-- **THEN** PostgreSQL and Redis are deployed to a dev namespace with NodePort services
-- **AND** API and web components are disabled for the dev dependency deployment
-
-#### Scenario: Configure local dev environment
-- **WHEN** dependencies are deployed with auto-assigned NodePorts
-- **THEN** the helper retrieves the NodePorts and a reachable node IP
-- **AND** the helper outputs shell commands to set environment variables
-- **AND** the helper provides separate instructions for bash/zsh and PowerShell
-
-#### Scenario: Helm migration job uses template-derived config
-- **WHEN** the Helm migration Job runs in Kubernetes
-- **THEN** the mounted `config.yaml` template is available to the API container
-- **AND** environment variables from Secrets populate the template placeholders
-- **AND** the migration command uses the same configuration values as the API deployment
+#### Scenario: Secret placeholders are YAML-safe
+- **WHEN** the API config template includes Secret placeholders (DB password, JWT secret, LLM key)
+- **THEN** the placeholders SHALL be quoted or rendered safely so arbitrary secret values do not break YAML parsing
 
 ### Requirement: Helm-Managed Migration Job
 The system SHALL provide a Helm-managed migration Job that runs database migrations before API pods start during install/upgrade.
@@ -96,4 +75,41 @@ The API container SHALL receive credentials via environment variables from the S
 - **THEN** the ConfigMap MUST mount `config.yaml` at the expected path
 - **AND** the config file MUST contain `{{VARIABLE}}` placeholders
 - **AND** the config file MUST NOT contain actual credential values
+
+### Requirement: Subpath Deployment (Traefik Ingress)
+The system SHALL support being deployed under a configurable base path (example: `/pytoya`) behind a shared gateway using Kubernetes `Ingress` with `ingressClassName: traefik`.
+
+The Helm chart SHALL expose `global.basePath` (default: empty) and SHALL render Ingress path rules that route:
+- web UI under `<basePath>/`
+- API under `<basePath>/api/`
+
+#### Scenario: Base path routes web and API with two Ingress paths
+- **GIVEN** `global.basePath=/pytoya`
+- **WHEN** the Helm chart renders an `Ingress` resource
+- **THEN** the Ingress MUST route `path: /pytoya/api` (Prefix) to the API service
+- **AND** the Ingress MUST route `path: /pytoya` (Prefix) to the web service
+- **AND** the deployment MUST NOT require additional Ingress paths for uploads or websockets (they are nested under `/pytoya/api/*`)
+
+#### Scenario: Root deploy remains supported
+- **GIVEN** `global.basePath` is empty
+- **WHEN** the Helm chart renders an `Ingress` resource
+- **THEN** the Ingress SHOULD route `path: /api` (Prefix) to the API service
+- **AND** the Ingress SHOULD route `path: /` (Prefix) to the web service
+
+### Requirement: Web Frontend Environment Configuration
+The Kubernetes deployment SHALL document and implement a supported strategy for configuring the Vite web app per environment.
+
+#### Scenario: Build-time Vite configuration (Option A)
+- **WHEN** the web image is built for an environment
+- **THEN** the build process SHALL set `VITE_API_URL` (and optionally `VITE_WS_URL`) as build arguments
+- **AND** Helm SHALL NOT rely on runtime container env vars to configure the Vite bundle
+
+### Requirement: WebSocket Topology Option
+The system SHALL support a deployable topology where realtime updates remain functional when multiple API replicas exist.
+
+#### Scenario: Multi-replica API keeps realtime updates working
+- **GIVEN** the API is deployed with more than one replica
+- **WHEN** an extraction job reports progress
+- **THEN** the user interface SHALL receive progress updates for subscribed manifests
+- **AND** the chosen deployment strategy (dedicated gateway, adapter, or sticky routing) SHALL be documented
 

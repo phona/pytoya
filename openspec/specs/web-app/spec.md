@@ -79,6 +79,7 @@ The web application SHALL provide a simplified sidebar navigation in the dashboa
 - **GIVEN** a user is on a dashboard page on a desktop viewport
 - **WHEN** the user collapses the sidebar
 - **THEN** the system SHALL hide the sidebar navigation
+- **AND** the hidden sidebar SHALL NOT be reachable by keyboard focus
 - **AND** the system SHALL provide a control to re-open the sidebar
 - **AND** the main content area SHALL use the available width
 
@@ -863,12 +864,6 @@ The web application SHALL use semantic HTML elements and landmark regions to sup
 
 The manifest list SHALL display manifests with extraction controls and OCR quality, and SHALL render schema-driven summary fields as dynamic columns derived from the project's active JSON Schema. The manifest list SHALL allow sorting and filtering by those schema-driven fields.
 
-#### Scenario: Minimal default system columns
-
-- **WHEN** the manifest list table renders
-- **THEN** the table SHALL render a minimal set of non-schema columns suitable for a summary view (e.g., Filename, Status, Actions)
-- **AND** the table MAY render a selection checkbox column only when batch actions are enabled
-
 #### Scenario: Optional system columns (default hidden)
 
 - **GIVEN** additional manifest system fields exist (e.g., Confidence, Verified, Invoice Date, Department, Purchase Order, Cost, OCR Quality, OCR Processed At, Extractor, File Size, File Type, Created, Updated, ID)
@@ -876,42 +871,11 @@ The manifest list SHALL display manifests with extraction controls and OCR quali
 - **THEN** the user SHALL be able to toggle those additional system columns
 - **AND** those optional system columns SHALL be hidden by default
 
-#### Scenario: Filter by system field using column header controls
-
-- **GIVEN** the manifest list table is visible
-- **WHEN** the user applies a filter via a system column header control
-- **THEN** the manifest list query SHALL include the corresponding system filter query params (e.g., `status`, `humanVerified`, `confidenceMin`, `confidenceMax`, `dateFrom`, `dateTo`, `department`, `poNo`, `ocrQualityMin`, `ocrQualityMax`, `costMin`, `costMax`, `textExtractorId`, `extractorType`)
-- **AND** the results SHALL update to show only matching manifests
-
-#### Scenario: Use schema-defined table columns
-
-- **GIVEN** the project's active JSON Schema defines `x-table-columns` as a non-empty ordered list of dot-paths (e.g., `invoice.po_no`, `department.code`)
-- **WHEN** the manifest list table renders
-- **THEN** the table SHALL render a column for each configured field path in order
-- **AND** each cell value SHALL be read from `manifest.extractedData` using the dot-path
-- **AND** missing values SHALL render as `N/A` (or equivalent)
-
-#### Scenario: Explicit opt-out with empty `x-table-columns`
-
-- **GIVEN** the project's active JSON Schema defines `x-table-columns` as an empty array (`[]`)
-- **WHEN** the manifest list table renders
-- **THEN** the table SHALL render no schema-driven columns
-- **AND** the table SHALL NOT fall back to auto-selected schema fields
-
-#### Scenario: Fallback column selection when `x-table-columns` is absent
-
-- **GIVEN** the project's active JSON Schema does not define `x-table-columns`
-- **WHEN** the manifest list table renders
-- **THEN** the table SHOULD select a small capped set of scalar leaf fields from the schema for display
-- **AND** required fields SHOULD be prioritized
-- **AND** array fields (paths containing `[]`) SHALL NOT be selected as table columns
-
-#### Scenario: Sort by schema-driven field
-
-- **GIVEN** schema-driven columns are visible in the manifest list table
-- **WHEN** the user clicks a schema-driven column header to sort
-- **THEN** the system SHALL request the manifest list with `sortBy=<fieldPath>&order=<asc|desc>`
-- **AND** the UI SHALL display the active sort indicator on that column
+#### Scenario: Confidence indicators are not color-only
+- **GIVEN** the manifest list UI displays confidence using any visual highlight (e.g., row border color)
+- **WHEN** the Confidence system column is hidden
+- **THEN** the UI SHALL provide a non-color cue for the confidence signal (e.g., label, badge, tooltip text)
+- **AND** the UI SHALL provide an accessible text equivalent for screen readers
 
 #### Scenario: Filter by schema-driven field using column filter dropdown
 
@@ -921,28 +885,10 @@ The manifest list SHALL display manifests with extraction controls and OCR quali
 - **THEN** the manifest list query SHALL include `filter[<fieldPath>]=<value>`
 - **AND** the results SHALL update to show only matching manifests
 
-#### Scenario: Toggle visible schema columns via Columns dropdown
-
-- **GIVEN** schema-driven columns are available in the manifest list table
-- **WHEN** the user opens the Columns dropdown
-- **AND** the user unchecks one schema-driven field
-- **THEN** the manifest list table SHALL hide that schema-driven column
-- **AND** pinned columns (e.g., Filename, Actions) SHALL remain visible
-
-#### Scenario: Navigate to manifest audit via Filename
-
-- **GIVEN** the manifest list table is visible
-- **WHEN** the user clicks anywhere on a manifest row
-- **THEN** the system SHALL NOT navigate away (row click is non-navigational)
-- **WHEN** the user clicks the Filename value
-- **THEN** the system SHALL navigate to the manifest audit/detail view
-
-#### Scenario: Actions available via a single menu
-
-- **GIVEN** the manifest list table is visible
-- **WHEN** the user opens the `⋮` menu in the Actions column
-- **THEN** the menu SHALL include high-signal actions for the manifest (e.g., Preview OCR, Run validation, Extract / Re-extract)
-- **AND** low-signal or global actions (e.g., “Update rules”) SHOULD NOT appear in the per-row Actions menu
+#### Scenario: Available value scope is clear
+- **GIVEN** the UI offers “available values” suggestions for a schema-driven column filter
+- **WHEN** those suggestions are derived from the currently displayed page only
+- **THEN** the UI SHALL label the suggestions as page-scoped (e.g., “Values from this page”)
 
 ### Requirement: Manifest Detail View
 
@@ -958,17 +904,10 @@ The manifest detail SHALL include OCR result preview and field re-extraction.
   - [👁️ OCR Raw] - Full OCR result JSON
   - [📊 History] - Extraction history with costs
 
-#### Scenario: Extracted fields with re-extract
-
-- **GIVEN** user is viewing extracted data tab
-- **WHEN** field has value
-- **THEN** field shows:
-  - Value
-  - Confidence score
-  - [⟳ Re-extract] button
-  - [✏️ Edit] button
-- **WHEN** user clicks [⟳ Re-extract]
-- **THEN** system opens field re-extract dialog with OCR context
+#### Scenario: Audit header does not expose internal storage path
+- **GIVEN** the user is viewing the manifest audit/detail page
+- **WHEN** the header renders manifest metadata
+- **THEN** the UI SHALL NOT display internal storage paths (e.g., `storagePath`) as primary user-facing text
 
 ### Requirement: Extraction Status Display
 
@@ -1310,6 +1249,15 @@ The web application SHALL provide a global Jobs panel to monitor queued and runn
 - **AND** the job SHALL be visible in the global Jobs panel with progress/status
 - **AND** the system SHALL refresh the manifest OCR view when the job completes
 
+#### Scenario: Jobs panel tab semantics
+- **GIVEN** the Jobs panel displays jobs in tabs
+- **WHEN** the user selects the “In progress” tab
+- **THEN** the UI SHALL show only non-terminal jobs
+- **WHEN** the user selects the “Completed” tab
+- **THEN** the UI SHALL show only jobs with `status=completed`
+- **WHEN** the user selects the “Failed” tab
+- **THEN** the UI SHALL show only failed/canceled jobs
+
 ### Requirement: Internationalization (i18n) Support
 The web application SHALL support localized UI text and runtime language switching.
 
@@ -1329,6 +1277,11 @@ The web application SHALL support localized UI text and runtime language switchi
 - **WHEN** the UI renders that string
 - **THEN** the app SHALL fall back to `en` for that key
 - **AND** the UI SHALL still render a safe, user-friendly message
+
+#### Scenario: Wizards are fully localized
+- **GIVEN** the user opens a multi-step wizard (e.g., project guided setup)
+- **WHEN** the UI is rendered in a non-default locale
+- **THEN** wizard titles, step labels, and button labels SHALL use localized strings
 
 ### Requirement: Localized API Error Presentation
 The web application SHALL present localized error messages based on backend error codes.
@@ -1472,27 +1425,26 @@ The web application SHALL gate saving `manifest.humanVerified=true` behind a val
 - **AND** the UI SHOULD provide an explicit user action to open the Validation section
 
 ### Requirement: Manifest list batch actions use consistent scope modals
-The web application SHALL present a consistent scope confirmation modal UX for the Manifests list batch actions: Export CSV, Run validation, and Extract.
+The web application SHALL present a consistent scope confirmation modal UX for the Manifests list batch actions: Export CSV, Export Excel, Run validation, and Extract.
 
 #### Scenario: Default scope is filtered
 - **GIVEN** a user is on the Manifests list page with any selection state
-- **WHEN** the user opens Export CSV, Run validation, or Extract
+- **WHEN** the user opens Export (CSV/Excel), Run validation, or Extract
 - **THEN** the system SHALL default the scope to “All matching current filters”
 
 #### Scenario: Selected-only scope is available when there is a selection
 - **GIVEN** a user has selected one or more manifests on the Manifests list page
-- **WHEN** the user opens Export CSV, Run validation, or Extract
+- **WHEN** the user opens Export (CSV/Excel), Run validation, or Extract
 - **THEN** the system SHALL allow switching the scope to “Selected only”
 
 #### Scenario: Selected-only scope is disabled when there is no selection
 - **GIVEN** a user has selected zero manifests on the Manifests list page
-- **WHEN** the user opens Export CSV, Run validation, or Extract
+- **WHEN** the user opens Export (CSV/Excel), Run validation, or Extract
 - **THEN** the system SHALL disable “Selected only” scope selection
 
-#### Scenario: Validation eligibility is communicated
-- **GIVEN** a user opens the Run validation modal on the Manifests list page
-- **WHEN** the system determines which manifests are eligible for validation
-- **THEN** the UI SHALL communicate that only completed extractions with extracted data will be validated
+#### Scenario: Export format selection
+- **WHEN** the user opens the Export modal on the Manifests list page
+- **THEN** the UI SHALL allow choosing the export format: CSV or Excel (`.xlsx`)
 
 ### Requirement: Embedded Cost Dashboard Widget
 The web application SHALL embed a cost dashboard widget on existing dashboard pages to summarize usage and spend with multi-currency support.
@@ -1682,4 +1634,28 @@ The web application SHALL provide single-manifest and batch delete actions from 
 - **WHEN** the user opens the toolbar **Delete…** scope modal
 - **THEN** the system SHALL disable the **All matching current filters** scope option
 - **AND** the modal SHALL indicate that a filter is required to enable that option
+
+### Requirement: Base Path Hosting
+The web application SHALL support being hosted under a configurable base path (example: `/pytoya`) without broken routing, redirects, or static asset URLs.
+
+#### Scenario: Deep link refresh works under base path
+- **GIVEN** the web application is deployed under base path `/pytoya`
+- **WHEN** a user loads a deep link (example: `/pytoya/projects`) and refreshes the page
+- **THEN** the application SHALL load successfully
+- **AND** the router SHALL keep the user on the same logical page (`/projects`)
+
+#### Scenario: Auth redirect keeps base path
+- **GIVEN** the web application is deployed under base path `/pytoya`
+- **AND** the user is unauthenticated
+- **WHEN** the user navigates to a protected route (example: `/pytoya/projects`)
+- **THEN** the application SHALL redirect to `/pytoya/login?next_url=...`
+- **AND** `next_url` SHALL preserve the intended destination under the same base path
+
+### Requirement: Manifest List Filtering UI
+The web app SHALL support filtering by schema-driven extracted-data fields and SHOULD avoid invoice-centric filter UI controls when the project schema does not define invoice fields.
+
+#### Scenario: Schema-driven filter UI
+- **GIVEN** a project schema defines a set of fields for display (e.g., via `x-table-columns`)
+- **WHEN** a user opens the manifests list filters
+- **THEN** the UI SHALL present filter controls derived from schema configuration (not invoice-only fields)
 

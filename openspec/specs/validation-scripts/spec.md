@@ -160,3 +160,24 @@ When a validation script fails during execution, the system SHALL return the fai
 - **AND** the system SHALL return an error validation issue as described above
 - **AND** the system SHALL continue executing remaining scripts
 
+### Requirement: Validation Results Are Versioned for Audit
+Validation results SHALL record the schema version and validation script version(s) used so that audit history remains explainable as schemas and scripts evolve.
+Cached validation results MUST be invalidated when the schema version or validation scripts change.
+
+#### Scenario: Cached validation invalidates on schema change
+- **GIVEN** a manifest has cached validation results
+- **WHEN** the project schema changes to a new version
+- **THEN** cached validation results SHALL be treated as stale
+- **AND** the UI SHALL prompt the user to re-run validation
+
+### Requirement: LLM-Generated Validation Script Templates Are Domain-Neutral
+The system SHALL support generating validation script templates using the configured LLM.
+The generation prompt MUST be domain-neutral by default and MUST NOT assume invoice-only rules unless provided by user input or project configuration.
+
+#### Scenario: Generate validation script template for any schema
+- **GIVEN** a project has a JSON Schema for extracted data
+- **WHEN** a user requests a generated validation script template
+- **THEN** the system SHALL provide schema/context to the LLM
+- **AND** the system SHALL return `{ name, description, severity, script }` as JSON
+- **AND** the system SHALL NOT hardcode invoice-only wording or constraints in the generator prompt
+

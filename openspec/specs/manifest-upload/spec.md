@@ -4,27 +4,13 @@
 TBD - created by archiving change implement-manifest-upload. Update Purpose after archive.
 ## Requirements
 ### Requirement: File Upload
-The system SHALL accept PDF file uploads and store them in local filesystem, and SHALL detect duplicate uploads within a group.
+The system SHALL store uploaded files in a way that remains accessible to background extraction workers under the configured deployment topology.
 
-#### Scenario: Single file upload (non-duplicate)
-- **WHEN** authenticated user uploads a PDF file to a group
-- **THEN** the system saves the file to `projects/{projectId}/groups/{groupId}/manifests/{filename}`
-- **AND** the system creates a manifest record in the database
-- **AND** the upload response indicates `isDuplicate=false`
-
-#### Scenario: Single file upload (duplicate)
-- **GIVEN** a manifest already exists in the group with identical file content
-- **WHEN** authenticated user uploads the same PDF content to the group
-- **THEN** the system SHALL NOT create a new manifest record
-- **AND** the system SHALL NOT store an additional copy of the PDF
-- **AND** the system returns the existing manifest
-- **AND** the upload response indicates `isDuplicate=true`
-
-#### Scenario: Batch file upload with duplicates
-- **WHEN** authenticated user selects multiple PDF files for a group (including duplicates)
-- **THEN** the system processes each file independently
-- **AND** each response item includes `isDuplicate` so the client can compute a summary
-- **AND** upload progress is shown
+#### Scenario: Worker can access stored files
+- **GIVEN** a manifest has been uploaded and stored
+- **WHEN** an extraction job runs in a separate worker process/pod
+- **THEN** the worker SHALL be able to read the manifest file by the stored reference (e.g., storagePath)
+- **AND** the uploads backend (local disk vs shared storage) SHALL be configurable by deployment
 
 ### Requirement: Manifest CRUD
 The system SHALL provide full CRUD operations for manifest records with server-side filtering, sorting, and pagination support.

@@ -4,57 +4,23 @@
 TBD - created by archiving change implement-extraction-engine. Update Purpose after archive.
 ## Requirements
 ### Requirement: LLM Extraction
+The system SHALL extract structured data according to the project’s active JSON Schema contract and MUST NOT inject invoice-only defaults (field names, required fields, or “items” rules) unless expressed by the schema/configuration.
 
-The system SHALL extract structured invoice data using OpenAI-compatible LLM providers, on-demand rather than automatically.
-
-#### Scenario: Initial extraction
-
-- **WHEN** user triggers extraction for manifest with cached OCR result
-- **THEN** LLM is called with:
-  - System prompt including JSON Schema
-  - OCR markdown from `manifests.ocr_result`
-  - Configured temperature and max tokens
-- **AND** structured JSON data is extracted
-- **AND** validation checks are performed
-- **AND** extraction cost is calculated and stored
-
-#### Scenario: Extraction without OCR result
-
-- **WHEN** user triggers extraction for manifest without OCR result
-- **THEN** system first processes OCR via PaddleOCR-VL
-- **AND** system stores OCR result
-- **THEN** system proceeds with LLM extraction
-
-#### Scenario: Re-extraction with feedback
-
-- **WHEN** previous extraction failed validation
-- **THEN** re-extraction prompt includes:
-  - Validation errors
-  - Field paths that failed
-  - Previous extraction result
-  - OCR markdown from cache
-- **AND** LLM provides improved extraction
-- **AND** retry is attempted
+#### Scenario: Non-invoice schema extraction does not inherit invoice defaults
+- **GIVEN** a project schema that does not include invoice-shaped fields (no `invoice.*` fields)
+- **WHEN** a user triggers extraction
+- **THEN** the extraction prompt SHALL be built from the project schema contract
+- **AND** the system SHALL NOT inject invoice-only required fields or “items” constraints
 
 ### Requirement: Job Queue Processing
+The system SHALL emit job and manifest progress updates with consistent semantics and a single source of truth.
 
-The system SHALL process extraction jobs asynchronously via BullMQ with cost tracking.
-
-#### Scenario: Job queuing with cost estimate
-
-- **WHEN** user triggers extraction for manifest(s)
-- **THEN** job is added to BullMQ queue
-- **AND** job record includes estimated cost **and currency**
-- **AND** job status is set to queued
-- **AND** job includes reference to cached OCR result
-
-#### Scenario: Job completion with cost
-
-- **WHEN** extraction completes successfully
-- **THEN** system stores actual token usage and cost **with currency**
-- **AND** manifest `extraction_cost` is updated
-- **AND** job record is updated with actual cost **and currency**
-- **AND** WebSocket event includes cost information **and currency**
+#### Scenario: Single progress publisher
+- **GIVEN** an extraction job is queued in BullMQ
+- **WHEN** the job transitions states (waiting/active/completed/failed) and reports progress
+- **THEN** the system SHALL publish progress updates from a single subsystem (not multiple competing emitters)
+- **AND** the published progress SHALL be monotonic (never decreases for a given job)
+- **AND** duplicate or out-of-order updates SHALL be safe for clients to apply
 
 ### Requirement: Field-level Re-extraction
 
@@ -114,27 +80,19 @@ The system SHALL use ModelEntity configurations for structured data extraction.
 
 ### Requirement: LLM Prompt Optimization
 The extraction service SHALL provide an endpoint to optimize extraction prompts using the configured LLM.
+The optimizer MUST be domain-neutral by default and MUST NOT inject invoice-only business rules unless provided by the user’s description/context.
 
-#### Scenario: Optimize prompt from description
-- **WHEN** a user provides extraction requirements description
-- **THEN** the system SHALL send description to configured LLM
-- **AND** the system SHALL request LLM to generate optimized extraction prompt
-- **AND** the system SHALL include context about invoice processing requirements
-- **AND** the system SHALL include context about Chinese language support
-- **AND** the system SHALL return generated prompt to user
+#### Scenario: Optimize prompt from description (domain-neutral)
+- **WHEN** a user provides extraction requirements description for an arbitrary document type
+- **THEN** the system SHALL send the description to the configured LLM
+- **AND** the system SHALL request the LLM to generate an optimized extraction system prompt
+- **AND** the system SHALL return the generated prompt to the user
+- **AND** the generated prompt SHALL avoid invoice-only assumptions (field names, formats, or units) unless explicitly requested
 
 #### Scenario: Prompt optimization response format
-- **WHEN** the LLM returns optimized prompt
-- **THEN** the system SHALL return JSON with prompt content
-- **AND** the system SHALL include metadata about generation
+- **WHEN** the LLM returns an optimized prompt
+- **THEN** the system SHALL return JSON with the prompt content
 - **AND** the system SHALL handle LLM errors gracefully
-
-#### Scenario: Context-aware optimization
-- **WHEN** generating optimized prompt
-- **THEN** the system SHALL include domain context (invoice processing)
-- **AND** the system SHALL include field format requirements (PO number, units)
-- **AND** the system SHALL include OCR correction patterns if relevant
-- **AND** the system SHALL include language requirements (Chinese invoices)
 
 ### Requirement: OCR Result Caching
 
@@ -618,4 +576,31 @@ When the selected text extractor is `vision-llm` and the input is a multi-page P
 - **GIVEN** a manifest PDF converts to N page images
 - **WHEN** text extraction runs using the `vision-llm` extractor
 - **THEN** the system SHALL NOT send all page images in a single vision LLM request
+
+### Requirement: Extraction Stage Pipeline
+The extraction runtime SHALL model extraction as a sequence of named stages with a shared workflow state object to improve maintainability and testability without changing external behavior.
+
+#### Scenario: Stage boundary logging
+- **WHEN** an extraction job runs
+- **THEN** the system SHALL log stage boundaries (start/end/fail) with:
+  - stage name
+  - manifestId and jobId (when available)
+  - durationMs
+- **AND** failures SHALL include a stage identifier to simplify diagnosis
+
+### Requirement: Worker Topology Flexibility
+The system SHALL support running extraction processing in a dedicated worker process/deployment while preserving the job contract.
+
+#### Scenario: Separate worker processes jobs
+- **GIVEN** the system is configured to run a separate worker
+- **WHEN** the API enqueues an extraction job
+- **THEN** the worker SHALL process the job and persist results identically to the in-process worker mode
+- **AND** job progress updates SHALL continue to be published to clients
+
+### Requirement: OCR Metadata Is Domain-Neutral
+The system SHALL store OCR result metadata without hardcoded domain assumptions (e.g., it MUST NOT default `document.type` to `"invoice"`).
+
+#### Scenario: Fallback OCR result uses a neutral document type
+- **WHEN** the system synthesizes a fallback OCR result (no provider-specific document type available)
+- **THEN** `ocr_result.document.type` SHALL be neutral (e.g., `"unknown"` or `null`)
 

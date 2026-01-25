@@ -24,40 +24,30 @@ The system SHALL allow users to define JSON Schema for extraction validation.
 - **AND** projects using schema show warning
 
 ### Requirement: Project Schema Association
-The system SHALL allow projects to have default extraction schemas.
+The system SHALL associate each project with a single active JSON Schema contract used for extraction and audit.
 
-#### Scenario: Set project schema
-- **WHEN** authenticated user selects schema for project
-- **THEN** project.default_schema_id is saved
-- **AND** schema is used for extractions in that project
-
-#### Scenario: Fallback to default
-- **WHEN** extraction is triggered and project has no schema
-- **THEN** system uses configurable default schema
-- **OR** returns error if no default schema exists
+#### Scenario: Project uses its active schema for extraction
+- **GIVEN** a project has an active JSON Schema
+- **WHEN** extraction is triggered for a manifest in that project
+- **THEN** the system SHALL use the project’s active JSON Schema for extraction and validation
 
 ### Requirement: JSON Extraction
 The system SHALL extract structured data using JSON Schema validation.
 
-#### Scenario: Initial extraction with schema
-- **WHEN** OCR results are available and schema is configured
-- **THEN** LLM is called with system prompt including JSON Schema
-- **AND** LLM returns JSON matching schema structure
-- **AND** ajv validates JSON against schema
-- **AND** validation errors trigger re-extraction
-
-#### Scenario: Schema-based validation
+#### Scenario: Schema-based validation with required fields
+- **GIVEN** the project JSON Schema defines one or more required field paths (via JSON Schema `required`)
 - **WHEN** LLM returns extracted data
-- **THEN** ajv validates JSON against project's JSON Schema
-- **AND** required fields are checked
+- **THEN** ajv validates JSON against the project's JSON Schema
 - **AND** field types are validated
+- **AND** required fields are checked for missing/empty values
 - **AND** validation failures return specific field paths
 
-#### Scenario: Re-extraction with validation feedback
-- **WHEN** previous extraction failed JSON Schema validation
-- **THEN** re-extraction prompt includes validation errors and field paths
-- **AND** LLM provides corrected JSON
-- **AND** retry is attempted
+#### Scenario: Schema-based validation without required fields
+- **GIVEN** the project JSON Schema defines no required field paths
+- **WHEN** LLM returns extracted data
+- **THEN** ajv validates JSON against the project's JSON Schema
+- **AND** field types are validated
+- **AND** the system SHALL NOT fail validation due to missing-field checks
 
 ### Requirement: Visual Schema Builder
 The system SHALL provide UI for building JSON Schemas without writing JSON.
@@ -141,4 +131,11 @@ The system SHALL accept and preserve JSON Schema UI metadata for manifest list c
 - **WHEN** the user saves the schema
 - **THEN** the schema SHALL be accepted and stored without validation errors
 - **AND** when retrieved, `x-table-columns` SHALL be present and unchanged
+
+### Requirement: Schema Version Provenance in Audit History
+The system SHALL record the effective schema version used for each extraction and validation run so audit history remains reproducible as schemas evolve.
+
+#### Scenario: Extraction run records schema version
+- **WHEN** an extraction run completes (success or failure)
+- **THEN** the run history SHALL include a reference to the schema version used (and the effective prompt/template if applicable)
 

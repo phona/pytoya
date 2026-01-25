@@ -250,17 +250,17 @@ Required headers:
 - **AND** includeSubDomains MUST be enabled
 
 ### Requirement: Static File Authentication
-The backend SHALL require authentication for accessing files in the `/uploads` directory.
+The backend SHALL require authentication for accessing files in the `/api/uploads` directory (relative to the deployment base path).
 
 File access control MUST:
-- Validate JWT token for all `/uploads` requests
+- Validate JWT token for all `/api/uploads` requests
 - Verify file ownership (user can only access files from their projects)
 - Return 401 if authentication is missing
 - Return 403 if user doesn't own the file
 - Return 404 if file doesn't exist (don't leak existence)
 
 #### Scenario: Unauthenticated file access is rejected
-- **WHEN** a request is made to `/uploads/*` without a valid JWT token
+- **WHEN** a request is made to `/api/uploads/*` without a valid JWT token
 - **THEN** the backend MUST return 401 Unauthorized
 - **AND** the error message MUST indicate authentication is required
 
@@ -366,4 +366,13 @@ Validation failures SHALL include structured validation error details suitable f
 - **WHEN** request validation fails
 - **THEN** the backend MUST return an error envelope containing `error.details`
 - **AND** each detail item MUST include a field path and a machine-readable rule identifier
+
+### Requirement: Domain Rules Live in Project Configuration
+The backend SHALL NOT hardcode document-type-specific business rules in production runtime defaults (e.g., invoice-only field names, required fields, or value formats).
+Domain constraints MUST be expressed via project configuration (JSON Schema + supported `x-*` extensions, schema rules, validation scripts, and schema-scoped prompt templates).
+
+#### Scenario: New document type is configuration-first
+- **GIVEN** a new project needs extraction for a new document type
+- **WHEN** an admin defines a JSON Schema (and optional rules/scripts/templates) for that project
+- **THEN** the system SHALL be able to extract and audit that document type without introducing new domain-specific code paths
 
