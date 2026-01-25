@@ -23,7 +23,7 @@ import { RootLayout } from '../routes/RootLayout';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
 
 
-export const router = createBrowserRouter([
+export const appRoutes = [
   {
     element: <RootLayout />,
     children: [
@@ -89,7 +89,9 @@ export const router = createBrowserRouter([
       },
     ],
   },
-]);
+];
+
+export const router = createBrowserRouter(appRoutes);
 
 
 

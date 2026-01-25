@@ -9,11 +9,7 @@
 - [ ] 2.4 Ensure WS/job history surfaces “canceled” distinctly from “failed”
 
 ## 3. Manifest projections
-- [ ] 3.1 Define projection mapping from `extractedData` to index columns
-- [ ] 3.2 Apply projections on extraction persistence
-- [ ] 3.3 Apply projections on manual edits (manifest PATCH)
-- [ ] 3.4 Add tests for projections and key edge cases (missing fields, invalid dates)
+- [ ] 3.1 (Moved) Manifest filtering/projections refactor is tracked in `refactor-manifest-filters-schema-driven`
 
 ## 4. Compatibility
 - [ ] 4.1 Ensure older clients treat unknown job status as non-fatal (document expectation)
-

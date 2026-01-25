@@ -73,6 +73,33 @@ const setupHandlers = () => {
         },
       });
     }),
+    http.get('/api/schemas/project/1', () => {
+      return HttpResponse.json([
+        {
+          id: 10,
+          name: 'Project Schema',
+          jsonSchema: {
+            type: 'object',
+            'x-table-columns': ['invoice.po_no'],
+            properties: {
+              invoice: {
+                type: 'object',
+                properties: {
+                  po_no: { type: 'string', title: 'PO No' },
+                },
+              },
+            },
+          },
+          requiredFields: [],
+          projectId: 1,
+          description: null,
+          systemPromptTemplate: null,
+          validationSettings: null,
+          createdAt: '2025-01-13T00:00:00.000Z',
+          updatedAt: '2025-01-13T00:00:00.000Z',
+        },
+      ]);
+    }),
   );
 };
 
@@ -89,7 +116,7 @@ describe('ManifestsPage dynamic filtering', () => {
     server.close();
   });
 
-  it('filters manifests via dynamic field input', async () => {
+  it('filters manifests via schema column filter (dot-path)', async () => {
     setupHandlers();
 
     await act(async () => {
@@ -104,15 +131,10 @@ describe('ManifestsPage dynamic filtering', () => {
     await screen.findByText('invoice-a.pdf');
     await screen.findByText('invoice-b.pdf');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
-
-    fireEvent.change(screen.getByLabelText('Field path'), {
-      target: { value: 'invoice.po_no' },
-    });
-    fireEvent.change(screen.getByLabelText('Field value'), {
+    fireEvent.click(screen.getByLabelText('Filter PO No'));
+    fireEvent.change(screen.getByLabelText('Field value: PO No'), {
       target: { value: '0000009' },
     });
-    fireEvent.click(screen.getByText('Add Field Filter'));
 
     await waitFor(() => {
       expect(screen.getByText('invoice-a.pdf')).toBeInTheDocument();

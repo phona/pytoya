@@ -139,14 +139,22 @@ export function UploadDialog({ projectId, groupId, isOpen, onClose, onComplete }
         </div>
 
         {uploads.length > 0 && (
-          <div className="mb-4 space-y-2" aria-live="polite">
+          <div className="mb-4 space-y-2" aria-live="polite" data-testid="upload-results">
             {summary ? (
-              <div className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+              <div
+                className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground"
+                data-testid="upload-summary"
+              >
                 {t('upload.summary', summary)}
               </div>
             ) : null}
             {uploads.map((upload, index) => (
-              <div key={index} className="border rounded-md p-3">
+              <div
+                key={index}
+                className="border rounded-md p-3"
+                data-testid={`upload-item-${index}`}
+                data-upload-status={upload.status}
+              >
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-medium text-foreground truncate max-w-xs">
                     {upload.fileName}
@@ -163,6 +171,8 @@ export function UploadDialog({ projectId, groupId, isOpen, onClose, onComplete }
                         ? 'bg-[color:var(--status-processing-bg)] text-[color:var(--status-processing-text)]'
                         : 'bg-[color:var(--status-pending-bg)] text-[color:var(--status-pending-text)]'
                     }`}
+                    data-testid={`upload-item-status-${index}`}
+                    data-upload-status={upload.status}
                   >
                     {upload.status === 'success'
                       ? t('upload.status.uploaded')
@@ -188,6 +198,7 @@ export function UploadDialog({ projectId, groupId, isOpen, onClose, onComplete }
                       type="button"
                       variant="outline"
                       size="sm"
+                      data-testid={`upload-item-open-existing-${index}`}
                       onClick={() => {
                         handleClose();
                         navigate(`/projects/${projectId}/groups/${groupId}/manifests/${upload.manifestId}`);

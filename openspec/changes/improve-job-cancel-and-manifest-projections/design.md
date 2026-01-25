@@ -24,11 +24,4 @@ Worker:
 ```
 
 ## Manifest projections
-```text
-projected = {
-  purchaseOrder: extractedData?.invoice?.po_no ?? null
-  invoiceDate: parseDate(extractedData?.invoice?.invoice_date) ?? null
-  department: extractedData?.department?.code ?? null
-}
-```
-
+Moved to `refactor-manifest-filters-schema-driven` (schema-driven, no invoice-only assumptions).

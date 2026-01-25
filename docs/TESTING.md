@@ -17,6 +17,11 @@ The project uses **Jest** for backend tests and **Vitest** for frontend tests:
 - **Backend**: NestJS Testing Utilities + TypeORM mocks
 - **Frontend**: Vitest + React Testing Library + MSW (Mock Service Worker)
 
+This repo also uses **journey-style tests** (SPA flows without a browser):
+- They run in Vitest + React Testing Library (jsdom), not Playwright.
+- They cover end-to-end UX flows inside the SPA using MSW stubs.
+- They are optimized for “business workflows with minimal clicking”.
+
 ### Key Principles
 
 1. **Dependency Injection over Monkey Patching**
@@ -43,6 +48,13 @@ src/
     auth.controller.ts
     auth.controller.spec.ts
 ```
+
+### Workflow/Use-Case Style Tests (No DB / No Queue)
+
+For “business workflow” confidence without real Postgres/BullMQ:
+- Use service/controller tests with DI and in-memory/mocked ports.
+- Prefer naming these tests with `*.workflow.spec.ts` to make intent obvious.
+- Focus assertions on business invariants (duplicate detection, status transitions, cancel semantics, validation gating).
 
 ### Example: Service Test
 
@@ -163,7 +175,17 @@ src/routes/
 src/shared/components/
   Button.tsx
   Button.test.tsx  <-- Co-located test
+src/e2e/
+  journeys.*.e2e.spec.tsx  <-- SPA journey tests (RTL + MSW)
 ```
+
+### Journey Tests (SPA flows with MSW)
+
+- Journey tests live under `src/apps/web/src/e2e/` and use the `*.e2e.spec.tsx` suffix.
+- Prefer rendering the full router for route/guard coverage via `src/apps/web/src/tests/journey/render-app.tsx`.
+- Start MSW with strict unhandled-request behavior using `src/apps/web/src/tests/journey/msw.ts` so missing stubs fail fast.
+- Prefer simulating extraction progress via polling endpoints (MSW state machine) and keep websocket mocked except for 1–2 focused tests.
+- For multipart uploads, prefer stubbing the API client method (e.g. `manifestsApi.uploadManifestsBatch`) inside the journey test (MSW + jsdom + FormData can be brittle).
 
 ### Example: Component Test
 

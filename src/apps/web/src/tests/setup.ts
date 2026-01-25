@@ -180,6 +180,74 @@ vi.mock('@/shared/components/ui/dropdown-menu', () => {
   };
 });
 
+vi.mock('socket.io-client', () => {
+  type Handler = (...args: unknown[]) => void;
+  type MockSocket = {
+    connected: boolean;
+    on: (event: string, handler: Handler) => MockSocket;
+    off: (event: string, handler?: Handler) => MockSocket;
+    emit: (event: string, payload?: unknown, ack?: (response: unknown) => void) => void;
+    disconnect: () => void;
+  };
+
+  const listeners = new Map<string, Set<Handler>>();
+
+  const addListener = (event: string, handler: Handler) => {
+    const set = listeners.get(event) ?? new Set<Handler>();
+    set.add(handler);
+    listeners.set(event, set);
+  };
+
+  const removeListener = (event: string, handler?: Handler) => {
+    if (!handler) {
+      listeners.delete(event);
+      return;
+    }
+    listeners.get(event)?.delete(handler);
+  };
+
+  const emitEvent = (event: string, ...args: unknown[]) => {
+    for (const handler of listeners.get(event) ?? []) {
+      handler(...args);
+    }
+  };
+
+  const socket = {} as MockSocket;
+  socket.connected = true;
+  socket.on = vi.fn((event: string, handler: Handler) => {
+    addListener(event, handler);
+    if (event === 'connect') {
+      queueMicrotask(() => handler());
+    }
+    return socket;
+  });
+  socket.off = vi.fn((event: string, handler?: Handler) => {
+    removeListener(event, handler);
+    return socket;
+  });
+  socket.emit = vi.fn((event: string, _payload?: unknown, ack?: (response: unknown) => void) => {
+    if (typeof ack === 'function') {
+      if (event === 'subscribe-manifest') {
+        ack({ event: 'subscribed' });
+        return;
+      }
+      if (event === 'unsubscribe-manifest') {
+        ack({ event: 'unsubscribed' });
+        return;
+      }
+      ack({ ok: true });
+    }
+  });
+  socket.disconnect = vi.fn(() => {
+    socket.connected = false;
+    emitEvent('disconnect');
+  });
+
+  return {
+    io: vi.fn(() => socket),
+  };
+});
+
 
 
 

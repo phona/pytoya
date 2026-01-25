@@ -85,7 +85,7 @@
 - **E2E Testing**: Playwright for end-to-end tests
 - **Mocking**: MSW (Mock Service Worker) for API mocking in tests
 - **Coverage Thresholds**: 60% (components, hooks, pages)
-- **Test Structure**: `*.test.tsx` co-located, `*.e2e-spec.ts` in e2e/ directory
+- **Test Structure**: `*.test.tsx` co-located, `*.e2e.spec.tsx` in e2e/ directory
 - **Anti-patterns**: Avoid global mocks, prefer MSW handlers
 
 ### Git Workflow
