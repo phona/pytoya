@@ -86,6 +86,24 @@ const subscribedManifests = new Set<number>();
 // Costs are emitted on completion via both job + manifest updates.
 // Only count completed jobs once to avoid double counting across components.
 const processedCostJobs = new Set<string>();
+const MAX_PROCESSED_COST_JOBS = 2000;
+
+const trimProcessedCostJobs = () => {
+  if (processedCostJobs.size <= MAX_PROCESSED_COST_JOBS) {
+    return;
+  }
+
+  const targetSize = Math.floor(MAX_PROCESSED_COST_JOBS * 0.8);
+  const toRemove = processedCostJobs.size - targetSize;
+  let removed = 0;
+  for (const jobId of processedCostJobs) {
+    processedCostJobs.delete(jobId);
+    removed += 1;
+    if (removed >= toRemove) {
+      break;
+    }
+  }
+};
 
 const notifyConnection = () => {
   for (const listener of connectionListeners) {
@@ -196,6 +214,7 @@ const connectSocketIfNeeded = () => {
 
         if (jobId) {
           processedCostJobs.add(jobId);
+          trimProcessedCostJobs();
         }
 
         if (data.costBreakdown) {

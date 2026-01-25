@@ -157,22 +157,10 @@ export const manifestsApi = {
     if (params?.page) searchParams.append('page', String(params.page));
     if (params?.pageSize) searchParams.append('pageSize', String(params.pageSize));
 
-    const response = await apiClient.get<ManifestListResponse | Manifest[]>(
+    const response = await apiClient.get<ManifestListResponse>(
       `/groups/${groupId}/manifests`,
       { params: searchParams },
     );
-
-    if (Array.isArray(response.data)) {
-      return {
-        data: response.data,
-        meta: {
-          total: response.data.length,
-          page: 1,
-          pageSize: response.data.length,
-          totalPages: response.data.length > 0 ? 1 : 0,
-        },
-      };
-    }
 
     return response.data;
   },

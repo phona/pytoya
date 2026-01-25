@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getApiErrorText } from '@/api/client';
+import { API_BASE_URL, getApiErrorText } from '@/api/client';
 import { ProjectSettingsShell } from '@/shared/components/ProjectSettingsShell';
 import { Button } from '@/shared/components/ui/button';
 import { useProject } from '@/shared/hooks/use-projects';
@@ -66,7 +66,7 @@ export function ProjectSettingsRulesPage() {
 
   const streamPromptRulesMarkdown = async (payload: Record<string, unknown>, controller: AbortController) => {
     const token = useAuthStore.getState().token;
-    const response = await fetch(`/api/schemas/${schemaId}/generate-prompt-rules/stream`, {
+    const response = await fetch(`${API_BASE_URL}/schemas/${schemaId}/generate-prompt-rules/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

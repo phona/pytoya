@@ -16,3 +16,22 @@ export const joinBasePath = (basePath: string, pathname: string): string => {
   return base ? `${base}${normalizedPathname}` : normalizedPathname;
 };
 
+export const stripBasePath = (basePath: string, pathname: string): string => {
+  const base = normalizeBasePath(basePath);
+  if (!base) {
+    return pathname.startsWith('/') ? pathname : `/${pathname}`;
+  }
+
+  const normalizedPathname = pathname.startsWith('/') ? pathname : `/${pathname}`;
+
+  if (normalizedPathname === base) {
+    return '/';
+  }
+
+  if (!normalizedPathname.startsWith(`${base}/`)) {
+    return normalizedPathname;
+  }
+
+  const stripped = normalizedPathname.slice(base.length);
+  return stripped.startsWith('/') ? stripped : `/${stripped}`;
+};

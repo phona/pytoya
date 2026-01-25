@@ -93,18 +93,21 @@ describe('manifestsApi', () => {
     expect(params.get('pageSize')).toBe('25');
   });
 
-  it('normalizes legacy list response arrays into list response shape', async () => {
+  it('lists manifests and returns the list response envelope', async () => {
     server.use(
       http.get('/api/groups/1/manifests', () =>
-        HttpResponse.json([
-          {
-            id: 1,
-            groupId: 1,
-            filename: 'document.pdf',
-            createdAt: '2026-01-01T00:00:00.000Z',
-            updatedAt: '2026-01-01T00:00:00.000Z',
-          },
-        ]),
+        HttpResponse.json({
+          data: [
+            {
+              id: 1,
+              groupId: 1,
+              filename: 'document.pdf',
+              createdAt: '2026-01-01T00:00:00.000Z',
+              updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+          ],
+          meta: { total: 1, page: 1, pageSize: 1, totalPages: 1 },
+        }),
       ),
     );
 

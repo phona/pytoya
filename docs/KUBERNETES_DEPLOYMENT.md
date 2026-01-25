@@ -65,6 +65,7 @@ helm upgrade --install pytoya helm/pytoya \
 ### Smoke checks (subpath)
 - Web loads: `/pytoya/`
 - Deep link refresh: `/pytoya/projects` (refresh should still load)
+- Auth redirect: `/pytoya/login?next_url=...` where `next_url` does **not** include `/pytoya`
 - API health: `/pytoya/api/health`
 - Uploads (authenticated): `/pytoya/api/uploads/*`
 - WebSocket transport path: `/pytoya/api/socket.io` (namespace remains `/manifests`)

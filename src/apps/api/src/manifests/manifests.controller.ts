@@ -130,32 +130,11 @@ export class ManifestsController {
     );
 
     const data = result.data.map((m) => ManifestResponseDto.fromEntity(m));
-    const hasFilters =
-      query.page !== undefined ||
-      query.pageSize !== undefined ||
-      query.sortBy ||
-      query.order ||
-      (query.filter && Object.keys(query.filter).length > 0) ||
-      query.status ||
-      query.humanVerified !== undefined ||
-      query.confidenceMin !== undefined ||
-      query.confidenceMax !== undefined ||
-      query.ocrQualityMin !== undefined ||
-      query.ocrQualityMax !== undefined ||
-      query.extractionStatus !== undefined ||
-      query.costMin !== undefined ||
-      query.costMax !== undefined ||
-      query.textExtractorId ||
-      query.extractorType;
 
-    if (hasFilters) {
-      return {
-        data,
-        meta: result.meta,
-      };
-    }
-
-    return data;
+    return {
+      data,
+      meta: result.meta,
+    };
   }
 
   @Get('manifests/:id/ocr')

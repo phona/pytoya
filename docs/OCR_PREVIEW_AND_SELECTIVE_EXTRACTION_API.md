@@ -63,6 +63,8 @@ Authorization: Bearer <token>
 - `200` - OCR result returned successfully
 - `401` - Unauthorized
 - `404` - Manifest not found
+- `504` - OCR timeout (`OCR_TIMEOUT`)
+- `503` - OCR service unavailable (`OCR_SERVICE_ERROR`)
 
 ---
 

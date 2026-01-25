@@ -1,14 +1,28 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getApiErrorText } from '@/api/client';
+import { BASE_PATH, getApiErrorText } from '@/api/client';
 import { useAuth } from '@/shared/hooks/use-auth';
 import { useI18n } from '@/shared/providers/I18nProvider';
+import { stripBasePath } from '@/shared/utils/base-path';
 
 const safeNextUrl = (value: string | null) => {
   if (!value) {
     return '/';
   }
-  return value.startsWith('/') ? value : '/';
+  if (!value.startsWith('/')) {
+    return '/';
+  }
+
+  const hashIndex = value.indexOf('#');
+  const hash = hashIndex >= 0 ? value.slice(hashIndex) : '';
+  const withoutHash = hashIndex >= 0 ? value.slice(0, hashIndex) : value;
+
+  const queryIndex = withoutHash.indexOf('?');
+  const pathname = queryIndex >= 0 ? withoutHash.slice(0, queryIndex) : withoutHash;
+  const search = queryIndex >= 0 ? withoutHash.slice(queryIndex) : '';
+
+  const safePathname = stripBasePath(BASE_PATH, pathname);
+  return `${safePathname}${search}${hash}`;
 };
 
 export function LoginPage() {

@@ -29,8 +29,9 @@ The system SHALL support pagination for manifest list responses.
 
 #### Scenario: Paginate manifests
 - **WHEN** authenticated user requests `GET /groups/1/manifests?page=1&pageSize=25`
-- **THEN** response includes first 25 manifests
-- **AND** response metadata includes total count and page info
+- **THEN** response SHALL be an envelope `{ data, meta }`
+- **AND** `data` SHALL include first 25 manifests
+- **AND** `meta` SHALL include total count and page info
 
 #### Scenario: Pagination with filters
 - **WHEN** authenticated user requests `GET /groups/1/manifests?filter[invoice.po_no]=0000&page=1&pageSize=25`
@@ -79,4 +80,3 @@ The system SHALL expose user-initiated cancellation as a distinct outcome in use
 - **GIVEN** a job was canceled by the user
 - **WHEN** the job is displayed in UI/history
 - **THEN** it SHALL be labeled as canceled (not failed)
-

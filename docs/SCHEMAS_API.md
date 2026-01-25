@@ -147,6 +147,44 @@ Content-Type: application/json
 }
 ```
 
+## Generate Prompt Rules (Markdown)
+Generate a single Markdown block intended to be appended to the LLM system prompt during extraction (OCR corrections, extraction rules, cross verification).
+
+```http
+POST /api/schemas/:id/generate-prompt-rules
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "description": "Mechanical industry OCR corrections and extraction rules",
+  "modelId": "llm-1"
+}
+```
+
+**Response**
+```json
+{ "rulesMarkdown": "## OCR Corrections\n..." }
+```
+
+## Generate Prompt Rules (Streaming NDJSON)
+This endpoint streams newline-delimited JSON (NDJSON) messages to support progressive UI updates.
+
+```http
+POST /api/schemas/:id/generate-prompt-rules/stream
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{ "description": "..." }
+```
+
+**Response stream** (NDJSON)
+```text
+{"type":"start"}
+{"type":"delta","content":"## OCR Corrections\n"}
+{"type":"delta","content":"..."}
+{"type":"done"}
+```
+
 ## Schema Rules CRUD
 ```http
 GET    /api/schemas/:schemaId/rules

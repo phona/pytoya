@@ -3,6 +3,8 @@ import axios, { AxiosInstance } from 'axios';
 
 import { buildCachedOcrResult } from '../../ocr/ocr-cache.util';
 import { OCR_ENDPOINT } from '../../ocr/ocr.constants';
+import { OcrServiceException } from '../../ocr/exceptions/ocr-service.exception';
+import { OcrTimeoutException } from '../../ocr/exceptions/ocr-timeout.exception';
 import {
   ApiResponse,
   LayoutParsingRequest,
@@ -337,9 +339,27 @@ export class PaddleOcrExtractor extends BaseTextExtractor<PaddleOcrConfig> {
       endpointsToTry.length > 0
         ? ` (endpoints tried: ${endpointsToTry.map((e) => (e ? e : '(baseUrl)')).join(', ')})`
         : '';
-    throw new Error(
-      `OCR request failed: ${this.formatError(lastError)} (baseUrl: ${this.baseUrl})${endpointsSummary}`,
-    );
+    const message = `OCR request failed: ${this.formatError(lastError)} (baseUrl: ${this.baseUrl})${endpointsSummary}`;
+
+    if (this.isTimeoutError(lastError)) {
+      throw new OcrTimeoutException(message, lastError);
+    }
+
+    throw new OcrServiceException(message, lastError);
+  }
+
+  private isTimeoutError(error: unknown): boolean {
+    if (!axios.isAxiosError(error)) {
+      return false;
+    }
+
+    const code = typeof error.code === 'string' ? error.code : '';
+    if (code === 'ECONNABORTED') {
+      return true;
+    }
+
+    const message = typeof error.message === 'string' ? error.message.toLowerCase() : '';
+    return message.includes('timeout');
   }
 
   private parseResponse(result: LayoutParsingResponseData): OcrResponse {

@@ -17,7 +17,9 @@ The system SHALL provide full CRUD operations for manifest records with server-s
 
 #### Scenario: List manifests
 - **WHEN** authenticated user requests manifests for a group
-- **THEN** all manifests for that group are returned (backward compatible)
+- **THEN** the response SHALL be an envelope `{ data, meta }`
+- **AND** `data` SHALL include all manifests for that group
+- **AND** `meta` SHALL include `{ total, page, pageSize, totalPages }`
 - **AND** results include status, file metadata
 - **AND** optional filter parameter `filter[fieldPath]=value` filters by extracted data
 - **AND** optional sort parameters `sortBy=fieldPath&order=asc|desc` sort results
@@ -36,8 +38,8 @@ The system SHALL provide full CRUD operations for manifest records with server-s
 
 #### Scenario: List manifests with pagination
 - **WHEN** authenticated user requests `GET /groups/1/manifests?page=1&pageSize=25`
-- **THEN** first 25 manifests are returned
-- **AND** response includes metadata: `{ total, page, pageSize, totalPages }`
+- **THEN** response includes first 25 manifests in `data`
+- **AND** `meta` includes `{ total, page, pageSize, totalPages }`
 
 #### Scenario: List manifests with combined parameters
 - **WHEN** authenticated user requests with filter, sort, and pagination
@@ -69,4 +71,3 @@ The system SHALL support deleting multiple manifests within a group in a single 
 - **GIVEN** an authenticated user who owns the project
 - **WHEN** the client calls the bulk delete endpoint with any `manifestId` not in `groupId`
 - **THEN** the system SHALL return an error response
-

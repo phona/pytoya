@@ -1,13 +1,14 @@
 # Web App Behavior
 
 ## Home Route
-- The root route `/` redirects authenticated users to `/projects`.
-- Unauthenticated users are redirected to `/login`.
+- The app root route (`/` or `<basePath>/`) redirects authenticated users to `/projects`.
+- Unauthenticated users are redirected to `/login` (under the configured base path when present).
 - The home route waits for auth hydration before redirecting.
 
 ## Route Protection
 - Dashboard routes are wrapped by `ProtectedRoute`.
 - Unauthenticated users are redirected to `/login?next_url=...`.
+- When deployed under a base path (example: `/pytoya`), the login URL is `/pytoya/login?next_url=...` and `next_url` is **router-relative** (example: `/projects/1`, not `/pytoya/projects/1`).
 - The route guard waits for auth hydration before deciding.
 
 ## Navigation
@@ -57,7 +58,7 @@ Schema access is project-scoped and available from the project settings dropdown
 ## Manifests List
 - Filters, sorting, and pagination are server-driven via `GET /api/groups/:groupId/manifests`.
 - Custom field filters accept dot-notation paths (e.g., `invoice.po_no`, `receipt.merchant.name`).
-- Pagination metadata (`total`, `page`, `pageSize`, `totalPages`) is returned when list parameters are present.
+- The list response always returns `{ data, meta }` (not a raw array); `meta` includes `total`, `page`, `pageSize`, `totalPages`.
 - Toolbar batch actions (Export CSV/Excel, Run validation, Extract, Delete) use a scope confirmation modal:
   - Default scope: **All matching current filters**
   - Optional scope: **Selected only** (available when selection exists)
