@@ -47,6 +47,19 @@ class RedisConfig {
   port!: number;
 }
 
+class ExtractionQueueConfig {
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  concurrency!: number;
+}
+
+class QueueConfig {
+  @ValidateNested()
+  @Type(() => ExtractionQueueConfig)
+  extraction!: ExtractionQueueConfig;
+}
+
 class JwtConfig {
   @IsString()
   @IsNotEmpty()
@@ -222,6 +235,10 @@ export class AppConfig {
   @ValidateNested()
   @Type(() => RedisConfig)
   redis!: RedisConfig;
+
+  @ValidateNested()
+  @Type(() => QueueConfig)
+  queue!: QueueConfig;
 
   @ValidateNested()
   @Type(() => JwtConfig)

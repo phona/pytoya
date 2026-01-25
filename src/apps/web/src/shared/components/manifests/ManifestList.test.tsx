@@ -89,9 +89,11 @@ describe('ManifestList', () => {
 
     const getTable = () => screen.getByRole('table');
     expect(within(getTable()).queryByText('OCR Quality')).not.toBeInTheDocument();
+    expect(within(getTable()).queryByText('Human Verified')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Columns' }));
     expect(screen.getByRole('menuitemcheckbox', { name: 'OCR Quality' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Human Verified' })).toBeInTheDocument();
   });
 
   it('supports audit actions for filtered/selected/all scopes', async () => {

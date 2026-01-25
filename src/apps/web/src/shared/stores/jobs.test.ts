@@ -13,6 +13,10 @@ describe('useJobsStore', () => {
       manifestId: 42,
       progress: 55,
       status: 'active',
+      currency: 'USD',
+      costBreakdown: { total: 0.25, currency: 'USD' },
+      textPagesProcessed: 1,
+      textPagesTotal: 4,
     });
 
     const job = useJobsStore.getState().jobs[0];
@@ -20,6 +24,10 @@ describe('useJobsStore', () => {
     expect(job.manifestId).toBe(42);
     expect(job.status).toBe('active');
     expect(job.progress).toBe(55);
+    expect(job.currency).toBe('USD');
+    expect(job.costBreakdown?.total).toBe(0.25);
+    expect(job.textPagesProcessed).toBe(1);
+    expect(job.textPagesTotal).toBe(4);
   });
 
   it('clears jobs when user changes', () => {
@@ -91,4 +99,3 @@ describe('useJobsStore', () => {
     expect(jobs[0].id).toBe('job-active');
   });
 });
-

@@ -69,6 +69,18 @@ const renderTable = (overrides: Partial<React.ComponentProps<typeof ManifestTabl
 };
 
 describe('ManifestTable Integration Tests', () => {
+  it('prefers live websocket status for Status badge', () => {
+    renderTable({
+      manifestProgress: {
+        2: { progress: 10, status: 'active' },
+      },
+    });
+
+    const pendingRow = screen.getByText('invoice2.pdf').closest('tr');
+    expect(pendingRow).toBeTruthy();
+    expect(within(pendingRow!).getByText('Processing')).toBeInTheDocument();
+  });
+
   it('renders schema-driven columns', () => {
     renderTable();
 

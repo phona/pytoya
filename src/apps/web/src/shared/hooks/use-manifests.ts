@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { manifestsApi, ManifestListResponse, UpdateManifestDto } from '@/api/manifests';
+import { manifestsApi, Manifest, ManifestListResponse, UpdateManifestDto } from '@/api/manifests';
 import { ManifestListQueryParams } from '@/shared/types/manifests';
 import { useJobsStore } from '@/shared/stores/jobs';
 
@@ -11,10 +11,11 @@ export function useManifests(groupId: number, params?: ManifestListQueryParams) 
   });
 }
 
-export function useManifest(manifestId: number) {
-  return useQuery({
+export function useManifest(manifestId: number, options: { enabled?: boolean } = {}) {
+  return useQuery<Manifest>({
     queryKey: ['manifests', manifestId],
     queryFn: () => manifestsApi.getManifest(manifestId),
+    enabled: (options.enabled ?? true) && manifestId > 0,
   });
 }
 

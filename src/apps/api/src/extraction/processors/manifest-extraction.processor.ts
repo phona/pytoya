@@ -1,5 +1,6 @@
-import { Logger } from '@nestjs/common';
+import { Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { ConfigService } from '@nestjs/config';
 import { Job } from 'bullmq';
 
 import { ManifestStatus } from '../../entities/manifest.entity';
@@ -28,15 +29,22 @@ type OcrRefreshJob = {
 };
 
 @Processor(EXTRACTION_QUEUE)
-export class ManifestExtractionProcessor extends WorkerHost {
+export class ManifestExtractionProcessor extends WorkerHost implements OnApplicationBootstrap {
   private readonly logger = new Logger(ManifestExtractionProcessor.name);
 
   constructor(
     private readonly extractionService: ExtractionService,
     private readonly manifestsService: ManifestsService,
+    private readonly configService: ConfigService,
     private readonly webSocketService: WebSocketService,
   ) {
     super();
+  }
+
+  onApplicationBootstrap() {
+    const concurrency = this.resolveWorkerConcurrency();
+    this.worker.concurrency = concurrency;
+    this.logger.log(`Extraction worker concurrency set to ${concurrency}`);
   }
 
   async process(job: Job<ManifestExtractionJob | OcrRefreshJob>) {
@@ -360,6 +368,24 @@ export class ManifestExtractionProcessor extends WorkerHost {
       return error.message;
     }
     return String(error);
+  }
+
+  private resolveWorkerConcurrency(): number {
+    const fallback = 5;
+    const max = 50;
+
+    const raw = this.configService.get<unknown>('queue.extraction.concurrency');
+    const parsed =
+      typeof raw === 'number'
+        ? raw
+        : typeof raw === 'string'
+          ? Number.parseInt(raw, 10)
+          : Number.parseInt(String(raw ?? ''), 10);
+
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      return fallback;
+    }
+    return Math.min(Math.floor(parsed), max);
   }
 }
 

@@ -23,7 +23,7 @@ export type VisionLlmConfig = TextExtractorConfig & {
 };
 
 const DEFAULT_PROMPT =
-  'Extract all readable text from this document. Return plain text with line breaks and preserve numbers and labels.';
+  'Extract all readable text from this document to a markdown.';
 
 export class VisionLlmExtractor extends BaseTextExtractor<VisionLlmConfig> {
   static metadata: ExtractorMetadata = {

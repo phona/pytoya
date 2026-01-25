@@ -14,6 +14,13 @@ export type JobStatus =
   | 'canceled'
   | 'unknown';
 
+export type JobCostBreakdown = {
+  text?: number;
+  llm?: number;
+  total?: number | null;
+  currency?: string | null;
+};
+
 export type JobItem = {
   id: string;
   kind: JobKind;
@@ -21,6 +28,11 @@ export type JobItem = {
   status: JobStatus;
   progress: number;
   error: string | null;
+  currency?: string | null;
+  costBreakdown?: JobCostBreakdown;
+  extractorId?: string | null;
+  textPagesProcessed?: number;
+  textPagesTotal?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -83,7 +95,19 @@ export interface JobsState {
 
   upsertJob: (job: JobItem) => void;
   upsertFromHistory: (history: JobHistory[]) => void;
-  upsertFromJobUpdate: (update: { jobId?: string; manifestId: number; kind?: JobKind; progress: number; status: string; error?: string }) => void;
+  upsertFromJobUpdate: (update: {
+    jobId?: string;
+    manifestId: number;
+    kind?: JobKind;
+    progress: number;
+    status: string;
+    error?: string;
+    currency?: string | null;
+    costBreakdown?: JobCostBreakdown;
+    extractorId?: string | null;
+    textPagesProcessed?: number;
+    textPagesTotal?: number;
+  }) => void;
 }
 
 export const useJobsStore = create<JobsState>()(
@@ -147,6 +171,11 @@ export const useJobsStore = create<JobsState>()(
           status,
           progress,
           error: update.error ?? existing?.error ?? null,
+          currency: update.currency ?? existing?.currency ?? null,
+          costBreakdown: update.costBreakdown ?? existing?.costBreakdown,
+          extractorId: update.extractorId ?? existing?.extractorId ?? null,
+          textPagesProcessed: update.textPagesProcessed ?? existing?.textPagesProcessed,
+          textPagesTotal: update.textPagesTotal ?? existing?.textPagesTotal,
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
         });

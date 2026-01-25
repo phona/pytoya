@@ -82,11 +82,13 @@ npm run migration:generate  # Generate TypeORM migration (ts-node/register)
 npm run migration:run      # Run migrations (ts-node/register)
 npm run migration:revert   # Revert last migration (ts-node/register)
 
-npm run cli -- serve       # Start API via CLI entrypoint
-npm run cli -- newadmin    # Seed default admin (create-only)
-npm run cli -- newuser     # Create a non-admin user (create-only)
+npm run cli --workspace=@pytoya/api -- serve       # Start API via CLI entrypoint
+npm run cli --workspace=@pytoya/api -- newadmin    # Seed default admin (create-only)
+npm run cli --workspace=@pytoya/api -- newuser tao 'Tao123@a'  # Create user via positional args (works with npm run)
+npm run cli --workspace=@pytoya/api -- newuser -u tao -p 'Tao123@a'  # Also supported (npm may strip -u/-p)
+npm run cli --workspace=@pytoya/api -- newuser tao tao123 --allow-weak-password  # Dev-only weak password
 npm run cli -- audit-passwords # Flag users with common weak passwords
-npm run cli:dev -- serve   # Dev CLI (ts-node)
+npm run cli:dev --workspace=@pytoya/api -- serve   # Dev CLI (ts-node)
 ```
 
 ### Frontend-Specific (`src/apps/web/`)
@@ -114,7 +116,7 @@ openspec/                # Spec-driven development
 - **Entry Point**: `src/apps/api/src/main.ts`
 - **Modules**: Feature-based organization (auth, projects, extraction, manifests, schemas, models, prompts, etc.)
 - **Database**: TypeORM with PostgreSQL, entities in `src/entities/`, migrations in `src/database/migrations/`
-- **Job Queue**: BullMQ with Redis for async extraction jobs
+- **Job Queue**: BullMQ with Redis for async extraction jobs (worker concurrency via `queue.extraction.concurrency`, default: `5`)
 - **WebSocket**: Gateway at `src/websocket/websocket.gateway.ts` for real-time progress updates
 - **Schemas**: Name/description derived from JSON Schema `title`/`description`; required fields derived from JSON Schema `required`; UI field order via `x-ui-order` on property schemas (Postgres `jsonb` reorders keys)
 - **Text Extractor Development**: See `docs/TEXT_EXTRACTOR_DEVELOPMENT.md` for adding new extractors
@@ -125,6 +127,7 @@ openspec/                # Spec-driven development
 ### Frontend (Vite Web)
 - **Framework**: Vite + React Router (`src/apps/web/src/routes`)
 - **API Client**: Axios with centralized config in `src/apps/web/src/api/client.ts`
+- **Manifest Uploads**: `manifestsApi.uploadManifestsBatch` limits concurrent uploads (default: 4; optional override via `MANIFEST_UPLOAD_CONCURRENCY`)
 - **State Management**: Zustand stores in `src/apps/web/src/shared/stores` with hooks in `src/apps/web/src/shared/hooks`
 - **Components**: Shared components in `src/apps/web/src/shared/components`
 - **UI System**: shadcn/ui components in `src/apps/web/src/shared/components/ui`

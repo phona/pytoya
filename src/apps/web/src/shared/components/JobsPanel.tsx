@@ -3,9 +3,10 @@ import { Download, Loader2, XCircle } from 'lucide-react';
 import { useJobHistory } from '@/shared/hooks/use-jobs';
 import { useWebSocket } from '@/shared/hooks/use-websocket';
 import { jobsApi } from '@/api/jobs';
+import { useManifest } from '@/shared/hooks/use-manifests';
 import { useI18n } from '@/shared/providers/I18nProvider';
 import { toast } from '@/shared/hooks/use-toast';
-import { useJobsStore } from '@/shared/stores/jobs';
+import { useJobsStore, type JobItem } from '@/shared/stores/jobs';
 import { useUiStore } from '@/shared/stores/ui';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -13,6 +14,7 @@ import { Dialog, DialogDescription, DialogHeader, DialogSideContent, DialogTitle
 import { Progress } from '@/shared/components/ui/progress';
 import { ScrollArea } from '@/shared/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { formatCostWithCurrency } from '@/shared/utils/cost';
 
 type JobsTab = 'inProgress' | 'failed' | 'completed' | 'all';
 
@@ -26,6 +28,96 @@ const isCancellable = (jobId: string, status: string) => {
   if (jobId.startsWith('manifest-') || jobId.startsWith('history-')) return false;
   return true;
 };
+
+function JobRow({
+  job,
+  cancelingJobId,
+  onCancel,
+}: {
+  job: JobItem;
+  cancelingJobId: string | null;
+  onCancel: (jobId: string) => void | Promise<void>;
+}) {
+  const { t } = useI18n();
+  const { data: manifest } = useManifest(job.manifestId, { enabled: isInProgress(job.status) });
+
+  const filename =
+    manifest?.originalFilename ??
+    manifest?.filename ??
+    null;
+
+  const title = filename
+    ? t(job.kind === 'ocr' ? 'jobs.ocrLabelFilename' : 'jobs.extractionLabelFilename', { filename })
+    : t(job.kind === 'ocr' ? 'jobs.ocrLabel' : 'jobs.extractionLabel', { manifestId: job.manifestId });
+
+  const costCurrency = job.costBreakdown?.currency ?? job.currency ?? null;
+  const totalCost =
+    job.costBreakdown?.total ?? null;
+
+  const costLine =
+    totalCost !== null && totalCost !== undefined && costCurrency
+      ? formatCostWithCurrency(totalCost, costCurrency, 4)
+      : null;
+
+  const pagesLine =
+    typeof job.textPagesProcessed === 'number' && typeof job.textPagesTotal === 'number' && job.textPagesTotal > 0
+      ? `${job.textPagesProcessed}/${job.textPagesTotal}`
+      : null;
+
+  return (
+    <div className="rounded-md border border-border bg-card p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <div className="truncate text-sm font-semibold text-foreground">{title}</div>
+            <Badge variant="outline" className="text-xs">
+              {t(`jobs.status.${job.status}`)}
+            </Badge>
+          </div>
+
+          {job.error ? (
+            <div className="mt-1 flex items-center gap-2 text-xs text-destructive">
+              <XCircle className="h-3.5 w-3.5" />
+              <span className="truncate">{job.error}</span>
+            </div>
+          ) : null}
+
+          {costLine ? (
+            <div className="mt-1 text-xs text-muted-foreground">
+              {t('jobs.cost')}: {costLine}
+            </div>
+          ) : null}
+
+          {pagesLine ? (
+            <div className="mt-1 text-xs text-muted-foreground">
+              {t('jobs.pages')}: {pagesLine}
+            </div>
+          ) : null}
+        </div>
+
+        {isCancellable(job.id, job.status) ? (
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            disabled={cancelingJobId === job.id}
+            onClick={() => void onCancel(job.id)}
+          >
+            {cancelingJobId === job.id ? <Loader2 className="h-4 w-4 animate-spin" /> : t('jobs.cancel')}
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="mt-3">
+        <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+          <span>{t('jobs.progress')}</span>
+          <span>{Math.round(job.progress)}%</span>
+        </div>
+        <Progress value={job.progress} />
+      </div>
+    </div>
+  );
+}
 
 export function JobsPanel() {
   const { t } = useI18n();
@@ -169,51 +261,7 @@ export function JobsPanel() {
               ) : null}
 
               {filteredJobs.map((job) => (
-                <div key={job.id} className="rounded-md border border-border bg-card p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <div className="truncate text-sm font-semibold text-foreground">
-                          {t(job.kind === 'ocr' ? 'jobs.ocrLabel' : 'jobs.extractionLabel', { manifestId: job.manifestId })}
-                        </div>
-                        <Badge variant="outline" className="text-xs">
-                          {t(`jobs.status.${job.status}`)}
-                        </Badge>
-                      </div>
-
-                      {job.error ? (
-                        <div className="mt-1 flex items-center gap-2 text-xs text-destructive">
-                          <XCircle className="h-3.5 w-3.5" />
-                          <span className="truncate">{job.error}</span>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {isCancellable(job.id, job.status) ? (
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        disabled={cancelingJobId === job.id}
-                        onClick={() => void handleCancel(job.id)}
-                      >
-                        {cancelingJobId === job.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          t('jobs.cancel')
-                        )}
-                      </Button>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-3">
-                    <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{t('jobs.progress')}</span>
-                      <span>{Math.round(job.progress)}%</span>
-                    </div>
-                    <Progress value={job.progress} />
-                  </div>
-                </div>
+                <JobRow key={job.id} job={job} cancelingJobId={cancelingJobId} onCancel={handleCancel} />
               ))}
             </div>
           </ScrollArea>

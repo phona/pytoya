@@ -18,6 +18,10 @@ vi.mock('@/shared/hooks/use-websocket', () => ({
   }),
 }));
 
+vi.mock('@/shared/hooks/use-manifests', () => ({
+  useManifest: () => ({ data: { originalFilename: 'invoice42.pdf' } }),
+}));
+
 describe('JobsPanel', () => {
   beforeEach(() => {
     localStorage.removeItem('pytoya-desktop-sidebar-collapsed');
@@ -78,7 +82,7 @@ describe('JobsPanel', () => {
 
     await user.click(screen.getByRole('button', { name: /open jobs panel/i }));
     expect(screen.getAllByText('Jobs').length).toBeGreaterThan(0);
-    expect(screen.getByText('Manifest #42 extraction')).toBeInTheDocument();
+    expect(screen.getByText('invoice42.pdf extraction')).toBeInTheDocument();
   });
 });
 

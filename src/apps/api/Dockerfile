@@ -24,8 +24,6 @@ RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001
 COPY --from=deps /repo/node_modules ./node_modules
 COPY --from=builder /repo/src/apps/api/dist ./dist
 
-RUN mkdir -p /app/uploads && chown -R nestjs:nodejs /app
-
 USER nestjs
 EXPOSE 3000
 

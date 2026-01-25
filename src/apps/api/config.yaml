@@ -16,6 +16,10 @@ redis:
   host: {{default REDIS_HOST "localhost"}}
   port: {{default REDIS_PORT "6379"}}
 
+queue:
+  extraction:
+    concurrency: {{default EXTRACTION_WORKER_CONCURRENCY "5"}}
+
 jwt:
   secret: {{JWT_SECRET}}
   expiration: {{default JWT_EXPIRATION "7d"}}

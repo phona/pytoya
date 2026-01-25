@@ -30,6 +30,10 @@ Thresholds are configured in `src/apps/api/config.yaml` under `security.accountL
 - Maximum length: 128
 - Must include uppercase, lowercase, number, and special character
 
+### CLI Exception (Dev Only)
+The `newuser` CLI command supports `--allow-weak-password` to create test accounts that do not meet the password policy.
+This flag is blocked when `NODE_ENV=production`.
+
 ## Username Policy
 - 3 to 50 characters
 - Must start with a letter

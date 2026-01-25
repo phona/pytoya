@@ -536,7 +536,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
 
     const draft = latestDraftRef.current;
     const desiredHumanVerified = Boolean(draft?.humanVerified ?? manifest.humanVerified);
-    const shouldPromoteToVerified = desiredHumanVerified && !manifest.humanVerified;
+    const shouldGateHumanVerifiedSave = desiredHumanVerified;
     const extractedDataToSave = draft?.extractedData ?? manifest.extractedData;
 
     setExplicitSavePending(true);
@@ -547,12 +547,12 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
         manifestId,
         data: {
           extractedData: extractedDataToSave ?? undefined,
-          humanVerified: shouldPromoteToVerified ? false : desiredHumanVerified,
+          humanVerified: shouldGateHumanVerifiedSave ? false : desiredHumanVerified,
         },
       });
       queryClient.setQueryData(['manifests', manifestId], firstSave);
 
-      if (shouldPromoteToVerified) {
+      if (shouldGateHumanVerifiedSave) {
         const validation = await runValidation.mutateAsync({ manifestId: manifest.id });
 
         if (validation.errorCount > 0) {

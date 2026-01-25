@@ -12,12 +12,15 @@ interface JobUpdateEvent {
   progress: number;
   status: string;
   error?: string;
-  cost?: number;
+  cost?: number | null;
+  currency?: string | null;
   costBreakdown?: {
     text?: number;
     llm?: number;
-    total?: number;
+    total?: number | null;
+    currency?: string | null;
   };
+  extractorId?: string | null;
   textMarkdownSoFar?: string;
   textPagesProcessed?: number;
   textPagesTotal?: number;
@@ -28,12 +31,15 @@ interface ManifestUpdateEvent {
   status: string;
   progress: number;
   error?: string;
-  cost?: number;
+  cost?: number | null;
+  currency?: string | null;
   costBreakdown?: {
     text?: number;
     llm?: number;
-    total?: number;
+    total?: number | null;
+    currency?: string | null;
   };
+  extractorId?: string | null;
 }
 
 interface OcrUpdateEvent {
@@ -200,13 +206,13 @@ const connectSocketIfNeeded = () => {
             addCost(data.costBreakdown.llm, 'llm');
           }
           if (
-            data.costBreakdown.total !== undefined &&
+            typeof data.costBreakdown.total === 'number' &&
             data.costBreakdown.text === undefined &&
             data.costBreakdown.llm === undefined
           ) {
             addCost(data.costBreakdown.total, 'total');
           }
-        } else if (data.cost !== undefined) {
+        } else if (typeof data.cost === 'number') {
           useExtractionStore.getState().addCost(data.cost, 'total');
         }
       }

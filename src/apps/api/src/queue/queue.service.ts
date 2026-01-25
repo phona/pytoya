@@ -7,6 +7,7 @@ import { Repository } from 'typeorm';
 import { JobEntity } from '../entities/job.entity';
 import { ManifestsService } from '../manifests/manifests.service';
 import { UserEntity } from '../entities/user.entity';
+import { WebSocketService } from '../websocket/websocket.service';
 import { JobNotFoundException } from './exceptions/job-not-found.exception';
 import { QueueProcessingException } from './exceptions/queue-processing.exception';
 import { EXTRACTION_QUEUE, PROCESS_MANIFEST_JOB, REFRESH_OCR_JOB } from './queue.constants';
@@ -35,6 +36,7 @@ export class QueueService {
     @InjectQueue(EXTRACTION_QUEUE)
     private readonly extractionQueue: Queue,
     private readonly manifestsService: ManifestsService,
+    private readonly webSocketService: WebSocketService,
     @InjectRepository(JobEntity)
     private readonly jobRepository: Repository<JobEntity>,
   ) {}
@@ -156,8 +158,20 @@ export class QueueService {
 
   async removeJob(jobId: string): Promise<void> {
     const job = await this.getQueueJob(jobId);
+    const manifestId = job.data?.manifestId;
     await job.remove();
     this.logger.log(`Removed extraction job ${jobId}`);
+
+    if (typeof manifestId === 'number') {
+      this.webSocketService.emitJobUpdate({
+        jobId,
+        manifestId,
+        kind: job.name === REFRESH_OCR_JOB ? 'ocr' : 'extraction',
+        progress: 0,
+        status: 'canceled',
+        error: 'Removed from queue',
+      });
+    }
   }
 
   async requestCancelJob(
@@ -193,9 +207,22 @@ export class QueueService {
     const state = String(await queueJob.getState());
 
     if (state === 'waiting' || state === 'delayed' || state === 'paused') {
+      const manifestId = queueJob.data?.manifestId;
       await queueJob.remove();
       await this.manifestsService.markJobCanceled(jobId, reason);
       this.logger.log(`Canceled queued extraction job ${jobId}`);
+
+      if (typeof manifestId === 'number') {
+        const message = reason ? `Canceled: ${reason}` : 'Canceled';
+        this.webSocketService.emitJobUpdate({
+          jobId,
+          manifestId,
+          kind: queueJob.name === REFRESH_OCR_JOB ? 'ocr' : 'extraction',
+          progress: 0,
+          status: 'canceled',
+          error: message,
+        });
+      }
       return { canceled: true, removedFromQueue: true, state };
     }
 

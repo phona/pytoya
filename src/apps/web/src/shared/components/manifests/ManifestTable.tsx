@@ -508,21 +508,31 @@ export function ManifestTable({
         ),
         cell: ({ row }) => {
           const status = row.original.status;
+          const liveStatus = manifestProgress?.[row.original.id]?.status?.toLowerCase();
+          const effectiveStatus = (() => {
+            if (!liveStatus) return status;
+            if (['active', 'processing', 'running'].includes(liveStatus)) return 'processing';
+            if (['waiting', 'pending', 'queued', 'delayed', 'paused'].includes(liveStatus)) return 'pending';
+            if (liveStatus === 'completed') return 'completed';
+            if (liveStatus === 'failed') return 'failed';
+            return status;
+          })();
+
           const statusLabel =
-            status === 'pending'
+            effectiveStatus === 'pending'
               ? t('manifests.status.pending')
-              : status === 'processing'
+              : effectiveStatus === 'processing'
                 ? t('manifests.status.processing')
-                : status === 'completed'
+                : effectiveStatus === 'completed'
                   ? t('manifests.status.completed')
-                  : status === 'failed'
+                  : effectiveStatus === 'failed'
                     ? t('manifests.status.failed')
-                    : status;
+                    : effectiveStatus;
           const progress = manifestProgress?.[row.original.id];
-          const showProgress = row.original.status === 'processing' || Boolean(progress);
+          const showProgress = effectiveStatus === 'processing' || Boolean(progress);
           return (
             <div className="flex flex-col gap-2">
-              <Badge className={`px-2 py-1 w-fit ${getStatusBadgeClasses(status)}`}>{statusLabel}</Badge>
+              <Badge className={`px-2 py-1 w-fit ${getStatusBadgeClasses(effectiveStatus)}`}>{statusLabel}</Badge>
               {showProgress ? (
                 <div className="w-32">
                   <ProgressBar
@@ -591,7 +601,7 @@ export function ManifestTable({
         header: () => (
           <SystemColumnHeader
             id="humanVerified"
-            label={t('manifests.card.verified')}
+            label={t('manifests.table.verified')}
             sortable={true}
             onSort={handleSort}
             renderSortIcon={renderSortIcon}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Clock, Pencil, RefreshCw, Trash2 } from 'lucide-react';
 import type { Manifest } from '@/api/manifests';
 import { deriveSchemaAuditFields, SchemaArrayField, SchemaArrayObjectField, SchemaLeafField } from '@/shared/utils/schema';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface EditableFormProps {
   manifest: Manifest;
@@ -388,6 +389,7 @@ export function EditableForm({
   onEditFieldHint,
   resetCounter,
 }: EditableFormProps) {
+  const { t } = useI18n();
   const humanVerified = Boolean(manifest.humanVerified);
   const hintMap = extractionHintMap ?? {};
 
@@ -849,7 +851,7 @@ export function EditableForm({
           className="rounded border-border text-primary focus:ring-ring"
         />
         <label htmlFor="human_verified" className="text-sm text-foreground">
-          Human Verified
+          {t('audit.form.humanVerified')}
         </label>
       </div>
     </div>

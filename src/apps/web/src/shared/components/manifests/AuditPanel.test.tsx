@@ -99,6 +99,7 @@ vi.mock('./EditableForm', () => ({
 describe('AuditPanel', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    manifest.humanVerified = false;
     updateManifestMutateAsync.mockReset();
     runValidationMutateAsync.mockReset();
     queueOcrRefreshJobMutateAsync.mockReset();
@@ -158,6 +159,36 @@ describe('AuditPanel', () => {
     await vi.runAllTimersAsync();
 
     expect(updateManifestMutateAsync).toHaveBeenCalledTimes(2);
+    expect(updateManifestMutateAsync.mock.calls[1]?.[0]).toMatchObject({
+      manifestId: 1,
+      data: { humanVerified: true },
+    });
+  });
+
+  it('runs validation on Save when manifest is already Human Verified', async () => {
+    manifest.humanVerified = true;
+    runValidationMutateAsync.mockResolvedValue({
+      issues: [],
+      errorCount: 0,
+      warningCount: 0,
+      validatedAt: new Date().toISOString(),
+    });
+
+    renderWithProviders(
+      <AuditPanel projectId={1} groupId={1} manifestId={1} onClose={vi.fn()} allManifestIds={[1]} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Human Verified' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await vi.runAllTimersAsync();
+
+    expect(runValidationMutateAsync).toHaveBeenCalledWith({ manifestId: 1 });
+    expect(updateManifestMutateAsync).toHaveBeenCalledTimes(2);
+    expect(updateManifestMutateAsync.mock.calls[0]?.[0]).toMatchObject({
+      manifestId: 1,
+      data: { humanVerified: false },
+    });
     expect(updateManifestMutateAsync.mock.calls[1]?.[0]).toMatchObject({
       manifestId: 1,
       data: { humanVerified: true },

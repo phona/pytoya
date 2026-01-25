@@ -7,6 +7,7 @@ WORKDIR /repo
 COPY .npmrc package.json package-lock.json tsconfig.base.json ./
 COPY src/apps/web/package.json src/apps/web/tsconfig*.json ./src/apps/web/
 COPY src/apps/api/package.json ./src/apps/api/package.json
+COPY src/shared/package.json src/shared/tsconfig.json ./src/shared/
 RUN npm ci
 
 FROM deps AS builder
@@ -15,6 +16,7 @@ ARG VITE_WS_URL=
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_WS_URL=$VITE_WS_URL
 
+COPY src/shared/src ./src/shared/src
 COPY src/apps/web ./src/apps/web
 RUN npm run build --workspace=@pytoya/web
 

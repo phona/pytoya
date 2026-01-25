@@ -44,9 +44,16 @@
 - [x] 6.1 Create test data factory functions in `test/mocks/factories.ts` (exists)
 - [x] 6.2 Add custom test utilities for common render patterns (test/utils.tsx exists)
 - [x] 6.3 Update MSW handlers if needed for new test scenarios (added validation, prompts, extraction endpoints; reordered specific routes before parameterized)
+- [ ] 6.4 Add **frontend** test factories in `src/apps/web/src/tests/mocks/factories.ts`
+- [ ] 6.5 Standardize flaky-prone patterns (timers, async, WebSocket) in test utils
 
 ## 7. Coverage Enforcement
 - [x] 7.1 Update `package.json` scripts for coverage reporting (test:coverage exists)
 - [ ] 7.2 Ensure 60% coverage threshold is enforced in CI (needs CI config)
 - [ ] 7.3 Improve `manifests.ts` API module coverage from 51.14% to 80%+
 - [ ] 7.4 Improve `schemas.ts` API module coverage from 67.54% to 80%+
+
+## 8. CI Quality Gates (Web)
+- [ ] 8.1 Add CI workflow to run `npm run lint`, `npm run type-check`, `npm run test:coverage`
+- [ ] 8.2 Fail CI on coverage below thresholds (branches/functions/lines/statements)
+- [ ] 8.3 Add a small Playwright smoke test for critical routing (login → projects)

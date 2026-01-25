@@ -5,8 +5,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { JobEntity } from '../entities/job.entity';
 import { ManifestsModule } from '../manifests/manifests.module';
+import { WebSocketModule } from '../websocket/websocket.module';
 import { EXTRACTION_QUEUE } from './queue.constants';
 import { QueueController } from './queue.controller';
+import { ExtractionQueueEventsListener } from './extraction-queue-events.listener';
 import { QueueService } from './queue.service';
 
 @Global()
@@ -35,9 +37,10 @@ import { QueueService } from './queue.service';
     }),
     TypeOrmModule.forFeature([JobEntity]),
     ManifestsModule,
+    WebSocketModule,
   ],
   controllers: [QueueController],
-  providers: [QueueService],
+  providers: [QueueService, ExtractionQueueEventsListener],
   exports: [QueueService, BullModule],
 })
 export class QueueModule {}

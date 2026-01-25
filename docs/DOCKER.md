@@ -100,6 +100,8 @@ DB_PASSWORD=pytoya_pass
 DB_DATABASE=pytoya
 REDIS_HOST=redis
 REDIS_PORT=6379
+# Optional: BullMQ extraction worker concurrency (default: 5)
+# EXTRACTION_WORKER_CONCURRENCY=5
 JWT_SECRET=dev-jwt-secret-change-in-production
  LLM_API_KEY=dev-llm-key
  PADDLEOCR_BASE_URL=http://localhost:8080

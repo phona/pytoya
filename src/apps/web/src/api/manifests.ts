@@ -58,6 +58,51 @@ export interface UploadManifestDto {
   file: File;
 }
 
+type PromiseSettled<T> =
+  PromiseSettledResult<T>;
+
+const DEFAULT_MANIFEST_UPLOAD_CONCURRENCY = (() => {
+  const raw =
+    typeof __MANIFEST_UPLOAD_CONCURRENCY__ === 'string'
+      ? __MANIFEST_UPLOAD_CONCURRENCY__
+      : '';
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return 4;
+})();
+
+const allSettledWithConcurrency = async <TItem, TResult>(
+  items: TItem[],
+  concurrency: number,
+  work: (item: TItem, index: number) => Promise<TResult>,
+): Promise<Array<PromiseSettled<TResult>>> => {
+  const resolvedConcurrency = Math.max(1, Math.floor(concurrency));
+  const results: Array<PromiseSettled<TResult>> = new Array(items.length);
+
+  let nextIndex = 0;
+  const worker = async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+
+      try {
+        const value = await work(items[index], index);
+        results[index] = { status: 'fulfilled', value };
+      } catch (reason) {
+        results[index] = { status: 'rejected', reason };
+      }
+    }
+  };
+
+  const workers = new Array(Math.min(resolvedConcurrency, items.length))
+    .fill(null)
+    .map(() => worker());
+  await Promise.all(workers);
+
+  return results;
+};
+
 export const manifestsApi = {
   // List manifests for a group
   listManifests: async (groupId: number, params?: ManifestListQueryParams) => {
@@ -185,15 +230,15 @@ export const manifestsApi = {
     groupId: number,
     files: File[],
     onProgress?: (fileIndex: number, fileName: string, progress: number) => void,
+    options?: { concurrency?: number },
   ) => {
-    const results = await Promise.allSettled(
-      files.map((file, index) =>
-        manifestsApi.uploadManifest(groupId, file, (progress) => {
-          onProgress?.(index, file.name, progress);
-        }),
-      ),
+    const concurrency =
+      options?.concurrency ?? DEFAULT_MANIFEST_UPLOAD_CONCURRENCY;
+    return allSettledWithConcurrency(files, concurrency, (file, index) =>
+      manifestsApi.uploadManifest(groupId, file, (progress) => {
+        onProgress?.(index, file.name, progress);
+      }),
     );
-    return results;
   },
 
   // Update manifest

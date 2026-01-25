@@ -294,7 +294,7 @@ export function ManifestList({
       },
       {
         id: 'humanVerified',
-        label: t('manifests.card.verified'),
+        label: t('manifests.table.verified'),
         hasActiveFilter: filters.humanVerified !== undefined,
       },
       {

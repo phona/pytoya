@@ -1,15 +1,25 @@
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadConfigWithSubstitution } from './config.loader';
 
 const YAML_CONFIG_FILENAME = 'config.yaml';
-const DEFAULT_CONFIG_PATH = resolve(__dirname, '../../config.yaml');
 
 function loadConfigFile(): Record<string, unknown> {
-  const rawPath = process.env.CONFIG_PATH || DEFAULT_CONFIG_PATH;
-  const configPath =
-    rawPath === YAML_CONFIG_FILENAME
-      ? resolve(process.cwd(), rawPath)
-      : rawPath;
+  const envPath = process.env.CONFIG_PATH;
+
+  const candidatePaths = [
+    envPath,
+    resolve(process.cwd(), YAML_CONFIG_FILENAME),
+    resolve(__dirname, '../../config.yaml'),
+  ].filter((value): value is string => typeof value === 'string' && value.length > 0);
+
+  const configPath = candidatePaths.find((candidate) => existsSync(candidate));
+  if (!configPath) {
+    throw new Error(
+      `Failed to locate config.yaml. Checked: ${candidatePaths.join(', ')}`,
+    );
+  }
+
   return loadConfigWithSubstitution(configPath);
 }
 
