@@ -239,10 +239,20 @@ jobs:
             extra_set_args+=(--set "ingress.tls[0].secretName=${INGRESS_TLS_SECRET_NAME}")
           fi
 
+          extra_values_args=()
+          server_values_file="/home/github-runner/pytoya.values.yaml"
+          if [[ -f "${server_values_file}" ]]; then
+            echo "Using server values file: ${server_values_file}"
+            extra_values_args+=(-f "${server_values_file}")
+          else
+            echo "Server values file not found: ${server_values_file} (skipping)"
+          fi
+
           echo "Deploying ${RELEASE_NAME} to namespace=${NAMESPACE} tag=${IMAGE_TAG} host='${INGRESS_HOST}'"
 
           helm upgrade --install "${RELEASE_NAME}" "oci://${GHCR_IMAGE_REGISTRY}/charts/pytoya" \
             --version "${CHART_VERSION}" \
+            "${extra_values_args[@]}" \
             --namespace "${NAMESPACE}" \
             --create-namespace \
             --set "api.image=${GHCR_IMAGE_REGISTRY}/${API_IMAGE}" \
