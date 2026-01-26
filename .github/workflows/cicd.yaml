@@ -149,6 +149,41 @@ jobs:
       contents: read
       packages: read
     steps:
+      - name: Deploy debug (safe context + kube probes)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Runner: name='${RUNNER_NAME:-}' os='${RUNNER_OS:-}' arch='${RUNNER_ARCH:-}'"
+          echo "GitHub: repo='${GITHUB_REPOSITORY:-}' ref='${GITHUB_REF:-}' ref_name='${GITHUB_REF_NAME:-}' sha='${GITHUB_SHA:-}' actor='${GITHUB_ACTOR:-}'"
+          echo "Workspace: '${GITHUB_WORKSPACE:-}'"
+          echo "KUBECONFIG: '${KUBECONFIG:-<default>}'"
+          if [[ -n "${KUBECONFIG:-}" ]]; then
+            ls -la "${KUBECONFIG}" || true
+          fi
+
+          echo "--- kubectl config (safe) ---"
+          kubectl config current-context || true
+          cluster="$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}' 2>/dev/null || true)"
+          user="$(kubectl config view --minify -o jsonpath='{.contexts[0].context.user}' 2>/dev/null || true)"
+          server="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)"
+          ns="$(kubectl config view --minify -o jsonpath='{.contexts[0].context.namespace}' 2>/dev/null || true)"
+          echo "kube.cluster=${cluster:-<unknown>}"
+          echo "kube.user=${user:-<unknown>}"
+          echo "kube.namespace=${ns:-<default>}"
+          echo "kube.server=${server:-<unknown>}"
+
+          echo "--- apiserver probes (best-effort) ---"
+          kubectl get --raw='/version' 2>/dev/null | head -c 400 || true
+          echo
+          kubectl get --raw='/healthz' 2>/dev/null | head -c 200 || true
+          echo
+          if command -v curl >/dev/null 2>&1 && [[ -n "${server:-}" ]]; then
+            server="${server%/}"
+            echo "--- curl ${server}/version (unauthenticated) ---"
+            curl -skS -o /dev/null -w "http_status=%{http_code} time_total=%{time_total}\n" "${server}/version" || true
+          fi
+
       - name: Verify kubectl + helm present
         shell: bash
         run: |
@@ -227,3 +262,30 @@ jobs:
             "${extra_set_args[@]}" \
             --wait \
             --timeout 10m
+
+      - name: Deploy debug (on failure)
+        if: ${{ failure() }}
+        shell: bash
+        env:
+          NAMESPACE: ${{ secrets.K8S_NAMESPACE || env.DEFAULT_NAMESPACE }}
+          RELEASE_NAME: ${{ secrets.K8S_RELEASE_NAME || env.DEFAULT_RELEASE_NAME }}
+        run: |
+          set +e
+          echo "--- versions ---"
+          kubectl version --short
+          helm version
+
+          echo "--- cluster-info ---"
+          kubectl cluster-info
+
+          echo "--- namespace (${NAMESPACE}) ---"
+          kubectl get ns "${NAMESPACE}" -o wide
+
+          echo "--- pods (${NAMESPACE}) ---"
+          kubectl get pods -n "${NAMESPACE}" -o wide
+
+          echo "--- helm status (${RELEASE_NAME}) ---"
+          helm status "${RELEASE_NAME}" -n "${NAMESPACE}"
+
+          echo "--- helm history (${RELEASE_NAME}) ---"
+          helm history "${RELEASE_NAME}" -n "${NAMESPACE}" --max 10
