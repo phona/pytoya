@@ -114,7 +114,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     needs: build_and_push
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_name == 'master') }}
     environment: production
@@ -122,28 +122,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v4
-
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-
-      - name: Configure kubeconfig
+      - name: Verify kubectl + helm present
         shell: bash
-        env:
-          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
           set -euo pipefail
-          if [[ -z "${KUBE_CONFIG:-}" ]]; then
-            echo "Missing secrets.KUBE_CONFIG (base64 kubeconfig or raw kubeconfig YAML)." >&2
-            exit 2
-          fi
-          mkdir -p "${HOME}/.kube"
-          if echo "${KUBE_CONFIG}" | head -n 1 | grep -qE '^apiVersion:'; then
-            printf "%s" "${KUBE_CONFIG}" > "${HOME}/.kube/config"
-          else
-            echo "${KUBE_CONFIG}" | base64 -d > "${HOME}/.kube/config"
-          fi
+          command -v kubectl >/dev/null 2>&1 || { echo "kubectl not found on runner" >&2; exit 2; }
+          command -v helm >/dev/null 2>&1 || { echo "helm not found on runner" >&2; exit 2; }
+          kubectl version --client=true
+          helm version
 
       - name: Deploy via Helm
         shell: bash
