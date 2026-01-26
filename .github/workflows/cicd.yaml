@@ -245,8 +245,11 @@ jobs:
             --version "${CHART_VERSION}" \
             --namespace "${NAMESPACE}" \
             --create-namespace \
-            --set "global.imageRegistry=${GHCR_IMAGE_REGISTRY}" \
+            --set "api.image=${GHCR_IMAGE_REGISTRY}/${API_IMAGE}" \
             --set "api.tag=${IMAGE_TAG}" \
+            --set "worker.image=${GHCR_IMAGE_REGISTRY}/${API_IMAGE}" \
+            --set "worker.tag=${IMAGE_TAG}" \
+            --set "web.image=${GHCR_IMAGE_REGISTRY}/${WEB_IMAGE}" \
             --set "web.tag=${IMAGE_TAG}" \
             --set "ingress.className=traefik" \
             --set "ingress.annotations.kubernetes\\.io/ingress\\.class=traefik" \
@@ -272,7 +275,7 @@ jobs:
         run: |
           set +e
           echo "--- versions ---"
-          kubectl version --short
+          kubectl version --client=true
           helm version
 
           echo "--- cluster-info ---"
