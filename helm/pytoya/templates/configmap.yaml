@@ -31,8 +31,6 @@ data:
       expiration: {{ .Values.api.config.jwt.expiration | default "7d" | quote }}
     paddleocr:
       baseUrl: {{ .Values.api.config.paddleocr.baseUrl | quote }}
-    llm:
-      apiKey: "{{ "{{LLM_API_KEY}}" }}"
     features:
       manualExtraction: {{ .Values.api.config.features.manualExtraction | default true }}
     security:

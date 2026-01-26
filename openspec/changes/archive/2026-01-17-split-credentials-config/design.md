@@ -172,7 +172,6 @@ export DB_PORT=5432
 export DB_USERNAME=pytoya_user
 export DB_PASSWORD=dev_password_123
 export JWT_SECRET=dev-jwt-secret-change-me
-export LLM_API_KEY=dev-api-key
 
 npm run start:dev
 ```
@@ -182,7 +181,6 @@ Or with PowerShell:
 $env:DB_HOST="localhost"
 $env:DB_PASSWORD="dev_password_123"
 $env:JWT_SECRET="dev-jwt-secret-change-me"
-$env:LLM_API_KEY="dev-api-key"
 npm run start:dev
 ```
 
@@ -206,7 +204,6 @@ type: Opaque
 stringData:
   DB_PASSWORD: "{{ .Values.db.password }}"
   JWT_SECRET: "{{ .Values.jwt.secret }}"
-  LLM_API_KEY: "{{ .Values.llm.apiKey }}"
 ---
 apiVersion: apps/v1
 kind: Deployment

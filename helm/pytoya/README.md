@@ -63,7 +63,7 @@ helm upgrade --install pytoya-dev helm/pytoya \
   --set redis.service.type=NodePort \
   --set postgres.auth.password=change-me \
   --set secrets.jwtSecret=dummy \
-  --set secrets.llmApiKey=dummy
+  # no LLM API key required at deploy-time
 ```
 
 To see assigned NodePorts:
@@ -106,7 +106,7 @@ Key values (see `values.yaml` for the full list):
 - `web.*`: Web image, replicas, env, service, health checks
 - `ingress.*`: Ingress settings (hosts, TLS, annotations, class)
 - `hpa.api.*`, `hpa.web.*`: Autoscaler settings
-- `secrets.jwtSecret`, `secrets.llmApiKey`: Sensitive values
+- `secrets.jwtSecret`: Sensitive values
 
 ### Required Secrets
 Set these before installing:
@@ -114,8 +114,7 @@ Set these before installing:
 ```bash
 helm install pytoya helm/pytoya \
   --set postgres.auth.password=change-me \
-  --set secrets.jwtSecret=change-me \
-  --set secrets.llmApiKey=change-me
+  --set secrets.jwtSecret=change-me
 ```
 
 ### Notes on `VITE_API_URL`

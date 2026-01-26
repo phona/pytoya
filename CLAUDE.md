@@ -273,7 +273,6 @@ The API uses `src/apps/api/config.yaml` as its single source of truth for runtim
 **Required environment variables** (used by template placeholders):
 - `DB_PASSWORD`
 - `JWT_SECRET`
-- `LLM_API_KEY`
 
 **Override config path**: Set the `CONFIG_PATH` environment variable to use a different config file location.
 

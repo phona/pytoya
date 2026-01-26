@@ -7,7 +7,6 @@ param(
   [string]$IngressHost,
   [string]$PostgresPassword,
   [string]$JwtSecret,
-  [string]$LlmApiKey,
   [string]$Namespace = "pytoya",
   [string]$ReleaseName = "pytoya"
 )
@@ -43,7 +42,6 @@ Require-Command -Name "helm"
 Require-Command -Name "kubectl"
 Require-Value -Name "PostgresPassword" -Value $PostgresPassword
 Require-Value -Name "JwtSecret" -Value $JwtSecret
-Require-Value -Name "LlmApiKey" -Value $LlmApiKey
 
 $chartPath = "helm/pytoya"
 $valuesFile = "values.yaml"
@@ -69,7 +67,6 @@ helm upgrade --install $ReleaseName `
   --set "web.tag=$WebTag" `
   --set "postgres.auth.password=$PostgresPassword" `
   --set "secrets.jwtSecret=$JwtSecret" `
-  --set "secrets.llmApiKey=$LlmApiKey" `
   @extraSetArgs `
   --wait `
   --timeout 5m `

@@ -40,8 +40,6 @@
 .PARAMETER JwtSecret
   JWT secret to store in the env file and pass to the deploy helper (default: dev-jwt-secret).
 
-.PARAMETER LlmApiKey
-  LLM API key to store in the env file and pass to the deploy helper (default: dummy).
 
 .PARAMETER SkipDeploy
   Skip Helm deployment and only update env and/or DB user.
@@ -70,7 +68,6 @@ param(
   [string]$AppDbName = "pytoya",
   [string]$DeployHelperPath = "scripts/deploy-deps-nodeport.ps1",
   [string]$JwtSecret = "dev-jwt-secret",
-  [string]$LlmApiKey = "dummy",
   [switch]$SkipDeploy,
   [switch]$DisablePersistence,
   [switch]$SkipDbUserSetup,
@@ -225,7 +222,6 @@ function Invoke-Deploy {
     -ReleaseName $ReleaseName `
     -PostgresPassword $Password `
     -JwtSecret $JwtSecret `
-    -LlmApiKey $LlmApiKey `
     $(if ($DisablePersistence) { "-DisablePersistence" })
   if ($LASTEXITCODE -ne 0) {
     throw "deploy-deps-nodeport.ps1 failed with exit code $LASTEXITCODE."
@@ -295,7 +291,6 @@ $envLines = Upsert-EnvValue -Lines $envLines -Key "DB_USERNAME" -Value $AppDbUse
 $envLines = Upsert-EnvValue -Lines $envLines -Key "DB_PASSWORD" -Value $AppDbPassword
 $envLines = Upsert-EnvValue -Lines $envLines -Key "DB_NAME" -Value $AppDbName
 $envLines = Upsert-EnvValue -Lines $envLines -Key "JWT_SECRET" -Value $JwtSecret
-$envLines = Upsert-EnvValue -Lines $envLines -Key "LLM_API_KEY" -Value $LlmApiKey
 
 Set-Content -Path $envPath -Value ($envLines -join "`r`n") -Encoding UTF8
 
@@ -308,7 +303,6 @@ Write-Host "  DB_USERNAME: $AppDbUser"
 Write-Host "  DB_PASSWORD: ********"
 Write-Host "  DB_NAME: $AppDbName"
 Write-Host "  JWT_SECRET: ********"
-Write-Host "  LLM_API_KEY: ********"
 
 if (-not $SkipDbUserSetup) {
   $adminPassword = if ($PostgresPassword) { $PostgresPassword } else { $DbAdminPassword }

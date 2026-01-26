@@ -79,12 +79,6 @@ class PaddleocrConfig {
   endpoint?: string;
 }
 
-class LlmConfig {
-  @IsString()
-  @IsNotEmpty()
-  apiKey!: string;
-}
-
 class FeaturesConfig {
   @IsBoolean()
   manualExtraction!: boolean;
@@ -251,10 +245,6 @@ export class AppConfig {
   @ValidateNested()
   @Type(() => PaddleocrConfig)
   paddleocr!: PaddleocrConfig;
-
-  @ValidateNested()
-  @Type(() => LlmConfig)
-  llm!: LlmConfig;
 
   @ValidateNested()
   @Type(() => FeaturesConfig)

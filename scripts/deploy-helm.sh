@@ -18,13 +18,12 @@ INGRESS_HOST="${INGRESS_HOST:-}"
 # Required secrets (pass via env for safety)
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
 JWT_SECRET="${JWT_SECRET:-}"
-LLM_API_KEY="${LLM_API_KEY:-}"
 
 usage() {
   cat <<'EOF'
 Usage:
   ENVIRONMENT=dev REGISTRY=registry.dev.lan API_TAG=dev WEB_TAG=dev \
-  POSTGRES_PASSWORD=... JWT_SECRET=... LLM_API_KEY=... \
+  POSTGRES_PASSWORD=... JWT_SECRET=... \
   ./scripts/deploy-helm.sh [dev|staging|prod]
 
 Optional:
@@ -52,7 +51,6 @@ install_chart() {
 
     require_env POSTGRES_PASSWORD "$POSTGRES_PASSWORD"
     require_env JWT_SECRET "$JWT_SECRET"
-    require_env LLM_API_KEY "$LLM_API_KEY"
 
     local extra_set_args=()
     if [ -n "$INGRESS_HOST" ]; then
@@ -70,7 +68,6 @@ install_chart() {
         --set web.tag="$WEB_TAG" \
         --set postgres.auth.password="$POSTGRES_PASSWORD" \
         --set secrets.jwtSecret="$JWT_SECRET" \
-        --set secrets.llmApiKey="$LLM_API_KEY" \
         "${extra_set_args[@]}" \
         --wait \
         --timeout 5m \

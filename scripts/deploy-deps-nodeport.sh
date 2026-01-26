@@ -9,7 +9,6 @@ RELEASE_NAME="${RELEASE_NAME:-pytoya-dev}"
 # Required by chart (even when api/web are disabled)
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
 JWT_SECRET="${JWT_SECRET:-dummy}"
-LLM_API_KEY="${LLM_API_KEY:-dummy}"
 
 # Optional: fixed NodePorts. If empty, Kubernetes auto-assigns.
 POSTGRES_NODEPORT="${POSTGRES_NODEPORT:-}"
@@ -33,7 +32,7 @@ Optional env vars:
   DISABLE_PERSISTENCE=true       # disables PVCs (optional)
 
 Notes:
-  - JWT_SECRET and LLM_API_KEY are required by the Helm chart, but not used when api/web are disabled.
+  - JWT_SECRET is required by the Helm chart, but not used when api/web are disabled.
     Defaults are set to "dummy" for convenience.
 EOF
 }
@@ -76,7 +75,6 @@ main() {
     --set "redis.service.type=NodePort" \
     --set "postgres.auth.password=$POSTGRES_PASSWORD" \
     --set "secrets.jwtSecret=$JWT_SECRET" \
-    --set "secrets.llmApiKey=$LLM_API_KEY" \
     "${extra_set_args[@]}" \
     --wait \
     --timeout 5m
@@ -89,4 +87,3 @@ main() {
 }
 
 main "$@"
-

@@ -28,9 +28,6 @@ jwt:
 paddleocr:
   baseUrl: {{default PADDLEOCR_BASE_URL "http://localhost:8080"}}
 
-llm:
-  apiKey: "{{LLM_API_KEY}}"
-
 features:
   manualExtraction: {{default FEATURE_MANUAL_EXTRACTION "true"}}
 

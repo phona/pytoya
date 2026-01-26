@@ -6,7 +6,6 @@ The system SHALL inject sensitive credentials into the API deployment via Kubern
 Required Secret keys:
 - `db-password`: Database password → `DB_PASSWORD` env var
 - `jwt-secret`: JWT signing secret → `JWT_SECRET` env var
-- `llm-api-key`: LLM provider API key → `LLM_API_KEY` env var
 
 The ConfigMap SHALL mount the configuration file (`config.yaml`).
 The API container SHALL receive credentials via environment variables from the Secret.
@@ -22,7 +21,6 @@ The API container SHALL receive credentials via environment variables from the S
 - **THEN** environment variables MUST be populated from the Kubernetes Secret
 - **AND** `DB_PASSWORD` env var MUST map to `db-password` Secret key
 - **AND** `JWT_SECRET` env var MUST map to `jwt-secret` Secret key
-- **AND** `LLM_API_KEY` env var MUST map to `llm-api-key` Secret key
 
 #### Scenario: ConfigMap mounts config file
 - **WHEN** the API pod starts

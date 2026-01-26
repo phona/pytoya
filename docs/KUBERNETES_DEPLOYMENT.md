@@ -58,8 +58,7 @@ helm upgrade --install pytoya helm/pytoya \
   --set global.basePath=/pytoya \
   --set postgres.auth.password=change-me \
   --set secrets.dbPassword=change-me \
-  --set secrets.jwtSecret=change-me \
-  --set secrets.llmApiKey=change-me
+  --set secrets.jwtSecret=change-me
 ```
 
 ### Smoke checks (subpath)
@@ -88,7 +87,6 @@ pwsh -File scripts/deploy-helm.ps1 `
   -Environment prod `
   -PostgresPassword change-me `
   -JwtSecret change-me `
-  -LlmApiKey change-me `
   -Registry registry.prod.lan `
   -ApiTag 1.0.0 `
   -WebTag 1.0.0 `
@@ -131,8 +129,7 @@ helm upgrade --install pytoya-dev helm/pytoya \
   --set postgres.service.type=NodePort \
   --set redis.service.type=NodePort \
   --set postgres.auth.password=change-me \
-  --set secrets.jwtSecret=dummy \
-  --set secrets.llmApiKey=dummy
+  --set secrets.jwtSecret=dummy
 ```
 
 Get the NodePorts:
@@ -157,7 +154,7 @@ pwsh -File scripts/setup-dev-k8s-deps.ps1 -PostgresPassword change-me -Namespace
 
 Notes:
 - The helper writes `DB_HOST`, `DB_PORT`, `REDIS_HOST`, `REDIS_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`,
-  `JWT_SECRET`, and `LLM_API_KEY` to `src/apps/api/.env.local`.
+  `JWT_SECRET` to `src/apps/api/.env.local`.
 - Pass `-EnvPath` to write a different env file.
 - If you want different secrets, pass `-JwtSecret` and `-LlmApiKey`, or edit the env file after generation.
 - The helper creates or updates the Postgres app user by default (use `-SkipDbUserSetup` to skip).

@@ -3,15 +3,13 @@
 ## Split Credentials from Config
 
 ### Upgrade Steps
-1. Update `src/apps/api/config.yaml` to use environment placeholders (e.g., `{{DB_PASSWORD}}`, `{{JWT_SECRET}}`, `{{LLM_API_KEY}}`).
+1. Update `src/apps/api/config.yaml` to use environment placeholders (e.g., `{{DB_PASSWORD}}`, `{{JWT_SECRET}}`).
 2. Set required environment variables:
    - `DB_PASSWORD`
    - `JWT_SECRET`
-   - `LLM_API_KEY`
 3. For Helm deployments, set:
    - `secrets.dbPassword`
    - `secrets.jwtSecret`
-   - `secrets.llmApiKey`
 4. Deploy and verify the API boots without configuration errors.
 
 ### Rollback

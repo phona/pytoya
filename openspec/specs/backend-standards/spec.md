@@ -163,7 +163,6 @@ Sensitive values MUST be injected via environment variables and MUST NOT be stor
 Required environment variables for credentials:
 - `DB_PASSWORD`: Database password
 - `JWT_SECRET`: JWT signing secret
-- `LLM_API_KEY`: LLM provider API key
 
 Optional environment variables (with defaults via `{{default}}`):
 - `DB_HOST`: Database host (default: "localhost")
@@ -375,4 +374,3 @@ Domain constraints MUST be expressed via project configuration (JSON Schema + su
 - **GIVEN** a new project needs extraction for a new document type
 - **WHEN** an admin defines a JSON Schema (and optional rules/scripts/templates) for that project
 - **THEN** the system SHALL be able to extract and audit that document type without introducing new domain-specific code paths
-

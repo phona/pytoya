@@ -3,7 +3,6 @@ param(
   [string]$ReleaseName = "pytoya-dev",
   [string]$PostgresPassword,
   [string]$JwtSecret = "dummy",
-  [string]$LlmApiKey = "dummy",
   [string]$PostgresNodePort,
   [string]$RedisNodePort,
   [switch]$DisablePersistence
@@ -68,7 +67,6 @@ helm upgrade --install $ReleaseName `
   --set "redis.service.type=NodePort" `
   --set "postgres.auth.password=$PostgresPassword" `
   --set "secrets.jwtSecret=$JwtSecret" `
-  --set "secrets.llmApiKey=$LlmApiKey" `
   @extraSetArgs `
   --wait `
   --timeout 5m

@@ -9,7 +9,6 @@ Sensitive values MUST be injected via environment variables and MUST NOT be stor
 Required environment variables for credentials:
 - `DB_PASSWORD`: Database password
 - `JWT_SECRET`: JWT signing secret
-- `LLM_API_KEY`: LLM provider API key
 
 Optional environment variables (with defaults via `{{default}}`):
 - `DB_HOST`: Database host (default: "localhost")

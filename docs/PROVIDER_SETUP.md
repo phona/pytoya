@@ -400,7 +400,6 @@ OPENAI_API_KEY=sk-prod-...
 ANTHROPIC_API_KEY=sk-ant-prod-...
 BAIDU_API_KEY=prod-key
 BAIDU_SECRET_KEY=prod-secret
-LLM_API_KEY=default-llm-key
 ```
 
 ### Model Configuration

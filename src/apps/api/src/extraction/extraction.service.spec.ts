@@ -16,16 +16,37 @@ describe('ExtractionService', () => {
     errorSpy.mockRestore();
   });
 
-  const buildService = (llmServiceOverrides?: { createChatCompletion?: jest.Mock }) => {
+  const buildService = (options?: {
+    llmServiceOverrides?: { createChatCompletion?: jest.Mock };
+    modelRepositoryOverrides?: { find?: jest.Mock };
+  }) => {
+    const { llmServiceOverrides, modelRepositoryOverrides } = options ?? {};
     const llmService = {
       createChatCompletion: jest.fn(),
       ...llmServiceOverrides,
     };
 
+    const modelRepository = {
+      find: jest.fn().mockResolvedValue([
+        {
+          id: 'model-1',
+          adapterType: 'openai',
+          isActive: true,
+          createdAt: new Date(),
+          parameters: {
+            baseUrl: 'https://api.openai.com/v1',
+            apiKey: 'sk-test',
+            modelName: 'gpt-4o',
+          },
+        },
+      ]),
+      ...modelRepositoryOverrides,
+    };
+
     return new ExtractionService(
       {} as any,
       {} as any,
-      {} as any,
+      modelRepository as any,
       {} as any,
       {} as any,
       llmService as any,
@@ -42,7 +63,9 @@ describe('ExtractionService', () => {
 
   it('returns optimized prompt text', async () => {
     const service = buildService({
-      createChatCompletion: jest.fn().mockResolvedValue({ content: ' Optimized ' }),
+      llmServiceOverrides: {
+        createChatCompletion: jest.fn().mockResolvedValue({ content: ' Optimized ' }),
+      },
     });
 
     const result = await service.optimizePrompt('test description');
@@ -52,7 +75,9 @@ describe('ExtractionService', () => {
 
   it('throws a friendly error when LLM fails', async () => {
     const service = buildService({
-      createChatCompletion: jest.fn().mockRejectedValue(new Error('LLM down')),
+      llmServiceOverrides: {
+        createChatCompletion: jest.fn().mockRejectedValue(new Error('LLM down')),
+      },
     });
 
     await expect(service.optimizePrompt('test description')).rejects.toThrow(

@@ -175,7 +175,6 @@ jobs:
           POSTGRES_USER: ${{ secrets.POSTGRES_USER || 'pytoya' }}
           POSTGRES_DB: ${{ secrets.POSTGRES_DB || 'pytoya' }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           # Optional: if your cluster cannot pull from GHCR anonymously, set this to an existing imagePullSecret name.
           K8S_IMAGE_PULL_SECRET_NAME: ${{ secrets.K8S_IMAGE_PULL_SECRET_NAME }}
         run: |
@@ -183,7 +182,6 @@ jobs:
 
           if [[ -z "${POSTGRES_PASSWORD:-}" ]]; then echo "Missing secrets.POSTGRES_PASSWORD" >&2; exit 2; fi
           if [[ -z "${JWT_SECRET:-}" ]]; then echo "Missing secrets.JWT_SECRET" >&2; exit 2; fi
-          if [[ -z "${LLM_API_KEY:-}" ]]; then echo "Missing secrets.LLM_API_KEY" >&2; exit 2; fi
 
           raw_base_path="$(echo "${RAW_BASE_PATH:-}" | xargs)"
           if [[ -z "${raw_base_path}" || "${raw_base_path}" == "/" ]]; then
@@ -223,7 +221,6 @@ jobs:
             --set "postgres.auth.username=${POSTGRES_USER}" \
             --set "postgres.auth.database=${POSTGRES_DB}" \
             --set "secrets.jwtSecret=${JWT_SECRET}" \
-            --set "secrets.llmApiKey=${LLM_API_KEY}" \
             --set "api.config.database.host=${postgres_host}" \
             --set "api.config.database.username=${POSTGRES_USER}" \
             --set "api.config.database.database=${POSTGRES_DB}" \

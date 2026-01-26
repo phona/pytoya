@@ -48,7 +48,6 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: dev-jwt-secret-change-in-production
-      LLM_API_KEY: dev-llm-key
       # OCR is external to compose by default.
       # On Windows/macOS, host.docker.internal resolves to the Docker host.
       PADDLEOCR_BASE_URL: http://host.docker.internal:8080

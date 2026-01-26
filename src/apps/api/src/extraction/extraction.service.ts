@@ -174,14 +174,32 @@ export class ExtractionService {
     const userPrompt = ['Project description:', description.trim(), '', 'Generate the system prompt.'].join('\n');
 
     try {
+      const candidateModels = await this.modelRepository.find({
+        where: { isActive: true },
+        order: { createdAt: 'DESC' },
+      });
+      const defaultLlmModel = candidateModels.find((model) => {
+        const schema = adapterRegistry.getSchema(model.adapterType);
+        return schema?.category === 'llm';
+      });
+      if (!defaultLlmModel) {
+        throw new BadRequestException(
+          'No active LLM model is configured. Create an LLM model first.',
+        );
+      }
+
+      const providerConfig = this.buildLlmProviderConfig(defaultLlmModel);
       const result = await this.llmService.createChatCompletion([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
-      ]);
+      ], {}, providerConfig);
 
       return { prompt: result.content.trim() };
     } catch (error) {
       this.logger.error('Prompt optimization failed', error as Error);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       throw new InternalServerErrorException('Failed to optimize prompt');
     }
   }

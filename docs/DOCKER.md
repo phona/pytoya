@@ -112,7 +112,6 @@ REDIS_PORT=6379
 # Optional: BullMQ extraction worker concurrency (default: 5)
 # EXTRACTION_WORKER_CONCURRENCY=5
 JWT_SECRET=dev-jwt-secret-change-in-production
-LLM_API_KEY=dev-llm-key
 # OCR is external to docker-compose by default (host.docker.internal on Windows/macOS).
 PADDLEOCR_BASE_URL=http://host.docker.internal:8080
 ```

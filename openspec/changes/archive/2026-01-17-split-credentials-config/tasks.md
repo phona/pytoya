@@ -20,7 +20,6 @@
 - [x] 4.1 Modify `src/apps/api/config.yaml` to use template placeholders
 - [x] 4.2 Replace `database.password` with `{{DB_PASSWORD}}`
 - [x] 4.3 Replace `jwt.secret` with `{{JWT_SECRET}}`
-- [x] 4.4 Replace `llm.apiKey` with `{{LLM_API_KEY}}`
 - [x] 4.5 Add optional `{{default}}` for non-sensitive values (e.g., ports)
 - [x] 4.6 Add `CONFIG_PATH` environment variable support with default to `./config.yaml`
 

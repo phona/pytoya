@@ -44,7 +44,6 @@ describe('LlmService - Vision Support', () => {
       const defaults: Record<string, unknown> = {
         NODE_ENV: 'test',
         LLM_BASE_URL: 'https://api.openai.com/v1',
-        LLM_API_KEY: 'test-api-key',
         LLM_MODEL: 'gpt-4o',
         LLM_TIMEOUT: 30000,
         LLM_TEMPERATURE: 0.1,
