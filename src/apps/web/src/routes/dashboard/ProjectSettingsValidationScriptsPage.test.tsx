@@ -37,7 +37,7 @@ describe('ProjectSettingsValidationScriptsPage', () => {
       renderWithProviders(<ProjectSettingsValidationScriptsPage />, { route: '/projects/1/settings/validation-scripts' });
     });
 
-    await screen.findByRole('heading', { name: /validation scripts/i });
+    await screen.findByRole('heading', { name: /validation scripts/i, level: 1 });
 
     const newButtons = screen.getAllByRole('button', { name: /new script/i });
     await user.click(newButtons[0]!);
@@ -52,7 +52,7 @@ describe('ProjectSettingsValidationScriptsPage', () => {
       renderWithProviders(<ProjectSettingsValidationScriptsPage />, { route: '/projects/1/settings/validation-scripts' });
     });
 
-    await screen.findByRole('heading', { name: /validation scripts/i });
+    await screen.findByRole('heading', { name: /validation scripts/i, level: 1 });
 
     await user.click(screen.getAllByRole('button', { name: /new script/i })[0]!);
     await screen.findByRole('heading', { name: /create validation script/i });
