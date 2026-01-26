@@ -1,10 +1,6 @@
 {{- if .Values.api.enabled }}
 {{- $ns := default .Release.Namespace .Values.global.namespace -}}
-{{- $basePath := include "pytoya.basePath" . -}}
 {{- $healthPath := default "/api/health" .Values.api.healthCheck.path -}}
-{{- if $basePath -}}
-{{- $healthPath = printf "%s%s" $basePath $healthPath -}}
-{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

@@ -1,6 +1,5 @@
 import axios, { AxiosError } from 'axios';
 import { useAuthStore } from '@/shared/stores/auth';
-import { joinBasePath, normalizeBasePath, stripBasePath } from '@/shared/utils/base-path';
 
 // Normalize API URL to ensure it ends with /api
 const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -8,8 +7,7 @@ export const API_BASE_URL = rawApiUrl.endsWith('/api')
   ? rawApiUrl
   : `${rawApiUrl}/api`;
 
-export const BASE_PATH = normalizeBasePath(import.meta.env.VITE_BASE_PATH);
-export const SOCKET_IO_PATH = joinBasePath(BASE_PATH, '/api/socket.io');
+export const SOCKET_IO_PATH = '/api/socket.io';
 
 const normalizeSocketIoBaseUrl = (value: string) => {
   const trimmed = value.trim();
@@ -174,9 +172,8 @@ apiClient.interceptors.response.use(
 
       if (shouldLogout) {
         useAuthStore.getState().clearAuth();
-        const nextPathname = stripBasePath(BASE_PATH, window.location.pathname);
-        const nextUrl = `${nextPathname}${window.location.search}`;
-        const loginPath = joinBasePath(BASE_PATH, '/login');
+        const nextUrl = `${window.location.pathname}${window.location.search}`;
+        const loginPath = '/login';
         if (window.location.pathname !== loginPath) {
           // Avoid hard navigation in tests; unit tests should not depend on jsdom navigation.
           if (import.meta.env.MODE !== 'test') {

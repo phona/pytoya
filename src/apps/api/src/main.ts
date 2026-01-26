@@ -9,7 +9,7 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { RequestIdMiddleware } from "./common/middleware/request-id.middleware";
 import { SocketIoAdapter } from "./websocket/socket-io.adapter";
 import { ERROR_CODES } from "./common/errors/error-codes";
-import { enableBasePathRouting } from "./bootstrap/enable-base-path-routing";
+import { enableApiRouting } from "./bootstrap/enable-api-routing";
 
 function getLogLevels(level: string): LogLevel[] {
   switch (level.toLowerCase()) {
@@ -137,7 +137,7 @@ export async function createApp(): Promise<NestExpressApplication> {
   );
   app.useGlobalFilters(new AllExceptionsFilter(configService));
 
-  enableBasePathRouting(app, configService);
+  enableApiRouting(app, configService);
 
   return app;
 }

@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { BASE_PATH, getApiErrorText } from '@/api/client';
+import { getApiErrorText } from '@/api/client';
 import { useAuth } from '@/shared/hooks/use-auth';
 import { useI18n } from '@/shared/providers/I18nProvider';
-import { stripBasePath } from '@/shared/utils/base-path';
 
 const safeNextUrl = (value: string | null) => {
   if (!value) {
@@ -21,8 +20,7 @@ const safeNextUrl = (value: string | null) => {
   const pathname = queryIndex >= 0 ? withoutHash.slice(0, queryIndex) : withoutHash;
   const search = queryIndex >= 0 ? withoutHash.slice(queryIndex) : '';
 
-  const safePathname = stripBasePath(BASE_PATH, pathname);
-  return `${safePathname}${search}${hash}`;
+  return `${pathname}${search}${hash}`;
 };
 
 export function LoginPage() {

@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
-import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import { ConfigService } from '@nestjs/config';
+import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import * as express from 'express';
 import type { NextFunction, Request, Response } from 'express';
@@ -8,19 +8,18 @@ import * as path from 'path';
 
 import { ERROR_CODES } from '../common/errors/error-codes';
 import { JwtOrPublicGuard } from '../common/guards/jwt-or-public.guard';
-import { joinBasePath, normalizeBasePath, toGlobalApiPrefix } from './base-path';
 
-export const enableBasePathRouting = (
+export const enableApiRouting = (
   app: NestExpressApplication,
   configService: ConfigService,
 ) => {
-  const basePath = normalizeBasePath(configService.get<string>('server.basePath'));
+  void configService;
 
-  // Set global prefix for all REST controllers, including an optional base path.
-  app.setGlobalPrefix(toGlobalApiPrefix(basePath));
+  // Set global prefix for all REST controllers.
+  app.setGlobalPrefix('api');
 
-  // Serve authenticated uploads under /api/uploads (scoped by base path).
-  const uploadsMountPath = joinBasePath(basePath, '/api/uploads');
+  // Serve authenticated uploads under /api/uploads.
+  const uploadsMountPath = '/api/uploads';
   const uploadsPath = path.resolve(process.cwd(), 'uploads');
   const uploadsGuard = app.get(JwtOrPublicGuard);
 

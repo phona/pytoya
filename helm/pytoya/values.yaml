@@ -1,11 +1,6 @@
 global:
   namespace: pytoya
   createNamespace: false
-  # Optional base path for subpath deployments (example: "/pytoya").
-  # When set, Ingress paths are derived as:
-  # - web: <basePath>
-  # - api: <basePath>/api
-  basePath: ""
   imageRegistry: ""
   imagePullSecrets: []
   nodeSelector: {}

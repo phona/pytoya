@@ -1,8 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/stores/auth';
 import { useJobsStore } from '@/shared/stores/jobs';
-import apiClient, { BASE_PATH } from '@/api/client';
-import { joinBasePath, stripBasePath } from '@/shared/utils/base-path';
+import apiClient from '@/api/client';
 
 export interface LoginCredentials {
   username: string;
@@ -65,9 +64,8 @@ export function useAuth() {
   const logout = () => {
     clearAuth();
     useJobsStore.getState().reset();
-    const nextPathname = stripBasePath(BASE_PATH, window.location.pathname);
-    const nextUrl = `${nextPathname}${window.location.search}`;
-    const loginPath = joinBasePath(BASE_PATH, '/login');
+    const nextUrl = `${window.location.pathname}${window.location.search}`;
+    const loginPath = '/login';
     if (window.location.pathname !== loginPath) {
       window.location.href = `${loginPath}?next_url=${encodeURIComponent(nextUrl)}`;
     }

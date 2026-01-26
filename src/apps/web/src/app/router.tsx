@@ -21,7 +21,6 @@ import { ProjectCostSummaryPage } from '../routes/dashboard/ProjectCostSummaryPa
 import { ProfilePage } from '../routes/dashboard/ProfilePage';
 import { RootLayout } from '../routes/RootLayout';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
-import { normalizeBasePath } from '../shared/utils/base-path';
 
 
 export const appRoutes = [
@@ -92,8 +91,7 @@ export const appRoutes = [
   },
 ];
 
-const basePath = normalizeBasePath(import.meta.env.VITE_BASE_PATH);
-export const router = createBrowserRouter(appRoutes, { basename: basePath });
+export const router = createBrowserRouter(appRoutes);
 
 
 

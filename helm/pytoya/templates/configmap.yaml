@@ -13,7 +13,6 @@ data:
     server:
       port: {{ .Values.api.config.server.port }}
       logLevel: {{ .Values.api.config.server.logLevel }}
-      basePath: {{ include "pytoya.basePath" . | quote }}
     database:
       host: {{ .Values.api.config.database.host | quote }}
       port: {{ .Values.api.config.database.port }}

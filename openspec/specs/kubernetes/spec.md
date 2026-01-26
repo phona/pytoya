@@ -74,25 +74,17 @@ The API container SHALL receive credentials via environment variables from the S
 - **AND** the config file MUST contain `{{VARIABLE}}` placeholders
 - **AND** the config file MUST NOT contain actual credential values
 
-### Requirement: Subpath Deployment (Traefik Ingress)
-The system SHALL support being deployed under a configurable base path (example: `/pytoya`) behind a shared gateway using Kubernetes `Ingress` with `ingressClassName: traefik`.
+### Requirement: Host-Based Deployment (Traefik Ingress)
+The system SHALL support host-based routing behind a shared gateway using Kubernetes `Ingress` with `ingressClassName: traefik`.
 
-The Helm chart SHALL expose `global.basePath` (default: empty) and SHALL render Ingress path rules that route:
-- web UI under `<basePath>/`
-- API under `<basePath>/api/`
+The Helm chart SHALL route:
+- web UI under `/`
+- API under `/api/`
 
-#### Scenario: Base path routes web and API with two Ingress paths
-- **GIVEN** `global.basePath=/pytoya`
+#### Scenario: Host routes web and API under stable paths
 - **WHEN** the Helm chart renders an `Ingress` resource
-- **THEN** the Ingress MUST route `path: /pytoya/api` (Prefix) to the API service
-- **AND** the Ingress MUST route `path: /pytoya` (Prefix) to the web service
-- **AND** the deployment MUST NOT require additional Ingress paths for uploads or websockets (they are nested under `/pytoya/api/*`)
-
-#### Scenario: Root deploy remains supported
-- **GIVEN** `global.basePath` is empty
-- **WHEN** the Helm chart renders an `Ingress` resource
-- **THEN** the Ingress SHOULD route `path: /api` (Prefix) to the API service
-- **AND** the Ingress SHOULD route `path: /` (Prefix) to the web service
+- **THEN** the Ingress MUST route `path: /api` (Prefix) to the API service
+- **AND** the Ingress MUST route `path: /` (Prefix) to the web service
 
 ### Requirement: Web Frontend Environment Configuration
 The Kubernetes deployment SHALL document and implement a supported strategy for configuring the Vite web app per environment.

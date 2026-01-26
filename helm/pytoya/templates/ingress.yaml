@@ -8,16 +8,8 @@
 {{- if not $hosts }}
 {{- $hosts = .Values.web.ingress.hosts -}}
 {{- end }}
-{{- $basePath := include "pytoya.basePath" . -}}
-{{- $apiPath := "/api" -}}
-{{- $webPath := "/" -}}
-{{- if $basePath -}}
-{{- $apiPath = printf "%s/api" $basePath -}}
-{{- $webPath = $basePath -}}
-{{- else -}}
-{{- $apiPath = default "/api" .Values.api.ingress.paths -}}
-{{- $webPath = default "/" .Values.web.ingress.paths -}}
-{{- end -}}
+{{- $apiPath := default "/api" .Values.api.ingress.paths -}}
+{{- $webPath := default "/" .Values.web.ingress.paths -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -65,23 +57,23 @@ spec:
     {{- else }}
     - http:
         paths:
-          {{- if and .Values.api.enabled .Values.api.ingress.enabled }}
-          - path: {{ $apiPath }}
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ $fullName }}-api
-                port:
-                  number: {{ .Values.api.service.port }}
-          {{- end }}
-          {{- if and .Values.web.enabled .Values.web.ingress.enabled }}
-          - path: {{ $webPath }}
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ $fullName }}-web
-                port:
-                  number: {{ .Values.web.service.port }}
-          {{- end }}
-    {{- end }}
+        {{- if and .Values.api.enabled .Values.api.ingress.enabled }}
+        - path: {{ $apiPath }}
+          pathType: Prefix
+          backend:
+            service:
+              name: {{ $fullName }}-api
+              port:
+                number: {{ .Values.api.service.port }}
+        {{- end }}
+        {{- if and .Values.web.enabled .Values.web.ingress.enabled }}
+        - path: {{ $webPath }}
+          pathType: Prefix
+          backend:
+            service:
+              name: {{ $fullName }}-web
+              port:
+                number: {{ .Values.web.service.port }}
+        {{- end }}
+{{- end }}
 {{- end }}

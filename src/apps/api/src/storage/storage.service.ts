@@ -17,21 +17,10 @@ type StoredFileInfo = {
 @Injectable()
 export class StorageService {
   private readonly uploadsRoot = path.resolve(process.cwd(), 'uploads');
-  private readonly publicUploadsBasePath: string;
+  private readonly publicUploadsBasePath = '/api/uploads';
 
   constructor(private readonly configService: ConfigService) {
-    const normalizeBasePath = (value: unknown): string => {
-      if (typeof value !== 'string') return '';
-      const trimmed = value.trim();
-      if (!trimmed || trimmed === '/') return '';
-      const withLeading = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-      return withLeading.endsWith('/') ? withLeading.slice(0, -1) : withLeading;
-    };
-
-    const basePath = normalizeBasePath(this.configService.get('server.basePath'));
-    this.publicUploadsBasePath = basePath
-      ? `${basePath}/api/uploads`
-      : '/api/uploads';
+    void this.configService;
   }
 
   getStoragePath(projectId: number, groupId: number): string {

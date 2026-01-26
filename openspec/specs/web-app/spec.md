@@ -1659,21 +1659,21 @@ The web application SHALL provide single-manifest and batch delete actions from 
 - **THEN** the system SHALL disable the **All matching current filters** scope option
 - **AND** the modal SHALL indicate that a filter is required to enable that option
 
-### Requirement: Base Path Hosting
-The web application SHALL support being hosted under a configurable base path (example: `/pytoya`) without broken routing, redirects, or static asset URLs.
+### Requirement: Root Path Hosting
+The web application SHALL support being hosted at the root path `/` of its hostname without broken routing, redirects, or static asset URLs.
 
-#### Scenario: Deep link refresh works under base path
-- **GIVEN** the web application is deployed under base path `/pytoya`
-- **WHEN** a user loads a deep link (example: `/pytoya/projects`) and refreshes the page
+#### Scenario: Deep link refresh works at root
+- **GIVEN** the web application is deployed at the root path `/`
+- **WHEN** a user loads a deep link (example: `/projects`) and refreshes the page
 - **THEN** the application SHALL load successfully
 - **AND** the router SHALL keep the user on the same logical page (`/projects`)
 
-#### Scenario: Auth redirect keeps base path
-- **GIVEN** the web application is deployed under base path `/pytoya`
+#### Scenario: Auth redirect stays on-host
+- **GIVEN** the web application is deployed at the root path `/`
 - **AND** the user is unauthenticated
-- **WHEN** the user navigates to a protected route (example: `/pytoya/projects`)
-- **THEN** the application SHALL redirect to `/pytoya/login?next_url=...`
-- **AND** `next_url` SHALL preserve the intended destination under the same base path
+- **WHEN** the user navigates to a protected route (example: `/projects`)
+- **THEN** the application SHALL redirect to `/login?next_url=...`
+- **AND** `next_url` SHALL preserve the intended destination on the same host
 
 ### Requirement: Manifest List Filtering UI
 The web app SHALL support filtering by schema-driven extracted-data fields and SHOULD avoid invoice-centric filter UI controls when the project schema does not define invoice fields.

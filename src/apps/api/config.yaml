@@ -3,7 +3,6 @@
 
 server:
   port: {{default SERVER_PORT "3000"}}
-  basePath: {{default SERVER_BASE_PATH "/"}}
   logLevel: {{default SERVER_LOG_LEVEL "info"}}
 
 database:
@@ -77,4 +76,3 @@ security:
     minLength: 3
     maxLength: 50
     pattern: "^[a-zA-Z][a-zA-Z0-9_-]*$"
-

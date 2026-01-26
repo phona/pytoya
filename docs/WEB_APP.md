@@ -1,14 +1,14 @@
 # Web App Behavior
 
 ## Home Route
-- The app root route (`/` or `<basePath>/`) redirects authenticated users to `/projects`.
-- Unauthenticated users are redirected to `/login` (under the configured base path when present).
+- The app root route (`/`) redirects authenticated users to `/projects`.
+- Unauthenticated users are redirected to `/login`.
 - The home route waits for auth hydration before redirecting.
 
 ## Route Protection
 - Dashboard routes are wrapped by `ProtectedRoute`.
 - Unauthenticated users are redirected to `/login?next_url=...`.
-- When deployed under a base path (example: `/pytoya`), the login URL is `/pytoya/login?next_url=...` and `next_url` is **router-relative** (example: `/projects/1`, not `/pytoya/projects/1`).
+- `next_url` is an application path (example: `/projects/1`).
 - The route guard waits for auth hydration before deciding.
 
 ## Navigation

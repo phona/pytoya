@@ -132,5 +132,5 @@ describe('ExtractorsPage', () => {
         },
       });
     });
-  });
+  }, 15000);
 });

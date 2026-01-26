@@ -37,13 +37,12 @@ docker push registry.dev.lan/pytoya/web:1.0.0
 Notes:
 - `NODE_IMAGE` MUST point to your internal mirror of `node:20-alpine` (examples: `registry.dev.lan/library/node:20-alpine` or `registry.dev.lan/node:20-alpine`).
 
-### Subpath deployment (example: `/pytoya`)
-If you deploy PyToYa under a base path, build the web image with:
+### Host-based deployment (recommended)
+For simple multi-app deployments behind a shared gateway, prefer using a dedicated hostname (example: `pytoya.example.com`) and keep PyToYa root-hosted:
 
 ```bash
 docker build -t registry.dev.lan/pytoya/web:1.0.0 -f src/apps/web/Dockerfile . \
-  --build-arg VITE_API_URL=/pytoya/api \
-  --build-arg VITE_BASE_PATH=/pytoya
+  --build-arg VITE_API_URL=/api
 ```
 
 ## Deploy with Helm
@@ -55,19 +54,18 @@ helm upgrade --install pytoya helm/pytoya \
   --set global.imageRegistry=registry.dev.lan \
   --set api.tag=1.0.0 \
   --set web.tag=1.0.0 \
-  --set global.basePath=/pytoya \
   --set postgres.auth.password=change-me \
   --set secrets.dbPassword=change-me \
   --set secrets.jwtSecret=change-me
 ```
 
-### Smoke checks (subpath)
-- Web loads: `/pytoya/`
-- Deep link refresh: `/pytoya/projects` (refresh should still load)
-- Auth redirect: `/pytoya/login?next_url=...` where `next_url` does **not** include `/pytoya`
-- API health: `/pytoya/api/health`
-- Uploads (authenticated): `/pytoya/api/uploads/*`
-- WebSocket transport path: `/pytoya/api/socket.io` (namespace remains `/manifests`)
+### Smoke checks
+- Web loads: `/`
+- Deep link refresh: `/projects` (refresh should still load)
+- Auth redirect: `/login?next_url=...`
+- API health: `/api/health`
+- Uploads (authenticated): `/api/uploads/*`
+- WebSocket transport path: `/api/socket.io` (namespace remains `/manifests`)
 
 ### Optional: separate worker deployment
 To scale BullMQ processing independently from HTTP, enable the worker deployment:

@@ -120,15 +120,16 @@ helm install pytoya helm/pytoya \
 ### Notes on `VITE_API_URL`
 `VITE_API_URL` is compiled into the web frontend at image build time. For the default Ingress routing (`/api/*` to the backend), use `--build-arg VITE_API_URL=/api` when building the web image.
 
-### Subpath deployments (`global.basePath` + `VITE_BASE_PATH`)
-To host PyToYa under a base path (example: `/pytoya`) behind a shared gateway:
-- Set Helm: `--set global.basePath=/pytoya`
-- Build the web image with:
+### Host-based deployments (recommended)
+To host PyToYa behind a shared gateway with multiple apps, prefer using a dedicated hostname (example: `pytoya.example.com`) and keep PyToYa root-hosted:
+- Web under `/`
+- API under `/api`
+
+Build the web image with:
 
 ```bash
 docker build -t pytoya/web:latest -f src/apps/web/Dockerfile . \
-  --build-arg VITE_API_URL=/pytoya/api \
-  --build-arg VITE_BASE_PATH=/pytoya
+  --build-arg VITE_API_URL=/api
 ```
 
 ## Upgrading
