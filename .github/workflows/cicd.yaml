@@ -63,6 +63,7 @@ jobs:
     outputs:
       image_tag: ${{ steps.vars.outputs.image_tag }}
       vite_api_url: ${{ steps.vars.outputs.vite_api_url }}
+      chart_version: ${{ steps.vars.outputs.chart_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -75,9 +76,11 @@ jobs:
 
           image_tag="${GITHUB_SHA:0:12}"
           vite_api_url="/api"
+          chart_version="0.1.0-${image_tag}"
 
           echo "image_tag=${image_tag}" >> "${GITHUB_OUTPUT}"
           echo "vite_api_url=${vite_api_url}" >> "${GITHUB_OUTPUT}"
+          echo "chart_version=${chart_version}" >> "${GITHUB_OUTPUT}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -88,6 +91,9 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
 
       - name: Build and push API image
         uses: docker/build-push-action@v6
@@ -113,15 +119,36 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Package and push Helm chart (OCI)
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+          CHART_VERSION: ${{ steps.vars.outputs.chart_version }}
+        run: |
+          set -euo pipefail
+
+          echo "${GHCR_TOKEN}" | helm registry login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+
+          mkdir -p .artifacts
+          helm package helm/pytoya \
+            --destination .artifacts \
+            --version "${CHART_VERSION}" \
+            --app-version "${IMAGE_TAG}"
+
+          chart_tgz="$(ls -1 .artifacts/*.tgz | head -n 1)"
+          echo "Pushing ${chart_tgz} -> oci://${GHCR_IMAGE_REGISTRY}/charts"
+          helm push "${chart_tgz}" "oci://${GHCR_IMAGE_REGISTRY}/charts"
+
   deploy:
     runs-on: [self-hosted, linux]
     needs: build_and_push
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_name == 'master') }}
     environment: production
+    permissions:
+      contents: read
+      packages: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Verify kubectl + helm present
         shell: bash
         run: |
@@ -139,10 +166,12 @@ jobs:
           NAMESPACE: ${{ secrets.K8S_NAMESPACE || env.DEFAULT_NAMESPACE }}
           RELEASE_NAME: ${{ secrets.K8S_RELEASE_NAME || env.DEFAULT_RELEASE_NAME }}
           IMAGE_TAG: ${{ needs.build_and_push.outputs.image_tag }}
+          CHART_VERSION: ${{ needs.build_and_push.outputs.chart_version }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER || 'pytoya' }}
           POSTGRES_DB: ${{ secrets.POSTGRES_DB || 'pytoya' }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
           # Optional: if your cluster cannot pull from GHCR anonymously, set this to an existing imagePullSecret name.
           K8S_IMAGE_PULL_SECRET_NAME: ${{ secrets.K8S_IMAGE_PULL_SECRET_NAME }}
         run: |
@@ -151,6 +180,9 @@ jobs:
           if [[ -z "${INGRESS_HOST:-}" ]]; then echo "Missing ingress host. Set workflow input 'ingress_host' or define vars.INGRESS_HOST / secrets.K8S_INGRESS_HOST." >&2; exit 2; fi
           if [[ -z "${POSTGRES_PASSWORD:-}" ]]; then echo "Missing secrets.POSTGRES_PASSWORD" >&2; exit 2; fi
           if [[ -z "${JWT_SECRET:-}" ]]; then echo "Missing secrets.JWT_SECRET" >&2; exit 2; fi
+          if [[ -z "${CHART_VERSION:-}" ]]; then echo "Missing chart version from build job output." >&2; exit 2; fi
+
+          echo "${GHCR_TOKEN}" | helm registry login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
 
           # Derive chart fullname to match `helm/pytoya/templates/_helpers.tpl`.
           # If release name already contains `pytoya`, fullname is the release name; otherwise it's `${release}-pytoya`.
@@ -174,7 +206,8 @@ jobs:
 
           echo "Deploying ${RELEASE_NAME} to namespace=${NAMESPACE} tag=${IMAGE_TAG} host='${INGRESS_HOST}'"
 
-          helm upgrade --install "${RELEASE_NAME}" helm/pytoya \
+          helm upgrade --install "${RELEASE_NAME}" "oci://${GHCR_IMAGE_REGISTRY}/charts/pytoya" \
+            --version "${CHART_VERSION}" \
             --namespace "${NAMESPACE}" \
             --create-namespace \
             --set "global.imageRegistry=${GHCR_IMAGE_REGISTRY}" \
