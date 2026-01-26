@@ -35,7 +35,29 @@ spec:
     - host: {{ $host }}
       http:
         paths:
-          {{- if and .Values.api.enabled .Values.api.ingress.enabled }}
+            {{- if and $.Values.api.enabled $.Values.api.ingress.enabled }}
+            - path: {{ $apiPath }}
+              pathType: Prefix
+              backend:
+                service:
+                  name: {{ $fullName }}-api
+                  port:
+                    number: {{ $.Values.api.service.port }}
+            {{- end }}
+            {{- if and $.Values.web.enabled $.Values.web.ingress.enabled }}
+            - path: {{ $webPath }}
+              pathType: Prefix
+              backend:
+                service:
+                  name: {{ $fullName }}-web
+                  port:
+                    number: {{ $.Values.web.service.port }}
+            {{- end }}
+    {{- end }}
+    {{- else }}
+    - http:
+        paths:
+          {{- if and $.Values.api.enabled $.Values.api.ingress.enabled }}
           - path: {{ $apiPath }}
             pathType: Prefix
             backend:
@@ -44,7 +66,7 @@ spec:
                 port:
                   number: {{ $.Values.api.service.port }}
           {{- end }}
-          {{- if and .Values.web.enabled .Values.web.ingress.enabled }}
+          {{- if and $.Values.web.enabled $.Values.web.ingress.enabled }}
           - path: {{ $webPath }}
             pathType: Prefix
             backend:
@@ -53,27 +75,5 @@ spec:
                 port:
                   number: {{ $.Values.web.service.port }}
           {{- end }}
-    {{- end }}
-    {{- else }}
-    - http:
-        paths:
-        {{- if and .Values.api.enabled .Values.api.ingress.enabled }}
-        - path: {{ $apiPath }}
-          pathType: Prefix
-          backend:
-            service:
-              name: {{ $fullName }}-api
-              port:
-                number: {{ .Values.api.service.port }}
-        {{- end }}
-        {{- if and .Values.web.enabled .Values.web.ingress.enabled }}
-        - path: {{ $webPath }}
-          pathType: Prefix
-          backend:
-            service:
-              name: {{ $fullName }}-web
-              port:
-                number: {{ .Values.web.service.port }}
-        {{- end }}
 {{- end }}
 {{- end }}
