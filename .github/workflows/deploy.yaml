@@ -3,9 +3,7 @@ name: Build and Push Images
 on:
   push:
     branches:
-      - main
-    tags:
-      - 'v*'
+      - master
   workflow_dispatch:
     inputs:
       base_path:
@@ -26,6 +24,8 @@ env:
   GHCR_IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
   API_IMAGE: pytoya/api
   WEB_IMAGE: pytoya/web
+  DEFAULT_NAMESPACE: pytoya
+  DEFAULT_RELEASE_NAME: pytoya
 
 jobs:
   build_and_push:
@@ -106,3 +106,93 @@ jobs:
             ${{ github.ref_type == 'tag' && format('{0}/{1}:latest', env.GHCR_IMAGE_REGISTRY, env.WEB_IMAGE) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build_and_push
+    # Every push to `master` is treated as production deploy.
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Configure kubeconfig
+        shell: bash
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${KUBE_CONFIG:-}" ]]; then
+            echo "Missing secrets.KUBE_CONFIG (base64 kubeconfig or raw kubeconfig YAML)." >&2
+            exit 2
+          fi
+          mkdir -p "${HOME}/.kube"
+          if echo "${KUBE_CONFIG}" | head -n 1 | grep -qE '^apiVersion:'; then
+            printf "%s" "${KUBE_CONFIG}" > "${HOME}/.kube/config"
+          else
+            echo "${KUBE_CONFIG}" | base64 -d > "${HOME}/.kube/config"
+          fi
+
+      - name: Deploy via Helm
+        shell: bash
+        env:
+          NAMESPACE: ${{ secrets.K8S_NAMESPACE || env.DEFAULT_NAMESPACE }}
+          RELEASE_NAME: ${{ secrets.K8S_RELEASE_NAME || env.DEFAULT_RELEASE_NAME }}
+          IMAGE_TAG: ${{ needs.build_and_push.outputs.image_tag }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER || 'pytoya' }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB || 'pytoya' }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          # Optional: if your cluster cannot pull from GHCR anonymously, set this to an existing imagePullSecret name.
+          K8S_IMAGE_PULL_SECRET_NAME: ${{ secrets.K8S_IMAGE_PULL_SECRET_NAME }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${POSTGRES_PASSWORD:-}" ]]; then echo "Missing secrets.POSTGRES_PASSWORD" >&2; exit 2; fi
+          if [[ -z "${JWT_SECRET:-}" ]]; then echo "Missing secrets.JWT_SECRET" >&2; exit 2; fi
+          if [[ -z "${LLM_API_KEY:-}" ]]; then echo "Missing secrets.LLM_API_KEY" >&2; exit 2; fi
+
+          # Derive chart fullname to match `helm/pytoya/templates/_helpers.tpl`.
+          # If release name already contains `pytoya`, fullname is the release name; otherwise it's `${release}-pytoya`.
+          if [[ "${RELEASE_NAME}" == *pytoya* ]]; then
+            fullname="${RELEASE_NAME}"
+          else
+            fullname="${RELEASE_NAME}-pytoya"
+          fi
+
+          # Derive in-cluster service names for bundled Postgres/Redis.
+          postgres_host="${fullname}-postgres"
+          redis_host="${fullname}-redis"
+
+          extra_set_args=()
+          if [[ -n "${K8S_IMAGE_PULL_SECRET_NAME:-}" ]]; then
+            extra_set_args+=(--set "global.imagePullSecrets[0]=${K8S_IMAGE_PULL_SECRET_NAME}")
+          fi
+
+          echo "Deploying ${RELEASE_NAME} to namespace=${NAMESPACE} tag=${IMAGE_TAG}"
+
+          helm upgrade --install "${RELEASE_NAME}" helm/pytoya \
+            --namespace "${NAMESPACE}" \
+            --create-namespace \
+            --set "global.imageRegistry=${GHCR_IMAGE_REGISTRY}" \
+            --set "api.tag=${IMAGE_TAG}" \
+            --set "web.tag=${IMAGE_TAG}" \
+            --set "postgres.auth.password=${POSTGRES_PASSWORD}" \
+            --set "postgres.auth.username=${POSTGRES_USER}" \
+            --set "postgres.auth.database=${POSTGRES_DB}" \
+            --set "secrets.jwtSecret=${JWT_SECRET}" \
+            --set "secrets.llmApiKey=${LLM_API_KEY}" \
+            --set "api.config.database.host=${postgres_host}" \
+            --set "api.config.database.username=${POSTGRES_USER}" \
+            --set "api.config.database.database=${POSTGRES_DB}" \
+            --set "api.config.redis.host=${redis_host}" \
+            "${extra_set_args[@]}" \
+            --wait \
+            --timeout 10m
