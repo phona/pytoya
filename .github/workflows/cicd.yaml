@@ -5,8 +5,8 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
-      base_path:
-        description: 'Optional base path (example: /pytoya). Defaults to vars.BASE_PATH or empty.'
+      ingress_host:
+        description: 'Ingress host (example: pytoya.example.com). Defaults to vars.INGRESS_HOST or secrets.K8S_INGRESS_HOST.'
         type: string
         required: false
         default: ''
@@ -63,7 +63,6 @@ jobs:
     outputs:
       image_tag: ${{ steps.vars.outputs.image_tag }}
       vite_api_url: ${{ steps.vars.outputs.vite_api_url }}
-      vite_base_path: ${{ steps.vars.outputs.vite_base_path }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -71,30 +70,13 @@ jobs:
       - name: Compute tags and build args
         id: vars
         shell: bash
-        env:
-          RAW_BASE_PATH: ${{ github.event.inputs.base_path || vars.BASE_PATH || '' }}
         run: |
           set -euo pipefail
 
           image_tag="${GITHUB_SHA:0:12}"
-
-          raw_base_path="$(echo "${RAW_BASE_PATH:-}" | xargs)"
-          if [[ -z "${raw_base_path}" || "${raw_base_path}" == "/" ]]; then
-            vite_base_path=""
-          else
-            vite_base_path="${raw_base_path}"
-            [[ "${vite_base_path}" == /* ]] || vite_base_path="/${vite_base_path}"
-            vite_base_path="${vite_base_path%/}"
-          fi
-
-          if [[ -n "${vite_base_path}" ]]; then
-            vite_api_url="${vite_base_path}/api"
-          else
-            vite_api_url="/api"
-          fi
+          vite_api_url="/api"
 
           echo "image_tag=${image_tag}" >> "${GITHUB_OUTPUT}"
-          echo "vite_base_path=${vite_base_path}" >> "${GITHUB_OUTPUT}"
           echo "vite_api_url=${vite_api_url}" >> "${GITHUB_OUTPUT}"
 
       - name: Set up Docker Buildx
@@ -126,7 +108,6 @@ jobs:
           push: true
           build-args: |
             VITE_API_URL=${{ steps.vars.outputs.vite_api_url }}
-            VITE_BASE_PATH=${{ steps.vars.outputs.vite_base_path }}
           tags: |
             ${{ env.GHCR_IMAGE_REGISTRY }}/${{ env.WEB_IMAGE }}:${{ steps.vars.outputs.image_tag }}
           cache-from: type=gha
@@ -167,7 +148,8 @@ jobs:
       - name: Deploy via Helm
         shell: bash
         env:
-          RAW_BASE_PATH: ${{ github.event.inputs.base_path || vars.BASE_PATH || '' }}
+          INGRESS_HOST: ${{ github.event.inputs.ingress_host || vars.INGRESS_HOST || secrets.K8S_INGRESS_HOST || '' }}
+          INGRESS_TLS_SECRET_NAME: ${{ vars.INGRESS_TLS_SECRET_NAME || secrets.K8S_INGRESS_TLS_SECRET_NAME || '' }}
           NAMESPACE: ${{ secrets.K8S_NAMESPACE || env.DEFAULT_NAMESPACE }}
           RELEASE_NAME: ${{ secrets.K8S_RELEASE_NAME || env.DEFAULT_RELEASE_NAME }}
           IMAGE_TAG: ${{ needs.build_and_push.outputs.image_tag }}
@@ -180,17 +162,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [[ -z "${INGRESS_HOST:-}" ]]; then echo "Missing ingress host. Set workflow input 'ingress_host' or define vars.INGRESS_HOST / secrets.K8S_INGRESS_HOST." >&2; exit 2; fi
           if [[ -z "${POSTGRES_PASSWORD:-}" ]]; then echo "Missing secrets.POSTGRES_PASSWORD" >&2; exit 2; fi
           if [[ -z "${JWT_SECRET:-}" ]]; then echo "Missing secrets.JWT_SECRET" >&2; exit 2; fi
-
-          raw_base_path="$(echo "${RAW_BASE_PATH:-}" | xargs)"
-          if [[ -z "${raw_base_path}" || "${raw_base_path}" == "/" ]]; then
-            base_path=""
-          else
-            base_path="${raw_base_path}"
-            [[ "${base_path}" == /* ]] || base_path="/${base_path}"
-            base_path="${base_path%/}"
-          fi
 
           # Derive chart fullname to match `helm/pytoya/templates/_helpers.tpl`.
           # If release name already contains `pytoya`, fullname is the release name; otherwise it's `${release}-pytoya`.
@@ -207,16 +181,22 @@ jobs:
           if [[ -n "${K8S_IMAGE_PULL_SECRET_NAME:-}" ]]; then
             extra_set_args+=(--set "global.imagePullSecrets[0]=${K8S_IMAGE_PULL_SECRET_NAME}")
           fi
+          if [[ -n "${INGRESS_TLS_SECRET_NAME:-}" ]]; then
+            extra_set_args+=(--set "ingress.tls[0].hosts[0]=${INGRESS_HOST}")
+            extra_set_args+=(--set "ingress.tls[0].secretName=${INGRESS_TLS_SECRET_NAME}")
+          fi
 
-          echo "Deploying ${RELEASE_NAME} to namespace=${NAMESPACE} tag=${IMAGE_TAG} basePath='${base_path}'"
+          echo "Deploying ${RELEASE_NAME} to namespace=${NAMESPACE} tag=${IMAGE_TAG} host='${INGRESS_HOST}'"
 
           helm upgrade --install "${RELEASE_NAME}" helm/pytoya \
             --namespace "${NAMESPACE}" \
             --create-namespace \
             --set "global.imageRegistry=${GHCR_IMAGE_REGISTRY}" \
-            --set "global.basePath=${base_path}" \
             --set "api.tag=${IMAGE_TAG}" \
             --set "web.tag=${IMAGE_TAG}" \
+            --set "ingress.className=traefik" \
+            --set "ingress.annotations.kubernetes\\.io/ingress\\.class=traefik" \
+            --set "ingress.hosts[0]=${INGRESS_HOST}" \
             --set "postgres.auth.password=${POSTGRES_PASSWORD}" \
             --set "postgres.auth.username=${POSTGRES_USER}" \
             --set "postgres.auth.database=${POSTGRES_DB}" \
