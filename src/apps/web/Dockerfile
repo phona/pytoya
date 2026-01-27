@@ -6,9 +6,8 @@ WORKDIR /repo
 # Install deps with the root lockfile, but only invalidate on dependency changes
 COPY .npmrc package.json package-lock.json tsconfig.base.json ./
 COPY src/apps/web/package.json src/apps/web/tsconfig*.json ./src/apps/web/
-COPY src/apps/api/package.json ./src/apps/api/package.json
 COPY src/shared/package.json src/shared/tsconfig.json ./src/shared/
-RUN npm ci
+RUN npm ci -w @pytoya/web -w @pytoya/shared
 
 FROM deps AS builder
 ARG VITE_API_URL=/api
@@ -21,17 +20,7 @@ COPY src/apps/web ./src/apps/web
 RUN npm run build --workspace=@pytoya/web
 
 # Runtime stage
-FROM ${NODE_IMAGE} AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-
-RUN addgroup -g 1001 -S nodejs && adduser -S web -u 1001
-
-# Serve static assets with a minimal server
-COPY --from=builder /repo/src/apps/web/dist ./dist
-RUN npm install -g serve
-
-USER web
+FROM nginxinc/nginx-unprivileged:1.27-alpine AS runner
+COPY src/apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /repo/src/apps/web/dist /usr/share/nginx/html
 EXPOSE 3000
-
-CMD ["serve", "-s", "dist", "-l", "3000"]
