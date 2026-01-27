@@ -1,10 +1,17 @@
+{{- $ns := default .Release.Namespace .Values.global.namespace -}}
+
 PyToYa has been deployed.
 
 Secrets:
-  Database password:
+  DB password (API):
     kubectl get secret {{ include "pytoya.fullname" . }}-secrets \
-      -n {{ default .Release.Namespace .Values.global.namespace }} \
-      -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 -d
+      -n {{ $ns }} \
+      -o jsonpath='{.data.DB_PASSWORD}' | base64 -d
+
+  JWT secret (API):
+    kubectl get secret {{ include "pytoya.fullname" . }}-secrets \
+      -n {{ $ns }} \
+      -o jsonpath='{.data.JWT_SECRET}' | base64 -d
 
 Access:
   Ingress hosts:
@@ -14,10 +21,38 @@ Access:
   {{- end }}
   {{- else }}
     kubectl get ingress {{ include "pytoya.fullname" . }} \
-      -n {{ default .Release.Namespace .Values.global.namespace }}
+      -n {{ $ns }}
   {{- end }}
 
 Status:
-  kubectl get pods -n {{ default .Release.Namespace .Values.global.namespace }}
-  kubectl get services -n {{ default .Release.Namespace .Values.global.namespace }}
-  kubectl get ingress -n {{ default .Release.Namespace .Values.global.namespace }}
+  kubectl get pods -n {{ $ns }}
+  kubectl get services -n {{ $ns }}
+  kubectl get ingress -n {{ $ns }}
+
+User management (create-only):
+  Create the default admin (runs only if no admin exists):
+    kubectl exec -n {{ $ns }} deploy/{{ include "pytoya.fullname" . }}-api -c api -- \
+      node dist/cli.js newadmin --username <admin_username> --password <admin_password>
+
+  Create a non-admin user (runs only if user does not exist):
+    kubectl exec -n {{ $ns }} deploy/{{ include "pytoya.fullname" . }}-api -c api -- \
+      node dist/cli.js newuser --username <username> --password <password>
+
+Local dev (uses src/apps/api/.env.local):
+  npm run cli --workspace=@pytoya/api -- newadmin -u <admin_username> -p "<admin_password>"
+  npm run cli --workspace=@pytoya/api -- newuser -u <username> -p "<password>"
+
+External DB/Redis example (values):
+  api:
+    config:
+      database:
+        host: "<db-host>"
+        port: 5432
+        username: "<db-username>"
+        database: "<db-name>"
+      redis:
+        host: "<redis-host>"
+        port: 6379
+  secrets:
+    dbPassword: "<db-password>"
+    jwtSecret: "<jwt-secret>"

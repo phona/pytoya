@@ -7,49 +7,8 @@ global:
   tolerations: []
   affinity: {}
 
-postgres:
-  enabled: true
-  image: postgres:15-alpine
-  replicaCount: 1
-  persistence:
-    enabled: true
-    size: 10Gi
-    storageClass: ""
-  resources:
-    requests:
-      cpu: "500m"
-      memory: "512Mi"
-    limits:
-      cpu: "500m"
-      memory: "512Mi"
-  auth:
-    database: pytoya
-    username: pytoya
-    password: ""
-  service:
-    type: ClusterIP
-    port: 5432
-    nodePort: null
-
-redis:
-  enabled: true
-  image: redis:7-alpine
-  replicaCount: 1
-  persistence:
-    enabled: true
-    size: 5Gi
-    storageClass: ""
-  resources:
-    requests:
-      cpu: "250m"
-      memory: "256Mi"
-    limits:
-      cpu: "250m"
-      memory: "256Mi"
-  service:
-    type: ClusterIP
-    port: 6379
-    nodePort: null
+## NOTE: This chart does not deploy PostgreSQL/Redis.
+## Provide external database and redis connection info under api.config.* and credentials under secrets.*.
 
 api:
   enabled: true
@@ -210,14 +169,12 @@ hpa:
     targetCPUUtilizationPercentage: 80
 
 secrets:
+  # External DB password for the API (required when postgres.enabled=false)
   dbPassword: ""
+  # JWT signing secret for the API (required)
   jwtSecret: ""
 
-admin:
-  username: ""
-  password: ""
-
 migrations:
-  enabled: false
+  enabled: true
   backoffLimit: 1
   ttlSecondsAfterFinished: 300

@@ -45,9 +45,6 @@ spec:
           ports:
             - name: http
               containerPort: {{ .Values.web.containerPort }}
-          envFrom:
-            - configMapRef:
-                name: {{ include "pytoya.fullname" . }}-config
           livenessProbe:
             httpGet:
               path: {{ .Values.web.healthCheck.path }}

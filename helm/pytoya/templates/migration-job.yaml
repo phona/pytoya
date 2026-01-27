@@ -33,10 +33,12 @@ spec:
           image: {{ include "pytoya.image" (dict "registry" .Values.global.imageRegistry "image" .Values.api.image) }}:{{ .Values.api.tag }}
           imagePullPolicy: {{ .Values.api.pullPolicy }}
           command:
-            - npm
-            - run
-            - migration:run
-            - --workspace=@pytoya/api
+            - sh
+            - -lc
+          args:
+            - >-
+              CONFIG_PATH=${CONFIG_PATH:-/app/config.yaml}
+              ./node_modules/.bin/typeorm migration:run -d dist/database/data-source.js
           envFrom:
             - secretRef:
                 name: {{ include "pytoya.fullname" . }}-secrets

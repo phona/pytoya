@@ -14,13 +14,13 @@ data:
       port: {{ .Values.api.config.server.port }}
       logLevel: {{ .Values.api.config.server.logLevel }}
     database:
-      host: {{ .Values.api.config.database.host | quote }}
+      host: {{ required "api.config.database.host is required" .Values.api.config.database.host | quote }}
       port: {{ .Values.api.config.database.port }}
-      username: {{ .Values.api.config.database.username | quote }}
+      username: {{ required "api.config.database.username is required" .Values.api.config.database.username | quote }}
       password: "{{ "{{DB_PASSWORD}}" }}"
-      database: {{ .Values.api.config.database.database | quote }}
+      database: {{ required "api.config.database.database is required" .Values.api.config.database.database | quote }}
     redis:
-      host: {{ .Values.api.config.redis.host | quote }}
+      host: {{ required "api.config.redis.host is required" .Values.api.config.redis.host | quote }}
       port: {{ .Values.api.config.redis.port }}
     queue:
       extraction:
