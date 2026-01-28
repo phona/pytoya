@@ -392,7 +392,7 @@ jobs:
           echo "Helm chart: ${chart_url}"
 
           helm_args=(
-            --upgrade
+            upgrade
             --install "${RELEASE_NAME}" "${chart_url}"
           )
 
