@@ -355,12 +355,6 @@ jobs:
           kubectl version --client=true
           helm version
 
-      - name: Add registry to /etc/hosts
-        if: ${{ env.REGISTRY_HOST_ENTRY != '' }}
-        shell: bash
-        run: |
-          echo "${REGISTRY_HOST_ENTRY}" | sudo tee -a /etc/hosts
-
       - name: Deploy via Helm
         shell: bash
         env:
