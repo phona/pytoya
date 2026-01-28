@@ -4,13 +4,12 @@ name: CI/CD
 # GitHub Secrets Configuration
 # ==============================================================================
 # Required Secrets (for private registry):
-#   REGISTRY_URL           - Your container registry URL (e.g., registry.example.com)
+#   REGISTRY_HOST          - Your container registry host[:port] (e.g., registry.example.com:5000)
 #   REGISTRY_USERNAME      - Registry username
 #   REGISTRY_PASSWORD      - Registry password or access token
 #
 # Optional Secrets:
 #   REGISTRY_HOST_ENTRY    - /etc/hosts entry for custom registry (format: "IP hostname")
-#   REGISTRY_HOST          - Registry host only (e.g., registry.prod.lan)
 #   REGISTRY_INSECURE      - Set to "true" to skip registry TLS verification (insecure)
 #   HELM_CHART_URL         - Direct Helm chart URL (skips chart push if set)
 #   K8S_NAMESPACE          - Kubernetes namespace (default: pytoya)
@@ -33,9 +32,12 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Use private registry if configured, otherwise fall back to GHCR
-  REGISTRY_HOST: ${{ vars.REGISTRY_HOST || secrets.REGISTRY_HOST || '' }}
-  IMAGE_REGISTRY: ${{ (vars.REGISTRY_HOST || secrets.REGISTRY_HOST) && (vars.REGISTRY_HOST || secrets.REGISTRY_HOST) || (secrets.REGISTRY_URL || format('ghcr.io/{0}', github.repository_owner)) }}
+  # Registry host[:port] only (no scheme/path). Defaults to GHCR host.
+  REGISTRY_HOST: ${{ vars.REGISTRY_HOST || secrets.REGISTRY_HOST || 'ghcr.io' }}
+  # Registry/repo prefix used for image tags and OCI chart pushes.
+  # - If REGISTRY_HOST == ghcr.io: ghcr.io/<owner>
+  # - Else: <host>
+  REGISTRY_REPO_PREFIX: ${{ (vars.REGISTRY_HOST || secrets.REGISTRY_HOST) && (vars.REGISTRY_HOST || secrets.REGISTRY_HOST) || format('ghcr.io/{0}', github.repository_owner) }}
   # Optional: /etc/hosts entry for a custom registry (format: "IP hostname")
   REGISTRY_HOST_ENTRY: ${{ secrets.REGISTRY_HOST_ENTRY }}
   # Optional: allow insecure custom registry (skips TLS verification)
@@ -103,23 +105,6 @@ jobs:
           image_tag="${GITHUB_SHA:0:12}"
           echo "image_tag=${image_tag}" >> "${GITHUB_OUTPUT}"
 
-      - name: Compute registry host
-        id: registry
-        shell: bash
-        run: |
-          set -euo pipefail
-          raw="${IMAGE_REGISTRY}"
-          if [[ -n "${REGISTRY_HOST}" ]]; then
-            raw="${REGISTRY_HOST}"
-          fi
-
-          raw="${raw#http://}"
-          raw="${raw#https://}"
-          raw="${raw%/}"
-
-          host="${raw%%/*}"
-          echo "host=${host}" >> "${GITHUB_OUTPUT}"
-
       - name: Add registry to /etc/hosts
         if: ${{ env.REGISTRY_HOST_ENTRY != '' }}
         shell: bash
@@ -127,11 +112,11 @@ jobs:
           echo "${REGISTRY_HOST_ENTRY}" | sudo tee -a /etc/hosts
 
       - name: Configure Docker daemon insecure registry (optional)
-        if: ${{ env.REGISTRY_INSECURE == 'true' && steps.registry.outputs.host != 'ghcr.io' }}
+        if: ${{ env.REGISTRY_INSECURE == 'true' && env.REGISTRY_HOST != 'ghcr.io' }}
         shell: bash
         run: |
           set -euo pipefail
-          registry="${{ steps.registry.outputs.host }}"
+          registry="${REGISTRY_HOST}"
           echo "Configuring Docker daemon insecure registry: ${registry}"
 
           sudo python3 - "$registry" <<'PY'
@@ -165,16 +150,16 @@ jobs:
           sudo systemctl restart docker || sudo service docker restart
 
       - name: Set up Docker Buildx (insecure TLS)
-        if: ${{ env.REGISTRY_INSECURE == 'true' && steps.registry.outputs.host != 'ghcr.io' }}
+        if: ${{ env.REGISTRY_INSECURE == 'true' && env.REGISTRY_HOST != 'ghcr.io' }}
         uses: docker/setup-buildx-action@v3
         with:
           buildkitd-config-inline: |
-            [registry."${{ steps.registry.outputs.host }}"]
+            [registry."${{ env.REGISTRY_HOST }}"]
               http = false
               insecure = true
 
       - name: Set up Docker Buildx
-        if: ${{ !(env.REGISTRY_INSECURE == 'true' && steps.registry.outputs.host != 'ghcr.io') }}
+        if: ${{ !(env.REGISTRY_INSECURE == 'true' && env.REGISTRY_HOST != 'ghcr.io') }}
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Container Registry (retry)
@@ -184,7 +169,7 @@ jobs:
           attempt_limit: 3
           attempt_delay: 5000
           with: |
-            registry: ${{ steps.registry.outputs.host }}
+            registry: ${{ env.REGISTRY_HOST }}
             username: ${{ secrets.REGISTRY_USERNAME || github.actor }}
             password: ${{ secrets.REGISTRY_PASSWORD || secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
             logout: false
@@ -201,7 +186,7 @@ jobs:
             push: true
             build-args: ${{ matrix.build_args || '' }}
             tags: |
-              ${{ env.IMAGE_REGISTRY }}/${{ matrix.image }}:${{ steps.vars.outputs.image_tag }}
+              ${{ env.REGISTRY_REPO_PREFIX }}/${{ matrix.image }}:${{ steps.vars.outputs.image_tag }}
             cache-from: type=gha
             cache-to: type=gha,mode=max
 
@@ -240,7 +225,8 @@ jobs:
         env:
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD || secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
           REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME || github.actor }}
-          REGISTRY_URL: ${{ secrets.REGISTRY_URL || 'ghcr.io' }}
+          REGISTRY_HOST: ${{ env.REGISTRY_HOST }}
+          REGISTRY_REPO_PREFIX: ${{ env.REGISTRY_REPO_PREFIX }}
           IMAGE_TAG: ${{ needs.build_images.outputs.image_tag }}
           CHART_VERSION: ${{ steps.vars.outputs.chart_version }}
           HELM_CHART_URL: ${{ secrets.HELM_CHART_URL }}
@@ -253,7 +239,7 @@ jobs:
             exit 0
           fi
 
-          echo "${REGISTRY_PASSWORD}" | helm registry login "${REGISTRY_URL}" -u "${REGISTRY_USERNAME}" --password-stdin
+          echo "${REGISTRY_PASSWORD}" | helm registry login "${REGISTRY_HOST}" -u "${REGISTRY_USERNAME}" --password-stdin
 
           mkdir -p .artifacts
           helm package helm/pytoya \
@@ -262,8 +248,8 @@ jobs:
             --app-version "${IMAGE_TAG}"
 
           chart_tgz="$(ls -1 .artifacts/*.tgz | head -n 1)"
-          echo "Pushing ${chart_tgz} -> oci://${REGISTRY_URL}/charts"
-          helm push "${chart_tgz}" "oci://${REGISTRY_URL}/charts"
+          echo "Pushing ${chart_tgz} -> oci://${REGISTRY_REPO_PREFIX}/charts"
+          helm push "${chart_tgz}" "oci://${REGISTRY_REPO_PREFIX}/charts"
 
   deploy:
     runs-on: [self-hosted, linux]
@@ -329,7 +315,8 @@ jobs:
         env:
           NAMESPACE: ${{ secrets.K8S_NAMESPACE || env.DEFAULT_NAMESPACE }}
           RELEASE_NAME: ${{ secrets.K8S_RELEASE_NAME || env.DEFAULT_RELEASE_NAME }}
-          IMAGE_REGISTRY: ${{ secrets.REGISTRY_URL || format('ghcr.io/{0}', github.repository_owner) }}
+          IMAGE_REGISTRY: ${{ env.REGISTRY_REPO_PREFIX }}
+          REGISTRY_HOST: ${{ env.REGISTRY_HOST }}
           IMAGE_TAG: ${{ needs.build_images.outputs.image_tag }}
           CHART_VERSION: ${{ needs.push_helm_chart.outputs.chart_version }}
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD || secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
@@ -349,7 +336,7 @@ jobs:
           if [[ -n "${HELM_CHART_URL:-}" ]]; then
             chart_url="${HELM_CHART_URL}"
           else
-            echo "${REGISTRY_PASSWORD}" | helm registry login "${IMAGE_REGISTRY}" -u "${REGISTRY_USERNAME}" --password-stdin
+            echo "${REGISTRY_PASSWORD}" | helm registry login "${REGISTRY_HOST}" -u "${REGISTRY_USERNAME}" --password-stdin
             chart_url="oci://${IMAGE_REGISTRY}/charts/pytoya"
             if [[ -z "${CHART_VERSION:-}" ]]; then echo "Missing chart version from build job output (required for OCI registry)." >&2; exit 2; fi
           fi
