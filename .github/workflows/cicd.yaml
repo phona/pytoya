@@ -391,15 +391,27 @@ jobs:
           echo "Image registry: ${IMAGE_REGISTRY}"
           echo "Helm chart: ${chart_url}"
 
+          chart_path="${chart_url}"
+          if [[ "${chart_url}" == oci://* ]]; then
+            pull_args=(--version "${CHART_VERSION}")
+            if [[ "${REGISTRY_INSECURE}" == "true" ]]; then
+              pull_args+=(--insecure-skip-tls-verify)
+            fi
+
+            chart_tmp_dir="$(mktemp -d)"
+            echo "Pulling chart to: ${chart_tmp_dir}"
+            helm pull "${chart_url}" --untar --untardir "${chart_tmp_dir}" "${pull_args[@]}"
+            chart_path="$(find "${chart_tmp_dir}" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+            if [[ -z "${chart_path}" ]]; then
+              echo "Failed to locate untarred chart directory in: ${chart_tmp_dir}" >&2
+              exit 3
+            fi
+          fi
+
           helm_args=(
             upgrade
-            --install "${RELEASE_NAME}" "${chart_url}"
+            --install "${RELEASE_NAME}" "${chart_path}"
           )
-
-          # Only add --version if pulling from OCI registry (not for direct chart URLs)
-          if [[ "${chart_url}" == oci://* ]]; then
-            helm_args+=(--version "${CHART_VERSION}")
-          fi
 
           helm_args+=(
             -f "${server_values_file}"
