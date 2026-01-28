@@ -227,6 +227,7 @@ jobs:
           REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME || github.actor }}
           REGISTRY_HOST: ${{ env.REGISTRY_HOST }}
           REGISTRY_REPO_PREFIX: ${{ env.REGISTRY_REPO_PREFIX }}
+          REGISTRY_INSECURE: ${{ env.REGISTRY_INSECURE }}
           IMAGE_TAG: ${{ needs.build_images.outputs.image_tag }}
           CHART_VERSION: ${{ steps.vars.outputs.chart_version }}
           HELM_CHART_URL: ${{ secrets.HELM_CHART_URL }}
@@ -239,7 +240,11 @@ jobs:
             exit 0
           fi
 
-          echo "${REGISTRY_PASSWORD}" | helm registry login "${REGISTRY_HOST}" -u "${REGISTRY_USERNAME}" --password-stdin
+          login_args=()
+          if [[ "${REGISTRY_INSECURE}" == "true" ]]; then
+            login_args+=(--insecure)
+          fi
+          echo "${REGISTRY_PASSWORD}" | helm registry login "${REGISTRY_HOST}" -u "${REGISTRY_USERNAME}" --password-stdin "${login_args[@]}"
 
           mkdir -p .artifacts
           helm package helm/pytoya \
@@ -249,7 +254,11 @@ jobs:
 
           chart_tgz="$(ls -1 .artifacts/*.tgz | head -n 1)"
           echo "Pushing ${chart_tgz} -> oci://${REGISTRY_REPO_PREFIX}/charts"
-          helm push "${chart_tgz}" "oci://${REGISTRY_REPO_PREFIX}/charts"
+          push_args=()
+          if [[ "${REGISTRY_INSECURE}" == "true" ]]; then
+            push_args+=(--insecure-skip-tls-verify)
+          fi
+          helm push "${chart_tgz}" "oci://${REGISTRY_REPO_PREFIX}/charts" "${push_args[@]}"
 
   deploy:
     runs-on: [self-hosted, linux]
@@ -317,6 +326,7 @@ jobs:
           RELEASE_NAME: ${{ secrets.K8S_RELEASE_NAME || env.DEFAULT_RELEASE_NAME }}
           IMAGE_REGISTRY: ${{ env.REGISTRY_REPO_PREFIX }}
           REGISTRY_HOST: ${{ env.REGISTRY_HOST }}
+          REGISTRY_INSECURE: ${{ env.REGISTRY_INSECURE }}
           IMAGE_TAG: ${{ needs.build_images.outputs.image_tag }}
           CHART_VERSION: ${{ needs.push_helm_chart.outputs.chart_version }}
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD || secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
@@ -336,7 +346,11 @@ jobs:
           if [[ -n "${HELM_CHART_URL:-}" ]]; then
             chart_url="${HELM_CHART_URL}"
           else
-            echo "${REGISTRY_PASSWORD}" | helm registry login "${REGISTRY_HOST}" -u "${REGISTRY_USERNAME}" --password-stdin
+            login_args=()
+            if [[ "${REGISTRY_INSECURE}" == "true" ]]; then
+              login_args+=(--insecure)
+            fi
+            echo "${REGISTRY_PASSWORD}" | helm registry login "${REGISTRY_HOST}" -u "${REGISTRY_USERNAME}" --password-stdin "${login_args[@]}"
             chart_url="oci://${IMAGE_REGISTRY}/charts/pytoya"
             if [[ -z "${CHART_VERSION:-}" ]]; then echo "Missing chart version from build job output (required for OCI registry)." >&2; exit 2; fi
           fi
