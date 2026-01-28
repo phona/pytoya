@@ -10,6 +10,8 @@ name: CI/CD
 #
 # Optional Secrets:
 #   REGISTRY_HOST_ENTRY    - /etc/hosts entry for custom registry (format: "IP hostname")
+#   REGISTRY_HOST          - Registry host only (e.g., registry.prod.lan)
+#   REGISTRY_INSECURE      - Set to "true" to skip registry TLS verification (insecure)
 #   HELM_CHART_URL         - Direct Helm chart URL (skips chart push if set)
 #   K8S_NAMESPACE          - Kubernetes namespace (default: pytoya)
 #   K8S_RELEASE_NAME       - Helm release name (default: pytoya)
@@ -32,9 +34,12 @@ concurrency:
 
 env:
   # Use private registry if configured, otherwise fall back to GHCR
-  IMAGE_REGISTRY: ${{ secrets.REGISTRY_URL || format('ghcr.io/{0}', github.repository_owner) }}
+  REGISTRY_HOST: ${{ vars.REGISTRY_HOST || secrets.REGISTRY_HOST || '' }}
+  IMAGE_REGISTRY: ${{ (vars.REGISTRY_HOST || secrets.REGISTRY_HOST) && (vars.REGISTRY_HOST || secrets.REGISTRY_HOST) || (secrets.REGISTRY_URL || format('ghcr.io/{0}', github.repository_owner)) }}
   # Optional: /etc/hosts entry for a custom registry (format: "IP hostname")
   REGISTRY_HOST_ENTRY: ${{ secrets.REGISTRY_HOST_ENTRY }}
+  # Optional: allow insecure custom registry (skips TLS verification)
+  REGISTRY_INSECURE: ${{ vars.REGISTRY_INSECURE || secrets.REGISTRY_INSECURE || 'false' }}
   API_IMAGE: pytoya/api
   WEB_IMAGE: pytoya/web
   DEFAULT_NAMESPACE: pytoya
@@ -98,8 +103,22 @@ jobs:
           image_tag="${GITHUB_SHA:0:12}"
           echo "image_tag=${image_tag}" >> "${GITHUB_OUTPUT}"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Compute registry host
+        id: registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          raw="${IMAGE_REGISTRY}"
+          if [[ -n "${REGISTRY_HOST}" ]]; then
+            raw="${REGISTRY_HOST}"
+          fi
+
+          raw="${raw#http://}"
+          raw="${raw#https://}"
+          raw="${raw%/}"
+
+          host="${raw%%/*}"
+          echo "host=${host}" >> "${GITHUB_OUTPUT}"
 
       - name: Add registry to /etc/hosts
         if: ${{ env.REGISTRY_HOST_ENTRY != '' }}
@@ -107,24 +126,84 @@ jobs:
         run: |
           echo "${REGISTRY_HOST_ENTRY}" | sudo tee -a /etc/hosts
 
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ secrets.REGISTRY_URL || 'ghcr.io' }}
-          username: ${{ secrets.REGISTRY_USERNAME || github.actor }}
-          password: ${{ secrets.REGISTRY_PASSWORD || secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: Configure Docker daemon insecure registry (optional)
+        if: ${{ env.REGISTRY_INSECURE == 'true' && steps.registry.outputs.host != 'ghcr.io' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          registry="${{ steps.registry.outputs.host }}"
+          echo "Configuring Docker daemon insecure registry: ${registry}"
 
-      - name: Build and push ${{ matrix.name }} image
-        uses: docker/build-push-action@v6
+          sudo python3 - "$registry" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          registry = sys.argv[1].strip()
+          if not registry:
+            raise SystemExit("registry is empty")
+
+          path = Path("/etc/docker/daemon.json")
+          data = {}
+          if path.exists():
+            data = json.loads(path.read_text(encoding="utf-8") or "{}")
+            if not isinstance(data, dict):
+              raise SystemExit("/etc/docker/daemon.json is not an object")
+
+          insecure = data.get("insecure-registries", [])
+          if not isinstance(insecure, list):
+            insecure = []
+
+          if registry not in insecure:
+            insecure.append(registry)
+
+          data["insecure-registries"] = insecure
+          path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print(f"Wrote {path} with insecure-registries={insecure!r}")
+          PY
+
+          sudo systemctl restart docker || sudo service docker restart
+
+      - name: Set up Docker Buildx (insecure TLS)
+        if: ${{ env.REGISTRY_INSECURE == 'true' && steps.registry.outputs.host != 'ghcr.io' }}
+        uses: docker/setup-buildx-action@v3
         with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          build-args: ${{ matrix.build_args || '' }}
-          tags: |
-            ${{ secrets.REGISTRY_URL || format('ghcr.io/{0}', github.repository_owner) }}/${{ matrix.image }}:${{ steps.vars.outputs.image_tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          buildkitd-config-inline: |
+            [registry."${{ steps.registry.outputs.host }}"]
+              http = false
+              insecure = true
+
+      - name: Set up Docker Buildx
+        if: ${{ !(env.REGISTRY_INSECURE == 'true' && steps.registry.outputs.host != 'ghcr.io') }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry (retry)
+        uses: Wandalen/wretry.action@v3.8.0
+        with:
+          action: docker/login-action@v3
+          attempt_limit: 3
+          attempt_delay: 5000
+          with: |
+            registry: ${{ steps.registry.outputs.host }}
+            username: ${{ secrets.REGISTRY_USERNAME || github.actor }}
+            password: ${{ secrets.REGISTRY_PASSWORD || secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+            logout: false
+
+      - name: Build and push ${{ matrix.name }} image (retry)
+        uses: Wandalen/wretry.action@v3.8.0
+        with:
+          action: docker/build-push-action@v6
+          attempt_limit: 3
+          attempt_delay: 15000
+          with: |
+            context: .
+            file: ${{ matrix.dockerfile }}
+            push: true
+            build-args: ${{ matrix.build_args || '' }}
+            tags: |
+              ${{ env.IMAGE_REGISTRY }}/${{ matrix.image }}:${{ steps.vars.outputs.image_tag }}
+            cache-from: type=gha
+            cache-to: type=gha,mode=max
 
   push_helm_chart:
     runs-on: ubuntu-latest
