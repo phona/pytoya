@@ -10,6 +10,10 @@
 {{- end }}
 {{- $apiPath := default "/api" .Values.api.ingress.paths -}}
 {{- $webPath := default "/" .Values.web.ingress.paths -}}
+{{- $className := .Values.ingress.className -}}
+{{- if and (not $className) (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class") -}}
+{{- $className = index .Values.ingress.annotations "kubernetes.io/ingress.class" -}}
+{{- end -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -19,11 +23,13 @@ metadata:
     {{- include "pytoya.labels" . | nindent 4 }}
   annotations:
     {{- range $k, $v := .Values.ingress.annotations }}
+    {{- if ne $k "kubernetes.io/ingress.class" }}
     {{ $k }}: {{ $v | quote }}
     {{- end }}
+    {{- end }}
 spec:
-  {{- if .Values.ingress.className }}
-  ingressClassName: {{ .Values.ingress.className }}
+  {{- if $className }}
+  ingressClassName: {{ $className }}
   {{- end }}
   {{- if .Values.ingress.tls }}
   tls:
