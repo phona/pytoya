@@ -11,7 +11,6 @@ name: CI/CD
 # Optional Secrets:
 #   REGISTRY_HOST_ENTRY    - /etc/hosts entry for custom registry (format: "IP hostname")
 #   REGISTRY_INSECURE      - Set to "true" to skip registry TLS verification (insecure)
-#   HELM_CHART_URL         - Direct Helm chart URL (skips chart push if set)
 #   K8S_NAMESPACE          - Kubernetes namespace (default: pytoya)
 #   K8S_RELEASE_NAME       - Helm release name (default: pytoya)
 #
@@ -230,15 +229,8 @@ jobs:
           REGISTRY_INSECURE: ${{ env.REGISTRY_INSECURE }}
           IMAGE_TAG: ${{ needs.build_images.outputs.image_tag }}
           CHART_VERSION: ${{ steps.vars.outputs.chart_version }}
-          HELM_CHART_URL: ${{ secrets.HELM_CHART_URL }}
         run: |
           set -euo pipefail
-
-          # Skip Helm chart push if HELM_CHART_URL is provided (user manages chart externally)
-          if [[ -n "${HELM_CHART_URL:-}" ]]; then
-            echo "HELM_CHART_URL is set. Skipping Helm chart push (chart managed externally)."
-            exit 0
-          fi
 
           login_args=()
           if [[ "${REGISTRY_INSECURE}" == "true" ]]; then
@@ -331,7 +323,6 @@ jobs:
           CHART_VERSION: ${{ needs.push_helm_chart.outputs.chart_version }}
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD || secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
           REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME || github.actor }}
-          HELM_CHART_URL: ${{ secrets.HELM_CHART_URL }}
         run: |
           set -euo pipefail
 
@@ -342,18 +333,14 @@ jobs:
             exit 0
           fi
 
-          # Determine Helm chart URL
-          if [[ -n "${HELM_CHART_URL:-}" ]]; then
-            chart_url="${HELM_CHART_URL}"
-          else
-            login_args=()
-            if [[ "${REGISTRY_INSECURE}" == "true" ]]; then
-              login_args+=(--insecure)
-            fi
-            echo "${REGISTRY_PASSWORD}" | helm registry login "${REGISTRY_HOST}" -u "${REGISTRY_USERNAME}" --password-stdin "${login_args[@]}"
-            chart_url="oci://${IMAGE_REGISTRY}/charts/pytoya"
-            if [[ -z "${CHART_VERSION:-}" ]]; then echo "Missing chart version from build job output (required for OCI registry)." >&2; exit 2; fi
+          login_args=()
+          if [[ "${REGISTRY_INSECURE}" == "true" ]]; then
+            login_args+=(--insecure)
           fi
+          echo "${REGISTRY_PASSWORD}" | helm registry login "${REGISTRY_HOST}" -u "${REGISTRY_USERNAME}" --password-stdin "${login_args[@]}"
+
+          chart_url="oci://${IMAGE_REGISTRY}/charts/pytoya"
+          if [[ -z "${CHART_VERSION:-}" ]]; then echo "Missing chart version from build job output (required for OCI registry)." >&2; exit 2; fi
 
           echo "Using server values file: ${server_values_file}"
           echo "Deploying ${RELEASE_NAME} to namespace=${NAMESPACE} tag=${IMAGE_TAG}"
