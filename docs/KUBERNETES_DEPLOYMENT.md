@@ -98,6 +98,12 @@ Notes:
 - The chart can optionally run a post-install/post-upgrade admin seed Job when `admin.username` and `admin.password` are provided.
 - `secrets.dbPassword` defaults to `postgres.auth.password` if not provided.
 
+### CI/CD deployment
+
+The GitHub Actions workflow publishes images + chart to GHCR and then signals deployment by invoking `/home/github-runner/deploy.sh` on a self-hosted runner.
+
+See `docs/CICD.md` for the deploy contract and runner/cluster requirements.
+
 ## NodePort (No Ingress)
 
 If you don't have (or don't want) an Ingress controller, you can expose Services via NodePort.

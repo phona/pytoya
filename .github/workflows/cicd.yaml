@@ -1,23 +1,5 @@
 name: CI/CD
 
-# ==============================================================================
-# GitHub Secrets Configuration
-# ==============================================================================
-# Required Secrets (for private registry):
-#   REGISTRY_HOST          - Your container registry host[:port] (e.g., registry.example.com:5000)
-#   REGISTRY_USERNAME      - Registry username
-#   REGISTRY_PASSWORD      - Registry password or access token
-#
-# Optional Secrets:
-#   REGISTRY_HOST_ENTRY    - /etc/hosts entry for custom registry (format: "IP hostname")
-#   REGISTRY_INSECURE      - Set to "true" to skip registry TLS verification (insecure)
-#   K8S_NAMESPACE          - Kubernetes namespace (default: pytoya)
-#   K8S_RELEASE_NAME       - Helm release name (default: pytoya)
-#
-# Note: Database, Redis, JWT, and Ingress settings are configured via
-#       /home/github-runner/pytoya.values.yaml on the self-hosted runner.
-# ==============================================================================
-
 on:
   push:
   pull_request:
@@ -31,20 +13,12 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Registry host[:port] only (no scheme/path). Defaults to GHCR host.
-  REGISTRY_HOST: ${{ vars.REGISTRY_HOST || secrets.REGISTRY_HOST || 'ghcr.io' }}
-  # Registry/repo prefix used for image tags and OCI chart pushes.
-  # - If REGISTRY_HOST == ghcr.io: ghcr.io/<owner>
-  # - Else: <host>
-  REGISTRY_REPO_PREFIX: ${{ (vars.REGISTRY_HOST || secrets.REGISTRY_HOST) && (vars.REGISTRY_HOST || secrets.REGISTRY_HOST) || format('ghcr.io/{0}', github.repository_owner) }}
-  # Optional: /etc/hosts entry for a custom registry (format: "IP hostname")
-  REGISTRY_HOST_ENTRY: ${{ vars.REGISTRY_HOST_ENTRY || secrets.REGISTRY_HOST_ENTRY || '' }}
-  # Optional: allow insecure custom registry (skips TLS verification)
-  REGISTRY_INSECURE: ${{ vars.REGISTRY_INSECURE || secrets.REGISTRY_INSECURE || 'false' }}
+  GHCR_REGISTRY: ghcr.io
+  GHCR_OWNER: ${{ vars.GHCR_OWNER || github.repository_owner }}
+  APP_ID: ${{ vars.APP_ID || 'pytoya' }}
+  CHART_ID: ${{ vars.CHART_ID || 'pytoya' }}
   API_IMAGE: pytoya/api
   WEB_IMAGE: pytoya/web
-  DEFAULT_NAMESPACE: pytoya
-  DEFAULT_RELEASE_NAME: pytoya
 
 jobs:
   quality:
@@ -111,182 +85,112 @@ jobs:
       - name: CI summary
         run: echo "quality + test_api + test_web passed"
 
-  build_images:
+  prepare:
     runs-on: ubuntu-latest
     needs: ci
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_name == 'master') }}
+    outputs:
+      image_tag: ${{ steps.ids.outputs.image_tag }}
+      chart_version: ${{ steps.ids.outputs.chart_version }}
+      chart_ref: ${{ steps.ids.outputs.chart_ref }}
+      api_ref: ${{ steps.ids.outputs.api_ref }}
+      web_ref: ${{ steps.ids.outputs.web_ref }}
+      images_json: ${{ steps.ids.outputs.images_json }}
+    steps:
+      - name: Compute deploy identifiers
+        id: ids
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          image_tag="${GITHUB_SHA:0:12}"
+          chart_version="0.1.0-${image_tag}"
+
+          chart_ref="oci://${GHCR_REGISTRY}/${GHCR_OWNER}/charts/${CHART_ID}"
+          api_ref="${GHCR_REGISTRY}/${GHCR_OWNER}/${API_IMAGE}:${image_tag}"
+          web_ref="${GHCR_REGISTRY}/${GHCR_OWNER}/${WEB_IMAGE}:${image_tag}"
+          images_json="$(printf '{"api":"%s","web":"%s"}' "${api_ref}" "${web_ref}")"
+
+          {
+            echo "image_tag=${image_tag}"
+            echo "chart_version=${chart_version}"
+            echo "chart_ref=${chart_ref}"
+            echo "api_ref=${api_ref}"
+            echo "web_ref=${web_ref}"
+            echo "images_json=${images_json}"
+          } >> "${GITHUB_OUTPUT}"
+
+  build_images:
+    runs-on: ubuntu-latest
+    needs: prepare
     permissions:
       contents: read
       packages: write
-    outputs:
-      image_tag: ${{ steps.vars.outputs.image_tag }}
-    strategy:
-      matrix:
-        include:
-          - name: api
-            dockerfile: src/apps/api/Dockerfile
-            image: pytoya/api
-          - name: web
-            dockerfile: src/apps/web/Dockerfile
-            image: pytoya/web
-            build_args: VITE_API_URL=/api
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Compute tags
-        id: vars
-        shell: bash
-        run: |
-          image_tag="${GITHUB_SHA:0:12}"
-          echo "image_tag=${image_tag}" >> "${GITHUB_OUTPUT}"
-
-      - name: Add registry to /etc/hosts
-        if: ${{ env.REGISTRY_HOST_ENTRY != '' }}
-        shell: bash
-        run: |
-          echo "${REGISTRY_HOST_ENTRY}" | sudo tee -a /etc/hosts
-
-      - name: Configure Docker daemon insecure registry (optional)
-        if: ${{ env.REGISTRY_INSECURE == 'true' && env.REGISTRY_HOST != 'ghcr.io' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          registry="${REGISTRY_HOST}"
-          echo "Configuring Docker daemon insecure registry: ${registry}"
-
-          tmp="$(mktemp)"
-          if sudo test -f /etc/docker/daemon.json; then
-            sudo cat /etc/docker/daemon.json |
-              jq --arg registry "${registry}" '
-                (if type == "object" then . else {} end)
-                | .["insecure-registries"] = (
-                  (.["insecure-registries"] // [])
-                  | (if type == "array" then . else [] end)
-                  + [$registry]
-                  | unique
-                )
-              ' > "${tmp}"
-          else
-            jq -n --arg registry "${registry}" '{ "insecure-registries": [$registry] }' > "${tmp}"
-          fi
-
-          sudo install -m 0644 "${tmp}" /etc/docker/daemon.json
-          rm -f "${tmp}"
-
-          sudo systemctl restart docker || sudo service docker restart
-
-      - name: Set up Docker Buildx (insecure registry)
-        if: ${{ env.REGISTRY_INSECURE == 'true' && env.REGISTRY_HOST != 'ghcr.io' }}
-        uses: docker/setup-buildx-action@v3
-        with:
-          driver: docker-container
-          buildkitd-config-inline: |
-            [registry."${{ env.REGISTRY_HOST }}"]
-              http = false
-              insecure = true
-
       - name: Set up Docker Buildx
-        if: ${{ !(env.REGISTRY_INSECURE == 'true' && env.REGISTRY_HOST != 'ghcr.io') }}
         uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          driver: docker-container
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ secrets.GHCR_USERNAME || github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
 
-      - name: Patch BuildKit /etc/hosts
-        if: ${{ env.REGISTRY_HOST_ENTRY != '' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          entry="${REGISTRY_HOST_ENTRY}"
-
-          ids="$(docker ps -q --filter 'name=buildx_buildkit')"
-          if [ -z "${ids}" ]; then
-            echo "No buildx_buildkit container found; cannot patch /etc/hosts"
-            docker ps -a
-            exit 1
-          fi
-
-          for id in ${ids}; do
-            echo "Patching /etc/hosts in BuildKit container: ${id}"
-            docker exec "${id}" sh -c "grep -qF \"${entry}\" /etc/hosts || echo \"${entry}\" >> /etc/hosts"
-          done
-
-      - name: Log in to Container Registry (retry)
-        uses: Wandalen/wretry.action@v3.8.0
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
         with:
-          action: docker/login-action@v3
-          attempt_limit: 3
-          attempt_delay: 5000
-          with: |
-            registry: ${{ env.REGISTRY_HOST }}
-            username: ${{ secrets.REGISTRY_USERNAME || github.actor }}
-            password: ${{ secrets.REGISTRY_PASSWORD || secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
-            logout: false
+          context: .
+          file: src/apps/api/Dockerfile
+          push: true
+          tags: ${{ needs.prepare.outputs.api_ref }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Build and push ${{ matrix.name }} image (retry)
-        uses: Wandalen/wretry.action@v3.8.0
+      - name: Build and push Web image
+        uses: docker/build-push-action@v6
         with:
-          action: docker/build-push-action@v6
-          attempt_limit: 3
-          attempt_delay: 15000
-          with: |
-            context: .
-            file: ${{ matrix.dockerfile }}
-            push: true
-            build-args: ${{ matrix.build_args || '' }}
-            tags: |
-              ${{ env.REGISTRY_REPO_PREFIX }}/${{ matrix.image }}:${{ steps.vars.outputs.image_tag }}
-            cache-from: type=gha
-            cache-to: type=gha,mode=max
+          context: .
+          file: src/apps/web/Dockerfile
+          push: true
+          build-args: VITE_API_URL=/api
+          tags: ${{ needs.prepare.outputs.web_ref }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   push_helm_chart:
     runs-on: ubuntu-latest
-    needs: [ci, build_images]
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_name == 'master') }}
+    needs: prepare
     permissions:
       contents: read
       packages: write
-    outputs:
-      chart_version: ${{ steps.vars.outputs.chart_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Compute chart version
-        id: vars
-        shell: bash
-        run: |
-          image_tag="${GITHUB_SHA:0:12}"
-          chart_version="0.1.0-${image_tag}"
-          echo "chart_version=${chart_version}" >> "${GITHUB_OUTPUT}"
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
-      - name: Add registry to /etc/hosts
-        if: ${{ env.REGISTRY_HOST_ENTRY != '' }}
+      - name: Log in to GHCR for Helm (OCI)
         shell: bash
+        env:
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME || github.actor }}
+          GHCR_PASSWORD: ${{ secrets.GHCR_TOKEN }}
         run: |
-          echo "${REGISTRY_HOST_ENTRY}" | sudo tee -a /etc/hosts
+          set -euo pipefail
+          echo "${GHCR_PASSWORD}" | helm registry login "${GHCR_REGISTRY}" -u "${GHCR_USERNAME}" --password-stdin
 
       - name: Package and push Helm chart (OCI)
         shell: bash
         env:
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD || secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
-          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME || github.actor }}
-          REGISTRY_HOST: ${{ env.REGISTRY_HOST }}
-          REGISTRY_REPO_PREFIX: ${{ env.REGISTRY_REPO_PREFIX }}
-          REGISTRY_INSECURE: ${{ env.REGISTRY_INSECURE }}
-          IMAGE_TAG: ${{ needs.build_images.outputs.image_tag }}
-          CHART_VERSION: ${{ steps.vars.outputs.chart_version }}
+          IMAGE_TAG: ${{ needs.prepare.outputs.image_tag }}
+          CHART_VERSION: ${{ needs.prepare.outputs.chart_version }}
+          CHART_REF: ${{ needs.prepare.outputs.chart_ref }}
         run: |
           set -euo pipefail
-
-          login_args=()
-          if [[ "${REGISTRY_INSECURE}" == "true" ]]; then
-            login_args+=(--insecure)
-          fi
-          echo "${REGISTRY_PASSWORD}" | helm registry login "${REGISTRY_HOST}" -u "${REGISTRY_USERNAME}" --password-stdin "${login_args[@]}"
 
           mkdir -p .artifacts
           helm package helm/pytoya \
@@ -295,163 +199,27 @@ jobs:
             --app-version "${IMAGE_TAG}"
 
           chart_tgz="$(ls -1 .artifacts/*.tgz | head -n 1)"
-          echo "Pushing ${chart_tgz} -> oci://${REGISTRY_REPO_PREFIX}/charts"
-          push_args=()
-          if [[ "${REGISTRY_INSECURE}" == "true" ]]; then
-            push_args+=(--insecure-skip-tls-verify)
-          fi
-          helm push "${chart_tgz}" "oci://${REGISTRY_REPO_PREFIX}/charts" "${push_args[@]}"
+          helm push "${chart_tgz}" "${CHART_REF%/*}"
 
   deploy:
     runs-on: [self-hosted, linux]
-    needs: [build_images, push_helm_chart]
+    needs: [prepare, build_images, push_helm_chart]
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_name == 'master') }}
     environment: production
     permissions:
       contents: read
-      packages: read
     steps:
-      - name: Deploy debug (safe context + kube probes)
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "Runner: name='${RUNNER_NAME:-}' os='${RUNNER_OS:-}' arch='${RUNNER_ARCH:-}'"
-          echo "GitHub: repo='${GITHUB_REPOSITORY:-}' ref='${GITHUB_REF:-}' ref_name='${GITHUB_REF_NAME:-}' sha='${GITHUB_SHA:-}' actor='${GITHUB_ACTOR:-}'"
-          echo "Workspace: '${GITHUB_WORKSPACE:-}'"
-          echo "KUBECONFIG: '${KUBECONFIG:-<default>}'"
-          if [[ -n "${KUBECONFIG:-}" ]]; then
-            ls -la "${KUBECONFIG}" || true
-          fi
-
-          echo "--- kubectl config (safe) ---"
-          kubectl config current-context || true
-          cluster="$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}' 2>/dev/null || true)"
-          user="$(kubectl config view --minify -o jsonpath='{.contexts[0].context.user}' 2>/dev/null || true)"
-          server="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)"
-          ns="$(kubectl config view --minify -o jsonpath='{.contexts[0].context.namespace}' 2>/dev/null || true)"
-          echo "kube.cluster=${cluster:-<unknown>}"
-          echo "kube.user=${user:-<unknown>}"
-          echo "kube.namespace=${ns:-<default>}"
-          echo "kube.server=${server:-<unknown>}"
-
-          echo "--- apiserver probes (best-effort) ---"
-          kubectl get --raw='/version' 2>/dev/null | head -c 400 || true
-          echo
-          kubectl get --raw='/healthz' 2>/dev/null | head -c 200 || true
-          echo
-          if command -v curl >/dev/null 2>&1 && [[ -n "${server:-}" ]]; then
-            server="${server%/}"
-            echo "--- curl ${server}/version (unauthenticated) ---"
-            curl -skS -o /dev/null -w "http_status=%{http_code} time_total=%{time_total}\n" "${server}/version" || true
-          fi
-
-      - name: Verify kubectl + helm present
-        shell: bash
-        run: |
-          set -euo pipefail
-          command -v kubectl >/dev/null 2>&1 || { echo "kubectl not found on runner" >&2; exit 2; }
-          command -v helm >/dev/null 2>&1 || { echo "helm not found on runner" >&2; exit 2; }
-          kubectl version --client=true
-          helm version
-
-      - name: Deploy via Helm
+      - name: Send deploy signal
         shell: bash
         env:
-          NAMESPACE: ${{ secrets.K8S_NAMESPACE || env.DEFAULT_NAMESPACE }}
-          RELEASE_NAME: ${{ secrets.K8S_RELEASE_NAME || env.DEFAULT_RELEASE_NAME }}
-          IMAGE_REGISTRY: ${{ env.REGISTRY_REPO_PREFIX }}
-          REGISTRY_HOST: ${{ env.REGISTRY_HOST }}
-          REGISTRY_INSECURE: ${{ env.REGISTRY_INSECURE }}
-          IMAGE_TAG: ${{ needs.build_images.outputs.image_tag }}
-          CHART_VERSION: ${{ needs.push_helm_chart.outputs.chart_version }}
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD || secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
-          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME || github.actor }}
+          APP_ID: ${{ env.APP_ID }}
+          CHART_REF: ${{ needs.prepare.outputs.chart_ref }}
+          CHART_VERSION: ${{ needs.prepare.outputs.chart_version }}
+          IMAGES_JSON: ${{ needs.prepare.outputs.images_json }}
         run: |
           set -euo pipefail
-
-          server_values_file="/home/github-runner/pytoya.values.yaml"
-          if [[ ! -f "${server_values_file}" ]]; then
-            echo "Server values file not found: ${server_values_file}"
-            echo "Skipping Helm deployment."
-            exit 0
-          fi
-
-          login_args=()
-          if [[ "${REGISTRY_INSECURE}" == "true" ]]; then
-            login_args+=(--insecure)
-          fi
-          echo "${REGISTRY_PASSWORD}" | helm registry login "${REGISTRY_HOST}" -u "${REGISTRY_USERNAME}" --password-stdin "${login_args[@]}"
-
-          chart_url="oci://${IMAGE_REGISTRY}/charts/pytoya"
-          if [[ -z "${CHART_VERSION:-}" ]]; then echo "Missing chart version from build job output (required for OCI registry)." >&2; exit 2; fi
-
-          echo "Using server values file: ${server_values_file}"
-          echo "Deploying ${RELEASE_NAME} to namespace=${NAMESPACE} tag=${IMAGE_TAG}"
-          echo "Image registry: ${IMAGE_REGISTRY}"
-          echo "Helm chart: ${chart_url}"
-
-          chart_path="${chart_url}"
-          if [[ "${chart_url}" == oci://* ]]; then
-            pull_args=(--version "${CHART_VERSION}")
-            if [[ "${REGISTRY_INSECURE}" == "true" ]]; then
-              pull_args+=(--insecure-skip-tls-verify)
-            fi
-
-            chart_tmp_dir="$(mktemp -d)"
-            echo "Pulling chart to: ${chart_tmp_dir}"
-            helm pull "${chart_url}" --untar --untardir "${chart_tmp_dir}" "${pull_args[@]}"
-            chart_path="$(find "${chart_tmp_dir}" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
-            if [[ -z "${chart_path}" ]]; then
-              echo "Failed to locate untarred chart directory in: ${chart_tmp_dir}" >&2
-              exit 3
-            fi
-          fi
-
-          helm_args=(
-            upgrade
-            --install "${RELEASE_NAME}" "${chart_path}"
-          )
-
-          helm_args+=(
-            -f "${server_values_file}"
-            --namespace "${NAMESPACE}"
-            --create-namespace
-            --set "api.image=${IMAGE_REGISTRY}/${API_IMAGE}"
-            --set "api.tag=${IMAGE_TAG}"
-            --set "worker.image=${IMAGE_REGISTRY}/${API_IMAGE}"
-            --set "worker.tag=${IMAGE_TAG}"
-            --set "web.image=${IMAGE_REGISTRY}/${WEB_IMAGE}"
-            --set "web.tag=${IMAGE_TAG}"
-            --wait
-            --timeout 10m
-          )
-
-          helm "${helm_args[@]}"
-
-      - name: Deploy debug (on failure)
-        if: ${{ failure() }}
-        shell: bash
-        env:
-          NAMESPACE: ${{ secrets.K8S_NAMESPACE || env.DEFAULT_NAMESPACE }}
-          RELEASE_NAME: ${{ secrets.K8S_RELEASE_NAME || env.DEFAULT_RELEASE_NAME }}
-        run: |
-          set +e
-          echo "--- versions ---"
-          kubectl version --client=true
-          helm version
-
-          echo "--- cluster-info ---"
-          kubectl cluster-info
-
-          echo "--- namespace (${NAMESPACE}) ---"
-          kubectl get ns "${NAMESPACE}" -o wide
-
-          echo "--- pods (${NAMESPACE}) ---"
-          kubectl get pods -n "${NAMESPACE}" -o wide
-
-          echo "--- helm status (${RELEASE_NAME}) ---"
-          helm status "${RELEASE_NAME}" -n "${NAMESPACE}"
-
-          echo "--- helm history (${RELEASE_NAME}) ---"
-          helm history "${RELEASE_NAME}" -n "${NAMESPACE}" --max 10
+          /home/github-runner/deploy.sh \
+            --app "${APP_ID}" \
+            --chart "${CHART_REF}" \
+            --chart-version "${CHART_VERSION}" \
+            --images "${IMAGES_JSON}"

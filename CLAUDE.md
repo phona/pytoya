@@ -72,6 +72,15 @@ pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -EnvPath "src/apps/api/.en
 pwsh -File scripts/setup-dev-k8s-deps.ps1 -SkipDeploy -SkipDbUserSetup
 ```
 
+## CI/CD
+
+Production CI/CD publishes images + Helm chart to GHCR and signals deployment via a self-hosted runner script.
+
+See `docs/CICD.md` for:
+- required GitHub secrets/vars
+- `/home/github-runner/deploy.sh` argument contract
+- runner/K3s GHCR authentication notes
+
 ### Backend-Specific (`src/apps/api/`)
 ```bash
 npm run start:dev          # Development with watch
