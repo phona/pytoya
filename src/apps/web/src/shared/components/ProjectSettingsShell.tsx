@@ -6,6 +6,7 @@ import { useProject } from '@/shared/hooks/use-projects';
 import { useProjectSchemas } from '@/shared/hooks/use-schemas';
 import { cn } from '@/shared/lib/utils';
 import { useI18n } from '@/shared/providers/I18nProvider';
+import { isSchemaReadyForRules } from '@/shared/utils/schema';
 
 export type ProjectSettingsTab = 'basic' | 'models' | 'extractors' | 'costs' | 'schema' | 'rules' | 'scripts';
 
@@ -39,6 +40,8 @@ export function ProjectSettingsShell({
   const { project } = useProject(projectId);
   const { schemas } = useProjectSchemas(projectId);
   const schemaId = schemaIdOverride ?? schemas[0]?.id ?? null;
+  const activeSchema = schemaId ? (schemas.find((schema) => schema.id === schemaId) ?? null) : null;
+  const schemaReady = isSchemaReadyForRules(activeSchema);
   const projectLabel = project?.name ?? `Project ${projectId}`;
   const tabLabels: Record<ProjectSettingsTab, string> = {
     basic: t('project.settingsDropdown.basic'),
@@ -79,12 +82,12 @@ export function ProjectSettingsShell({
             <TabsTrigger value="extractors">{tabLabels.extractors}</TabsTrigger>
             <TabsTrigger value="costs">{tabLabels.costs}</TabsTrigger>
             <TabsTrigger value="schema">{tabLabels.schema}</TabsTrigger>
-            <TabsTrigger value="rules" disabled={!schemaId}>{tabLabels.rules}</TabsTrigger>
+            <TabsTrigger value="rules" disabled={!schemaReady}>{tabLabels.rules}</TabsTrigger>
             <TabsTrigger value="scripts">{tabLabels.scripts}</TabsTrigger>
           </TabsList>
         </Tabs>
 
-        {!schemaId ? (
+        {!schemaReady ? (
           <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
             {t('project.settingsShell.noSchemaHint')}
           </div>

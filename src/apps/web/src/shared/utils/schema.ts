@@ -621,6 +621,37 @@ export const deriveSchemaTableColumns = (
   }));
 };
 
+export const isSchemaReadyForRules = (
+  schema: { jsonSchema?: unknown; requiredFields?: unknown } | null | undefined,
+): boolean => {
+  if (!schema) return false;
+
+  if (Array.isArray(schema.requiredFields)) {
+    const hasRequired = schema.requiredFields.some(
+      (value) => typeof value === 'string' && value.trim().length > 0,
+    );
+    if (hasRequired) {
+      return true;
+    }
+  }
+
+  if (!isRecord(schema.jsonSchema)) {
+    return false;
+  }
+
+  const jsonSchema = schema.jsonSchema as Record<string, unknown>;
+  const fields = deriveSchemaAuditFields(jsonSchema);
+
+  const hasNonSystemPath = (path: string): boolean =>
+    Boolean(path.trim()) && !path.startsWith('_') && !path.startsWith('_extraction_info');
+
+  return (
+    fields.scalarFields.some((field) => hasNonSystemPath(field.path)) ||
+    fields.arrayObjectFields.some((field) => hasNonSystemPath(field.path)) ||
+    fields.arrayFields.some((field) => hasNonSystemPath(field.path))
+  );
+};
+
 
 
 

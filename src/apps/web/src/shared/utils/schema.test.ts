@@ -4,6 +4,7 @@ import {
   deriveExtractionHintMap,
   deriveSchemaAuditFields,
   deriveSchemaTableColumns,
+  isSchemaReadyForRules,
 } from './schema';
 
 describe('deriveExtractionHintMap', () => {
@@ -197,6 +198,33 @@ describe('deriveSchemaAuditFields', () => {
     const fields = deriveSchemaAuditFields(schema);
     expect(fields.arrayObjectFields).toHaveLength(1);
     expect(fields.arrayObjectFields[0]?.itemFields.map((field) => field.path)).toEqual(['items[].a', 'items[].z']);
+  });
+});
+
+describe('isSchemaReadyForRules', () => {
+  it('returns false for missing schema', () => {
+    expect(isSchemaReadyForRules(null)).toBe(false);
+  });
+
+  it('returns false for an empty object schema', () => {
+    expect(isSchemaReadyForRules({
+      jsonSchema: { type: 'object', properties: {}, required: [] },
+      requiredFields: [],
+    })).toBe(false);
+  });
+
+  it('returns true when properties contain fields', () => {
+    expect(isSchemaReadyForRules({
+      jsonSchema: { type: 'object', properties: { invoiceNo: { type: 'string' } }, required: [] },
+      requiredFields: [],
+    })).toBe(true);
+  });
+
+  it('returns true when requiredFields is populated', () => {
+    expect(isSchemaReadyForRules({
+      jsonSchema: { type: 'object', properties: {}, required: [] },
+      requiredFields: ['invoiceNo'],
+    })).toBe(true);
   });
 });
 

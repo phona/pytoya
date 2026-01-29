@@ -264,7 +264,8 @@ export const enMessages: Record<string, string> = {
   'project.settingsDropdown.schema': 'Schema',
   'project.settingsDropdown.rules': 'Rules',
   'project.settingsDropdown.availableAfterFirstExtraction': 'Available after first extraction',
-  'project.settingsShell.noSchemaHint': 'No schema yet. Open Schema to create one (Rules unlock after that).',
+  'project.settingsDropdown.rulesRequiresSchema': 'Rules unlock after schema fields are defined',
+  'project.settingsShell.noSchemaHint': 'Rules unlock after schema fields are defined.',
   'project.settingsDropdown.validationScripts': 'Validation Scripts',
   'validationScripts.title': 'Validation Scripts',
   'validationScripts.countLine': '{{count}} script{{plural}}',
@@ -294,6 +295,10 @@ export const enMessages: Record<string, string> = {
   'schema.settings.deleteTitle': 'Delete schema',
   'schema.settings.deleteMessage': 'Are you sure you want to delete this schema?',
   'schema.settings.deleteFailedTitle': 'Delete schema failed',
+
+  'rules.settings.noSchemaTitle': 'Rules require schema fields',
+  'rules.settings.noSchemaMessage': 'Define your schema fields first, then come back here to edit rules.',
+  'rules.settings.goToSchemaCta': 'Go to Schema',
   'project.settingsDropdown.dangerZone': 'Danger Zone',
   'project.settingsDropdown.deleteProject': 'Delete Project',
 

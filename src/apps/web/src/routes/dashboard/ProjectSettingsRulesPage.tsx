@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { API_BASE_URL, getApiErrorText } from '@/api/client';
 import { ProjectSettingsShell } from '@/shared/components/ProjectSettingsShell';
 import { Button } from '@/shared/components/ui/button';
@@ -7,6 +7,7 @@ import { useProject } from '@/shared/hooks/use-projects';
 import { useProjectSchemas, useSchema, useSchemas } from '@/shared/hooks/use-schemas';
 import { useAuthStore } from '@/shared/stores/auth';
 import { useI18n } from '@/shared/providers/I18nProvider';
+import { isSchemaReadyForRules } from '@/shared/utils/schema';
 
 const DEFAULT_PROMPT_RULES_MARKDOWN = `## OCR Corrections
 
@@ -31,6 +32,7 @@ const DEFAULT_PROMPT_RULES_MARKDOWN = `## OCR Corrections
 export function ProjectSettingsRulesPage() {
   const params = useParams();
   const projectId = Number(params.id);
+  const navigate = useNavigate();
   const baseId = useId();
   const { t } = useI18n();
 
@@ -40,6 +42,7 @@ export function ProjectSettingsRulesPage() {
   const { schema, isLoading: schemaLoading } = useSchema(schemaId);
   const schemaRecord = schema;
   const { updateSchema, isUpdating } = useSchemas();
+  const schemaReady = isSchemaReadyForRules(schemaRecord);
 
   const savedPromptRulesMarkdown = useMemo(() => {
     const raw = (schemaRecord?.validationSettings as Record<string, unknown> | null | undefined)
@@ -139,9 +142,19 @@ export function ProjectSettingsRulesPage() {
         <div className="flex justify-center py-12">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent" />
         </div>
-      ) : !schemaId || !schemaRecord ? (
-        <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-          Schema is not available yet. Run the first extraction to generate it.
+      ) : !schemaId || !schemaRecord || !schemaReady ? (
+        <div className="rounded-lg border border-border bg-card p-6">
+          <p className="text-sm font-medium text-foreground">{t('rules.settings.noSchemaTitle')}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('rules.settings.noSchemaMessage')}</p>
+          <div className="mt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => navigate(`/projects/${projectId}/settings/schema`)}
+            >
+              {t('rules.settings.goToSchemaCta')}
+            </Button>
+          </div>
         </div>
       ) : (
         <>

@@ -14,13 +14,15 @@ import { useI18n } from '@/shared/providers/I18nProvider';
 export type SettingsDropdownProps = {
   projectId: number;
   schemaId?: number | null;
+  schemaReady?: boolean;
   onDelete?: () => void;
 };
 
-export function SettingsDropdown({ projectId, schemaId, onDelete }: SettingsDropdownProps) {
+export function SettingsDropdown({ projectId, schemaId, schemaReady, onDelete }: SettingsDropdownProps) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const hasSchema = Boolean(schemaId);
+  const canEditRules = Boolean(schemaReady ?? hasSchema);
   const schemaLink = `/projects/${projectId}/settings/schema`;
   const rulesLink = schemaId ? `/projects/${projectId}/settings/rules` : null;
   const scriptsLink = `/projects/${projectId}/settings/validation-scripts`;
@@ -56,13 +58,13 @@ export function SettingsDropdown({ projectId, schemaId, onDelete }: SettingsDrop
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => rulesLink && navigate(rulesLink)}
-          disabled={!hasSchema}
+          disabled={!canEditRules}
         >
           {t('project.settingsDropdown.rules')}
         </DropdownMenuItem>
-        {!hasSchema && (
+        {!canEditRules && (
           <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-            {t('project.settingsDropdown.availableAfterFirstExtraction')}
+            {t('project.settingsDropdown.rulesRequiresSchema')}
           </DropdownMenuLabel>
         )}
         <DropdownMenuItem onClick={() => navigate(scriptsLink)}>

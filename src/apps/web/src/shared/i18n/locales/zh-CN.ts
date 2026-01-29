@@ -255,7 +255,8 @@ export const zhCNMessages: Record<string, string> = {
   'project.settingsDropdown.schema': '字段结构',
   'project.settingsDropdown.rules': '规则',
   'project.settingsDropdown.availableAfterFirstExtraction': '首次提取后可用',
-  'project.settingsShell.noSchemaHint': '暂无字段结构。请打开字段结构页面创建一个（随后规则将可用）。',
+  'project.settingsDropdown.rulesRequiresSchema': '规则将在字段结构定义字段后可用',
+  'project.settingsShell.noSchemaHint': '规则将在字段结构定义字段后可用。',
   'project.settingsDropdown.validationScripts': '校验脚本',
   'validationScripts.title': '校验脚本',
   'validationScripts.countLine': '{{count}} 个脚本',
@@ -285,6 +286,10 @@ export const zhCNMessages: Record<string, string> = {
   'schema.settings.deleteTitle': '删除字段结构',
   'schema.settings.deleteMessage': '确定要删除该字段结构吗？',
   'schema.settings.deleteFailedTitle': '删除字段结构失败',
+
+  'rules.settings.noSchemaTitle': '规则需要字段结构字段',
+  'rules.settings.noSchemaMessage': '请先完善字段结构（定义字段），然后再回到这里编辑规则。',
+  'rules.settings.goToSchemaCta': '前往字段结构',
   'project.settingsDropdown.dangerZone': '危险区域',
   'project.settingsDropdown.deleteProject': '删除项目',
 

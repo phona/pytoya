@@ -15,6 +15,7 @@ import { getApiErrorText } from '@/api/client';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
 import { AppBreadcrumbs } from '@/shared/components/AppBreadcrumbs';
 import { useI18n } from '@/shared/providers/I18nProvider';
+import { isSchemaReadyForRules } from '@/shared/utils/schema';
 
 export function ProjectDetailPage() {
   const { t } = useI18n();
@@ -144,6 +145,7 @@ export function ProjectDetailPage() {
   }
 
   const projectSchema = projectSchemas[0];
+  const schemaReady = isSchemaReadyForRules(projectSchema);
 
   return (
     <div className="min-h-screen bg-background">
@@ -167,6 +169,7 @@ export function ProjectDetailPage() {
               <SettingsDropdown
                 projectId={projectId}
                 schemaId={projectSchema?.id}
+                schemaReady={schemaReady}
                 onDelete={handleDeleteProject}
               />
               <ExportButton
