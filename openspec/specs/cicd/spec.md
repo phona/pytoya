@@ -23,12 +23,11 @@ The CI pipeline SHALL publish Docker images and Helm charts to GitHub Container 
 ### Requirement: Deploy Is A Runner-Local Signal
 The deploy job SHALL invoke a runner-local script to signal deployment with minimal, immutable inputs.
 
-#### Scenario: Deploy job calls deploy.sh with stable contract
+#### Scenario: Deploy job calls deploy-pytoya.sh with stable contract
 - **GIVEN** the deploy job runs on a self-hosted runner
 - **WHEN** deployment is triggered
-- **THEN** the job SHALL invoke `/home/github-runner/deploy.sh`
+- **THEN** the job SHALL invoke `/home/github-runner/deploy-pytoya.sh`
 - **AND** the invocation SHALL pass only:
-  - `--app <app>`
   - `--chart oci://ghcr.io/<ORG>/charts/<chartId>`
   - `--chart-version <version>`
   - `--images '<json>'`
@@ -36,7 +35,7 @@ The deploy job SHALL invoke a runner-local script to signal deployment with mini
 #### Scenario: Deploy does not run on pull requests
 - **GIVEN** the workflow is triggered by `pull_request`
 - **WHEN** jobs are evaluated
-- **THEN** no job SHALL invoke `/home/github-runner/deploy.sh`
+- **THEN** no job SHALL invoke `/home/github-runner/deploy-pytoya.sh`
 
 ### Requirement: CI/CD Avoids Registry And Host Mutation
 The CI/CD workflow SHALL avoid mutating runner host configuration for registry access.
@@ -46,4 +45,3 @@ The CI/CD workflow SHALL avoid mutating runner host configuration for registry a
 - **THEN** it SHALL NOT modify `/etc/hosts`
 - **AND** it SHALL NOT enable Docker insecure registries
 - **AND** it SHALL NOT use registry hosts other than `ghcr.io`
-

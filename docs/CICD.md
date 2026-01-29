@@ -3,7 +3,7 @@
 This repo uses GitHub Actions to:
 - run CI checks (lint/type-check/tests)
 - publish Docker images + Helm chart to **GHCR only**
-- signal production deployment by invoking a runner-local script: `/home/github-runner/deploy.sh`
+- signal production deployment by invoking a runner-local script: `/home/github-runner/deploy-pytoya.sh`
 
 ## Architecture
 
@@ -14,7 +14,7 @@ flowchart LR
   B --> D[Push Helm OCI chart to GHCR]
   C --> E[Deploy job: self-hosted]
   D --> E
-  E --> F[/home/github-runner/deploy.sh/]
+  E --> F[/home/github-runner/deploy-pytoya.sh/]
   F --> G[Runner-owned deploy mechanism]
 ```
 
@@ -31,7 +31,6 @@ Notes:
 
 ### Recommended variables
 - `GHCR_OWNER`: defaults to `github.repository_owner`
-- `APP_ID`: defaults to `pytoya`
 - `CHART_ID`: defaults to `pytoya`
 
 ## Deploy job contract (runner-local)
@@ -39,20 +38,23 @@ Notes:
 The deploy job MUST only send a deployment signal:
 
 ```bash
-/home/github-runner/deploy.sh \
-  --app pytoya \
+/home/github-runner/deploy-pytoya.sh \
   --chart oci://ghcr.io/<ORG>/charts/pytoya \
   --chart-version <version> \
   --images '{"api":"ghcr.io/<ORG>/pytoya/api:<tag>","web":"ghcr.io/<ORG>/pytoya/web:<tag>"}'
 ```
 
 Reference implementation (copy to the runner path on Linux):
-- `scripts/deploy.sh`
+- `scripts/deploy-pytoya.sh`
 
 The runner owns:
 - Kubernetes credentials (`KUBECONFIG` / service account)
 - GHCR credentials for **pulling** chart/images (if private)
-- mapping from `--app` to environment-specific behavior (values files, namespaces, etc.)
+- environment-specific behavior (values files, namespaces, etc.)
+
+Runner prerequisites (for the reference script):
+- `helm`
+- `jq`
 
 ## K3s notes (private GHCR images)
 

@@ -15,7 +15,6 @@ concurrency:
 env:
   GHCR_REGISTRY: ghcr.io
   GHCR_OWNER: ${{ vars.GHCR_OWNER || github.repository_owner }}
-  APP_ID: ${{ vars.APP_ID || 'pytoya' }}
   CHART_ID: ${{ vars.CHART_ID || 'pytoya' }}
   API_IMAGE: pytoya/api
   WEB_IMAGE: pytoya/web
@@ -212,14 +211,12 @@ jobs:
       - name: Send deploy signal
         shell: bash
         env:
-          APP_ID: ${{ env.APP_ID }}
           CHART_REF: ${{ needs.prepare.outputs.chart_ref }}
           CHART_VERSION: ${{ needs.prepare.outputs.chart_version }}
           IMAGES_JSON: ${{ needs.prepare.outputs.images_json }}
         run: |
           set -euo pipefail
-          /home/github-runner/deploy.sh \
-            --app "${APP_ID}" \
+          /home/github-runner/deploy-pytoya.sh \
             --chart "${CHART_REF}" \
             --chart-version "${CHART_VERSION}" \
             --images "${IMAGES_JSON}"

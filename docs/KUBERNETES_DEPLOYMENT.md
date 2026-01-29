@@ -100,7 +100,7 @@ Notes:
 
 ### CI/CD deployment
 
-The GitHub Actions workflow publishes images + chart to GHCR and then signals deployment by invoking `/home/github-runner/deploy.sh` on a self-hosted runner.
+The GitHub Actions workflow publishes images + chart to GHCR and then signals deployment by invoking `/home/github-runner/deploy-pytoya.sh` on a self-hosted runner.
 
 See `docs/CICD.md` for the deploy contract and runner/cluster requirements.
 

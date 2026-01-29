@@ -4,17 +4,17 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  deploy.sh --app <app> --chart <oci-chart-ref> --chart-version <version> --images '<json>'
+  deploy-pytoya.sh --chart <oci-chart-ref> --chart-version <version> --images '<json>'
 
 Example:
-  /home/github-runner/deploy.sh \
-    --app pytoya \
+  /home/github-runner/deploy-pytoya.sh \
     --chart oci://ghcr.io/ORG/charts/pytoya \
     --chart-version 0.1.0-abcdef123456 \
     --images '{"api":"ghcr.io/ORG/pytoya/api:abcdef123456","web":"ghcr.io/ORG/pytoya/web:abcdef123456"}'
 
 Notes:
   - The cluster/runner owns kube credentials and GHCR pull credentials.
+  - This script requires jq for parsing the --images JSON.
   - This script expects tag-style image refs. Digest refs (@sha256:...) require Helm chart support.
 EOF
 }
@@ -27,15 +27,12 @@ require_cmd() {
   fi
 }
 
-APP=""
 CHART=""
 CHART_VERSION=""
 IMAGES_JSON=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --app)
-      APP="${2:-}"; shift 2 ;;
     --chart)
       CHART="${2:-}"; shift 2 ;;
     --chart-version)
@@ -51,7 +48,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "${APP}" || -z "${CHART}" || -z "${CHART_VERSION}" || -z "${IMAGES_JSON}" ]]; then
+if [[ -z "${CHART}" || -z "${CHART_VERSION}" || -z "${IMAGES_JSON}" ]]; then
   echo "Missing required arguments." >&2
   usage
   exit 2
@@ -64,37 +61,12 @@ if [[ "${CHART}" != oci://ghcr.io/*/charts/* ]]; then
 fi
 
 require_cmd helm
+require_cmd jq
 
 json_get() {
   local json="$1"
   local key="$2"
-  if command -v jq >/dev/null 2>&1; then
-    jq -r --arg k "${key}" '.[$k] // empty' <<<"${json}"
-    return 0
-  fi
-
-  if command -v python3 >/dev/null 2>&1; then
-    python3 - "${key}" <<<"${json}" <<'PY'
-import json,sys
-data=json.loads(sys.stdin.read())
-field=sys.argv[1]
-print(data.get(field,""))
-PY
-    return 0
-  fi
-
-  if command -v python >/dev/null 2>&1; then
-    python - "${key}" <<<"${json}" <<'PY'
-import json,sys
-data=json.loads(sys.stdin.read())
-field=sys.argv[1]
-print(data.get(field,""))
-PY
-    return 0
-  fi
-
-  echo "Need either jq, python3, or python to parse --images JSON." >&2
-  exit 2
+  jq -r --arg k "${key}" '.[$k] // empty' <<<"${json}"
 }
 
 api_ref="$(json_get "${IMAGES_JSON}" "api")"
@@ -168,9 +140,10 @@ if [[ "${api_registry}" != "${web_registry}" || "${api_registry}" != "${worker_r
   exit 2
 fi
 
-namespace="${APP}"
-release="${APP}"
-values_file="/home/github-runner/${APP}.values.yaml"
+app="pytoya"
+namespace="${app}"
+release="${app}"
+values_file="/home/github-runner/${app}.values.yaml"
 
 if [[ ! -f "${values_file}" ]]; then
   echo "Missing values file: ${values_file}" >&2
@@ -178,7 +151,7 @@ if [[ ! -f "${values_file}" ]]; then
 fi
 
 echo "Deploy signal received:"
-echo "  app=${APP}"
+echo "  app=${app}"
 echo "  namespace=${namespace}"
 echo "  release=${release}"
 echo "  chart=${CHART}"
