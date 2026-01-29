@@ -125,6 +125,19 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            display: API
+            dockerfile: src/apps/api/Dockerfile
+            build_args: ""
+          - name: web
+            display: Web
+            dockerfile: src/apps/web/Dockerfile
+            build_args: VITE_API_URL=/api
+    name: Build image (${{ matrix.display }})
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -139,24 +152,14 @@ jobs:
           username: ${{ secrets.GHCR_USERNAME || github.actor }}
           password: ${{ secrets.GHCR_TOKEN }}
 
-      - name: Build and push API image
+      - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: src/apps/api/Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: true
-          tags: ${{ needs.prepare.outputs.api_ref }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and push Web image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: src/apps/web/Dockerfile
-          push: true
-          build-args: VITE_API_URL=/api
-          tags: ${{ needs.prepare.outputs.web_ref }}
+          build-args: ${{ matrix.build_args }}
+          tags: ${{ matrix.name == 'api' && needs.prepare.outputs.api_ref || needs.prepare.outputs.web_ref }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
