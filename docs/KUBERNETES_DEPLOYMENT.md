@@ -104,6 +104,11 @@ The GitHub Actions workflow publishes images + chart to GHCR and then signals de
 
 See `docs/CICD.md` for the deploy contract and runner/cluster requirements.
 
+Quick checklist for private GHCR:
+- Runner can pull the chart: `helm registry login ghcr.io ...` (runner-local credential)
+- K3s can pull images: either `global.imagePullSecrets` + `docker-registry` secret, or K3s `registries.yaml`
+- Runner can reach the cluster: valid `KUBECONFIG` for the user executing the deploy script
+
 ## NodePort (No Ingress)
 
 If you don't have (or don't want) an Ingress controller, you can expose Services via NodePort.
