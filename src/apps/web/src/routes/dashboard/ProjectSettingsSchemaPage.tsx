@@ -11,6 +11,12 @@ import { useProjectSchemas, useSchema, useSchemas } from '@/shared/hooks/use-sch
 import { canonicalizeJsonSchemaForDisplay } from '@/shared/utils/schema';
 import { useI18n } from '@/shared/providers/I18nProvider';
 
+const DEFAULT_PROJECT_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {},
+  required: [],
+};
+
 export function ProjectSettingsSchemaPage() {
   const { confirm, alert, ModalDialog } = useModalDialog();
   const { t } = useI18n();
@@ -21,7 +27,7 @@ export function ProjectSettingsSchemaPage() {
   const { schemas, isLoading: projectSchemasLoading } = useProjectSchemas(projectId);
   const schemaId = schemas[0]?.id ?? 0;
   const { schema, isLoading: schemaLoading } = useSchema(schemaId);
-  const { updateSchema, deleteSchema, isUpdating, isDeleting } = useSchemas();
+  const { createSchema, updateSchema, deleteSchema, isCreating, isUpdating, isDeleting } = useSchemas();
   const schemaRecord = schema;
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -85,8 +91,26 @@ export function ProjectSettingsSchemaPage() {
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent" />
         </div>
       ) : !schemaId || !schemaRecord ? (
-        <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-          {t('schema.settings.notAvailable')}
+        <div className="rounded-lg border border-border bg-card p-6">
+          <p className="text-sm text-muted-foreground">{t('schema.settings.notAvailable')}</p>
+          <div className="mt-4">
+            <Button
+              type="button"
+              onClick={async () => {
+                try {
+                  await createSchema({ projectId, jsonSchema: DEFAULT_PROJECT_SCHEMA });
+                } catch (error) {
+                  void alert({
+                    title: t('schema.settings.createFailedTitle'),
+                    message: getApiErrorText(error, t),
+                  });
+                }
+              }}
+              disabled={isCreating}
+            >
+              {t('schema.settings.createCta')}
+            </Button>
+          </div>
         </div>
       ) : (
         <>

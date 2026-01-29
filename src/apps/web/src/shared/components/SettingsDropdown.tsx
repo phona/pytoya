@@ -21,7 +21,7 @@ export function SettingsDropdown({ projectId, schemaId, onDelete }: SettingsDrop
   const { t } = useI18n();
   const navigate = useNavigate();
   const hasSchema = Boolean(schemaId);
-  const schemaLink = schemaId ? `/projects/${projectId}/settings/schema` : null;
+  const schemaLink = `/projects/${projectId}/settings/schema`;
   const rulesLink = schemaId ? `/projects/${projectId}/settings/rules` : null;
   const scriptsLink = `/projects/${projectId}/settings/validation-scripts`;
 
@@ -50,8 +50,7 @@ export function SettingsDropdown({ projectId, schemaId, onDelete }: SettingsDrop
         <DropdownMenuSeparator />
         <DropdownMenuLabel>{t('project.settingsDropdown.dataLabel')}</DropdownMenuLabel>
         <DropdownMenuItem
-          onClick={() => schemaLink && navigate(schemaLink)}
-          disabled={!hasSchema}
+          onClick={() => navigate(schemaLink)}
         >
           {t('project.settingsDropdown.schema')}
         </DropdownMenuItem>

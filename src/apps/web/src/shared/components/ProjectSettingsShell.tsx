@@ -5,6 +5,7 @@ import { AppBreadcrumbs } from '@/shared/components/AppBreadcrumbs';
 import { useProject } from '@/shared/hooks/use-projects';
 import { useProjectSchemas } from '@/shared/hooks/use-schemas';
 import { cn } from '@/shared/lib/utils';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 export type ProjectSettingsTab = 'basic' | 'models' | 'extractors' | 'costs' | 'schema' | 'rules' | 'scripts';
 
@@ -20,33 +21,10 @@ const projectSettingsTabs = ['basic', 'models', 'extractors', 'costs', 'schema',
 
 const tabToPath = (projectId: number, tab: ProjectSettingsTab, schemaId: number | null) => {
   if (tab === 'costs') return `/projects/${projectId}/settings/costs`;
-  if (tab === 'schema') return schemaId ? `/projects/${projectId}/settings/schema` : null;
+  if (tab === 'schema') return `/projects/${projectId}/settings/schema`;
   if (tab === 'rules') return schemaId ? `/projects/${projectId}/settings/rules` : null;
   if (tab === 'scripts') return `/projects/${projectId}/settings/validation-scripts`;
   return `/projects/${projectId}/settings/${tab}`;
-};
-
-const tabToLabel = (tab: ProjectSettingsTab) => {
-  switch (tab) {
-    case 'basic':
-      return 'Basic';
-    case 'models':
-      return 'Models';
-    case 'extractors':
-      return 'Extractors';
-    case 'costs':
-      return 'Costs';
-    case 'schema':
-      return 'Schema';
-    case 'rules':
-      return 'Rules';
-    case 'scripts':
-      return 'Validation Scripts';
-    default: {
-      const exhaustive: never = tab;
-      return exhaustive;
-    }
-  }
 };
 
 export function ProjectSettingsShell({
@@ -56,12 +34,22 @@ export function ProjectSettingsShell({
   containerClassName,
   children,
 }: ProjectSettingsShellProps) {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const { project } = useProject(projectId);
   const { schemas } = useProjectSchemas(projectId);
   const schemaId = schemaIdOverride ?? schemas[0]?.id ?? null;
   const projectLabel = project?.name ?? `Project ${projectId}`;
-  const activeTabLabel = tabToLabel(activeTab);
+  const tabLabels: Record<ProjectSettingsTab, string> = {
+    basic: t('project.settingsDropdown.basic'),
+    models: t('project.settingsDropdown.models'),
+    extractors: t('project.settingsDropdown.extractors'),
+    costs: t('project.settingsDropdown.costs'),
+    schema: t('project.settingsDropdown.schema'),
+    rules: t('project.settingsDropdown.rules'),
+    scripts: t('project.settingsDropdown.validationScripts'),
+  };
+  const activeTabLabel = tabLabels[activeTab];
 
   return (
     <div className="min-h-screen bg-background">
@@ -86,19 +74,19 @@ export function ProjectSettingsShell({
           }}
         >
           <TabsList className="w-full justify-start overflow-x-auto" aria-label="Project settings sections">
-            <TabsTrigger value="basic">Basic</TabsTrigger>
-            <TabsTrigger value="models">Models</TabsTrigger>
-            <TabsTrigger value="extractors">Extractors</TabsTrigger>
-            <TabsTrigger value="costs">Costs</TabsTrigger>
-            <TabsTrigger value="schema" disabled={!schemaId}>Schema</TabsTrigger>
-            <TabsTrigger value="rules" disabled={!schemaId}>Rules</TabsTrigger>
-            <TabsTrigger value="scripts">Scripts</TabsTrigger>
+            <TabsTrigger value="basic">{tabLabels.basic}</TabsTrigger>
+            <TabsTrigger value="models">{tabLabels.models}</TabsTrigger>
+            <TabsTrigger value="extractors">{tabLabels.extractors}</TabsTrigger>
+            <TabsTrigger value="costs">{tabLabels.costs}</TabsTrigger>
+            <TabsTrigger value="schema">{tabLabels.schema}</TabsTrigger>
+            <TabsTrigger value="rules" disabled={!schemaId}>{tabLabels.rules}</TabsTrigger>
+            <TabsTrigger value="scripts">{tabLabels.scripts}</TabsTrigger>
           </TabsList>
         </Tabs>
 
         {!schemaId ? (
           <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-            Schema and Rules are available after first extraction.
+            {t('project.settingsShell.noSchemaHint')}
           </div>
         ) : null}
 

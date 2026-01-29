@@ -83,4 +83,48 @@ describe('ProjectSettingsSchemaPage', () => {
       expect(patched).toEqual({ jsonSchema: nextJsonSchema });
     });
   });
+
+  it('creates an empty schema when none exists', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    let projectSchemas: any[] = [];
+    let createdBody: Record<string, unknown> | null = null;
+
+    server.use(
+      http.get('/api/schemas/project/1', () => HttpResponse.json(projectSchemas)),
+      http.get('/api/schemas/:id', ({ params }) => {
+        const id = Number(params.id);
+        const found = projectSchemas.find((s) => s.id === id);
+        return found ? HttpResponse.json(found) : HttpResponse.json(null, { status: 404 });
+      }),
+      http.post('/api/schemas', async ({ request }) => {
+        createdBody = (await request.json()) as Record<string, unknown>;
+        const created = {
+          id: 55,
+          name: 'Schema 1',
+          jsonSchema: createdBody.jsonSchema ?? { type: 'object', properties: {}, required: [] },
+          requiredFields: [],
+          projectId: createdBody.projectId ?? 1,
+          description: null,
+          systemPromptTemplate: null,
+          validationSettings: null,
+          createdAt: '2025-01-13T00:00:00.000Z',
+          updatedAt: '2025-01-13T00:00:00.000Z',
+        };
+        projectSchemas = [created];
+        return HttpResponse.json(created);
+      }),
+    );
+
+    await act(async () => {
+      renderWithProviders(<ProjectSettingsSchemaPage />, { route: '/projects/1/settings/schema' });
+    });
+
+    await user.click(await screen.findByRole('button', { name: /Create schema/i }));
+
+    await waitFor(() => {
+      expect(createdBody).toEqual({ projectId: 1, jsonSchema: { type: 'object', properties: {}, required: [] } });
+    });
+
+    await screen.findByText('Schema 1');
+  });
 });

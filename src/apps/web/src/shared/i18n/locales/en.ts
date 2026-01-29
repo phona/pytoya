@@ -65,6 +65,9 @@ export const enMessages: Record<string, string> = {
   'projects.startWith': 'Start with',
   'projects.quickCreate': 'Quick Create',
   'projects.guidedSetup': 'Guided Setup',
+  'projects.quickCreate.title': 'Quick Create Project',
+  'projects.quickCreate.description':
+    'Create a project with a name, text extractor, and LLM model. An empty schema is created so you can edit Schema and Rules immediately.',
   'projects.guidedSetup.title': 'Guided project setup',
   'projects.guidedSetup.subtitle':
     'Set up models, schema, rules, and validation scripts in a guided flow.',
@@ -261,6 +264,7 @@ export const enMessages: Record<string, string> = {
   'project.settingsDropdown.schema': 'Schema',
   'project.settingsDropdown.rules': 'Rules',
   'project.settingsDropdown.availableAfterFirstExtraction': 'Available after first extraction',
+  'project.settingsShell.noSchemaHint': 'No schema yet. Open Schema to create one (Rules unlock after that).',
   'project.settingsDropdown.validationScripts': 'Validation Scripts',
   'validationScripts.title': 'Validation Scripts',
   'validationScripts.countLine': '{{count}} script{{plural}}',
@@ -283,7 +287,9 @@ export const enMessages: Record<string, string> = {
 
   'schema.settings.editTitle': 'Edit schema',
   'schema.settings.jsonSchemaTitle': 'JSON Schema',
-  'schema.settings.notAvailable': 'Schema is not available yet. Run the first extraction to generate it.',
+  'schema.settings.notAvailable': 'No schema yet. Create one to start editing (Rules unlock after that).',
+  'schema.settings.createCta': 'Create schema',
+  'schema.settings.createFailedTitle': 'Create schema failed',
   'schema.settings.updateFailedTitle': 'Update schema failed',
   'schema.settings.deleteTitle': 'Delete schema',
   'schema.settings.deleteMessage': 'Are you sure you want to delete this schema?',

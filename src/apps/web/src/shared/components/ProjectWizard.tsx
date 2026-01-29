@@ -5,6 +5,7 @@ import { useModels } from '@/shared/hooks/use-models';
 import { useExtractors } from '@/shared/hooks/use-extractors';
 import { useProjects } from '@/shared/hooks/use-projects';
 import { useI18n } from '@/shared/providers/I18nProvider';
+import { schemasApi } from '@/api/schemas';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/shared/components/ui/select';
+
+const DEFAULT_PROJECT_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {},
+  required: [],
+};
 
 export type ProjectWizardProps = {
   isOpen: boolean;
@@ -74,6 +81,10 @@ export function ProjectWizard({ isOpen, onClose, onCreated }: ProjectWizardProps
         llmModelId,
       };
       const project = await createProject(payload);
+      await schemasApi.createSchema({
+        projectId: project.id,
+        jsonSchema: DEFAULT_PROJECT_SCHEMA,
+      });
       onCreated(project.id);
       resetForm();
     } catch (err) {
@@ -96,9 +107,9 @@ export function ProjectWizard({ isOpen, onClose, onCreated }: ProjectWizardProps
     >
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Quick Create Project</DialogTitle>
+          <DialogTitle>{t('projects.quickCreate.title')}</DialogTitle>
           <DialogDescription>
-            Create a project with a name, text extractor, and LLM model. Configure schema, rules, and scripts later.
+            {t('projects.quickCreate.description')}
           </DialogDescription>
         </DialogHeader>
 

@@ -59,6 +59,21 @@ const setupHandlers = () => {
         updatedAt: '2025-01-15T00:00:00.000Z',
       });
     }),
+    http.post('/api/schemas', async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({
+        id: 10,
+        name: 'Schema 1',
+        jsonSchema: body.jsonSchema ?? { type: 'object', properties: {}, required: [] },
+        requiredFields: [],
+        projectId: body.projectId ?? 1,
+        description: null,
+        systemPromptTemplate: null,
+        validationSettings: null,
+        createdAt: '2025-01-15T00:00:00.000Z',
+        updatedAt: '2025-01-15T00:00:00.000Z',
+      });
+    }),
   );
 };
 

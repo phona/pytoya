@@ -27,17 +27,21 @@ export function useSchemas() {
 
   const createSchema = useMutation({
     mutationFn: (data: CreateSchemaDto) => schemasApi.createSchema(data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['schemas'] });
+      queryClient.invalidateQueries({ queryKey: ['schemas', 'project', variables.projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project', variables.projectId] });
     },
   });
 
   const updateSchema = useMutation({
     mutationFn: ({ id, data }: { id: number; data: UpdateSchemaDto }) =>
       schemasApi.updateSchema(id, data),
-    onSuccess: (_, variables) => {
+    onSuccess: (updatedSchema, variables) => {
       queryClient.invalidateQueries({ queryKey: ['schemas'] });
       queryClient.invalidateQueries({ queryKey: ['schema', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['schemas', 'project', updatedSchema.projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project', updatedSchema.projectId] });
     },
   });
 
