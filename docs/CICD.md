@@ -46,6 +46,9 @@ The deploy job MUST only send a deployment signal:
   --images '{"api":"ghcr.io/<ORG>/pytoya/api:<tag>","web":"ghcr.io/<ORG>/pytoya/web:<tag>"}'
 ```
 
+Reference implementation (copy to the runner path on Linux):
+- `scripts/deploy.sh`
+
 The runner owns:
 - Kubernetes credentials (`KUBECONFIG` / service account)
 - GHCR credentials for **pulling** chart/images (if private)
@@ -58,4 +61,3 @@ To let K3s pull private GHCR images, configure one of:
 - node-level `/etc/rancher/k3s/registries.yaml`
 
 This is runner/cluster configuration and is intentionally not stored in GitHub Actions.
-
