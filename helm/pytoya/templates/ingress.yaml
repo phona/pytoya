@@ -1,15 +1,11 @@
-{{- if and .Values.ingress.enabled (or .Values.api.ingress.enabled .Values.web.ingress.enabled) }}
+{{- $apiIngress := default dict .Values.api.ingress -}}
+{{- $webIngress := default dict .Values.web.ingress -}}
+{{- if and .Values.ingress.enabled (or (default false $apiIngress.enabled) (default false $webIngress.enabled)) }}
 {{- $ns := default .Release.Namespace .Values.global.namespace -}}
 {{- $fullName := include "pytoya.fullname" . -}}
 {{- $hosts := .Values.ingress.hosts -}}
-{{- if not $hosts }}
-{{- $hosts = .Values.api.ingress.hosts -}}
-{{- end }}
-{{- if not $hosts }}
-{{- $hosts = .Values.web.ingress.hosts -}}
-{{- end }}
-{{- $apiPath := default "/api" .Values.api.ingress.paths -}}
-{{- $webPath := default "/" .Values.web.ingress.paths -}}
+{{- $apiPath := default "/api" $apiIngress.paths -}}
+{{- $webPath := default "/" $webIngress.paths -}}
 {{- $className := .Values.ingress.className -}}
 {{- if and (not $className) (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class") -}}
 {{- $className = index .Values.ingress.annotations "kubernetes.io/ingress.class" -}}
@@ -41,7 +37,7 @@ spec:
     - host: {{ $host }}
       http:
         paths:
-            {{- if and $.Values.api.enabled $.Values.api.ingress.enabled }}
+            {{- if and $.Values.api.enabled (default false $apiIngress.enabled) }}
             - path: {{ $apiPath }}
               pathType: Prefix
               backend:
@@ -50,7 +46,7 @@ spec:
                   port:
                     number: {{ $.Values.api.service.port }}
             {{- end }}
-            {{- if and $.Values.web.enabled $.Values.web.ingress.enabled }}
+            {{- if and $.Values.web.enabled (default false $webIngress.enabled) }}
             - path: {{ $webPath }}
               pathType: Prefix
               backend:
@@ -63,7 +59,7 @@ spec:
     {{- else }}
     - http:
         paths:
-          {{- if and $.Values.api.enabled $.Values.api.ingress.enabled }}
+          {{- if and $.Values.api.enabled (default false $apiIngress.enabled) }}
           - path: {{ $apiPath }}
             pathType: Prefix
             backend:
@@ -72,7 +68,7 @@ spec:
                 port:
                   number: {{ $.Values.api.service.port }}
           {{- end }}
-          {{- if and $.Values.web.enabled $.Values.web.ingress.enabled }}
+          {{- if and $.Values.web.enabled (default false $webIngress.enabled) }}
           - path: {{ $webPath }}
             pathType: Prefix
             backend:

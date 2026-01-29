@@ -20,10 +20,6 @@ api:
     type: ClusterIP
     port: 3000
     nodePort: null
-  ingress:
-    enabled: true
-    hosts: []
-    paths: /api
   resources:
     requests:
       cpu: "1"
@@ -131,10 +127,6 @@ web:
     type: ClusterIP
     port: 80
     nodePort: null
-  ingress:
-    enabled: true
-    hosts: []
-    paths: /
   resources:
     requests:
       cpu: "500m"

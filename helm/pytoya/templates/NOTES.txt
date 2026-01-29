@@ -1,58 +1,48 @@
 {{- $ns := default .Release.Namespace .Values.global.namespace -}}
+{{- $fullname := include "pytoya.fullname" . -}}
+{{- $apiIngress := default dict .Values.api.ingress -}}
+{{- $webIngress := default dict .Values.web.ingress -}}
+{{- $hasIngress := and .Values.ingress.enabled (or (default false $apiIngress.enabled) (default false $webIngress.enabled)) -}}
 
 PyToYa has been deployed.
 
-Secrets:
-  DB password (API):
-    kubectl get secret {{ include "pytoya.fullname" . }}-secrets \
-      -n {{ $ns }} \
-      -o jsonpath='{.data.DB_PASSWORD}' | base64 -d
+Release:
+  {{ .Release.Name }}
 
-  JWT secret (API):
-    kubectl get secret {{ include "pytoya.fullname" . }}-secrets \
-      -n {{ $ns }} \
-      -o jsonpath='{.data.JWT_SECRET}' | base64 -d
+Namespace:
+  {{ $ns }}
 
 Access:
-  Ingress hosts:
+{{- if $hasIngress }}
+  Ingress:
   {{- if .Values.ingress.hosts }}
   {{- range .Values.ingress.hosts }}
-    http(s)://{{ . }}
+    http(s)://{{ . }}/
   {{- end }}
   {{- else }}
-    kubectl get ingress {{ include "pytoya.fullname" . }} \
-      -n {{ $ns }}
+    kubectl get ingress {{ $fullname }} -n {{ $ns }}
   {{- end }}
+{{- else }}
+  Port-forward (no Ingress):
+  {{- if .Values.web.enabled }}
+    kubectl port-forward -n {{ $ns }} svc/{{ $fullname }}-web 8080:{{ .Values.web.service.port }}
+    Web: http://localhost:8080/
+  {{- end }}
+  {{- if .Values.api.enabled }}
+    kubectl port-forward -n {{ $ns }} svc/{{ $fullname }}-api 3000:{{ .Values.api.service.port }}
+    API health: http://localhost:3000{{ default "/api/health" .Values.api.healthCheck.path }}
+  {{- end }}
+{{- end }}
 
 Status:
   kubectl get pods -n {{ $ns }}
-  kubectl get services -n {{ $ns }}
-  kubectl get ingress -n {{ $ns }}
 
 User management (create-only):
   Create the default admin (runs only if no admin exists):
-    kubectl exec -n {{ $ns }} deploy/{{ include "pytoya.fullname" . }}-api -c api -- \
-      node dist/cli.js newadmin --username <admin_username> --password <admin_password>
+    kubectl exec -n {{ $ns }} deploy/{{ $fullname }}-api -c api -- node dist/cli.js newadmin --username <admin_username> --password <admin_password>
 
   Create a non-admin user (runs only if user does not exist):
-    kubectl exec -n {{ $ns }} deploy/{{ include "pytoya.fullname" . }}-api -c api -- \
-      node dist/cli.js newuser --username <username> --password <password>
+    kubectl exec -n {{ $ns }} deploy/{{ $fullname }}-api -c api -- node dist/cli.js newuser --username <username> --password <password>
 
-Local dev (uses src/apps/api/.env.local):
-  npm run cli --workspace=@pytoya/api -- newadmin -u <admin_username> -p "<admin_password>"
-  npm run cli --workspace=@pytoya/api -- newuser -u <username> -p "<password>"
-
-External DB/Redis example (values):
-  api:
-    config:
-      database:
-        host: "<db-host>"
-        port: 5432
-        username: "<db-username>"
-        database: "<db-name>"
-      redis:
-        host: "<redis-host>"
-        port: 6379
-  secrets:
-    dbPassword: "<db-password>"
-    jwtSecret: "<jwt-secret>"
+Docs:
+  See docs/KUBERNETES_DEPLOYMENT.md for full deployment options.

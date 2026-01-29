@@ -20,6 +20,9 @@ spec:
       labels:
         {{- include "pytoya.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: api
+      annotations:
+        checksum/config: {{ include "pytoya.configYaml" . | sha256sum }}
+        checksum/secret: {{ include "pytoya.secretsStringData" . | sha256sum }}
     spec:
       serviceAccountName: {{ include "pytoya.fullname" . }}-api
       {{- if .Values.global.imagePullSecrets }}
