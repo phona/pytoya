@@ -4,7 +4,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Job, Queue } from 'bullmq';
 import { Repository } from 'typeorm';
 
+import { UserRole } from '../entities/user.entity';
 import { ManifestEntity } from '../entities/manifest.entity';
+import { JobEntity, JobStatus } from '../entities/job.entity';
 import { JobNotFoundException } from '../queue/exceptions/job-not-found.exception';
 import { EXTRACTION_QUEUE } from '../queue/queue.constants';
 import { JobsFilterDto } from './dto/jobs-filter.dto';
@@ -38,6 +40,8 @@ export class JobsService {
     private readonly extractionQueue: Queue,
     @InjectRepository(ManifestEntity)
     private readonly manifestRepository: Repository<ManifestEntity>,
+    @InjectRepository(JobEntity)
+    private readonly jobRepository: Repository<JobEntity>,
   ) {}
 
   async getJobById(id: string): Promise<JobSummary> {
@@ -77,24 +81,60 @@ export class JobsService {
     };
   }
 
-  async getJobStats() {
-    const counts = await this.extractionQueue.getJobCounts(
-      'active',
-      'waiting',
-      'delayed',
-      'paused',
-      'completed',
-      'failed',
-    );
+  async getJobStats(user: { id: number; role: UserRole }) {
+    const isPaused = await this.extractionQueue.isPaused();
+
+    if (user.role === UserRole.ADMIN) {
+      const counts = await this.extractionQueue.getJobCounts(
+        'active',
+        'waiting',
+        'delayed',
+        'paused',
+        'completed',
+        'failed',
+      );
+
+      return {
+        active: counts.active ?? 0,
+        waiting: counts.waiting ?? 0,
+        delayed: counts.delayed ?? 0,
+        paused: counts.paused ?? 0,
+        completed: counts.completed ?? 0,
+        failed: counts.failed ?? 0,
+        isPaused,
+      };
+    }
+
+    const rows = await this.jobRepository
+      .createQueryBuilder('job')
+      .leftJoin('job.manifest', 'manifest')
+      .leftJoin('manifest.group', 'group')
+      .leftJoin('group.project', 'project')
+      .select('job.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .where('project.ownerId = :ownerId', { ownerId: user.id })
+      .groupBy('job.status')
+      .getRawMany<{ status: JobStatus; count: string }>();
+
+    const countsByStatus = new Map<JobStatus, number>();
+    for (const row of rows) {
+      const parsed = Number(row.count);
+      countsByStatus.set(row.status, Number.isFinite(parsed) ? parsed : 0);
+    }
+
+    const waiting = (countsByStatus.get(JobStatus.PENDING) ?? 0);
+    const active = (countsByStatus.get(JobStatus.PROCESSING) ?? 0);
+    const completed = (countsByStatus.get(JobStatus.COMPLETED) ?? 0);
+    const failed = (countsByStatus.get(JobStatus.FAILED) ?? 0);
 
     return {
-      active: counts.active ?? 0,
-      waiting: counts.waiting ?? 0,
-      delayed: counts.delayed ?? 0,
-      paused: counts.paused ?? 0,
-      completed: counts.completed ?? 0,
-      failed: counts.failed ?? 0,
-      isPaused: await this.extractionQueue.isPaused(),
+      active,
+      waiting,
+      delayed: 0,
+      paused: 0,
+      completed,
+      failed,
+      isPaused,
     };
   }
 

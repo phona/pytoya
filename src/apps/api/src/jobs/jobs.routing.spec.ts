@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PoliciesGuard } from '../auth/casl/policies.guard';
 import { JobNotFoundException } from '../queue/exceptions/job-not-found.exception';
 import { QueueController } from '../queue/queue.controller';
 import { QueueService } from '../queue/queue.service';
@@ -31,6 +32,14 @@ describe('Jobs routing', () => {
       ],
     })
       .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate: (context: any) => {
+          const req = context.switchToHttp().getRequest();
+          req.user = { id: 1, role: 'admin', username: 'admin' };
+          return true;
+        },
+      })
+      .overrideGuard(PoliciesGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -75,7 +84,7 @@ describe('Jobs routing', () => {
       .get('/jobs/history?limit=100')
       .expect(200);
 
-    expect(queueService.getJobHistory).toHaveBeenCalledWith(undefined, 100);
+    expect(queueService.getJobHistory).toHaveBeenCalledWith(expect.any(Object), undefined, 100);
     expect(jobsService.getJobById).not.toHaveBeenCalled();
     expect(response.body).toHaveLength(1);
   });

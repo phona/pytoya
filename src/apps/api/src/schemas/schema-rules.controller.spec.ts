@@ -7,6 +7,7 @@ import { SchemaRuleEntity, SchemaRuleOperator, SchemaRuleType } from '../entitie
 import { SchemaEntity } from '../entities/schema.entity';
 import { SchemaRulesController } from './schema-rules.controller';
 import { SchemaRulesService } from './schema-rules.service';
+import { SchemasService } from './schemas.service';
 
 describe('SchemaRulesController', () => {
   let app: INestApplication;
@@ -15,6 +16,9 @@ describe('SchemaRulesController', () => {
     create: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
+  };
+  const schemasService = {
+    findOne: jest.fn(),
   };
 
   const rule: SchemaRuleEntity = {
@@ -35,10 +39,19 @@ describe('SchemaRulesController', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [SchemaRulesController],
-      providers: [{ provide: SchemaRulesService, useValue: schemaRulesService }],
+      providers: [
+        { provide: SchemaRulesService, useValue: schemaRulesService },
+        { provide: SchemasService, useValue: schemasService },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: () => true })
+      .useValue({
+        canActivate: (context: any) => {
+          const req = context.switchToHttp().getRequest();
+          req.user = { id: 1, role: 'admin', username: 'admin' };
+          return true;
+        },
+      })
       .compile();
 
     app = moduleRef.createNestApplication();
@@ -54,6 +67,7 @@ describe('SchemaRulesController', () => {
   });
 
   it('lists schema rules', async () => {
+    schemasService.findOne.mockResolvedValue({ id: 1 } as any);
     schemaRulesService.findBySchema.mockResolvedValue([rule]);
 
     const response = await request(app.getHttpServer())
@@ -66,6 +80,7 @@ describe('SchemaRulesController', () => {
   });
 
   it('creates a schema rule', async () => {
+    schemasService.findOne.mockResolvedValue({ id: 1 } as any);
     schemaRulesService.create.mockResolvedValue(rule);
 
     const response = await request(app.getHttpServer())
@@ -84,6 +99,7 @@ describe('SchemaRulesController', () => {
   });
 
   it('updates a schema rule', async () => {
+    schemasService.findOne.mockResolvedValue({ id: 1 } as any);
     schemaRulesService.update.mockResolvedValue({ ...rule, priority: 9 });
 
     const response = await request(app.getHttpServer())
@@ -96,6 +112,7 @@ describe('SchemaRulesController', () => {
   });
 
   it('removes a schema rule', async () => {
+    schemasService.findOne.mockResolvedValue({ id: 1 } as any);
     schemaRulesService.remove.mockResolvedValue(rule);
 
     const response = await request(app.getHttpServer())

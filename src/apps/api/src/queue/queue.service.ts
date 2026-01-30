@@ -6,7 +6,7 @@ import { Repository } from 'typeorm';
 
 import { JobEntity } from '../entities/job.entity';
 import { ManifestsService } from '../manifests/manifests.service';
-import { UserEntity } from '../entities/user.entity';
+import { UserEntity, UserRole } from '../entities/user.entity';
 import { JobNotFoundException } from './exceptions/job-not-found.exception';
 import { QueueProcessingException } from './exceptions/queue-processing.exception';
 import { EXTRACTION_QUEUE, PROCESS_MANIFEST_JOB, REFRESH_OCR_JOB } from './queue.constants';
@@ -243,6 +243,7 @@ export class QueueService {
   }
 
   async getJobHistory(
+    user: UserEntity,
     manifestId?: number,
     limit = 50,
   ): Promise<JobHistoryDto[]> {
@@ -250,11 +251,16 @@ export class QueueService {
     const query = this.jobRepository
       .createQueryBuilder('job')
       .leftJoinAndSelect('job.manifest', 'manifest')
+      .leftJoin('manifest.group', 'group')
+      .leftJoin('group.project', 'project')
       .orderBy('job.createdAt', 'DESC')
       .take(take);
 
     if (manifestId) {
+      await this.manifestsService.findOne(user, manifestId);
       query.where('job.manifestId = :manifestId', { manifestId });
+    } else if (user.role !== UserRole.ADMIN) {
+      query.where('project.ownerId = :ownerId', { ownerId: user.id });
     }
 
     const jobs = await query.getMany();

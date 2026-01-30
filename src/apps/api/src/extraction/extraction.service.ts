@@ -245,7 +245,9 @@ export class ExtractionService {
     }
     const textExtractorId = project.textExtractorId;
 
-    const schema = await this.schemasService.findOne(project.defaultSchemaId);
+    const schema = this.schemasService.findOneInternal
+      ? await this.schemasService.findOneInternal(project.defaultSchemaId)
+      : await (this.schemasService as any).findOne(project.defaultSchemaId);
     const rules = await this.schemaRulesService.findBySchema(schema.id);
     const enabledRules = rules.filter((rule) => rule.enabled);
 

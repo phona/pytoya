@@ -3,10 +3,12 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PoliciesGuard } from '../auth/casl/policies.guard';
 import { ExtractorsController } from './extractors.controller';
 import { ExtractorsService } from './extractors.service';
 import { TextExtractorRegistry } from '../text-extractor/text-extractor.registry';
 import { ExtractorCostService } from './extractor-cost.service';
+import { AbilityFactory } from '../auth/casl/ability.factory';
 
 describe('ExtractorsController', () => {
   let app: INestApplication;
@@ -35,10 +37,23 @@ describe('ExtractorsController', () => {
         { provide: ExtractorsService, useValue: extractorsService },
         { provide: TextExtractorRegistry, useValue: extractorRegistry },
         { provide: ExtractorCostService, useValue: extractorCostService },
+        AbilityFactory,
+        PoliciesGuard,
       ],
     })
       .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: () => true })
+      .useValue({
+        canActivate: (context: any) => {
+          const req = context.switchToHttp().getRequest();
+          const roleHeader = String(req.headers['x-test-role'] ?? '').toLowerCase();
+          req.user = {
+            id: 1,
+            role: roleHeader === 'user' ? 'user' : 'admin',
+            username: 'test',
+          };
+          return true;
+        },
+      })
       .compile();
 
     app = moduleRef.createNestApplication();
@@ -122,11 +137,20 @@ describe('ExtractorsController', () => {
 
     const response = await request(app.getHttpServer())
       .post('/extractors')
+      .set('x-test-role', 'admin')
       .send({ name: 'New Extractor', extractorType: 'vision-llm' })
       .expect(201);
 
     expect(response.body.id).toBe('extractor-2');
     expect(extractorsService.create).toHaveBeenCalled();
+  });
+
+  it('forbids creating an extractor for non-admin', async () => {
+    await request(app.getHttpServer())
+      .post('/extractors')
+      .set('x-test-role', 'user')
+      .send({ name: 'New Extractor', extractorType: 'vision-llm' })
+      .expect(403);
   });
 
   it('updates an extractor', async () => {
@@ -144,6 +168,7 @@ describe('ExtractorsController', () => {
 
     const response = await request(app.getHttpServer())
       .patch('/extractors/extractor-3')
+      .set('x-test-role', 'admin')
       .send({ name: 'Updated Extractor' })
       .expect(200);
 
@@ -165,6 +190,7 @@ describe('ExtractorsController', () => {
 
     const response = await request(app.getHttpServer())
       .delete('/extractors/extractor-4')
+      .set('x-test-role', 'admin')
       .expect(200);
 
     expect(response.body.id).toBe('extractor-4');
@@ -180,6 +206,7 @@ describe('ExtractorsController', () => {
 
     const response = await request(app.getHttpServer())
       .post('/extractors/extractor-5/test')
+      .set('x-test-role', 'admin')
       .expect(201);
 
     expect(response.body.ok).toBe(true);

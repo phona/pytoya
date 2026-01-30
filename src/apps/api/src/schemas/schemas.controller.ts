@@ -16,7 +16,9 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 
+import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { UserEntity } from '../entities/user.entity';
 import { CreateSchemaDto } from './dto/create-schema.dto';
 import { GenerateRulesDto } from './dto/generate-rules.dto';
 import { GenerateSchemaDto } from './dto/generate-schema.dto';
@@ -41,26 +43,35 @@ export class SchemasController {
   ) {}
 
   @Post()
-  async create(@Body() createSchemaDto: CreateSchemaDto) {
-    const schema = await this.schemasService.create(createSchemaDto);
+  async create(
+    @CurrentUser() user: UserEntity,
+    @Body() createSchemaDto: CreateSchemaDto,
+  ) {
+    const schema = await this.schemasService.create(user, createSchemaDto);
     return SchemaResponseDto.fromEntity(schema);
   }
 
   @Get()
-  async findAll() {
-    const schemas = await this.schemasService.findAll();
+  async findAll(@CurrentUser() user: UserEntity) {
+    const schemas = await this.schemasService.findAll(user);
     return schemas.map(SchemaResponseDto.fromEntity);
   }
 
   @Get('project/:projectId')
-  async findByProject(@Param('projectId', ParseIntPipe) projectId: number) {
-    const schemas = await this.schemasService.findByProject(projectId);
+  async findByProject(
+    @CurrentUser() user: UserEntity,
+    @Param('projectId', ParseIntPipe) projectId: number,
+  ) {
+    const schemas = await this.schemasService.findByProject(user, projectId);
     return schemas.map(SchemaResponseDto.fromEntity);
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    const schema = await this.schemasService.findOne(id);
+  async findOne(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    const schema = await this.schemasService.findOne(user, id);
     return SchemaResponseDto.fromEntity(schema);
   }
 
@@ -94,31 +105,34 @@ export class SchemasController {
 
   @Post(':id/generate-rules')
   async generateRules(
+    @CurrentUser() user: UserEntity,
     @Param('id', ParseIntPipe) id: number,
     @Body() generateRulesDto: GenerateRulesDto,
   ) {
-    const schema = await this.schemasService.findOne(id);
+    const schema = await this.schemasService.findOne(user, id);
     const rules = await this.ruleGeneratorService.generate(schema, generateRulesDto);
     return { rules };
   }
 
   @Post(':id/generate-prompt-rules')
   async generatePromptRulesMarkdown(
+    @CurrentUser() user: UserEntity,
     @Param('id', ParseIntPipe) id: number,
     @Body() generatePromptRulesDto: GeneratePromptRulesDto,
   ) {
-    const schema = await this.schemasService.findOne(id);
+    const schema = await this.schemasService.findOne(user, id);
     const rulesMarkdown = await this.promptRulesGeneratorService.generate(schema, generatePromptRulesDto);
     return { rulesMarkdown };
   }
 
   @Post(':id/generate-prompt-rules/stream')
   async generatePromptRulesMarkdownStream(
+    @CurrentUser() user: UserEntity,
     @Param('id', ParseIntPipe) id: number,
     @Body() generatePromptRulesDto: GeneratePromptRulesDto,
     @Res() res: Response,
   ) {
-    const schema = await this.schemasService.findOne(id);
+    const schema = await this.schemasService.findOne(user, id);
 
     res.status(200);
     res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
@@ -168,16 +182,17 @@ export class SchemasController {
 
   @Patch(':id')
   async update(
+    @CurrentUser() user: UserEntity,
     @Param('id', ParseIntPipe) id: number,
     @Body() updateSchemaDto: UpdateSchemaDto,
   ) {
-    const schema = await this.schemasService.update(id, updateSchemaDto);
+    const schema = await this.schemasService.update(user, id, updateSchemaDto);
     return SchemaResponseDto.fromEntity(schema);
   }
 
   @Delete(':id')
-  async remove(@Param('id', ParseIntPipe) id: number) {
-    const schema = await this.schemasService.remove(id);
+  async remove(@CurrentUser() user: UserEntity, @Param('id', ParseIntPipe) id: number) {
+    const schema = await this.schemasService.remove(user, id);
     return SchemaResponseDto.fromEntity(schema);
   }
 }

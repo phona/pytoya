@@ -43,6 +43,15 @@ This flag is blocked when `NODE_ENV=production`.
 The `/api/uploads` route (relative to the deployment base path) requires a valid JWT and checks project ownership.
 Admins bypass ownership checks.
 
+## Authorization
+PyToYa enforces authorization using a combination of:
+- JWT authentication (`JwtAuthGuard`) to require a valid user session.
+- CASL abilities (`@casl/ability`) for centralized “admin vs project owner” policy checks.
+
+High-level policy:
+- **Admin** can manage all resources.
+- **Non-admin** is restricted to project-owned resources (projects/groups/manifests/schemas/validation scripts) and may only read global catalogs (e.g. extractor list).
+
 ## Secret Masking
 PyToYa never returns stored secrets (e.g. LLM API keys, extractor API keys) in API responses.
 

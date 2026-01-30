@@ -6,6 +6,7 @@ import { ManifestEntity } from '../entities/manifest.entity';
 import { ProjectEntity } from '../entities/project.entity';
 import { SchemaEntity } from '../entities/schema.entity';
 import { SchemaRuleEntity } from '../entities/schema-rule.entity';
+import { CaslModule } from '../auth/casl/casl.module';
 import { SchemasController } from './schemas.controller';
 import { SchemaRulesController } from './schema-rules.controller';
 import { PromptRulesGeneratorService } from './prompt-rules-generator.service';
@@ -17,6 +18,7 @@ import { SchemasService } from './schemas.service';
 @Global()
 @Module({
   imports: [
+    CaslModule,
     TypeOrmModule.forFeature([
       ManifestEntity,
       ModelEntity,

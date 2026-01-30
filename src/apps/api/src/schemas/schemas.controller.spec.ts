@@ -64,7 +64,13 @@ describe('SchemasController', () => {
       ],
     })
       .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: () => true })
+      .useValue({
+        canActivate: (context: any) => {
+          const req = context.switchToHttp().getRequest();
+          req.user = { id: 1, role: 'admin', username: 'admin' };
+          return true;
+        },
+      })
       .compile();
 
     app = moduleRef.createNestApplication();
@@ -133,7 +139,7 @@ describe('SchemasController', () => {
       .expect(201);
 
     expect(response.body.rules).toHaveLength(1);
-    expect(schemasService.findOne).toHaveBeenCalledWith(1);
+    expect(schemasService.findOne).toHaveBeenCalledWith(expect.any(Object), 1);
     expect(ruleGeneratorService.generate).toHaveBeenCalled();
   });
 
@@ -151,7 +157,7 @@ describe('SchemasController', () => {
       .expect(201);
 
     expect(response.body.rulesMarkdown).toContain('## OCR Corrections');
-    expect(schemasService.findOne).toHaveBeenCalledWith(1);
+    expect(schemasService.findOne).toHaveBeenCalledWith(expect.any(Object), 1);
     expect(promptRulesGeneratorService.generate).toHaveBeenCalled();
   });
 });

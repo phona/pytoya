@@ -4,10 +4,14 @@ import Ajv from 'ajv';
 import { EntityManager, Repository } from 'typeorm';
 import { createHash } from 'crypto';
 
+import { AbilityFactory } from '../auth/casl/ability.factory';
+import { APP_ACTIONS, APP_SUBJECTS } from '../auth/casl/casl.types';
 import { SchemaEntity } from '../entities/schema.entity';
 import { ProjectEntity } from '../entities/project.entity';
 import { SchemaRuleEntity } from '../entities/schema-rule.entity';
 import { ManifestEntity } from '../entities/manifest.entity';
+import { UserEntity, UserRole } from '../entities/user.entity';
+import { ProjectOwnershipException } from '../projects/exceptions/project-ownership.exception';
 import { CreateSchemaDto } from './dto/create-schema.dto';
 import { UpdateSchemaDto } from './dto/update-schema.dto';
 import { ValidateSchemaDto } from './dto/validate-schema.dto';
@@ -65,15 +69,17 @@ export class SchemasService {
     private readonly schemaRuleRepository: Repository<SchemaRuleEntity>,
     @InjectRepository(ManifestEntity)
     private readonly manifestRepository: Repository<ManifestEntity>,
+    private readonly abilityFactory: AbilityFactory,
   ) {
     this.ajv = new Ajv({ allErrors: true, strict: false });
   }
 
-  async create(input: CreateSchemaDto): Promise<SchemaEntity> {
-    return this.createWithManager(input);
+  async create(user: UserEntity, input: CreateSchemaDto): Promise<SchemaEntity> {
+    return this.createWithManager(user, input);
   }
 
   async createWithManager(
+    user: UserEntity,
     input: CreateSchemaDto,
     options: { manager?: EntityManager } = {},
   ): Promise<SchemaEntity> {
@@ -96,6 +102,8 @@ export class SchemasService {
     if (!project) {
       throw new BadRequestException(`Project ${input.projectId} not found`);
     }
+
+    this.assertCanManageSchema(user, project.ownerId, project.id);
     const schema = schemaRepository.create({
       jsonSchema,
       projectId: input.projectId,
@@ -115,13 +123,42 @@ export class SchemasService {
     return saved;
   }
 
-  async findAll(): Promise<SchemaEntity[]> {
-    return this.schemaRepository.find({
-      order: { createdAt: 'DESC' },
-    });
+  async findAll(user: UserEntity): Promise<SchemaEntity[]> {
+    if (user.role === UserRole.ADMIN) {
+      return this.schemaRepository.find({
+        order: { createdAt: 'DESC' },
+      });
+    }
+
+    return this.schemaRepository
+      .createQueryBuilder('schema')
+      .leftJoin('schema.project', 'project')
+      .where('project.ownerId = :ownerId', { ownerId: user.id })
+      .orderBy('schema.createdAt', 'DESC')
+      .getMany();
   }
 
-  async findOne(id: number): Promise<SchemaEntity> {
+  async findOne(user: UserEntity, id: number): Promise<SchemaEntity> {
+    const schema = await this.schemaRepository.findOne({
+      where: { id },
+    });
+
+    if (!schema) {
+      throw new SchemaNotFoundException(id);
+    }
+
+    const project = await this.projectRepository.findOne({
+      where: { id: schema.projectId },
+    });
+    if (!project) {
+      throw new BadRequestException(`Project ${schema.projectId} not found`);
+    }
+
+    this.assertCanManageSchema(user, project.ownerId, project.id);
+    return schema;
+  }
+
+  async findOneInternal(id: number): Promise<SchemaEntity> {
     const schema = await this.schemaRepository.findOne({
       where: { id },
     });
@@ -133,7 +170,15 @@ export class SchemasService {
     return schema;
   }
 
-  async findByProject(projectId: number): Promise<SchemaEntity[]> {
+  async findByProject(user: UserEntity, projectId: number): Promise<SchemaEntity[]> {
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId },
+    });
+    if (!project) {
+      throw new BadRequestException(`Project ${projectId} not found`);
+    }
+
+    this.assertCanManageSchema(user, project.ownerId, project.id);
     return this.schemaRepository.find({
       where: { projectId },
       order: { createdAt: 'DESC' },
@@ -141,10 +186,11 @@ export class SchemasService {
   }
 
   async update(
+    user: UserEntity,
     id: number,
     input: UpdateSchemaDto,
   ): Promise<SchemaEntity> {
-    const schema = await this.findOne(id);
+    const schema = await this.findOne(user, id);
     const nextJsonSchemaRaw = input.jsonSchema ?? schema.jsonSchema;
     const normalized = this.normalizeJsonSchema(nextJsonSchemaRaw as Record<string, unknown>);
     const nextJsonSchema = normalized.schema;
@@ -155,6 +201,8 @@ export class SchemasService {
     if (!nextProject) {
       throw new BadRequestException(`Project ${nextProjectId} not found`);
     }
+
+    this.assertCanManageSchema(user, nextProject.ownerId, nextProject.id);
     const requiredFields = this.deriveRequiredFields(nextJsonSchema);
     const name = this.deriveSchemaName(nextJsonSchema, nextProjectId, schema.name);
     const description = this.deriveSchemaDescription(nextJsonSchema);
@@ -273,9 +321,20 @@ export class SchemasService {
     );
   }
 
-  async remove(id: number): Promise<SchemaEntity> {
-    const schema = await this.findOne(id);
+  async remove(user: UserEntity, id: number): Promise<SchemaEntity> {
+    const schema = await this.findOne(user, id);
     return this.schemaRepository.remove(schema);
+  }
+
+  private assertCanManageSchema(user: UserEntity, projectOwnerId: number, projectId: number) {
+    const ability = this.abilityFactory.createForUser(user);
+    const allowed = ability.can(
+      APP_ACTIONS.MANAGE,
+      this.abilityFactory.subject(APP_SUBJECTS.SCHEMA, { projectOwnerId }),
+    );
+    if (!allowed) {
+      throw new ProjectOwnershipException(projectId);
+    }
   }
 
   private computeSchemaVersion(jsonSchema: Record<string, unknown>): string {

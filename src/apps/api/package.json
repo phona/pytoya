@@ -22,6 +22,7 @@
     "schema:drop": "dotenv -e .env.local -- typeorm schema:drop"
   },
   "dependencies": {
+    "@casl/ability": "^6.8.0",
     "@isaacs/brace-expansion": "^5.0.0",
     "@nestjs/axios": "4.0.1",
     "@nestjs/bullmq": "11.0.4",

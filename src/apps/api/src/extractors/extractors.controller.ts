@@ -22,8 +22,11 @@ import { ExtractorPresetDto } from './dto/extractor-preset.dto';
 import { EXTRACTOR_PRESETS } from './extractor-presets';
 import { ExtractorCostService } from './extractor-cost.service';
 import { ExtractorCostSummaryDto } from './dto/extractor-cost-summary.dto';
+import { CheckPolicies } from '../auth/casl/check-policies.decorator';
+import { APP_ACTIONS, APP_SUBJECTS } from '../auth/casl/casl.types';
+import { PoliciesGuard } from '../auth/casl/policies.guard';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PoliciesGuard)
 @Controller('extractors')
 export class ExtractorsController {
   constructor(
@@ -81,6 +84,7 @@ export class ExtractorsController {
   }
 
   @Post()
+  @CheckPolicies((ability) => ability.can(APP_ACTIONS.MANAGE, APP_SUBJECTS.EXTRACTOR))
   async create(@Body() body: CreateExtractorDto) {
     const extractor = await this.extractorsService.create(body);
     return ExtractorResponseDto.fromEntity(extractor, 0, {
@@ -113,6 +117,7 @@ export class ExtractorsController {
   }
 
   @Patch(':id')
+  @CheckPolicies((ability) => ability.can(APP_ACTIONS.MANAGE, APP_SUBJECTS.EXTRACTOR))
   async update(@Param('id') id: string, @Body() body: UpdateExtractorDto) {
     const extractor = await this.extractorsService.update(id, body);
     const usageCounts = await this.extractorsService.getUsageCounts();
@@ -122,6 +127,7 @@ export class ExtractorsController {
   }
 
   @Delete(':id')
+  @CheckPolicies((ability) => ability.can(APP_ACTIONS.MANAGE, APP_SUBJECTS.EXTRACTOR))
   async remove(@Param('id') id: string) {
     const extractor = await this.extractorsService.remove(id);
     return ExtractorResponseDto.fromEntity(extractor, 0, {
@@ -130,6 +136,7 @@ export class ExtractorsController {
   }
 
   @Post(':id/test')
+  @CheckPolicies((ability) => ability.can(APP_ACTIONS.MANAGE, APP_SUBJECTS.EXTRACTOR))
   async test(@Param('id') id: string): Promise<TestExtractorResponseDto> {
     const result = await this.extractorsService.testConnection(id);
     return {

@@ -136,6 +136,7 @@ openspec/                # Spec-driven development
 
 ### Backend Guardrails (NestJS)
 - See `docs/nestjs-coding-agent-guardrails.md` for required patterns (validation, config, errors, DTOs)
+- **Authorization**: Prefer CASL-based policies (`AbilityFactory` + `PoliciesGuard` + `@CheckPolicies`) for admin/global surfaces; enforce project ownership for project-scoped resources.
 
 ### Frontend (Vite Web)
 - **Framework**: Vite + React Router (`src/apps/web/src/routes`)

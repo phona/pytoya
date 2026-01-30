@@ -1,6 +1,8 @@
 import { SchemasService } from './schemas.service';
 import { SchemaEntity } from '../entities/schema.entity';
 import { BadRequestException } from '@nestjs/common';
+import { AbilityFactory } from '../auth/casl/ability.factory';
+import { ProjectOwnershipException } from '../projects/exceptions/project-ownership.exception';
 
 describe('SchemasService', () => {
   let service: SchemasService;
@@ -13,6 +15,7 @@ describe('SchemasService', () => {
   let projectRepository: { findOne: jest.Mock; update: jest.Mock };
   let schemaRuleRepository: { find: jest.Mock; create: jest.Mock; save: jest.Mock };
   let manifestRepository: { query: jest.Mock };
+  let abilityFactory: { createForUser: jest.Mock; subject: jest.Mock };
 
   beforeEach(() => {
     schemaRepository = {
@@ -25,12 +28,17 @@ describe('SchemasService', () => {
     projectRepository = { findOne: jest.fn(), update: jest.fn() };
     schemaRuleRepository = { find: jest.fn(), create: jest.fn(), save: jest.fn() };
     manifestRepository = { query: jest.fn() };
+    abilityFactory = {
+      createForUser: jest.fn().mockReturnValue({ can: () => true }),
+      subject: jest.fn((_type: string, payload: Record<string, unknown>) => payload),
+    };
 
     service = new SchemasService(
       schemaRepository as any,
       projectRepository as any,
       schemaRuleRepository as any,
       manifestRepository as any,
+      abilityFactory as any as AbilityFactory,
     );
   });
 
@@ -75,5 +83,17 @@ describe('SchemasService', () => {
         jsonSchema: { type: 'object', properties: {} },
       } as any);
     }).toThrow(BadRequestException);
+  });
+
+  it('denies schema creation for unauthorized user', async () => {
+    abilityFactory.createForUser.mockReturnValue({ can: () => false });
+    projectRepository.findOne.mockResolvedValue({ id: 10, ownerId: 2, defaultSchemaId: null });
+
+    await expect(
+      service.createWithManager(
+        { id: 1, role: 'user' } as any,
+        { projectId: 10, jsonSchema: { type: 'object', properties: {} } } as any,
+      ),
+    ).rejects.toBeInstanceOf(ProjectOwnershipException);
   });
 });

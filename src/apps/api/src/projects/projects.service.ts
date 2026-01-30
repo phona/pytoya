@@ -71,6 +71,7 @@ export class ProjectsService {
       const savedProject = await projectRepository.save(project);
 
       const schema = await this.schemasService.createWithManager(
+        user,
         {
           jsonSchema: input.jsonSchema,
           projectId: savedProject.id,

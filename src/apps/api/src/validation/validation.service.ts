@@ -14,7 +14,7 @@ import { ModelEntity } from '../entities/model.entity';
 import { ManifestEntity, ManifestStatus, ValidationResult, ValidationIssue } from '../entities/manifest.entity';
 import { ProjectEntity } from '../entities/project.entity';
 import { SchemaEntity } from '../entities/schema.entity';
-import { UserEntity } from '../entities/user.entity';
+import { UserEntity, UserRole } from '../entities/user.entity';
 import { CreateValidationScriptDto } from './dto/create-validation-script.dto';
 import { UpdateValidationScriptDto } from './dto/update-validation-script.dto';
 import { RunValidationDto } from './dto/run-validation.dto';
@@ -74,7 +74,7 @@ export class ValidationService {
       throw new ProjectOwnershipException(Number(input.projectId));
     }
 
-    if (project.ownerId !== user.id) {
+    if (user.role !== UserRole.ADMIN && project.ownerId !== user.id) {
       throw new ProjectOwnershipException(project.id);
     }
 
@@ -98,10 +98,19 @@ export class ValidationService {
   }
 
   async findAll(user: UserEntity): Promise<ValidationScriptEntity[]> {
-    return this.validationScriptRepository.find({
-      relations: ['project'],
-      order: { createdAt: 'DESC' },
-    });
+    if (user.role === UserRole.ADMIN) {
+      return this.validationScriptRepository.find({
+        relations: ['project'],
+        order: { createdAt: 'DESC' },
+      });
+    }
+
+    return this.validationScriptRepository
+      .createQueryBuilder('script')
+      .leftJoinAndSelect('script.project', 'project')
+      .where('project.ownerId = :ownerId', { ownerId: user.id })
+      .orderBy('script.createdAt', 'DESC')
+      .getMany();
   }
 
   async findByProject(user: UserEntity, projectId: number): Promise<ValidationScriptEntity[]> {
@@ -110,7 +119,7 @@ export class ValidationService {
       where: { id: projectId },
     });
 
-    if (!project || project.ownerId !== user.id) {
+    if (!project || (user.role !== UserRole.ADMIN && project.ownerId !== user.id)) {
       throw new ProjectOwnershipException(projectId);
     }
 
@@ -131,7 +140,7 @@ export class ValidationService {
     }
 
     // Check ownership
-    if (script.project.ownerId !== user.id) {
+    if (user.role !== UserRole.ADMIN && script.project.ownerId !== user.id) {
       throw new ProjectOwnershipException(script.projectId);
     }
 
@@ -184,7 +193,7 @@ export class ValidationService {
     }
 
     // Verify ownership
-    if (manifest.group.project.ownerId !== user.id) {
+    if (user.role !== UserRole.ADMIN && manifest.group.project.ownerId !== user.id) {
       throw new ProjectOwnershipException(manifest.group.projectId);
     }
 

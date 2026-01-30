@@ -9,6 +9,7 @@ import { ManifestsModule } from '../../manifests/manifests.module';
 import { QueueService } from '../../queue/queue.service';
 import { UsersModule } from '../../users/users.module';
 import { LlmService } from '../../llm/llm.service';
+import { AbilityFactory } from '../../auth/casl/ability.factory';
 import { JwtOrPublicGuard } from './jwt-or-public.guard';
 
 @Global()
@@ -98,6 +99,13 @@ describe('JwtOrPublicGuard DI', () => {
       providers: [
         JwtOrPublicGuard,
         { provide: JwtService, useValue: { verifyAsync: jest.fn() } },
+        {
+          provide: AbilityFactory,
+          useValue: {
+            createForUser: () => ({ can: () => true }),
+            subject: (_type: string, payload: Record<string, unknown>) => payload,
+          },
+        },
       ],
     }).compile();
 
