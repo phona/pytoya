@@ -42,6 +42,8 @@ type ExtractorFormProps = {
   isLoading?: boolean;
 };
 
+const MASKED_SECRET = '********';
+
 const buildDefaultConfig = (
   schema?: ExtractorParamSchema,
   existing?: Record<string, unknown>,
@@ -92,12 +94,16 @@ const buildDefaultPricing = (
 const sanitizeValues = (
   input: Record<string, unknown> | undefined,
   schema?: ExtractorParamSchema,
+  options: { omitMaskedSecrets?: boolean } = {},
 ) => {
   if (!schema) return input ?? {};
   const output: Record<string, unknown> = {};
   (Object.entries(schema) as Array<[string, ExtractorParamDefinition]>).forEach(([key, definition]) => {
     const rawValue = input?.[key];
     if (rawValue === undefined || rawValue === null || rawValue === '') {
+      return;
+    }
+    if (options.omitMaskedSecrets && definition.secret && rawValue === MASKED_SECRET) {
       return;
     }
     if (definition.type === 'number') {
@@ -187,7 +193,9 @@ export function ExtractorForm({
       return;
     }
 
-    const config = sanitizeValues(values.config ?? {}, activeType?.paramsSchema);
+    const config = sanitizeValues(values.config ?? {}, activeType?.paramsSchema, {
+      omitMaskedSecrets: Boolean(extractor),
+    });
     const pricing = sanitizeValues(
       (values.config as { pricing?: Record<string, unknown> } | undefined)?.pricing,
       activeType?.pricingSchema,

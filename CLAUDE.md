@@ -29,6 +29,10 @@ PyToYa is an invoice processing system implemented as a TypeScript monorepo. It 
 
 **Key Technologies**: NestJS, Vite + React Router, PostgreSQL + TypeORM, BullMQ + Redis, WebSocket Gateway, PaddleOCR-VL, OpenAI-compatible LLMs.
 
+**Notable API behaviors**
+- `POST /projects/wizard` creates a project + default schema + rules + scripts atomically (Guided Setup).
+- Secrets (LLM API keys / extractor API keys) are masked as `********` on read; sending `********` on update preserves existing values.
+
 ## Common Commands
 
 ### Development (All Services)

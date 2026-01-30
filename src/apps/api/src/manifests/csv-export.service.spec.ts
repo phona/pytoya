@@ -9,6 +9,7 @@ describe('CsvExportService', () => {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(manifests.length),
       getMany: jest.fn().mockResolvedValue(manifests),
     };
     return qb;
@@ -140,4 +141,3 @@ describe('CsvExportService', () => {
     expect(rowLine).toContain('\"{'); // JSON string is quoted in CSV
   });
 });
-

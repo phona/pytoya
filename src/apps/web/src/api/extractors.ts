@@ -63,4 +63,11 @@ export const extractorsApi = {
     const response = await apiClient.get<ExtractorCostSummary>(`/extractors/${id}/cost-summary`);
     return response.data;
   },
+
+  getCostSummaries: async (ids: string[]) => {
+    const response = await apiClient.get<ExtractorCostSummary[]>('/extractors/cost-summaries', {
+      params: { ids: ids.join(',') },
+    });
+    return response.data;
+  },
 };

@@ -635,6 +635,8 @@ export const enMessages: Record<string, string> = {
   'audit.ocrPreview.copy': 'Copy',
   'audit.ocrPreview.download': 'Download',
   'audit.ocrPreview.highlightLowConfidence': 'Highlight low confidence',
+  'audit.ocrPreview.highlightSuspiciousLines': 'Highlight suspicious lines (heuristic)',
+  'audit.ocrPreview.highlightSuspiciousLinesHint': 'Heuristic: highlights very short lines.',
   'audit.ocrPreview.loadingText': 'Loading text...',
   'audit.ocrPreview.failedToLoadText': 'Failed to load text.',
   'audit.ocrPreview.notProcessed': 'Text not processed for this manifest.',

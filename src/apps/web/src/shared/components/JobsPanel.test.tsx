@@ -5,6 +5,7 @@ import { useJobsStore } from '@/shared/stores/jobs';
 import { useUiStore } from '@/shared/stores/ui';
 
 vi.mock('@/shared/hooks/use-jobs', () => ({
+  useJobsStats: () => ({ data: undefined, isLoading: false }),
   useJobHistory: () => ({ data: [], isLoading: false }),
 }));
 
@@ -82,7 +83,7 @@ describe('JobsPanel', () => {
 
     await user.click(screen.getByRole('button', { name: /open jobs panel/i }));
     expect(screen.getAllByText('Jobs').length).toBeGreaterThan(0);
-    expect(screen.getByText('file-42.pdf extraction')).toBeInTheDocument();
+    expect(screen.getByText('Manifest #42 extraction')).toBeInTheDocument();
   });
 
   it('filters terminal jobs into completed vs failed/canceled', async () => {
@@ -104,20 +105,20 @@ describe('JobsPanel', () => {
     await user.click(screen.getByRole('button', { name: /open jobs panel/i }));
 
     // Default tab: in progress
-    expect(screen.getByText('file-1.pdf extraction')).toBeInTheDocument();
-    expect(screen.queryByText('file-2.pdf extraction')).not.toBeInTheDocument();
-    expect(screen.queryByText('file-3.pdf extraction')).not.toBeInTheDocument();
-    expect(screen.queryByText('file-4.pdf extraction')).not.toBeInTheDocument();
+    expect(screen.getByText('Manifest #1 extraction')).toBeInTheDocument();
+    expect(screen.queryByText('Manifest #2 extraction')).not.toBeInTheDocument();
+    expect(screen.queryByText('Manifest #3 extraction')).not.toBeInTheDocument();
+    expect(screen.queryByText('Manifest #4 extraction')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: /completed|done/i }));
-    expect(screen.getByText('file-2.pdf extraction')).toBeInTheDocument();
-    expect(screen.queryByText('file-3.pdf extraction')).not.toBeInTheDocument();
-    expect(screen.queryByText('file-4.pdf extraction')).not.toBeInTheDocument();
+    expect(screen.getByText('Manifest #2 extraction')).toBeInTheDocument();
+    expect(screen.queryByText('Manifest #3 extraction')).not.toBeInTheDocument();
+    expect(screen.queryByText('Manifest #4 extraction')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: /failed/i }));
-    expect(screen.getByText('file-3.pdf extraction')).toBeInTheDocument();
-    expect(screen.getByText('file-4.pdf extraction')).toBeInTheDocument();
-    expect(screen.queryByText('file-2.pdf extraction')).not.toBeInTheDocument();
+    expect(screen.getByText('Manifest #3 extraction')).toBeInTheDocument();
+    expect(screen.getByText('Manifest #4 extraction')).toBeInTheDocument();
+    expect(screen.queryByText('Manifest #2 extraction')).not.toBeInTheDocument();
   });
 });
 

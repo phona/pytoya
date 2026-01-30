@@ -1,12 +1,11 @@
 ## 1. Implementation
 
-- [ ] Update ExtractFilteredModal default scope to selected when there is a selection
-- [ ] Update ManifestBatchScopeModal default scope to selected when there is a selection
-- [ ] Add/update tests for modal default scope behavior
+- [x] Update ExtractFilteredModal default scope to selected when there is a selection
+- [x] Update ManifestBatchScopeModal default scope to selected when there is a selection
+- [x] Add/update tests for modal default scope behavior
 
 ## 2. Verification
 
-- [ ] Run `npm run test`
-- [ ] Run `npm run lint`
-- [ ] Run `npm run type-check`
-
+- [x] Run `npm run test`
+- [x] Run `npm run lint`
+- [x] Run `npm run type-check`

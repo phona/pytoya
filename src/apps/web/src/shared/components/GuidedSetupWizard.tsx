@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getApiErrorText } from '@/api/client';
-import { CreateProjectDto } from '@/api/projects';
+import { CreateProjectDto, projectsApi } from '@/api/projects';
 import { schemasApi } from '@/api/schemas';
 import {
   CreateValidationScriptDto,
@@ -17,9 +17,6 @@ import { SchemaJsonEditor } from '@/shared/components/SchemaJsonEditor';
 import { ValidationScriptForm } from '@/shared/components/ValidationScriptForm';
 import { useModels } from '@/shared/hooks/use-models';
 import { useExtractors } from '@/shared/hooks/use-extractors';
-import { useProjects } from '@/shared/hooks/use-projects';
-import { useSchemas } from '@/shared/hooks/use-schemas';
-import { useValidationScripts } from '@/shared/hooks/use-validation-scripts';
 import { canonicalizeJsonSchemaForDisplay, deriveRequiredFields } from '@/shared/utils/schema';
 import {
   Dialog,
@@ -97,9 +94,6 @@ export type GuidedSetupWizardProps = {
 
 export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWizardProps) {
   const { t } = useI18n();
-  const { createProject } = useProjects();
-  const { createSchema } = useSchemas();
-  const { createScript } = useValidationScripts();
   const queryClient = useQueryClient();
   const { extractors } = useExtractors();
   const { models: llmModels } = useModels({ category: 'llm' });
@@ -293,41 +287,6 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
     );
   };
 
-  const syncRulesForSchema = async (schemaId: number) => {
-    if (rules.length === 0) return;
-    await Promise.all(
-      rules.map((rule) =>
-        schemasApi.createSchemaRule(schemaId, {
-          schemaId,
-          fieldPath: rule.fieldPath,
-          ruleType: rule.ruleType,
-          ruleOperator: rule.ruleOperator,
-          ruleConfig: rule.ruleConfig ?? {},
-          errorMessage: rule.errorMessage,
-          priority: rule.priority,
-          enabled: rule.enabled,
-          description: rule.description,
-        }),
-      ),
-    );
-  };
-
-  const syncValidationScriptsForProject = async (projectIdValue: number) => {
-    if (validationScripts.length === 0) return;
-    await Promise.all(
-      validationScripts.map((script) =>
-        createScript({
-          name: script.name,
-          script: script.script,
-          projectId: projectIdValue.toString(),
-          severity: script.severity,
-          enabled: script.enabled,
-          description: script.description ?? undefined,
-        }),
-      ),
-    );
-  };
-
   const handleCreate = async () => {
     const invalidRulesMessage = getInvalidRulesMessage();
     if (invalidRulesMessage) {
@@ -344,21 +303,36 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
       if (schemaJsonError) {
         throw new Error(t('projects.guidedSetup.errors.schemaInvalid'));
       }
-      const project = await createProject(buildProjectPayload());
 
       const parsedSchema = JSON.parse(schemaDraft.jsonSchema) as Record<string, unknown>;
-      const createdSchema = await createSchema({
+      const result = await projectsApi.createProjectWizard({
+        project: buildProjectPayload(),
         jsonSchema: parsedSchema,
-        projectId: project.id,
+        rules: rules.map((rule) => ({
+          fieldPath: rule.fieldPath,
+          ruleType: rule.ruleType,
+          ruleOperator: rule.ruleOperator,
+          ruleConfig: rule.ruleConfig ?? {},
+          errorMessage: rule.errorMessage,
+          priority: rule.priority,
+          enabled: rule.enabled,
+          description: rule.description,
+        })),
+        validationScripts: validationScripts.map((script) => ({
+          name: script.name,
+          description: script.description ?? undefined,
+          script: script.script,
+          severity: script.severity,
+          enabled: script.enabled,
+        })),
       });
 
-      await syncRulesForSchema(createdSchema.id);
-      await syncValidationScriptsForProject(project.id);
-      await queryClient.invalidateQueries({ queryKey: ['schemas', 'project', project.id] });
-      await queryClient.invalidateQueries({ queryKey: ['schemas', createdSchema.id, 'rules'] });
-      await queryClient.invalidateQueries({ queryKey: ['validation-scripts', 'project', project.id] });
+      await queryClient.invalidateQueries({ queryKey: ['projects'] });
+      await queryClient.invalidateQueries({ queryKey: ['schemas', 'project', result.project.id] });
+      await queryClient.invalidateQueries({ queryKey: ['schemas', result.schema.id, 'rules'] });
+      await queryClient.invalidateQueries({ queryKey: ['validation-scripts', 'project', result.project.id] });
 
-      onCreated(project.id);
+      onCreated(result.project.id);
       resetWizard();
     } catch (err) {
       setError(getApiErrorText(err, t));

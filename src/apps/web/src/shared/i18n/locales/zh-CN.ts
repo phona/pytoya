@@ -623,6 +623,8 @@ export const zhCNMessages: Record<string, string> = {
   'audit.ocrPreview.copy': '复制',
   'audit.ocrPreview.download': '下载',
   'audit.ocrPreview.highlightLowConfidence': '高亮低置信度',
+  'audit.ocrPreview.highlightSuspiciousLines': '高亮可疑行（启发式）',
+  'audit.ocrPreview.highlightSuspiciousLinesHint': '启发式：高亮非常短的行。',
   'audit.ocrPreview.loadingText': '正在加载文本…',
   'audit.ocrPreview.failedToLoadText': '加载文本失败。',
   'audit.ocrPreview.notProcessed': '该清单尚未进行文本处理。',

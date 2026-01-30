@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Package, PencilLine } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { getApiErrorText } from '@/api/client';
 import { useProject, useProjects } from '@/shared/hooks/use-projects';
 import { useExtractors } from '@/shared/hooks/use-extractors';
 import { useExtractorCostSummary } from '@/shared/hooks/use-extractor-costs';
@@ -9,17 +10,20 @@ import { ExtractorCostSummary } from '@/shared/components/ExtractorCostSummary';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { ProjectSettingsShell } from '@/shared/components/ProjectSettingsShell';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 export function ProjectSettingsExtractorsPage() {
   const navigate = useNavigate();
   const params = useParams();
   const projectId = Number(params.id);
+  const { t } = useI18n();
 
   const { project, isLoading } = useProject(projectId);
   const { updateProjectExtractor } = useProjects();
   const { extractors } = useExtractors();
   const [isSelecting, setIsSelecting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const currentExtractor = useMemo(() => {
     if (!project?.textExtractorId) return undefined;
@@ -30,9 +34,15 @@ export function ProjectSettingsExtractorsPage() {
 
   const handleSelect = async (extractorId: string) => {
     if (!project) return;
+    setSaveError(null);
     setIsSaving(true);
-    await updateProjectExtractor({ id: project.id, data: { textExtractorId: extractorId } });
-    setIsSaving(false);
+    try {
+      await updateProjectExtractor({ id: project.id, data: { textExtractorId: extractorId } });
+    } catch (error) {
+      setSaveError(getApiErrorText(error, t));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -58,6 +68,12 @@ export function ProjectSettingsExtractorsPage() {
               Select the text extractor used for this project.
             </p>
           </div>
+
+          {saveError ? (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+              {saveError}
+            </div>
+          ) : null}
 
           <Card>
             <CardHeader className="flex flex-row items-start justify-between gap-4">

@@ -209,14 +209,14 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['manifests', manifestId] }),
-        queryClient.invalidateQueries({ queryKey: ['manifests', 'group'] }),
+        queryClient.invalidateQueries({ queryKey: ['manifests', 'group', groupId] }),
       ]);
 
       // Clear local progress state once the job is done.
       setJobProgress(null);
       setLiveTextExtraction(null);
     },
-    [manifestId, queryClient],
+    [groupId, manifestId, queryClient],
   );
 
   // WebSocket integration
@@ -461,6 +461,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
         try {
           await updateManifest.mutateAsync({
             manifestId,
+            groupId,
             data: {
               extractedData: data.extractedData ?? undefined,
               confidence: data.confidence ?? undefined,
@@ -479,7 +480,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
 
       setDebounceTimer(timer);
     },
-    [debounceTimer, manifestId, updateManifest],
+    [debounceTimer, groupId, manifestId, updateManifest],
   );
 
   const formatValidationSummary = useCallback(
@@ -545,6 +546,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     try {
       const firstSave = await updateManifest.mutateAsync({
         manifestId,
+        groupId,
         data: {
           extractedData: extractedDataToSave ?? undefined,
           humanVerified: shouldGateHumanVerifiedSave ? false : desiredHumanVerified,
@@ -584,7 +586,8 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
           ),
         });
 
-        if (validation.errorCount > 0) {
+        const allowValidationErrors = validation.errorCount > 0;
+        if (allowValidationErrors) {
           const confirmed = await confirm({
             title: t('audit.verify.confirmTitle'),
             message: t('audit.verify.confirmMessage', {
@@ -606,7 +609,8 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
 
         const verifiedSave = await updateManifest.mutateAsync({
           manifestId,
-          data: { humanVerified: true },
+          groupId,
+          data: { humanVerified: true, ...(allowValidationErrors ? { allowValidationErrors: true } : {}) },
         });
         queryClient.setQueryData(['manifests', manifestId], verifiedSave);
       }
@@ -629,6 +633,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     confirm,
     debounceTimer,
     formatValidationSummary,
+    groupId,
     handleRunValidationClick,
     latestDraftRef,
     manifest,

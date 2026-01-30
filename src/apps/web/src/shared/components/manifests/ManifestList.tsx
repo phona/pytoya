@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { FileText, LayoutGrid, List } from 'lucide-react';
 import { Manifest } from '@/api/manifests';
 import { ManifestTable, type ManifestTableSchemaColumn } from './ManifestTable';
@@ -172,10 +172,39 @@ export function ManifestList({
     });
   }, []);
 
-  useWebSocket({
+  const { subscribeToManifest, unsubscribeFromManifest } = useWebSocket({
     onJobUpdate: handleJobUpdate,
     onManifestUpdate: handleManifestUpdate,
   });
+
+  const subscribedManifestsRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    const next = new Set<number>(manifests.map((m) => m.id));
+    const prev = subscribedManifestsRef.current;
+
+    for (const manifestId of next) {
+      if (!prev.has(manifestId)) {
+        subscribeToManifest(manifestId);
+      }
+    }
+    for (const manifestId of prev) {
+      if (!next.has(manifestId)) {
+        unsubscribeFromManifest(manifestId);
+      }
+    }
+
+    subscribedManifestsRef.current = next;
+  }, [manifests, subscribeToManifest, unsubscribeFromManifest]);
+
+  useEffect(() => {
+    return () => {
+      for (const manifestId of subscribedManifestsRef.current) {
+        unsubscribeFromManifest(manifestId);
+      }
+      subscribedManifestsRef.current.clear();
+    };
+  }, [unsubscribeFromManifest]);
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -218,21 +247,32 @@ export function ManifestList({
   }, [t]);
 
   const handleStartValidation = useCallback(async (manifestIds: number[]) => {
-    const results = await runBatchValidation.mutateAsync({ manifestIds });
-    const totalErrors = Object.values(results).reduce((sum, r) => sum + (r.errorCount ?? 0), 0);
-    const totalWarnings = Object.values(results).reduce((sum, r) => sum + (r.warningCount ?? 0), 0);
+    const response = await runBatchValidation.mutateAsync({ manifestIds });
+    const outcomes = response.outcomesByManifestId ?? {};
+
+    const okOutcomes = Object.values(outcomes).filter((value) => value?.ok);
+    const totalErrors = okOutcomes.reduce((sum, entry) => sum + (entry.result?.errorCount ?? 0), 0);
+    const totalWarnings = okOutcomes.reduce((sum, entry) => sum + (entry.result?.warningCount ?? 0), 0);
+
+    const failedIds = manifestIds.filter((id) => outcomes[id]?.ok !== true);
+    const failedCount = failedIds.length;
 
     const message = t('manifests.list.batchValidation.summaryMessage', {
       count: manifestIds.length,
       errors: totalErrors,
       warnings: totalWarnings,
     });
-    await alert({ title: t('manifests.list.batchValidation.completeTitle'), message });
 
-    queryClient.invalidateQueries({ queryKey: ['manifests', 'group'] });
+    const failureDetails = failedCount > 0
+      ? `\n\nFailed: ${failedCount}\n${failedIds.slice(0, 10).map((id) => `- ${id}: ${outcomes[id]?.error?.message ?? 'Unknown error'}`).join('\n')}${failedCount > 10 ? '\n…' : ''}`
+      : '';
+
+    await alert({ title: t('manifests.list.batchValidation.completeTitle'), message: `${message}${failureDetails}` });
+
+    queryClient.invalidateQueries({ queryKey: ['manifests', 'group', groupId] });
     setSelectedIds(new Set());
     setSelectAll(false);
-  }, [alert, queryClient, runBatchValidation, t]);
+  }, [alert, groupId, queryClient, runBatchValidation, t]);
 
   const handlePageChange = useCallback((page: number) => {
     setSelectedIds(new Set());
@@ -584,7 +624,6 @@ export function ManifestList({
                 plural: deletedCount === 1 ? '' : 's',
               }),
             });
-            queryClient.invalidateQueries({ queryKey: ['manifests', 'group'] });
             setSelectedIds(new Set());
             setSelectAll(false);
           } catch (error) {

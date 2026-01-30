@@ -16,16 +16,30 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UserEntity } from '../entities/user.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { CreateProjectWizardDto } from './dto/create-project-wizard.dto';
 import { ProjectResponseDto } from './dto/project-response.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { UpdateProjectExtractorDto } from './dto/update-project-extractor.dto';
 import { ProjectCostSummaryDto } from './dto/project-cost-summary.dto';
 import { ProjectsService } from './projects.service';
+import { SchemaResponseDto } from '../schemas/dto/schema-response.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('projects')
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
+
+  @Post('wizard')
+  async createWizard(
+    @CurrentUser() user: UserEntity,
+    @Body() body: CreateProjectWizardDto,
+  ) {
+    const { project, schema } = await this.projectsService.createWizard(user, body);
+    return {
+      project: ProjectResponseDto.fromEntity(project),
+      schema: SchemaResponseDto.fromEntity(schema),
+    };
+  }
 
   @Post()
   async create(

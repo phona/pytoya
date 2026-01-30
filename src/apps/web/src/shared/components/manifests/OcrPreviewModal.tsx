@@ -33,7 +33,7 @@ export function OcrPreviewModal({ manifestId, open, onClose, onExtract }: OcrPre
   const { data, isLoading, error } = useOcrResult(manifestId, open);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [highlightConfidence, setHighlightConfidence] = useState(false);
+  const [highlightHeuristic, setHighlightHeuristic] = useState(false);
 
   const ocrResult = data?.ocrResult ?? null;
   const qualityScore = data?.qualityScore ?? null;
@@ -126,11 +126,12 @@ export function OcrPreviewModal({ manifestId, open, onClose, onExtract }: OcrPre
               <label className="text-xs text-muted-foreground flex items-center gap-2">
                 <input
                   type="checkbox"
-                  checked={highlightConfidence}
-                  onChange={(event) => setHighlightConfidence(event.target.checked)}
+                  checked={highlightHeuristic}
+                  onChange={(event) => setHighlightHeuristic(event.target.checked)}
                 />
-                {t('audit.ocrPreview.highlightLowConfidence')}
+                {t('audit.ocrPreview.highlightSuspiciousLines')}
               </label>
+              <span className="text-xs text-muted-foreground">{t('audit.ocrPreview.highlightSuspiciousLinesHint')}</span>
             </div>
 
             {isLoading && <p className="text-sm text-muted-foreground">{t('audit.ocrPreview.loadingText')}</p>}
@@ -151,7 +152,7 @@ export function OcrPreviewModal({ manifestId, open, onClose, onExtract }: OcrPre
                 {filteredLines.map((line, index) => (
                   <div
                     key={`${line}-${index}`}
-                    className={`flex gap-3 ${highlightConfidence && line.length < 10 ? 'bg-red-50' : ''}`}
+                    className={`flex gap-3 ${highlightHeuristic && line.length < 10 ? 'bg-red-50' : ''}`}
                   >
                     <span className="w-8 text-muted-foreground text-right">{index + 1}</span>
                     <span className="flex-1 whitespace-pre-wrap">{line}</span>

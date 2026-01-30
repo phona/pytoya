@@ -247,12 +247,17 @@ export class QueueService {
     limit = 50,
   ): Promise<JobHistoryDto[]> {
     const take = Math.min(Math.max(limit, 1), 200);
-    const where = manifestId ? { manifestId } : {};
-    const jobs = await this.jobRepository.find({
-      where,
-      order: { createdAt: 'DESC' },
-      take,
-    });
+    const query = this.jobRepository
+      .createQueryBuilder('job')
+      .leftJoinAndSelect('job.manifest', 'manifest')
+      .orderBy('job.createdAt', 'DESC')
+      .take(take);
+
+    if (manifestId) {
+      query.where('job.manifestId = :manifestId', { manifestId });
+    }
+
+    const jobs = await query.getMany();
 
     return jobs.map((job) => ({
       estimatedCost: this.normalizeDecimal(job.estimatedCost),
@@ -260,6 +265,8 @@ export class QueueService {
       currency: job.costCurrency ?? null,
       id: job.id,
       manifestId: job.manifestId,
+      manifestFilename: job.manifest?.filename ?? null,
+      manifestOriginalFilename: job.manifest?.originalFilename ?? null,
       kind: job.kind ?? 'extraction',
       status: job.status,
       llmModelId: job.llmModelId,

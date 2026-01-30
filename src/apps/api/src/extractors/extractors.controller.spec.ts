@@ -21,9 +21,11 @@ describe('ExtractorsController', () => {
   };
   const extractorRegistry = {
     list: jest.fn(),
+    get: jest.fn(),
   };
   const extractorCostService = {
     getCostSummary: jest.fn(),
+    getCostSummaries: jest.fn(),
   };
 
   beforeAll(async () => {
@@ -79,13 +81,18 @@ describe('ExtractorsController', () => {
       name: 'Vision LLM',
       description: null,
       extractorType: 'vision-llm',
-      config: { pricing: { mode: 'token', currency: 'USD' } },
+      config: { apiKey: 'sk-test', pricing: { mode: 'token', currency: 'USD' } },
       isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
     extractorsService.findAll.mockResolvedValue([extractor]);
     extractorsService.getUsageCounts.mockResolvedValue({ 'extractor-1': 3 });
+    extractorRegistry.get.mockReturnValue({
+      metadata: {
+        paramsSchema: { apiKey: { type: 'string', required: true, label: 'API Key', secret: true } },
+      },
+    });
 
     const response = await request(app.getHttpServer())
       .get('/extractors?extractorType=vision-llm&isActive=true')
@@ -94,6 +101,7 @@ describe('ExtractorsController', () => {
     expect(response.body).toHaveLength(1);
     expect(response.body[0].id).toBe('extractor-1');
     expect(response.body[0].usageCount).toBe(3);
+    expect(response.body[0].config.apiKey).toBe('********');
     expect(extractorsService.findAll).toHaveBeenCalledWith({
       extractorType: 'vision-llm',
       isActive: true,
@@ -206,5 +214,39 @@ describe('ExtractorsController', () => {
 
     expect(response.body.totalCost).toBe(0.12);
     expect(extractorCostService.getCostSummary).toHaveBeenCalled();
+  });
+
+  it('returns extractor cost summaries', async () => {
+    extractorsService.findAll.mockResolvedValue([
+      {
+        id: 'extractor-1',
+        name: 'Vision LLM',
+        description: null,
+        extractorType: 'vision-llm',
+        config: {},
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+    extractorCostService.getCostSummaries.mockResolvedValue([
+      {
+        extractorId: 'extractor-1',
+        extractorName: 'Vision LLM',
+        totalExtractions: 0,
+        totalCost: null,
+        averageCostPerExtraction: null,
+        currency: null,
+        costBreakdown: { byDate: [], byProject: [] },
+      },
+    ]);
+
+    const response = await request(app.getHttpServer())
+      .get('/extractors/cost-summaries?ids=extractor-1')
+      .expect(200);
+
+    expect(response.body).toHaveLength(1);
+    expect(response.body[0].extractorId).toBe('extractor-1');
+    expect(extractorCostService.getCostSummaries).toHaveBeenCalled();
   });
 });

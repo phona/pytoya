@@ -79,4 +79,65 @@ describe('ExtractorForm', () => {
       );
     });
   });
+
+  it('omits masked secrets when editing existing extractor', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const onCancel = vi.fn();
+
+    render(
+      <ExtractorForm
+        types={[
+          {
+            id: 'vision-llm',
+            name: 'Vision LLM',
+            description: 'Vision',
+            paramsSchema: {
+              baseUrl: { type: 'string', required: true, label: 'Base URL' },
+              apiKey: { type: 'string', required: true, label: 'API Key', secret: true },
+              temperature: { type: 'number', required: false, label: 'Temperature' },
+            },
+            pricingSchema: {
+              mode: { type: 'enum', required: true, label: 'Pricing Mode', validation: { enum: ['token'] } },
+              currency: { type: 'string', required: true, label: 'Currency' },
+            },
+            supportedFormats: ['image'],
+            category: 'vision',
+            version: '1.0.0',
+          },
+        ]}
+        extractor={{
+          id: 'extractor-1',
+          name: 'Vision LLM',
+          description: 'Test extractor',
+          extractorType: 'vision-llm',
+          config: {
+            baseUrl: 'https://api.openai.com/v1',
+            apiKey: '********',
+            temperature: 0.5,
+            pricing: {
+              mode: 'token',
+              currency: 'USD',
+            },
+          },
+          isActive: true,
+          createdAt: '2025-01-01T00:00:00.000Z',
+          updatedAt: '2025-01-01T00:00:00.000Z',
+        }}
+        onSubmit={onSubmit}
+        onCancel={onCancel}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Update Extractor/i }));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.not.objectContaining({
+            apiKey: '********',
+          }),
+        }),
+      );
+    });
+  });
 });

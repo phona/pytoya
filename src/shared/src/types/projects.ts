@@ -1,4 +1,5 @@
 export type { CreateProjectDto } from '../../../apps/api/src/projects/dto/create-project.dto';
+export type { CreateProjectWizardDto } from '../../../apps/api/src/projects/dto/create-project-wizard.dto';
 export type { UpdateProjectDto } from '../../../apps/api/src/projects/dto/update-project.dto';
 export type { ProjectResponseDto } from '../../../apps/api/src/projects/dto/project-response.dto';
 export type { ProjectCostSummaryDto } from '../../../apps/api/src/projects/dto/project-cost-summary.dto';

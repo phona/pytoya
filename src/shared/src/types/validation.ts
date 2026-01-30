@@ -5,6 +5,11 @@ export type { GenerateValidationScriptDto } from '../../../apps/api/src/validati
 export type { GeneratedValidationScriptResponseDto } from '../../../apps/api/src/validation/dto/generated-validation-script-response.dto';
 export type { RunValidationDto } from '../../../apps/api/src/validation/dto/run-validation.dto';
 export type { BatchValidationDto } from '../../../apps/api/src/validation/dto/batch-validation.dto';
+export type {
+  BatchValidationResponseDto,
+  BatchValidationOutcomeDto,
+  BatchValidationErrorDto,
+} from '../../../apps/api/src/validation/dto/batch-validation-response.dto';
 export type { ValidationScriptResponseDto } from '../../../apps/api/src/validation/dto/validation-script-response.dto';
 export type {
   TestValidationScriptDto,

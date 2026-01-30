@@ -1,7 +1,17 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useManifests, useManifest, useManifestItems, useUpdateManifest, useDeleteManifest, useReExtractField, useTriggerExtraction, useRefreshOcrResult } from './use-manifests';
+import {
+  useManifests,
+  useManifest,
+  useManifestItems,
+  useUpdateManifest,
+  useDeleteManifest,
+  useReExtractField,
+  useTriggerExtraction,
+  useRefreshOcrResult,
+  useExtractBulk,
+} from './use-manifests';
 import { server } from '../../tests/mocks/server';
 import { http, HttpResponse } from 'msw';
 
@@ -13,9 +23,11 @@ const createWrapper = () => {
     },
   });
 
-  return function Wrapper({ children }: { children: React.ReactNode }) {
+  function Wrapper({ children }: { children: React.ReactNode }) {
     return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
-  };
+  }
+
+  return { Wrapper, queryClient };
 };
 
 describe('useManifests', () => {
@@ -29,7 +41,8 @@ describe('useManifests', () => {
 
   describe('useManifests', () => {
     it('should fetch manifests for a group', async () => {
-      const { result } = renderHook(() => useManifests(1), { wrapper: createWrapper() });
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useManifests(1), { wrapper: Wrapper });
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true);
@@ -82,7 +95,8 @@ describe('useManifests', () => {
         })
       );
 
-      const { result } = renderHook(() => useManifests(1), { wrapper: createWrapper() });
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useManifests(1), { wrapper: Wrapper });
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true);
@@ -94,7 +108,8 @@ describe('useManifests', () => {
 
   describe('useManifest', () => {
     it('should fetch single manifest', async () => {
-      const { result } = renderHook(() => useManifest(1), { wrapper: createWrapper() });
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useManifest(1), { wrapper: Wrapper });
 
       await waitFor(() => {
         expect(result.current.data).toBeDefined();
@@ -129,7 +144,8 @@ describe('useManifests', () => {
 
   describe('useManifestItems', () => {
     it('should fetch manifest items', async () => {
-      const { result } = renderHook(() => useManifestItems(1), { wrapper: createWrapper() });
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useManifestItems(1), { wrapper: Wrapper });
 
       await waitFor(() => {
         expect(result.current.data).toBeDefined();
@@ -149,31 +165,35 @@ describe('useManifests', () => {
 
   describe('useUpdateManifest', () => {
     it('should update manifest', async () => {
-      const { result } = renderHook(() => useUpdateManifest(), { wrapper: createWrapper() });
+      const { Wrapper, queryClient } = createWrapper();
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const { result } = renderHook(() => useUpdateManifest(), { wrapper: Wrapper });
 
       const updateData = { extractedData: { field: 'value' } };
 
-      await result.current.mutateAsync({ manifestId: 1, data: updateData });
+      await result.current.mutateAsync({ manifestId: 1, groupId: 1, data: updateData });
 
-      // If we get here without throwing, the mutation succeeded
-      expect(true).toBe(true);
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['manifests', 1] });
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['manifests', 'group', 1] });
     });
   });
 
   describe('useDeleteManifest', () => {
     it('should delete manifest', async () => {
-      const { result } = renderHook(() => useDeleteManifest(), { wrapper: createWrapper() });
+      const { Wrapper, queryClient } = createWrapper();
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const { result } = renderHook(() => useDeleteManifest(), { wrapper: Wrapper });
 
-      await result.current.mutateAsync(1);
+      await result.current.mutateAsync({ manifestId: 1, groupId: 1 });
 
-      // If we get here without throwing, the mutation succeeded
-      expect(true).toBe(true);
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['manifests', 'group', 1] });
     });
   });
 
   describe('useReExtractField', () => {
     it('should trigger re-extraction', async () => {
-      const { result } = renderHook(() => useReExtractField(), { wrapper: createWrapper() });
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useReExtractField(), { wrapper: Wrapper });
 
       await result.current.mutateAsync({
         manifestId: 1,
@@ -189,7 +209,8 @@ describe('useManifests', () => {
 
   describe('useTriggerExtraction', () => {
     it('should trigger extraction', async () => {
-      const { result } = renderHook(() => useTriggerExtraction(), { wrapper: createWrapper() });
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useTriggerExtraction(), { wrapper: Wrapper });
 
       await result.current.mutateAsync({
         manifestId: 1,
@@ -215,11 +236,24 @@ describe('useManifests', () => {
         }),
       );
 
-      const { result } = renderHook(() => useRefreshOcrResult(), { wrapper: createWrapper() });
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useRefreshOcrResult(), { wrapper: Wrapper });
 
       await result.current.mutateAsync({ manifestId: 1 });
 
       expect(true).toBe(true);
+    });
+  });
+
+  describe('useExtractBulk', () => {
+    it('invalidates only the scoped group query', async () => {
+      const { Wrapper, queryClient } = createWrapper();
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      const { result } = renderHook(() => useExtractBulk(), { wrapper: Wrapper });
+
+      await result.current.mutateAsync({ groupId: 1, manifestIds: [1], llmModelId: 'model-1', promptId: 1 });
+
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['manifests', 'group', 1] });
     });
   });
 });

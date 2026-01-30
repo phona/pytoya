@@ -14,6 +14,7 @@ import { CreateExtractorDto } from './dto/create-extractor.dto';
 import { UpdateExtractorDto } from './dto/update-extractor.dto';
 
 const execFileAsync = promisify(execFile);
+const MASKED_SECRET = '********';
 
 @Injectable()
 export class ExtractorsService {
@@ -27,7 +28,9 @@ export class ExtractorsService {
 
   async create(input: CreateExtractorDto): Promise<ExtractorEntity> {
     this.ensureExtractorType(input.extractorType);
-    this.validateConfig(input.extractorType, input.config ?? {});
+    const config = input.config ?? {};
+    this.rejectMaskedSecrets(input.extractorType, config);
+    this.validateConfig(input.extractorType, config);
 
     return this.extractorRepository.create({
       name: input.name,
@@ -53,17 +56,41 @@ export class ExtractorsService {
   async update(id: string, input: UpdateExtractorDto): Promise<ExtractorEntity> {
     const extractor = await this.findOne(id);
     const nextType = input.extractorType ?? extractor.extractorType;
+    const extractorTypeChanged = nextType !== extractor.extractorType;
 
     if (input.extractorType && input.config === undefined) {
       throw new BadRequestException('Config is required when changing extractor type');
     }
 
-    if (input.config) {
+    let nextConfig = extractor.config;
+    if (input.config !== undefined) {
       this.ensureExtractorType(nextType);
-      this.validateConfig(nextType, input.config);
-    }
 
-    const nextConfig = input.config ? this.withDefaultPricing(input.config) : extractor.config;
+      const extractorClass = this.extractorRegistry.get(nextType);
+      const secretKeys = Object.entries(extractorClass?.metadata?.paramsSchema ?? {})
+        .filter(([, def]) => Boolean((def as { secret?: boolean }).secret))
+        .map(([key]) => key);
+
+      const sanitized: Record<string, unknown> = { ...input.config };
+      for (const key of secretKeys) {
+        if (sanitized[key] !== MASKED_SECRET) {
+          continue;
+        }
+
+        if (!extractorTypeChanged && extractor.config?.[key] !== undefined) {
+          delete sanitized[key];
+          continue;
+        }
+
+        // Type changed or no existing value to fall back to: callers MUST send an actual secret.
+        delete sanitized[key];
+      }
+
+      const merged = extractorTypeChanged ? sanitized : { ...(extractor.config ?? {}), ...sanitized };
+      this.rejectMaskedSecrets(nextType, merged);
+      nextConfig = this.withDefaultPricing(merged);
+      this.validateConfig(nextType, nextConfig);
+    }
 
     return this.extractorRepository.update(id, {
       name: input.name ?? extractor.name,
@@ -221,5 +248,18 @@ export class ExtractorsService {
       next.pricing = { mode: 'none' };
     }
     return next;
+  }
+
+  private rejectMaskedSecrets(extractorType: string, config: Record<string, unknown>) {
+    const extractorClass = this.extractorRegistry.get(extractorType);
+    const secretKeys = Object.entries(extractorClass?.metadata?.paramsSchema ?? {})
+      .filter(([, def]) => Boolean((def as { secret?: boolean }).secret))
+      .map(([key]) => key);
+
+    for (const key of secretKeys) {
+      if (config[key] === MASKED_SECRET) {
+        throw new BadRequestException(`Secret field "${key}" must not use the masked placeholder`);
+      }
+    }
   }
 }

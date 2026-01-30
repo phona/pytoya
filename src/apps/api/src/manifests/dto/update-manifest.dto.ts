@@ -28,6 +28,10 @@ export class UpdateManifestDto {
   @IsOptional()
   humanVerified?: boolean;
 
+  @IsBoolean()
+  @IsOptional()
+  allowValidationErrors?: boolean;
+
   @IsOptional()
   @IsObject()
   extractedData?: Record<string, unknown>;

@@ -57,6 +57,12 @@ const setupHandlers = () => {
         },
       }),
     ),
+    http.get('/api/groups/2/manifests/ids', () =>
+      HttpResponse.json({
+        total: 1,
+        ids: [101],
+      }),
+    ),
   );
 };
 

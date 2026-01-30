@@ -2,24 +2,6 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { renderWithProviders, screen } from '@/tests/utils';
 import { GuidedSetupWizard } from './GuidedSetupWizard';
 
-vi.mock('@/shared/hooks/use-projects', () => ({
-  useProjects: () => ({
-    createProject: vi.fn(),
-  }),
-}));
-
-vi.mock('@/shared/hooks/use-schemas', () => ({
-  useSchemas: () => ({
-    createSchema: vi.fn(),
-  }),
-}));
-
-vi.mock('@/shared/hooks/use-validation-scripts', () => ({
-  useValidationScripts: () => ({
-    createScript: vi.fn(),
-  }),
-}));
-
 vi.mock('@/shared/hooks/use-extractors', () => ({
   useExtractors: () => ({
     extractors: [],
@@ -45,4 +27,3 @@ describe('GuidedSetupWizard', () => {
     expect(await screen.findByText('引导式项目创建')).toBeInTheDocument();
   });
 });
-

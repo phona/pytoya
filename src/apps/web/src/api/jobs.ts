@@ -4,6 +4,8 @@ import type { Jsonify } from '@/api/types';
 export interface JobHistoryDto {
   id: number;
   manifestId: number;
+  manifestFilename: string | null;
+  manifestOriginalFilename: string | null;
   kind?: string;
   status: string;
   llmModelId: string | null;
@@ -22,6 +24,19 @@ export interface JobHistoryDto {
 export type JobHistory = Jsonify<JobHistoryDto>;
 
 export const jobsApi = {
+  getJobStats: async () => {
+    const response = await apiClient.get<{
+      active: number;
+      waiting: number;
+      delayed: number;
+      paused: number;
+      completed: number;
+      failed: number;
+      isPaused: boolean;
+    }>('/jobs/stats');
+    return response.data;
+  },
+
   getJobHistory: async (params?: { manifestId?: number; limit?: number }) => {
     const response = await apiClient.get<JobHistory[]>('/jobs/history', {
       params,

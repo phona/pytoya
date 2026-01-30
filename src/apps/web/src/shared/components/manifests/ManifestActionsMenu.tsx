@@ -177,7 +177,7 @@ export function ManifestActionsMenu({ manifest, onPreviewOcr }: ManifestActionsM
                   if (!confirmed) return;
                   setIsDeleting(true);
                   try {
-                    await deleteManifest.mutateAsync(manifest.id);
+                    await deleteManifest.mutateAsync({ manifestId: manifest.id, groupId: manifest.groupId });
                     toast({
                       title: t('manifests.deleteSuccessTitle'),
                     });

@@ -5,8 +5,11 @@ import * as ExcelJS from 'exceljs';
 import { PassThrough } from 'stream';
 
 import type { UserEntity } from '../entities/user.entity';
-import { ManifestEntity } from '../entities/manifest.entity';
+import { GroupEntity } from '../entities/group.entity';
+import { ManifestEntity, ManifestStatus } from '../entities/manifest.entity';
 import { ManifestItemEntity } from '../entities/manifest-item.entity';
+import { ProjectEntity } from '../entities/project.entity';
+import { SchemaEntity } from '../entities/schema.entity';
 import type { CsvExportFilters } from './csv-export.service';
 import { toXlsxCellValue } from './xlsx-export.util';
 import { assertValidJsonPath, buildJsonPathQuery } from './utils/json-path.util';
@@ -16,6 +19,21 @@ const XLSX_MIME =
 
 const MAX_EXPORT_MANIFESTS = 5000;
 const MAX_EXPORT_ITEMS = 100_000;
+
+const METADATA_HEADERS = [
+  'project_name',
+  'group_name',
+  'manifest_id',
+  'original_filename',
+  'status',
+  'created_at',
+  'confidence',
+  'human_verified',
+  'extraction_cost',
+  'extraction_cost_currency',
+] as const;
+
+const FALLBACK_EXTRACTED_DATA_HEADER = 'extractedDataJson';
 
 export type XlsxExportResult = {
   filename: string;
@@ -30,12 +48,19 @@ export class XlsxExportService {
     private readonly manifestRepository: Repository<ManifestEntity>,
     @InjectRepository(ManifestItemEntity)
     private readonly manifestItemRepository: Repository<ManifestItemEntity>,
+    @InjectRepository(GroupEntity)
+    private readonly groupRepository: Repository<GroupEntity>,
+    @InjectRepository(ProjectEntity)
+    private readonly projectRepository: Repository<ProjectEntity>,
+    @InjectRepository(SchemaEntity)
+    private readonly schemaRepository: Repository<SchemaEntity>,
   ) {}
 
   async exportXlsx(
     user: UserEntity,
     filters: CsvExportFilters,
   ): Promise<XlsxExportResult> {
+    const schemaColumns = await this.resolveSchemaColumnsForFilters(user, filters);
     const manifests = await this.fetchManifests(user, filters);
     if (manifests.length > MAX_EXPORT_MANIFESTS) {
       throw new BadRequestException(
@@ -57,6 +82,7 @@ export class XlsxExportService {
       scope: 'filtered',
       manifests,
       items,
+      schemaColumns,
       meta: { filters },
     });
   }
@@ -72,6 +98,7 @@ export class XlsxExportService {
     }
 
     const manifests = await this.fetchManifestsByIds(user, manifestIds);
+    const schemaColumns = await this.resolveSchemaColumnsForManifests(manifests);
     const items = await this.fetchItems(manifestIds);
     if (items.length > MAX_EXPORT_ITEMS) {
       throw new BadRequestException(
@@ -85,6 +112,7 @@ export class XlsxExportService {
       scope: 'selected',
       manifests,
       items,
+      schemaColumns,
       meta: { manifestIds },
     });
   }
@@ -94,6 +122,7 @@ export class XlsxExportService {
     scope: 'filtered' | 'selected';
     manifests: ManifestEntity[];
     items: ManifestItemEntity[];
+    schemaColumns: string[];
     meta: Record<string, unknown>;
   }): XlsxExportResult {
     const stream = new PassThrough();
@@ -106,7 +135,7 @@ export class XlsxExportService {
           useSharedStrings: true,
         });
 
-        this.writeManifestsSheet(workbook, options.manifests);
+        this.writeManifestsSheet(workbook, options.manifests, options.schemaColumns);
         this.writeItemsSheet(workbook, options.manifests, options.items);
         this.writeMetaSheet(workbook, {
           scope: options.scope,
@@ -131,45 +160,43 @@ export class XlsxExportService {
   private writeManifestsSheet(
     workbook: ExcelJS.stream.xlsx.WorkbookWriter,
     manifests: ManifestEntity[],
+    schemaColumns: string[],
   ) {
     const ws = workbook.addWorksheet('Manifests');
-    const headers = [
-      'manifest_id',
-      'task_path',
-      'filename',
-      'status',
-      'created_at',
-      'human_verified',
-      'confidence',
-      'po_no',
-      'invoice_date',
-      'department_code',
-      'usage',
-      'ocr_quality_score',
-      'extraction_cost',
-    ];
+    const normalizedColumns = schemaColumns
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
+    const headers =
+      normalizedColumns.length === 0
+        ? [...METADATA_HEADERS, FALLBACK_EXTRACTED_DATA_HEADER]
+        : [...METADATA_HEADERS, ...normalizedColumns];
+
     ws.addRow(headers).commit();
 
     for (const manifest of manifests) {
-      const data = (manifest.extractedData ?? {}) as Record<string, unknown>;
-      const invoice = this.getRecord(data, 'invoice');
-      const department = this.getRecord(data, 'department');
+      const extractedData = (manifest.extractedData ?? null) as Record<string, unknown> | null;
+      const row: Record<string, unknown> = {
+        project_name: manifest.group?.project?.name ?? '',
+        group_name: manifest.group?.name ?? '',
+        manifest_id: manifest.id,
+        original_filename: manifest.originalFilename || manifest.filename,
+        status: manifest.status,
+        created_at: manifest.createdAt,
+        confidence: manifest.confidence ?? null,
+        human_verified: Boolean(manifest.humanVerified),
+        extraction_cost: manifest.extractionCost ?? null,
+        extraction_cost_currency: manifest.extractionCostCurrency ?? null,
+      };
 
-      ws.addRow([
-        toXlsxCellValue(manifest.id),
-        toXlsxCellValue(this.buildTaskPath(manifest)),
-        toXlsxCellValue(manifest.originalFilename || manifest.filename),
-        toXlsxCellValue(manifest.status),
-        toXlsxCellValue(manifest.createdAt),
-        toXlsxCellValue(manifest.humanVerified),
-        toXlsxCellValue(manifest.confidence),
-        toXlsxCellValue(invoice.po_no),
-        toXlsxCellValue(invoice.invoice_date),
-        toXlsxCellValue(department.code),
-        toXlsxCellValue(invoice.usage),
-        toXlsxCellValue(manifest.ocrQualityScore),
-        toXlsxCellValue(manifest.extractionCost),
-      ]).commit();
+      if (normalizedColumns.length === 0) {
+        row[FALLBACK_EXTRACTED_DATA_HEADER] = extractedData ? this.safeJsonStringify(extractedData) : '';
+      } else {
+        for (const path of normalizedColumns) {
+          row[path] = extractedData ? this.getValueAtPath(extractedData, path) : undefined;
+        }
+      }
+
+      ws.addRow(headers.map((header) => toXlsxCellValue(row[header]))).commit();
     }
 
     ws.commit();
@@ -267,6 +294,85 @@ export class XlsxExportService {
       });
     }
 
+    const ocrQualityMin = filters.ocrQualityMin;
+    const ocrQualityMax = filters.ocrQualityMax;
+    const wantsUnprocessed =
+      ocrQualityMin === 0 &&
+      ocrQualityMax === 0 &&
+      ocrQualityMin !== undefined &&
+      ocrQualityMax !== undefined;
+
+    if (wantsUnprocessed) {
+      query.andWhere('(manifest.ocrQualityScore IS NULL)');
+    } else {
+      if (ocrQualityMin !== undefined) {
+        query.andWhere('manifest.ocrQualityScore >= :ocrQualityMin', {
+          ocrQualityMin,
+        });
+      }
+      if (ocrQualityMax !== undefined) {
+        query.andWhere('manifest.ocrQualityScore <= :ocrQualityMax', {
+          ocrQualityMax,
+        });
+      }
+    }
+
+    if (filters.costMin !== undefined) {
+      query.andWhere('manifest.extractionCost >= :costMin', { costMin: filters.costMin });
+    }
+
+    if (filters.costMax !== undefined) {
+      query.andWhere('manifest.extractionCost <= :costMax', { costMax: filters.costMax });
+    }
+
+    if (filters.textExtractorId) {
+      query.andWhere('manifest.textExtractorId = :textExtractorId', {
+        textExtractorId: filters.textExtractorId,
+      });
+    }
+
+    if (filters.extractorType) {
+      query.leftJoin('manifest.textExtractor', 'extractor');
+      query.andWhere('extractor.extractorType = :extractorType', {
+        extractorType: filters.extractorType,
+      });
+    }
+
+    if (filters.extractionStatus) {
+      const errorCountExpr =
+        "COALESCE((manifest.validationResults ->> 'errorCount')::int, 0)";
+      switch (filters.extractionStatus) {
+        case 'not_extracted':
+          query.andWhere('manifest.extractedData IS NULL');
+          query.andWhere('manifest.status = :statusPending', {
+            statusPending: ManifestStatus.PENDING,
+          });
+          break;
+        case 'extracting':
+          query.andWhere('manifest.status = :statusProcessing', {
+            statusProcessing: ManifestStatus.PROCESSING,
+          });
+          break;
+        case 'failed':
+          query.andWhere('manifest.status = :statusFailed', {
+            statusFailed: ManifestStatus.FAILED,
+          });
+          break;
+        case 'complete':
+          query.andWhere('manifest.status = :statusCompleted', {
+            statusCompleted: ManifestStatus.COMPLETED,
+          });
+          query.andWhere(`${errorCountExpr} = 0`);
+          break;
+        case 'partial':
+          query.andWhere('manifest.status = :statusCompleted', {
+            statusCompleted: ManifestStatus.COMPLETED,
+          });
+          query.andWhere(`${errorCountExpr} > 0`);
+          break;
+      }
+    }
+
     this.applyDynamicFilters(query, filters.filter);
 
     return query.getMany();
@@ -338,13 +444,108 @@ export class XlsxExportService {
     return String(manifest.id);
   }
 
-  private getRecord(
-    data: Record<string, unknown>,
-    key: string,
-  ): Record<string, unknown> {
-    const value = data[key];
-    if (value && typeof value === 'object') return value as Record<string, unknown>;
-    return {};
+  private getValueAtPath(root: Record<string, unknown>, fieldPath: string): unknown {
+    const trimmed = fieldPath.trim();
+    if (!trimmed) return undefined;
+    if (trimmed.includes('[]')) return undefined;
+
+    const segments = trimmed.split('.');
+    let current: unknown = root;
+    for (const segment of segments) {
+      if (!current || typeof current !== 'object' || Array.isArray(current)) {
+        return undefined;
+      }
+      current = (current as Record<string, unknown>)[segment];
+    }
+    return current;
+  }
+
+  private safeJsonStringify(value: unknown): string {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return '';
+    }
+  }
+
+  private async resolveSchemaColumnsForFilters(
+    user: UserEntity,
+    filters: CsvExportFilters,
+  ): Promise<string[]> {
+    const project = await this.resolveProjectForFilters(user, filters);
+    if (!project?.defaultSchemaId) {
+      return [];
+    }
+
+    const schema = await this.schemaRepository.findOne({
+      where: { id: project.defaultSchemaId },
+    });
+    if (!schema) {
+      return [];
+    }
+
+    return this.readXTableColumns(schema.jsonSchema);
+  }
+
+  private async resolveProjectForFilters(
+    user: UserEntity,
+    filters: CsvExportFilters,
+  ): Promise<ProjectEntity | null> {
+    if (filters.projectId) {
+      const project = await this.projectRepository.findOne({
+        where: { id: filters.projectId, ownerId: user.id },
+      });
+      return project ?? null;
+    }
+
+    if (filters.groupId) {
+      const group = await this.groupRepository.findOne({
+        where: { id: filters.groupId },
+        relations: ['project'],
+      });
+      if (!group?.project || group.project.ownerId !== user.id) {
+        return null;
+      }
+      return group.project;
+    }
+
+    return null;
+  }
+
+  private async resolveSchemaColumnsForManifests(
+    manifests: ManifestEntity[],
+  ): Promise<string[]> {
+    const projectIds = Array.from(
+      new Set(manifests.map((manifest) => manifest.group?.project?.id).filter((id): id is number => typeof id === 'number')),
+    );
+
+    if (projectIds.length !== 1) {
+      return [];
+    }
+
+    const project = await this.projectRepository.findOne({
+      where: { id: projectIds[0] },
+    });
+    if (!project?.defaultSchemaId) {
+      return [];
+    }
+
+    const schema = await this.schemaRepository.findOne({
+      where: { id: project.defaultSchemaId },
+    });
+    if (!schema) {
+      return [];
+    }
+
+    return this.readXTableColumns(schema.jsonSchema);
+  }
+
+  private readXTableColumns(schema: Record<string, unknown> | null | undefined): string[] {
+    const raw = schema && typeof schema === 'object' ? (schema as Record<string, unknown>)['x-table-columns'] : null;
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    return raw.filter((value): value is string => typeof value === 'string');
   }
 
   private normalizeLikePattern(value: string): string {

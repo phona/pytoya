@@ -13,7 +13,11 @@ Quick Create skips description, schema, and rules so you can start importing dat
 2. **Extractor + Models**: Select the text extractor and LLM model (required).
 3. **Schema**: Edit JSON Schema. Use the LLM generator or import a file if needed.
 4. **Rules**: Generate validation rules with AI or add rules manually.
-5. **Review**: Confirm selections and create the project.
+5. **Validation Scripts**: Add optional custom scripts (runs after schema/rules).
+6. **Review**: Confirm selections and create the project.
+
+## API Notes
+- Guided Setup uses `POST /projects/wizard` so creation is atomic (project + schema + rules + scripts are created together).
 
 ## Tips
 - Pick the text extractor and LLM model first so schema and rule generation can use them.

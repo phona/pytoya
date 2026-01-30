@@ -13,7 +13,7 @@ export class UpdateManifestUseCase {
 
     if (body.humanVerified === true) {
       const errorCount = manifest.validationResults?.errorCount ?? 0;
-      if (errorCount > 0) {
+      if (errorCount > 0 && body.allowValidationErrors !== true) {
         throw new BadRequestException({
           code: 'MANIFEST_VALIDATION_FAILED',
           message: 'Cannot mark manifest as human verified while validation errors exist.',
@@ -22,16 +22,18 @@ export class UpdateManifestUseCase {
       }
     }
 
+    const { allowValidationErrors: _allowValidationErrors, ...bodyWithoutOverrides } = body;
+
     const isEditingData =
-      body.extractedData !== undefined ||
-      body.purchaseOrder !== undefined ||
-      body.invoiceDate !== undefined ||
-      body.department !== undefined;
+      bodyWithoutOverrides.extractedData !== undefined ||
+      bodyWithoutOverrides.purchaseOrder !== undefined ||
+      bodyWithoutOverrides.invoiceDate !== undefined ||
+      bodyWithoutOverrides.department !== undefined;
     const shouldResetHumanVerified =
-      isEditingData && body.humanVerified === undefined && manifest.humanVerified;
+      isEditingData && bodyWithoutOverrides.humanVerified === undefined && manifest.humanVerified;
 
     const nextBody: UpdateManifestDto =
-      shouldResetHumanVerified ? { ...body, humanVerified: false } : body;
+      shouldResetHumanVerified ? { ...bodyWithoutOverrides, humanVerified: false } : bodyWithoutOverrides;
 
     return this.manifestsService.update(user, manifestId, nextBody);
   }

@@ -29,6 +29,8 @@ export type ExtractFilteredResponse = Jsonify<ExtractFilteredResponseDto>;
 export type DeleteManifestsBulkResponse = Jsonify<DeleteManifestsBulkResponseDto>;
 export type RefreshOcrRequest = { textExtractorId?: string };
 
+export type ManifestIdsResponse = Jsonify<{ total: number; ids: number[] }>;
+
 export interface ManifestItem {
   id: number;
   description: string;
@@ -159,6 +161,60 @@ export const manifestsApi = {
 
     const response = await apiClient.get<ManifestListResponse>(
       `/groups/${groupId}/manifests`,
+      { params: searchParams },
+    );
+
+    return response.data;
+  },
+
+  listManifestIds: async (groupId: number, params?: Omit<ManifestListQueryParams, 'page' | 'pageSize'>) => {
+    const searchParams = new URLSearchParams();
+    const filters = params?.filters;
+
+    if (filters?.status) searchParams.append('status', filters.status);
+    if (filters?.humanVerified !== undefined) {
+      searchParams.append('humanVerified', String(filters.humanVerified));
+    }
+    if (filters?.confidenceMin !== undefined) {
+      searchParams.append('confidenceMin', String(filters.confidenceMin));
+    }
+    if (filters?.confidenceMax !== undefined) {
+      searchParams.append('confidenceMax', String(filters.confidenceMax));
+    }
+    if (filters?.ocrQualityMin !== undefined) {
+      searchParams.append('ocrQualityMin', String(filters.ocrQualityMin));
+    }
+    if (filters?.ocrQualityMax !== undefined) {
+      searchParams.append('ocrQualityMax', String(filters.ocrQualityMax));
+    }
+    if (filters?.extractionStatus) {
+      searchParams.append('extractionStatus', filters.extractionStatus);
+    }
+    if (filters?.costMin !== undefined) {
+      searchParams.append('costMin', String(filters.costMin));
+    }
+    if (filters?.costMax !== undefined) {
+      searchParams.append('costMax', String(filters.costMax));
+    }
+    if (filters?.textExtractorId) {
+      searchParams.append('textExtractorId', filters.textExtractorId);
+    }
+    if (filters?.extractorType) {
+      searchParams.append('extractorType', filters.extractorType);
+    }
+    if (filters?.dynamicFilters) {
+      filters.dynamicFilters.forEach(({ field, value }) => {
+        if (field && value) {
+          searchParams.append(`filter[${field}]`, value);
+        }
+      });
+    }
+
+    if (params?.sort?.field) searchParams.append('sortBy', params.sort.field);
+    if (params?.sort?.order) searchParams.append('order', params.sort.order);
+
+    const response = await apiClient.get<ManifestIdsResponse>(
+      `/groups/${groupId}/manifests/ids`,
       { params: searchParams },
     );
 
@@ -297,13 +353,14 @@ export const manifestsApi = {
     return response.data;
   },
 
-  extractBulk: async (data: BulkExtractDto) => {
+  extractBulk: async (data: BulkExtractDto & { groupId?: number }) => {
+    const { groupId: _groupId, ...payload } = data;
     const response = await apiClient.post<{
       jobId: string;
       jobIds?: string[];
       jobs?: Array<{ jobId: string; manifestId: number }>;
       manifestCount: number;
-    }>('/manifests/extract-bulk', data);
+    }>('/manifests/extract-bulk', payload);
     return response.data;
   },
 

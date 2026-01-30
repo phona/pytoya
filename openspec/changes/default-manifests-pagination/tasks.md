@@ -1,12 +1,11 @@
 ## 1. Implementation
 
-- [ ] Update `findByGroup()` to always apply pagination defaults
-- [ ] Add regression test for “no page params still paginates”
-- [ ] Ensure UI callers are unaffected
+- [x] Update `findByGroup()` to always apply pagination defaults
+- [x] Add regression test for “no page params still paginates”
+- [x] Ensure UI callers are unaffected
 
 ## 2. Verification
 
-- [ ] Run `npm run test`
-- [ ] Run `npm run lint`
-- [ ] Run `npm run type-check`
-
+- [x] Run `npm run test`
+- [x] Run `npm run lint`
+- [x] Run `npm run type-check`

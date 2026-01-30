@@ -137,6 +137,15 @@ export class ManifestsController {
     };
   }
 
+  @Get('groups/:groupId/manifests/ids')
+  async findIdsByGroup(
+    @CurrentUser() user: UserEntity,
+    @Param('groupId', ParseIntPipe) groupId: number,
+    @Query() query: DynamicFieldFiltersDto,
+  ) {
+    return this.manifestsService.findIdsByGroup(user, groupId, query);
+  }
+
   @Get('manifests/:id/ocr')
   async getOcrResult(
     @CurrentUser() user: UserEntity,

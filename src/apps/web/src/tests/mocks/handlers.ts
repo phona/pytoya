@@ -310,6 +310,34 @@ export const handlers = [
       },
     });
   }),
+  http.post('/api/projects/wizard', async ({ request }) => {
+    const body = await parseJsonBody(request);
+    const project = body.project as Record<string, unknown> | undefined;
+    return HttpResponse.json({
+      project: {
+        id: 2,
+        name: project?.name ?? 'New Project',
+        description: project?.description ?? null,
+        userId: 1,
+        textExtractorId: project?.textExtractorId ?? 'extractor-1',
+        llmModelId: project?.llmModelId ?? '11111111-1111-1111-1111-111111111111',
+        createdAt: '2025-01-13T00:00:00.000Z',
+        updatedAt: '2025-01-13T00:00:00.000Z',
+      },
+      schema: {
+        id: 10,
+        name: 'Schema 2',
+        jsonSchema: body.jsonSchema ?? { type: 'object', properties: {}, required: [] },
+        requiredFields: [],
+        projectId: 2,
+        description: null,
+        systemPromptTemplate: null,
+        validationSettings: null,
+        createdAt: '2025-01-13T00:00:00.000Z',
+        updatedAt: '2025-01-13T00:00:00.000Z',
+      },
+    });
+  }),
   http.put('/api/projects/:id/extractor', async ({ request, params }) => {
     const body = await parseJsonBody(request);
     return HttpResponse.json({
@@ -614,6 +642,31 @@ export const handlers = [
   http.post('/api/extractors/:id/test', () => {
     return HttpResponse.json({ ok: true, message: 'ok' });
   }),
+  http.get('/api/extractors/cost-summaries', ({ request }) => {
+    const url = new URL(request.url);
+    const idsParam = url.searchParams.get('ids') ?? '';
+    const ids = idsParam
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    const resolvedIds = ids.length > 0 ? ids : mockExtractors.map((extractor) => extractor.id);
+
+    return HttpResponse.json(
+      resolvedIds.map((id) => ({
+        extractorId: id,
+        extractorName: mockExtractors.find((extractor) => extractor.id === id)?.name ?? id,
+        totalExtractions: 3,
+        totalCost: 0.12,
+        averageCostPerExtraction: 0.04,
+        currency: 'USD',
+        costBreakdown: {
+          byDate: [{ date: '2025-01-13', currency: 'USD', count: 3, cost: 0.12 }],
+          byProject: [{ projectId: 1, projectName: 'Test Project', currency: 'USD', count: 3, cost: 0.12 }],
+        },
+      })),
+    );
+  }),
   http.get('/api/extractors/:id/cost-summary', ({ params }) => {
     return HttpResponse.json({
       extractorId: params.id,
@@ -623,8 +676,8 @@ export const handlers = [
       averageCostPerExtraction: 0.04,
       currency: 'USD',
       costBreakdown: {
-        byDate: [{ date: '2025-01-13', count: 3, cost: 0.12 }],
-        byProject: [{ projectId: 1, projectName: 'Test Project', count: 3, cost: 0.12 }],
+        byDate: [{ date: '2025-01-13', currency: 'USD', count: 3, cost: 0.12 }],
+        byProject: [{ projectId: 1, projectName: 'Test Project', currency: 'USD', count: 3, cost: 0.12 }],
       },
     });
   }),
@@ -1050,6 +1103,16 @@ export const handlers = [
 
   http.delete('/api/manifests/:id', () => {
     return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.post('/api/manifests/extract-bulk', async ({ request }) => {
+    const body = await parseJsonBody(request);
+    const manifestIds = Array.isArray(body.manifestIds) ? body.manifestIds : [];
+    return HttpResponse.json({
+      jobId: 'job-bulk-1',
+      jobs: manifestIds.map((manifestId) => ({ jobId: `job-${manifestId}`, manifestId: Number(manifestId) })),
+      manifestCount: manifestIds.length,
+    });
   }),
 
   http.post('/api/manifests/:id/re-extract', () => {

@@ -17,7 +17,8 @@ import { CostBadge } from '@/shared/components/CostBadge';
 
 const formatParamSummary = (params: Record<string, unknown>) => {
   const entries = Object.entries(params)
-    .filter(([key]) => key !== 'apiKey' && key !== 'pricing')
+    .filter(([_key, value]) => value !== '********')
+    .filter(([key]) => key !== 'pricing')
     .slice(0, 3);
   return entries.map(([key, value]) => `${key}: ${String(value)}`).join(', ');
 };

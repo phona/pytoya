@@ -30,11 +30,11 @@ export function useUpdateManifest() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ manifestId, data }: { manifestId: number; data: UpdateManifestDto }) =>
+    mutationFn: ({ manifestId, data }: { manifestId: number; groupId: number; data: UpdateManifestDto }) =>
       manifestsApi.updateManifest(manifestId, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId] });
-      queryClient.invalidateQueries({ queryKey: ['manifests', 'group'] });
+      queryClient.invalidateQueries({ queryKey: ['manifests', 'group', variables.groupId] });
     },
   });
 }
@@ -43,9 +43,10 @@ export function useDeleteManifest() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (manifestId: number) => manifestsApi.deleteManifest(manifestId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['manifests', 'group'] });
+    mutationFn: ({ manifestId, groupId }: { manifestId: number; groupId: number }) =>
+      manifestsApi.deleteManifest(manifestId).then(() => ({ groupId })),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['manifests', 'group', variables.groupId] });
     },
   });
 }
@@ -56,8 +57,8 @@ export function useDeleteManifestsBulk() {
   return useMutation({
     mutationFn: ({ groupId, manifestIds }: { groupId: number; manifestIds: number[] }) =>
       manifestsApi.deleteManifestsBulk(groupId, manifestIds),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['manifests', 'group'] });
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['manifests', 'group', variables.groupId] });
     },
   });
 }
@@ -241,8 +242,8 @@ export function useExtractBulk() {
   return useMutation({
     mutationFn: (data: Parameters<typeof manifestsApi.extractBulk>[0]) =>
       manifestsApi.extractBulk(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['manifests', 'group'] });
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['manifests', 'group', variables.groupId] });
     },
   });
 }

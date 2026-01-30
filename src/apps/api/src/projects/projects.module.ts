@@ -7,6 +7,8 @@ import { ModelEntity } from '../entities/model.entity';
 import { ManifestEntity } from '../entities/manifest.entity';
 import { UsersModule } from '../users/users.module';
 import { TextExtractorModule } from '../text-extractor/text-extractor.module';
+import { ValidationModule } from '../validation/validation.module';
+import { SchemasModule } from '../schemas/schemas.module';
 import { ProjectsController } from './projects.controller';
 import { ProjectsService } from './projects.service';
 
@@ -20,6 +22,8 @@ import { ProjectsService } from './projects.service';
     ]),
     UsersModule,
     TextExtractorModule,
+    ValidationModule,
+    SchemasModule,
   ],
   controllers: [ProjectsController],
   providers: [ProjectsService],

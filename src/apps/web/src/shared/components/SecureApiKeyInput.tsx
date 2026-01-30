@@ -12,6 +12,8 @@ type SecureApiKeyInputProps = {
   helperText?: string;
 };
 
+const MASKED_SECRET = '********';
+
 export function SecureApiKeyInput({
   id,
   label,
@@ -21,7 +23,8 @@ export function SecureApiKeyInput({
   helperText,
 }: SecureApiKeyInputProps) {
   const [visible, setVisible] = useState(false);
-  const canCopy = Boolean(value);
+  const isMasked = value === MASKED_SECRET;
+  const canCopy = Boolean(value) && !isMasked;
 
   const handleCopy = async () => {
     if (!value) return;
@@ -70,7 +73,13 @@ export function SecureApiKeyInput({
           </Button>
         </div>
       </div>
-      {helperText && <p className="text-xs text-muted-foreground">{helperText}</p>}
+      {(helperText || isMasked) && (
+        <p className="text-xs text-muted-foreground">
+          {helperText}
+          {helperText && isMasked ? ' ' : ''}
+          {isMasked ? 'Saved. Use “Test Connection” to verify.' : ''}
+        </p>
+      )}
     </div>
   );
 }

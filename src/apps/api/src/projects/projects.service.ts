@@ -1,14 +1,21 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 
+import { ExtractorEntity } from '../entities/extractor.entity';
 import { ModelEntity } from '../entities/model.entity';
 import { ManifestEntity } from '../entities/manifest.entity';
 import { ProjectEntity } from '../entities/project.entity';
+import { SchemaEntity } from '../entities/schema.entity';
 import { UserEntity } from '../entities/user.entity';
 import { adapterRegistry } from '../models/adapters/adapter-registry';
 import { ExtractorRepository } from '../extractors/extractor.repository';
+import { SchemasService } from '../schemas/schemas.service';
+import { SchemaRulesService } from '../schemas/schema-rules.service';
+import { ValidationService } from '../validation/validation.service';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { CreateProjectWizardDto } from './dto/create-project-wizard.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectNotFoundException } from './exceptions/project-not-found.exception';
 import { ProjectOwnershipException } from './exceptions/project-ownership.exception';
@@ -16,6 +23,8 @@ import { ProjectOwnershipException } from './exceptions/project-ownership.except
 @Injectable()
 export class ProjectsService {
   constructor(
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
     @InjectRepository(ProjectEntity)
     private readonly projectRepository: Repository<ProjectEntity>,
     @InjectRepository(ModelEntity)
@@ -23,6 +32,9 @@ export class ProjectsService {
     @InjectRepository(ManifestEntity)
     private readonly manifestRepository: Repository<ManifestEntity>,
     private readonly extractorRepository: ExtractorRepository,
+    private readonly schemasService: SchemasService,
+    private readonly schemaRulesService: SchemaRulesService,
+    private readonly validationService: ValidationService,
   ) {}
 
   async create(
@@ -37,6 +49,78 @@ export class ProjectsService {
     });
 
     return this.projectRepository.save(project);
+  }
+
+  async createWizard(
+    user: UserEntity,
+    input: CreateProjectWizardDto,
+  ): Promise<{ project: ProjectEntity; schema: SchemaEntity }> {
+    const validation = this.schemasService.validateSchemaDefinition(input.jsonSchema);
+    if (!validation.valid) {
+      throw new BadRequestException((validation.errors ?? []).join('; ') || 'Invalid schema');
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      await this.ensureDefaultsExist(input.project, { manager });
+
+      const projectRepository = manager.getRepository(ProjectEntity);
+      const project = projectRepository.create({
+        ...input.project,
+        ownerId: user.id,
+      });
+      const savedProject = await projectRepository.save(project);
+
+      const schema = await this.schemasService.createWithManager(
+        {
+          jsonSchema: input.jsonSchema,
+          projectId: savedProject.id,
+        },
+        { manager },
+      );
+
+      if (input.rules?.length) {
+        await Promise.all(
+          input.rules.map((rule) =>
+            this.schemaRulesService.createWithManager(
+              schema.id,
+              {
+                schemaId: schema.id,
+                fieldPath: rule.fieldPath,
+                ruleType: rule.ruleType,
+                ruleOperator: rule.ruleOperator,
+                ruleConfig: rule.ruleConfig ?? {},
+                errorMessage: rule.errorMessage,
+                priority: rule.priority,
+                enabled: rule.enabled,
+                description: rule.description,
+              },
+              { manager },
+            ),
+          ),
+        );
+      }
+
+      if (input.validationScripts?.length) {
+        await Promise.all(
+          input.validationScripts.map((script) =>
+            this.validationService.createWithManager(
+              user,
+              {
+                name: script.name,
+                description: script.description,
+                projectId: String(savedProject.id),
+                script: script.script,
+                severity: script.severity,
+                enabled: script.enabled,
+              },
+              { manager },
+            ),
+          ),
+        );
+      }
+
+      return { project: savedProject, schema };
+    });
   }
 
   async findAll(user: UserEntity): Promise<ProjectEntity[]> {
@@ -208,6 +292,7 @@ export class ProjectsService {
       UpdateProjectDto,
       'textExtractorId' | 'llmModelId'
     >,
+    options: { manager?: EntityManager } = {},
   ): Promise<void> {
     if (!input.llmModelId) {
       throw new BadRequestException('LLM model is required');
@@ -216,19 +301,24 @@ export class ProjectsService {
       throw new BadRequestException('Text extractor is required');
     }
     await Promise.all([
-      this.ensureExtractorExists(input.textExtractorId),
-      this.ensureModelExists(input.llmModelId, 'llm'),
+      this.ensureExtractorExists(input.textExtractorId, options),
+      this.ensureModelExists(input.llmModelId, 'llm', options),
     ]);
   }
 
   private async ensureModelExists(
     modelId: string | null | undefined,
     expectedCategory: 'ocr' | 'llm',
+    options: { manager?: EntityManager } = {},
   ): Promise<void> {
     if (modelId === undefined || modelId === null) {
       return;
     }
-    const model = await this.modelRepository.findOne({
+    const modelRepository = options.manager
+      ? options.manager.getRepository(ModelEntity)
+      : this.modelRepository;
+
+    const model = await modelRepository.findOne({
       where: { id: modelId },
     });
     if (!model) {
@@ -247,11 +337,18 @@ export class ProjectsService {
     }
   }
 
-  private async ensureExtractorExists(extractorId: string | null | undefined): Promise<void> {
+  private async ensureExtractorExists(
+    extractorId: string | null | undefined,
+    options: { manager?: EntityManager } = {},
+  ): Promise<void> {
     if (extractorId === undefined || extractorId === null) {
       return;
     }
-    const extractor = await this.extractorRepository.findOne(extractorId);
+
+    const extractor = options.manager
+      ? await options.manager.getRepository(ExtractorEntity).findOne({ where: { id: extractorId } })
+      : await this.extractorRepository.findOne(extractorId);
+
     if (!extractor) {
       throw new NotFoundException(`Extractor ${extractorId} not found`);
     }

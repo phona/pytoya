@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { PencilLine } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { getApiErrorText } from '@/api/client';
 import { useProject, useProjects } from '@/shared/hooks/use-projects';
+import { useI18n } from '@/shared/providers/I18nProvider';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +21,7 @@ export function ProjectSettingsBasicPage() {
   const navigate = useNavigate();
   const params = useParams();
   const projectId = Number(params.id);
+  const { t } = useI18n();
   const { project, isLoading } = useProject(projectId);
   const { updateProject } = useProjects();
 
@@ -26,6 +29,7 @@ export function ProjectSettingsBasicPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!project) return;
@@ -35,17 +39,23 @@ export function ProjectSettingsBasicPage() {
 
   const handleSave = async () => {
     if (!project) return;
+    setSaveError(null);
     setIsSaving(true);
-    await updateProject({
-      id: project.id,
-      data: {
-        name: name.trim(),
-        description: description.trim() || undefined,
-        llmModelId: project.llmModelId,
-      },
-    });
-    setIsSaving(false);
-    setIsEditing(false);
+    try {
+      await updateProject({
+        id: project.id,
+        data: {
+          name: name.trim(),
+          description: description.trim() || undefined,
+          llmModelId: project.llmModelId,
+        },
+      });
+      setIsEditing(false);
+    } catch (error) {
+      setSaveError(getApiErrorText(error, t));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -123,6 +133,9 @@ export function ProjectSettingsBasicPage() {
                   />
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
+                  {saveError ? (
+                    <div className="mr-auto text-sm text-destructive">{saveError}</div>
+                  ) : null}
                   <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
                     Cancel
                   </Button>

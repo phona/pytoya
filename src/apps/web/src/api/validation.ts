@@ -1,6 +1,7 @@
 import apiClient from '@/api/client';
 import type {
   BatchValidationDto,
+  BatchValidationResponseDto,
   CreateValidationScriptDto,
   GenerateValidationScriptDto,
   GeneratedValidationScriptResponseDto,
@@ -93,7 +94,7 @@ export const validationApi = {
   },
 
   runBatchValidation: async (data: BatchValidationDto) => {
-    const response = await apiClient.post<Record<number, ValidationResult>>('/validation/batch', data);
+    const response = await apiClient.post<Jsonify<BatchValidationResponseDto>>('/validation/batch', data);
     return response.data;
   },
 };

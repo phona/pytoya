@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 
@@ -16,6 +16,13 @@ export interface CsvExportFilters {
   humanVerified?: boolean;
   confidenceMin?: number;
   confidenceMax?: number;
+  ocrQualityMin?: number;
+  ocrQualityMax?: number;
+  extractionStatus?: 'not_extracted' | 'extracting' | 'complete' | 'partial' | 'failed';
+  costMin?: number;
+  costMax?: number;
+  textExtractorId?: string;
+  extractorType?: string;
   filter?: Record<string, string>;
 }
 
@@ -35,6 +42,7 @@ const METADATA_HEADERS = [
 ] as const;
 
 const FALLBACK_EXTRACTED_DATA_HEADER = 'extractedDataJson';
+const MAX_EXPORT_MANIFESTS = 5000;
 
 @Injectable()
 export class CsvExportService {
@@ -233,7 +241,98 @@ export class CsvExportService {
       });
     }
 
+    const ocrQualityMin = filters.ocrQualityMin;
+    const ocrQualityMax = filters.ocrQualityMax;
+    const wantsUnprocessed =
+      ocrQualityMin === 0 &&
+      ocrQualityMax === 0 &&
+      ocrQualityMin !== undefined &&
+      ocrQualityMax !== undefined;
+
+    if (wantsUnprocessed) {
+      query.andWhere('(manifest.ocrQualityScore IS NULL)');
+    } else {
+      if (ocrQualityMin !== undefined) {
+        query.andWhere('manifest.ocrQualityScore >= :ocrQualityMin', {
+          ocrQualityMin,
+        });
+      }
+
+      if (ocrQualityMax !== undefined) {
+        query.andWhere('manifest.ocrQualityScore <= :ocrQualityMax', {
+          ocrQualityMax,
+        });
+      }
+    }
+
+    if (filters.costMin !== undefined) {
+      query.andWhere('manifest.extractionCost >= :costMin', { costMin: filters.costMin });
+    }
+
+    if (filters.costMax !== undefined) {
+      query.andWhere('manifest.extractionCost <= :costMax', { costMax: filters.costMax });
+    }
+
+    if (filters.textExtractorId) {
+      query.andWhere('manifest.textExtractorId = :textExtractorId', {
+        textExtractorId: filters.textExtractorId,
+      });
+    }
+
+    if (filters.extractorType) {
+      query.leftJoin('manifest.textExtractor', 'extractor');
+      query.andWhere('extractor.extractorType = :extractorType', {
+        extractorType: filters.extractorType,
+      });
+    }
+
+    if (filters.extractionStatus) {
+      const errorCountExpr =
+        "COALESCE((manifest.validationResults ->> 'errorCount')::int, 0)";
+      switch (filters.extractionStatus) {
+        case 'not_extracted':
+          query.andWhere('manifest.extractedData IS NULL');
+          query.andWhere('manifest.status = :statusPending', {
+            statusPending: ManifestStatus.PENDING,
+          });
+          break;
+        case 'extracting':
+          query.andWhere('manifest.status = :statusProcessing', {
+            statusProcessing: ManifestStatus.PROCESSING,
+          });
+          break;
+        case 'failed':
+          query.andWhere('manifest.status = :statusFailed', {
+            statusFailed: ManifestStatus.FAILED,
+          });
+          break;
+        case 'complete':
+          query.andWhere('manifest.status = :statusCompleted', {
+            statusCompleted: ManifestStatus.COMPLETED,
+          });
+          query.andWhere(`${errorCountExpr} = 0`);
+          break;
+        case 'partial':
+          query.andWhere('manifest.status = :statusCompleted', {
+            statusCompleted: ManifestStatus.COMPLETED,
+          });
+          query.andWhere(`${errorCountExpr} > 0`);
+          break;
+      }
+    }
+
     this.applyDynamicFilters(query, filters.filter);
+
+    const countQuery =
+      typeof (query as any).clone === 'function'
+        ? (query as any).clone()
+        : query;
+    const total = await countQuery.getCount();
+    if (total > MAX_EXPORT_MANIFESTS) {
+      throw new BadRequestException(
+        `Too many manifests to export (${total}). Narrow your filters (max ${MAX_EXPORT_MANIFESTS}).`,
+      );
+    }
 
     return query.getMany();
   }
@@ -244,6 +343,11 @@ export class CsvExportService {
   ): Promise<ManifestEntity[]> {
     if (manifestIds.length === 0) {
       return [];
+    }
+    if (manifestIds.length > MAX_EXPORT_MANIFESTS) {
+      throw new BadRequestException(
+        `Too many manifests to export (${manifestIds.length}). Narrow your selection (max ${MAX_EXPORT_MANIFESTS}).`,
+      );
     }
 
     return this.manifestRepository

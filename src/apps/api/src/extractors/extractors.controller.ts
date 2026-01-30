@@ -32,6 +32,17 @@ export class ExtractorsController {
     private readonly extractorCostService: ExtractorCostService,
   ) {}
 
+  private getSecretKeys(extractorType: string): string[] {
+    const extractor = this.extractorRegistry.get(extractorType);
+    const schema = extractor?.metadata?.paramsSchema;
+    if (!schema) {
+      return [];
+    }
+    return Object.entries(schema)
+      .filter(([, def]) => Boolean((def as { secret?: boolean }).secret))
+      .map(([key]) => key);
+  }
+
   @Get('types')
   listTypes(): ExtractorTypeDto[] {
     return this.extractorRegistry.list().map((metadata) => ({
@@ -63,34 +74,59 @@ export class ExtractorsController {
     ]);
 
     return extractors.map((extractor) =>
-      ExtractorResponseDto.fromEntity(extractor, usageCounts[extractor.id] ?? 0),
+      ExtractorResponseDto.fromEntity(extractor, usageCounts[extractor.id] ?? 0, {
+        secretKeys: this.getSecretKeys(extractor.extractorType),
+      }),
     );
   }
 
   @Post()
   async create(@Body() body: CreateExtractorDto) {
     const extractor = await this.extractorsService.create(body);
-    return ExtractorResponseDto.fromEntity(extractor, 0);
+    return ExtractorResponseDto.fromEntity(extractor, 0, {
+      secretKeys: this.getSecretKeys(extractor.extractorType),
+    });
+  }
+
+  @Get('cost-summaries')
+  async costSummaries(@Query('ids') ids?: string): Promise<ExtractorCostSummaryDto[]> {
+    const extractorIds = (ids ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    const extractors = await this.extractorsService.findAll();
+    const filtered = extractorIds.length > 0
+      ? extractors.filter((extractor) => extractorIds.includes(extractor.id))
+      : extractors;
+
+    return this.extractorCostService.getCostSummaries(filtered);
   }
 
   @Get(':id')
   async get(@Param('id') id: string) {
     const extractor = await this.extractorsService.findOne(id);
     const usageCounts = await this.extractorsService.getUsageCounts();
-    return ExtractorResponseDto.fromEntity(extractor, usageCounts[id] ?? 0);
+    return ExtractorResponseDto.fromEntity(extractor, usageCounts[id] ?? 0, {
+      secretKeys: this.getSecretKeys(extractor.extractorType),
+    });
   }
 
   @Patch(':id')
   async update(@Param('id') id: string, @Body() body: UpdateExtractorDto) {
     const extractor = await this.extractorsService.update(id, body);
     const usageCounts = await this.extractorsService.getUsageCounts();
-    return ExtractorResponseDto.fromEntity(extractor, usageCounts[id] ?? 0);
+    return ExtractorResponseDto.fromEntity(extractor, usageCounts[id] ?? 0, {
+      secretKeys: this.getSecretKeys(extractor.extractorType),
+    });
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string) {
     const extractor = await this.extractorsService.remove(id);
-    return ExtractorResponseDto.fromEntity(extractor, 0);
+    return ExtractorResponseDto.fromEntity(extractor, 0, {
+      secretKeys: this.getSecretKeys(extractor.extractorType),
+    });
   }
 
   @Post(':id/test')

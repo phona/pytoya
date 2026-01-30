@@ -86,9 +86,9 @@ export function ExtractFilteredModal({
   const { extractors } = useExtractors();
 
   const hasSelection = selectedManifestIds.length > 0;
-  const defaultScope: ExtractScope = 'filtered';
+  const defaultScope: ExtractScope = hasSelection ? 'selected' : 'filtered';
 
-  const [scope, setScope] = useState<ExtractScope>(defaultScope);
+  const [scope, setScope] = useState<ExtractScope>(() => (hasSelection ? 'selected' : 'filtered'));
   const [includeCompleted, setIncludeCompleted] = useState(false);
   const [includeProcessing, setIncludeProcessing] = useState(false);
   const [overrideTextExtractorId, setOverrideTextExtractorId] = useState('');

@@ -3,6 +3,7 @@ import type { Jsonify } from '@/api/types';
 import type {
   CreateGroupDto,
   CreateProjectDto,
+  CreateProjectWizardDto,
   GroupResponseDto,
   ProjectResponseDto,
   ProjectCostSummaryDto,
@@ -10,6 +11,7 @@ import type {
   UpdateProjectDto,
   UpdateProjectExtractorDto,
 } from '@pytoya/shared/types/projects';
+import type { SchemaResponseDto } from '@pytoya/shared/types/schemas';
 
 export type Project = Jsonify<ProjectResponseDto> & {
   _count?: {
@@ -32,11 +34,13 @@ export type Group = Jsonify<GroupResponseDto> & {
 
 export type {
   CreateProjectDto,
+  CreateProjectWizardDto,
   UpdateProjectDto,
   CreateGroupDto,
   UpdateGroupDto,
 };
 export type ProjectCostSummary = Jsonify<ProjectCostSummaryDto>;
+export type ProjectWizardResponse = { project: Project; schema: Jsonify<SchemaResponseDto> };
 
 export const projectsApi = {
   // Projects
@@ -52,6 +56,11 @@ export const projectsApi = {
 
   createProject: async (data: CreateProjectDto) => {
     const response = await apiClient.post<Project>('/projects', data);
+    return response.data;
+  },
+
+  createProjectWizard: async (data: CreateProjectWizardDto) => {
+    const response = await apiClient.post<ProjectWizardResponse>('/projects/wizard', data);
     return response.data;
   },
 

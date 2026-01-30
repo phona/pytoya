@@ -35,8 +35,7 @@ export function ExtractorsPage() {
   const costSummariesQuery = useQuery({
     queryKey: ['extractor-cost-summaries', extractors.map((extractor) => extractor.id)],
     queryFn: async () => {
-      const results = await Promise.all(extractors.map((extractor) => extractorsApi.getCostSummary(extractor.id)));
-      return results;
+      return extractorsApi.getCostSummaries(extractors.map((extractor) => extractor.id));
     },
     enabled: extractors.length > 0,
   });

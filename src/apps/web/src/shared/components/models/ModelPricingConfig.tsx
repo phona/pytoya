@@ -56,6 +56,7 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
   const [formData, setFormData] = useState<PricingFormState>(initialFormState);
   const [showHistory, setShowHistory] = useState<Record<string, boolean>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const toggleExpanded = (id: string) => {
     setExpandedIds((prev) => {
@@ -88,6 +89,7 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
     if (!editingModel) return;
 
     setIsSaving(true);
+    setSaveError(null);
     try {
       const pricingData: Record<string, unknown> = {};
       const inputPrice = Number.parseFloat(formData.llmInputPrice);
@@ -116,7 +118,7 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
       setEditingModel(null);
       setFormData(initialFormState);
     } catch (error) {
-      console.error('Failed to update model pricing:', error);
+      setSaveError(error instanceof Error ? error.message : 'Failed to update model pricing.');
     } finally {
       setIsSaving(false);
     }
@@ -154,6 +156,12 @@ export function ModelPricingConfig({ models, onUpdate }: ModelPricingConfigProps
           </p>
         </div>
       </div>
+
+      {saveError ? (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+          {saveError}
+        </div>
+      ) : null}
 
       <div className="rounded-md border border-border">
         <Table>

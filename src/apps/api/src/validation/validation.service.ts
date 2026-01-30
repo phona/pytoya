@@ -20,10 +20,12 @@ import { UpdateValidationScriptDto } from './dto/update-validation-script.dto';
 import { RunValidationDto } from './dto/run-validation.dto';
 import { BatchValidationDto } from './dto/batch-validation.dto';
 import { TestValidationScriptDto, TestValidationScriptResponseDto } from './dto/test-validation-script.dto';
+import { BatchValidationOutcomeDto } from './dto/batch-validation-response.dto';
 import { ValidationScriptNotFoundException } from './exceptions/validation-script-not-found.exception';
 import { ScriptExecutorService } from './script-executor.service';
 import { ProjectOwnershipException } from '../projects/exceptions/project-ownership.exception';
 import { ManifestNotFoundException } from '../manifests/exceptions/manifest-not-found.exception';
+import { EntityManager } from 'typeorm';
 import { adapterRegistry } from '../models/adapters/adapter-registry';
 
 @Injectable()
@@ -48,8 +50,23 @@ export class ValidationService {
   // ========== Script CRUD ==========
 
   async create(user: UserEntity, input: CreateValidationScriptDto): Promise<ValidationScriptEntity> {
+    return this.createWithManager(user, input);
+  }
+
+  async createWithManager(
+    user: UserEntity,
+    input: CreateValidationScriptDto,
+    options: { manager?: EntityManager } = {},
+  ): Promise<ValidationScriptEntity> {
+    const projectRepository = options.manager
+      ? options.manager.getRepository(ProjectEntity)
+      : this.projectRepository;
+    const validationScriptRepository = options.manager
+      ? options.manager.getRepository(ValidationScriptEntity)
+      : this.validationScriptRepository;
+
     // Verify project ownership
-    const project = await this.projectRepository.findOne({
+    const project = await projectRepository.findOne({
       where: { id: Number(input.projectId) },
     });
 
@@ -67,7 +84,7 @@ export class ValidationService {
       throw new BadRequestException(syntaxCheck.error);
     }
 
-    const script = this.validationScriptRepository.create({
+    const script = validationScriptRepository.create({
       ...input,
       projectId: project.id,
       severity: input.severity ?? ValidationSeverity.WARNING,
@@ -75,7 +92,7 @@ export class ValidationService {
       description: input.description ?? null,
     });
 
-    const saved = await this.validationScriptRepository.save(script);
+    const saved = await validationScriptRepository.save(script);
     await this.invalidateValidationResultsForProject(project.id);
     return saved;
   }
@@ -239,23 +256,41 @@ export class ValidationService {
   async runBatchValidation(
     user: UserEntity,
     input: BatchValidationDto,
-  ): Promise<Map<number, ValidationResult>> {
-    const results = new Map<number, ValidationResult>();
+  ): Promise<Map<number, BatchValidationOutcomeDto>> {
+    const ids = Array.from(new Set(input.manifestIds)).filter((id) => Number.isFinite(id));
+    const outcomes = new Map<number, BatchValidationOutcomeDto>();
 
+    const maxConcurrency = 5;
+    let nextIndex = 0;
+
+    const worker = async () => {
+      while (nextIndex < ids.length) {
+        const manifestId = ids[nextIndex++];
+        try {
+          const result = await this.runValidation(user, {
+            manifestId,
+            scriptIds: input.scriptIds,
+          });
+          outcomes.set(manifestId, { ok: true, result });
+        } catch (error) {
+          this.logger.error(`Validation failed for manifest ${manifestId}:`, error);
+          const message = error instanceof Error ? error.message : 'Validation failed';
+          outcomes.set(manifestId, { ok: false, error: { message } });
+        }
+      }
+    };
+
+    const workers = Array.from({ length: Math.min(maxConcurrency, ids.length) }).map(() => worker());
+    await Promise.all(workers);
+
+    // Ensure every requested id has an outcome entry.
     for (const manifestId of input.manifestIds) {
-      try {
-        const result = await this.runValidation(user, {
-          manifestId,
-          scriptIds: input.scriptIds,
-        });
-        results.set(manifestId, result);
-      } catch (error) {
-        this.logger.error(`Validation failed for manifest ${manifestId}:`, error);
-        // Continue with other manifests
+      if (!outcomes.has(manifestId)) {
+        outcomes.set(manifestId, { ok: false, error: { message: 'Validation skipped' } });
       }
     }
 
-    return results;
+    return outcomes;
   }
 
   // ========== Helper Methods ==========

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Cpu, PencilLine } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { getApiErrorText } from '@/api/client';
 import { useModels } from '@/shared/hooks/use-models';
 import { useProject, useProjects } from '@/shared/hooks/use-projects';
 import {
@@ -20,11 +21,13 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select';
 import { ProjectSettingsShell } from '@/shared/components/ProjectSettingsShell';
+import { useI18n } from '@/shared/providers/I18nProvider';
 
 export function ProjectSettingsModelsPage() {
   const navigate = useNavigate();
   const params = useParams();
   const projectId = Number(params.id);
+  const { t } = useI18n();
   const { project, isLoading } = useProject(projectId);
   const { updateProject } = useProjects();
   const { models: llmModels } = useModels({ category: 'llm' });
@@ -32,6 +35,7 @@ export function ProjectSettingsModelsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [llmModelId, setLlmModelId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!project) return;
@@ -40,15 +44,21 @@ export function ProjectSettingsModelsPage() {
 
   const handleSave = async () => {
     if (!project || !llmModelId) return;
+    setSaveError(null);
     setIsSaving(true);
-    await updateProject({
-      id: project.id,
-      data: {
-        llmModelId,
-      },
-    });
-    setIsSaving(false);
-    setIsEditing(false);
+    try {
+      await updateProject({
+        id: project.id,
+        data: {
+          llmModelId,
+        },
+      });
+      setIsEditing(false);
+    } catch (error) {
+      setSaveError(getApiErrorText(error, t));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const activeLlmModel = llmModels.find((model) => model.id === project?.llmModelId);
@@ -129,6 +139,7 @@ export function ProjectSettingsModelsPage() {
                   </Select>
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
+                  {saveError ? <div className="mr-auto text-sm text-destructive">{saveError}</div> : null}
                   <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
                     Cancel
                   </Button>

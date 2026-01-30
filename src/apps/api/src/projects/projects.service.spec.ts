@@ -19,6 +19,11 @@ describe('ProjectsService', () => {
   const user = { id: 1 } as UserEntity;
 
   beforeEach(() => {
+    const dataSource = {} as any;
+    const schemasService = { validateSchemaDefinition: jest.fn() } as any;
+    const schemaRulesService = {} as any;
+    const validationService = {} as any;
+
     projectRepository = {
       create: jest.fn(),
       save: jest.fn(),
@@ -36,10 +41,14 @@ describe('ProjectsService', () => {
       findOne: jest.fn(),
     };
     service = new ProjectsService(
+      dataSource,
       projectRepository as any,
       modelRepository as any,
       manifestRepository as any,
       extractorRepository as any,
+      schemasService,
+      schemaRulesService,
+      validationService,
     );
   });
 

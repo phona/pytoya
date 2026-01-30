@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { SchemaEntity } from '../entities/schema.entity';
 import { SchemaRuleEntity, SchemaRuleOperator } from '../entities/schema-rule.entity';
 import { CreateSchemaRuleDto } from './dto/create-schema-rule.dto';
@@ -19,7 +19,22 @@ export class SchemaRulesService {
     schemaId: number,
     input: CreateSchemaRuleDto,
   ): Promise<SchemaRuleEntity> {
-    await this.ensureSchemaExists(schemaId);
+    return this.createWithManager(schemaId, input);
+  }
+
+  async createWithManager(
+    schemaId: number,
+    input: CreateSchemaRuleDto,
+    options: { manager?: EntityManager } = {},
+  ): Promise<SchemaRuleEntity> {
+    const schemaRepository = options.manager
+      ? options.manager.getRepository(SchemaEntity)
+      : this.schemaRepository;
+    const schemaRuleRepository = options.manager
+      ? options.manager.getRepository(SchemaRuleEntity)
+      : this.schemaRuleRepository;
+
+    await this.ensureSchemaExists(schemaRepository, schemaId);
     if (input.schemaId && input.schemaId !== schemaId) {
       throw new BadRequestException('Schema ID mismatch');
     }
@@ -30,7 +45,7 @@ export class SchemaRulesService {
       throw new BadRequestException('fieldPath is required');
     }
 
-    const rule = this.schemaRuleRepository.create({
+    const rule = schemaRuleRepository.create({
       schemaId,
       fieldPath,
       ruleType: input.ruleType,
@@ -42,11 +57,11 @@ export class SchemaRulesService {
       description: input.description ?? null,
     });
 
-    return this.schemaRuleRepository.save(rule);
+    return schemaRuleRepository.save(rule);
   }
 
   async findBySchema(schemaId: number): Promise<SchemaRuleEntity[]> {
-    await this.ensureSchemaExists(schemaId);
+    await this.ensureSchemaExists(this.schemaRepository, schemaId);
     return this.schemaRuleRepository.find({
       where: { schemaId },
       order: { priority: 'DESC', createdAt: 'DESC' },
@@ -113,8 +128,11 @@ export class SchemaRulesService {
     return this.schemaRuleRepository.remove(rule);
   }
 
-  private async ensureSchemaExists(schemaId: number): Promise<void> {
-    const schema = await this.schemaRepository.findOne({
+  private async ensureSchemaExists(
+    schemaRepository: Repository<SchemaEntity>,
+    schemaId: number,
+  ): Promise<void> {
+    const schema = await schemaRepository.findOne({
       where: { id: schemaId },
     });
     if (!schema) {

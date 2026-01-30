@@ -3,7 +3,7 @@ import { renderWithProviders, screen, userEvent, waitFor } from '@/tests/utils';
 import { ManifestBatchScopeModal } from './ManifestBatchScopeModal';
 import type { Manifest } from '@/api/manifests';
 
-const mockListManifests = vi.fn();
+const mockListManifestIds = vi.fn();
 
 vi.mock('@/api/manifests', async () => {
   const actual = await vi.importActual<typeof import('@/api/manifests')>('@/api/manifests');
@@ -11,25 +11,22 @@ vi.mock('@/api/manifests', async () => {
     ...actual,
     manifestsApi: {
       ...actual.manifestsApi,
-      listManifests: (...args: unknown[]) => mockListManifests(...args),
+      listManifestIds: (...args: unknown[]) => mockListManifestIds(...args),
     },
   };
 });
 
 describe('ManifestBatchScopeModal', () => {
   beforeEach(() => {
-    mockListManifests.mockReset();
+    mockListManifestIds.mockReset();
   });
 
-  it('defaults scope to filtered even when there is selection', async () => {
+  it('defaults scope to selected when there is selection', async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
 
-    mockListManifests.mockResolvedValue({
-      data: [
-        { id: 10, status: 'completed', extractedData: { ok: true } },
-        { id: 11, status: 'pending', extractedData: null },
-      ],
-      meta: { total: 2, page: 1, pageSize: 200, totalPages: 1 },
+    mockListManifestIds.mockResolvedValue({
+      total: 2,
+      ids: [10, 11],
     });
 
     renderWithProviders(
@@ -48,19 +45,19 @@ describe('ManifestBatchScopeModal', () => {
     );
 
     await waitFor(() => {
-      expect(mockListManifests).toHaveBeenCalled();
+      expect(mockListManifestIds).toHaveBeenCalled();
     });
 
-    expect(screen.getByRole('radio', { name: /all matching current filters/i })).toBeChecked();
-
-    await user.click(screen.getByRole('radio', { name: /selected/i }));
     expect(screen.getByRole('radio', { name: /selected/i })).toBeChecked();
+
+    await user.click(screen.getByRole('radio', { name: /all matching current filters/i }));
+    expect(screen.getByRole('radio', { name: /all matching current filters/i })).toBeChecked();
   });
 
   it('disables selected scope when there is no selection', async () => {
-    mockListManifests.mockResolvedValue({
-      data: [],
-      meta: { total: 0, page: 1, pageSize: 200, totalPages: 0 },
+    mockListManifestIds.mockResolvedValue({
+      total: 0,
+      ids: [],
     });
 
     renderWithProviders(
@@ -79,7 +76,7 @@ describe('ManifestBatchScopeModal', () => {
     );
 
     await waitFor(() => {
-      expect(mockListManifests).toHaveBeenCalled();
+      expect(mockListManifestIds).toHaveBeenCalled();
     });
 
     expect(screen.getByRole('radio', { name: /selected/i })).toBeDisabled();
@@ -89,11 +86,9 @@ describe('ManifestBatchScopeModal', () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     const onStart = vi.fn().mockResolvedValue(undefined);
 
-    mockListManifests.mockResolvedValue({
-      data: [
-        { id: 10, status: 'completed', extractedData: { ok: true } },
-      ],
-      meta: { total: 1, page: 1, pageSize: 200, totalPages: 1 },
+    mockListManifestIds.mockResolvedValue({
+      total: 1,
+      ids: [10],
     });
 
     renderWithProviders(
@@ -113,7 +108,7 @@ describe('ManifestBatchScopeModal', () => {
     );
 
     await waitFor(() => {
-      expect(mockListManifests).toHaveBeenCalled();
+      expect(mockListManifestIds).toHaveBeenCalled();
     });
 
     await user.click(screen.getByRole('radio', { name: /excel/i }));
@@ -123,9 +118,9 @@ describe('ManifestBatchScopeModal', () => {
   });
 
   it('fetches filtered scope using provided filters and sort', async () => {
-    mockListManifests.mockResolvedValue({
-      data: [{ id: 10, status: 'completed', extractedData: { ok: true } }],
-      meta: { total: 1, page: 1, pageSize: 200, totalPages: 1 },
+    mockListManifestIds.mockResolvedValue({
+      total: 1,
+      ids: [10],
     });
 
     const filters = {
@@ -150,13 +145,11 @@ describe('ManifestBatchScopeModal', () => {
     );
 
     await waitFor(() => {
-      expect(mockListManifests).toHaveBeenCalledWith(
+      expect(mockListManifestIds).toHaveBeenCalledWith(
         1,
         expect.objectContaining({
           filters,
           sort,
-          page: 1,
-          pageSize: 200,
         }),
       );
     });

@@ -21,6 +21,7 @@ import { ValidateScriptSyntaxDto } from './dto/validate-script-syntax.dto';
 import { TestValidationScriptDto } from './dto/test-validation-script.dto';
 import { RunValidationDto } from './dto/run-validation.dto';
 import { BatchValidationDto } from './dto/batch-validation.dto';
+import { BatchValidationOutcomeDto, BatchValidationResponseDto } from './dto/batch-validation-response.dto';
 import { ValidationScriptResponseDto } from './dto/validation-script-response.dto';
 import { ValidationService } from './validation.service';
 
@@ -165,7 +166,10 @@ export class ValidationController {
       user,
       batchValidationDto,
     );
-    // Convert Map to object for JSON serialization
-    return Object.fromEntries(results);
+
+    const outcomesByManifestId =
+      Object.fromEntries(results) as unknown as Record<number, BatchValidationOutcomeDto>;
+
+    return { outcomesByManifestId } satisfies BatchValidationResponseDto;
   }
 }

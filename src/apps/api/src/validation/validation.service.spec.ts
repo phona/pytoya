@@ -646,16 +646,19 @@ describe('ValidationService', () => {
       expect(result.size).toBe(3);
       const manifest1 = result.get(1);
       expect(manifest1).toBeDefined();
-      expect(manifest1!.issues).toHaveLength(0); // Has total_amount
+      expect(manifest1!.ok).toBe(true);
+      expect(manifest1!.result!.issues).toHaveLength(0); // Has total_amount
 
       const manifest2 = result.get(2);
       expect(manifest2).toBeDefined();
-      expect(manifest2!.issues).toHaveLength(1); // Missing total_amount
-      expect(manifest2!.issues[0].field).toBe('invoice.total_amount_inc_tax');
+      expect(manifest2!.ok).toBe(true);
+      expect(manifest2!.result!.issues).toHaveLength(1); // Missing total_amount
+      expect(manifest2!.result!.issues[0].field).toBe('invoice.total_amount_inc_tax');
 
       const manifest3 = result.get(3);
       expect(manifest3).toBeDefined();
-      expect(manifest3!.issues).toHaveLength(0); // Has total_amount
+      expect(manifest3!.ok).toBe(true);
+      expect(manifest3!.result!.issues).toHaveLength(0); // Has total_amount
       expect(manifestRepository.update).toHaveBeenCalledTimes(3);
     });
 
@@ -705,9 +708,9 @@ describe('ValidationService', () => {
       });
 
       // Manifest 1 should succeed, manifest 2 should fail but not crash the batch
-      expect(result.size).toBe(1);
-      expect(result.get(1)).toBeDefined();
-      expect(result.get(2)).toBeUndefined();
+      expect(result.size).toBe(2);
+      expect(result.get(1)?.ok).toBe(true);
+      expect(result.get(2)?.ok).toBe(false);
     });
   });
 

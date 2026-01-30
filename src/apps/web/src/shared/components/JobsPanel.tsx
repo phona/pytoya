@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Loader2, XCircle } from 'lucide-react';
-import { useJobHistory } from '@/shared/hooks/use-jobs';
+import { useJobHistory, useJobsStats } from '@/shared/hooks/use-jobs';
 import { useWebSocket } from '@/shared/hooks/use-websocket';
 import { jobsApi } from '@/api/jobs';
-import { useManifest } from '@/shared/hooks/use-manifests';
 import { useI18n } from '@/shared/providers/I18nProvider';
 import { toast } from '@/shared/hooks/use-toast';
 import { useJobsStore, type JobItem } from '@/shared/stores/jobs';
@@ -32,23 +31,18 @@ const isCancellable = (jobId: string, status: string) => {
 
 function JobRow({
   job,
+  manifestTitle,
   cancelingJobId,
   onCancel,
 }: {
   job: JobItem;
+  manifestTitle?: string | null;
   cancelingJobId: string | null;
   onCancel: (jobId: string) => void | Promise<void>;
 }) {
   const { t } = useI18n();
-  const { data: manifest } = useManifest(job.manifestId, { enabled: isInProgress(job.status) });
-
-  const filename =
-    manifest?.originalFilename ??
-    manifest?.filename ??
-    null;
-
-  const title = filename
-    ? t(job.kind === 'ocr' ? 'jobs.ocrLabelFilename' : 'jobs.extractionLabelFilename', { filename })
+  const title = manifestTitle
+    ? t(job.kind === 'ocr' ? 'jobs.ocrLabelFilename' : 'jobs.extractionLabelFilename', { filename: manifestTitle })
     : t(job.kind === 'ocr' ? 'jobs.ocrLabel' : 'jobs.extractionLabel', { manifestId: job.manifestId });
 
   const costCurrency = job.costBreakdown?.currency ?? job.currency ?? null;
@@ -134,14 +128,31 @@ export function JobsPanel() {
   const { subscribeToManifest, unsubscribeFromManifest } = useWebSocket();
   const subscribedManifestsRef = useRef<Set<number>>(new Set());
 
-  const { data: history, isLoading: isHistoryLoading } = useJobHistory(undefined, 100);
+  const statsQuery = useJobsStats();
+  const { data: history, isLoading: isHistoryLoading } = useJobHistory(undefined, 100, { enabled: isOpen });
 
   useEffect(() => {
     if (!history) return;
     upsertFromHistory(history);
   }, [history, upsertFromHistory]);
 
-  const inProgressCount = useMemo(() => jobs.filter((job) => isInProgress(job.status)).length, [jobs]);
+  const inProgressCount = useMemo(() => {
+    const stats = statsQuery.data;
+    if (stats) {
+      return (stats.active ?? 0) + (stats.waiting ?? 0) + (stats.delayed ?? 0) + (stats.paused ?? 0);
+    }
+    return jobs.filter((job) => isInProgress(job.status)).length;
+  }, [jobs, statsQuery.data]);
+
+  const titleByManifestId = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const entry of history ?? []) {
+      const name = entry.manifestOriginalFilename ?? entry.manifestFilename ?? null;
+      if (!name) continue;
+      map.set(entry.manifestId, name);
+    }
+    return map;
+  }, [history]);
 
   const inProgressManifestIds = useMemo(() => {
     const ids = new Set<number>();
@@ -262,7 +273,13 @@ export function JobsPanel() {
               ) : null}
 
               {filteredJobs.map((job) => (
-                <JobRow key={job.id} job={job} cancelingJobId={cancelingJobId} onCancel={handleCancel} />
+                <JobRow
+                  key={job.id}
+                  job={job}
+                  manifestTitle={titleByManifestId.get(job.manifestId) ?? null}
+                  cancelingJobId={cancelingJobId}
+                  onCancel={handleCancel}
+                />
               ))}
             </div>
           </ScrollArea>

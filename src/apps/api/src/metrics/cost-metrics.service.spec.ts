@@ -16,10 +16,13 @@ describe('CostMetricsService', () => {
   beforeEach(async () => {
     jobRepository = {
       find: jest.fn(),
+      findOne: jest.fn(),
       createQueryBuilder: jest.fn(),
     } as unknown as jest.Mocked<Repository<JobEntity>>;
 
-    manifestRepository = {} as unknown as jest.Mocked<Repository<ManifestEntity>>;
+    manifestRepository = {
+      createQueryBuilder: jest.fn(),
+    } as unknown as jest.Mocked<Repository<ManifestEntity>>;
     modelRepository = {} as unknown as jest.Mocked<Repository<ModelEntity>>;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -153,7 +156,8 @@ describe('CostMetricsService', () => {
       leftJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([]),
+      select: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({ spent: 0 }),
     };
     jobRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -168,7 +172,8 @@ describe('CostMetricsService', () => {
       leftJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([]),
+      select: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({ spent: 0 }),
     };
     jobRepository.createQueryBuilder.mockReturnValue(qb);
 
@@ -282,5 +287,79 @@ describe('CostMetricsService', () => {
     expect(result.textByExtractor[0].costPerPage).toBeCloseTo(0.007, 10);
 
     expect(qbs[0].where).toHaveBeenCalledWith('project.ownerId = :userId', { userId: 123 });
+  });
+
+  it('builds cost-per-document trends without per-manifest job queries', async () => {
+    const manifests = [
+      {
+        id: 1,
+        filename: 'a.pdf',
+        ocrResult: { document: { pages: 2 } },
+        extractionCost: 0.3,
+        createdAt: new Date('2026-01-20T00:00:00.000Z'),
+      },
+      {
+        id: 2,
+        filename: 'b.pdf',
+        ocrResult: { document: { pages: 1 } },
+        extractionCost: 0.1,
+        createdAt: new Date('2026-01-19T00:00:00.000Z'),
+      },
+    ];
+
+    const manifestQb: any = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue(manifests),
+    };
+    (manifestRepository.createQueryBuilder as any).mockReturnValue(manifestQb);
+
+    const jobs = [
+      {
+        id: 10,
+        manifestId: 1,
+        createdAt: new Date('2026-01-21T00:00:00.000Z'),
+        ocrActualCost: 0.05,
+        llmActualCost: 0.25,
+        llmInputTokens: 100,
+        llmOutputTokens: 50,
+      },
+      {
+        id: 9,
+        manifestId: 1,
+        createdAt: new Date('2026-01-20T00:00:00.000Z'),
+        ocrActualCost: 0.04,
+        llmActualCost: 0.24,
+        llmInputTokens: 80,
+        llmOutputTokens: 40,
+      },
+      {
+        id: 11,
+        manifestId: 2,
+        createdAt: new Date('2026-01-20T00:00:00.000Z'),
+        ocrActualCost: 0.02,
+        llmActualCost: 0.08,
+        llmInputTokens: 20,
+        llmOutputTokens: 10,
+      },
+    ];
+
+    const jobQb: any = {
+      where: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue(jobs),
+    };
+    jobRepository.createQueryBuilder.mockReturnValue(jobQb);
+
+    const result = await service.getCostPerDocumentTrends(123, undefined, undefined, 2);
+
+    expect(jobRepository.findOne).not.toHaveBeenCalled();
+    expect(result).toHaveLength(2);
+    expect(result[0].manifestId).toBe(1);
+    expect(result[0].llmInputTokens).toBe(100);
   });
 });

@@ -43,5 +43,13 @@ This flag is blocked when `NODE_ENV=production`.
 The `/api/uploads` route (relative to the deployment base path) requires a valid JWT and checks project ownership.
 Admins bypass ownership checks.
 
+## Secret Masking
+PyToYa never returns stored secrets (e.g. LLM API keys, extractor API keys) in API responses.
+
+- LLM model `parameters` secret fields are returned as `********`.
+- Text extractor `config` secret fields are returned as `********`.
+- Updates MAY send `********` for secret fields to indicate “keep existing value”.
+- Use “Test Connection” in the UI to verify a configured secret; there is no “reveal secret” endpoint.
+
 ## Request Tracing
 All responses include `X-Request-ID` and error payloads include `requestId` for correlation.

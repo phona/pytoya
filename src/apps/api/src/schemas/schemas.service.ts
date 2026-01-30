@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import Ajv from 'ajv';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { createHash } from 'crypto';
 
 import { SchemaEntity } from '../entities/schema.entity';
@@ -70,19 +70,33 @@ export class SchemasService {
   }
 
   async create(input: CreateSchemaDto): Promise<SchemaEntity> {
+    return this.createWithManager(input);
+  }
+
+  async createWithManager(
+    input: CreateSchemaDto,
+    options: { manager?: EntityManager } = {},
+  ): Promise<SchemaEntity> {
+    const schemaRepository = options.manager
+      ? options.manager.getRepository(SchemaEntity)
+      : this.schemaRepository;
+    const projectRepository = options.manager
+      ? options.manager.getRepository(ProjectEntity)
+      : this.projectRepository;
+
     const { schema: jsonSchema } = this.normalizeJsonSchema(input.jsonSchema);
     const name = this.deriveSchemaName(jsonSchema, input.projectId);
     const description = this.deriveSchemaDescription(jsonSchema);
     const requiredFields = this.deriveRequiredFields(jsonSchema);
     const schemaVersion = this.computeSchemaVersion(jsonSchema);
 
-    const project = await this.projectRepository.findOne({
+    const project = await projectRepository.findOne({
       where: { id: input.projectId },
     });
     if (!project) {
       throw new BadRequestException(`Project ${input.projectId} not found`);
     }
-    const schema = this.schemaRepository.create({
+    const schema = schemaRepository.create({
       jsonSchema,
       projectId: input.projectId,
       name,
@@ -92,9 +106,9 @@ export class SchemasService {
       systemPromptTemplate: input.systemPromptTemplate ?? null,
       validationSettings: input.validationSettings ?? null,
     });
-    const saved = await this.schemaRepository.save(schema);
+    const saved = await schemaRepository.save(schema);
     if (!project.defaultSchemaId) {
-      await this.projectRepository.update(project.id, {
+      await projectRepository.update(project.id, {
         defaultSchemaId: saved.id,
       });
     }

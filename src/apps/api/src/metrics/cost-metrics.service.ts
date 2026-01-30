@@ -356,12 +356,26 @@ export class CostMetricsService {
 
     const userManifests = await manifestQuery.getMany();
 
-    return Promise.all(
-      userManifests.map(async (manifest) => {
-        const job = await this.jobRepository.findOne({
-          where: { manifestId: manifest.id },
-          order: { createdAt: 'DESC' },
-        });
+    const manifestIds = userManifests.map((manifest) => manifest.id);
+    const latestJobsByManifestId = new Map<number, JobEntity>();
+
+    if (manifestIds.length > 0) {
+      const jobs = await this.jobRepository
+        .createQueryBuilder('job')
+        .where('job.manifestId IN (:...manifestIds)', { manifestIds })
+        .orderBy('job.manifestId', 'ASC')
+        .addOrderBy('job.createdAt', 'DESC')
+        .getMany();
+
+      for (const job of jobs) {
+        if (!latestJobsByManifestId.has(job.manifestId)) {
+          latestJobsByManifestId.set(job.manifestId, job);
+        }
+      }
+    }
+
+    return userManifests.map((manifest) => {
+      const job = latestJobsByManifestId.get(manifest.id);
 
         const ocrResult = manifest.ocrResult as any;
         const pageCount = ocrResult?.document?.pages || 1;
@@ -385,8 +399,7 @@ export class CostMetricsService {
           totalCost: this.normalizeDecimal(manifest.extractionCost),
           timestamp: manifest.createdAt,
         };
-      }),
-    );
+    });
   }
 
   /**
@@ -416,9 +429,12 @@ export class CostMetricsService {
       qb.andWhere('project.id = :projectId', { projectId });
     }
 
-    const jobs = await qb.getMany();
+    const row = await qb
+      .andWhere('job.actualCost IS NOT NULL')
+      .select('COALESCE(SUM(job.actualCost), 0)', 'spent')
+      .getRawOne<{ spent: unknown }>();
 
-    const spent = jobs.reduce((sum, job) => sum + this.normalizeDecimal(job.actualCost), 0);
+    const spent = this.normalizeDecimal(row?.spent);
     const remaining = userBudget - spent;
     const percentageUsed = (spent / userBudget) * 100;
 

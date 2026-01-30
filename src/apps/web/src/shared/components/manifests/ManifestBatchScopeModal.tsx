@@ -9,7 +9,6 @@ type Scope = 'selected' | 'filtered';
 type ExportFormat = 'csv' | 'xlsx';
 
 const MAX_FILTERED_SCOPE = 5000;
-const API_MAX_PAGE_SIZE = 200;
 
 type Eligibility = {
   hint: string;
@@ -61,7 +60,7 @@ export function ManifestBatchScopeModal({
 
   const [scope, setScope] = useState<Scope>('filtered');
   const [format, setFormat] = useState<ExportFormat>(formatOptions?.defaultFormat ?? 'csv');
-  const [filteredManifests, setFilteredManifests] = useState<Manifest[]>([]);
+  const [filteredIds, setFilteredIds] = useState<number[]>([]);
   const [filteredCount, setFilteredCount] = useState<number | null>(null);
   const [isLoadingFiltered, setIsLoadingFiltered] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,16 +68,16 @@ export function ManifestBatchScopeModal({
 
   useEffect(() => {
     if (!open) return;
-    setScope(isFilteredScopeEnabled ? 'filtered' : 'selected');
+    setScope(hasSelection ? 'selected' : (isFilteredScopeEnabled ? 'filtered' : 'selected'));
     setFormat(formatOptions?.defaultFormat ?? 'csv');
     setError(null);
     setIsRunning(false);
-  }, [formatOptions?.defaultFormat, isFilteredScopeEnabled, open]);
+  }, [formatOptions?.defaultFormat, hasSelection, isFilteredScopeEnabled, open]);
 
   useEffect(() => {
     if (!open) return;
     if (!isFilteredScopeEnabled) {
-      setFilteredManifests([]);
+      setFilteredIds([]);
       setFilteredCount(null);
       setIsLoadingFiltered(false);
       setError(null);
@@ -89,39 +88,21 @@ export function ManifestBatchScopeModal({
       setIsLoadingFiltered(true);
       setError(null);
       try {
-        const first = await manifestsApi.listManifests(groupId, {
+        const result = await manifestsApi.listManifestIds(groupId, {
           filters,
           sort,
-          page: 1,
-          pageSize: API_MAX_PAGE_SIZE,
         });
 
-        const total = first.meta.total ?? first.data.length;
-        setFilteredCount(total);
+        setFilteredCount(result.total ?? result.ids.length);
+        setFilteredIds(result.ids ?? []);
 
-        if (total > MAX_FILTERED_SCOPE) {
-          setFilteredManifests([]);
-          setError(t('manifests.batchAction.tooMany', { count: total }));
-          return;
+        if ((result.total ?? result.ids.length) > MAX_FILTERED_SCOPE) {
+          setFilteredIds([]);
+          setError(t('manifests.batchAction.tooMany', { count: result.total ?? result.ids.length }));
         }
-
-        const pages = total > 0 ? Math.ceil(total / API_MAX_PAGE_SIZE) : 0;
-        const all: Manifest[] = [...first.data];
-        for (let page = 2; page <= pages; page++) {
-          const next = await manifestsApi.listManifests(groupId, {
-            filters,
-            sort,
-            page,
-            pageSize: API_MAX_PAGE_SIZE,
-          });
-          all.push(...next.data);
-          if (all.length >= total) break;
-        }
-
-        setFilteredManifests(all);
       } catch (e) {
         console.error('Failed to load filtered manifests for batch action:', e);
-        setFilteredManifests([]);
+        setFilteredIds([]);
         setFilteredCount(null);
         setError(t('errors.generic'));
       } finally {
@@ -132,13 +113,18 @@ export function ManifestBatchScopeModal({
     void run();
   }, [filters, groupId, isFilteredScopeEnabled, open, sort, t]);
 
-  const scopeManifests = scope === 'selected' ? selectedManifests : filteredManifests;
+  const scopeIds = scope === 'selected' ? selectedManifests.map((m) => m.id) : filteredIds;
   const scopeCount = scope === 'selected' ? selectedManifests.length : filteredCount;
 
   const eligibleIds = useMemo(() => {
-    if (!eligibility) return scopeManifests.map((m) => m.id);
-    return scopeManifests.filter(eligibility.isEligible).map((m) => m.id);
-  }, [eligibility, scopeManifests]);
+    if (scope !== 'selected') {
+      // For filtered scope, do not require client-side eligibility (avoid heavy paging).
+      // Ineligible items will be surfaced via server outcomes for the action.
+      return scopeIds;
+    }
+    if (!eligibility) return scopeIds;
+    return selectedManifests.filter(eligibility.isEligible).map((m) => m.id);
+  }, [eligibility, scope, scopeIds, selectedManifests]);
 
   const eligibleCount = eligibleIds.length;
 

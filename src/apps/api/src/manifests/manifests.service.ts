@@ -195,31 +195,60 @@ export class ManifestsService {
     this.applyJsonbFilters(queryBuilder, query.filter, activeSchema?.jsonSchema ?? null);
     this.applySort(queryBuilder, query.sortBy, query.order, activeSchema?.jsonSchema ?? null);
 
-    const shouldPaginate =
-      query.page !== undefined || query.pageSize !== undefined;
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
-
-    if (shouldPaginate) {
-      const skip = Math.max(page - 1, 0) * pageSize;
-      queryBuilder.skip(skip).take(pageSize);
-    }
+    const skip = Math.max(page - 1, 0) * pageSize;
+    queryBuilder.skip(skip).take(pageSize);
 
     const [data, total] = await queryBuilder.getManyAndCount();
-    const resolvedPageSize = shouldPaginate ? pageSize : total;
-    const totalPages = resolvedPageSize
-      ? Math.ceil(total / resolvedPageSize)
+    const totalPages = pageSize
+      ? Math.ceil(total / pageSize)
       : 0;
 
     return {
       data,
       meta: {
         total,
-        page: shouldPaginate ? page : 1,
-        pageSize: shouldPaginate ? resolvedPageSize : total,
+        page,
+        pageSize,
         totalPages,
       },
     };
+  }
+
+  async findIdsByGroup(
+    user: UserEntity,
+    groupId: number,
+    query: DynamicFieldFiltersDto = {},
+    maxCount = 5000,
+  ): Promise<{ total: number; ids: number[] }> {
+    const group = await this.groupsService.findOne(user, groupId);
+    const activeSchema = await this.loadActiveSchemaForProject(group.project?.defaultSchemaId ?? null);
+
+    const queryBuilder = this.manifestRepository
+      .createQueryBuilder('manifest')
+      .select('manifest.id', 'id')
+      .where('manifest.groupId = :groupId', { groupId });
+
+    const { page: _page, pageSize: _pageSize, ...filtersOnly } = query;
+
+    this.applyStandardFilters(queryBuilder, filtersOnly);
+    this.applyJsonbFilters(queryBuilder, filtersOnly.filter, activeSchema?.jsonSchema ?? null);
+    this.applySort(queryBuilder, filtersOnly.sortBy, filtersOnly.order, activeSchema?.jsonSchema ?? null);
+
+    const total = await queryBuilder.clone().getCount();
+    if (total > maxCount) {
+      throw new BadRequestException(
+        `Too many matching manifests (${total}). Please refine your filters (max ${maxCount}).`,
+      );
+    }
+
+    const rows = await queryBuilder.getRawMany<{ id: number }>();
+    const ids = rows
+      .map((row) => Number(row.id))
+      .filter((id) => Number.isFinite(id));
+
+    return { total, ids };
   }
 
   async findForFilteredExtraction(
@@ -596,14 +625,20 @@ export class ManifestsService {
       return undefined;
     }
 
-    const fullText = ocrResult.pages
-      .map((page) => page.markdown || page.text || '')
-      .join('\n')
-      .trim();
+    const MAX_SNIPPET_CHARS = 800;
+    const CONTEXT_CHARS = 280;
 
-    if (!fullText) {
-      return undefined;
-    }
+    const excerpt = (text: string, index: number) => {
+      const safe = text ?? '';
+      const clamped = Math.max(0, Math.min(index, safe.length));
+      const start = Math.max(0, clamped - CONTEXT_CHARS);
+      const end = Math.min(safe.length, clamped + CONTEXT_CHARS);
+      const core = safe.slice(start, end).trim();
+      const prefix = start > 0 ? '…' : '';
+      const suffix = end < safe.length ? '…' : '';
+      const joined = `${prefix}${core}${suffix}`;
+      return joined.length > MAX_SNIPPET_CHARS ? joined.slice(0, MAX_SNIPPET_CHARS - 1) + '…' : joined;
+    };
 
     const rawField = fieldName.split('.').pop() ?? fieldName;
     const normalizedField = rawField.replace(/_/g, ' ').toLowerCase();
@@ -611,26 +646,29 @@ export class ManifestsService {
 
     for (const page of ocrResult.pages) {
       const text = page.markdown || page.text || '';
+      const trimmed = text.trim();
+      if (!trimmed) continue;
       const lower = text.toLowerCase();
-      const matchIndex = candidates
-        .map((term) => lower.indexOf(term))
-        .find((index) => index >= 0);
+      const matchIndex = candidates.map((term) => lower.indexOf(term)).find((index) => index >= 0);
 
       if (matchIndex !== undefined && matchIndex >= 0) {
         return {
           fieldName,
-          snippet: fullText,
+          snippet: excerpt(text, matchIndex),
           pageNumber: page.pageNumber,
           confidence: page.confidence,
         };
       }
     }
 
+    const firstPage = ocrResult.pages.find((page) => (page.markdown || page.text || '').trim().length > 0) ?? ocrResult.pages[0];
+    const firstText = firstPage ? (firstPage.markdown || firstPage.text || '') : '';
+
     return {
       fieldName,
-      snippet: fullText,
-      pageNumber: ocrResult.pages[0]?.pageNumber,
-      confidence: ocrResult.pages[0]?.confidence,
+      snippet: excerpt(firstText, 0),
+      pageNumber: firstPage?.pageNumber,
+      confidence: firstPage?.confidence,
     };
   }
 
@@ -1039,7 +1077,7 @@ export class ManifestsService {
 
     if (wantsUnprocessed) {
       query.andWhere(
-        '(manifest.ocrQualityScore IS NULL OR manifest.ocrQualityScore = 0)',
+        '(manifest.ocrQualityScore IS NULL)',
       );
     } else {
       if (ocrQualityMin !== undefined) {
