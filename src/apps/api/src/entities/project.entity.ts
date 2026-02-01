@@ -13,6 +13,7 @@ import { ModelEntity } from './model.entity';
 import { ExtractorEntity } from './extractor.entity';
 import { SchemaEntity } from './schema.entity';
 import { UserEntity } from './user.entity';
+import { ExportScriptEntity } from './export-script.entity';
 import { ValidationScriptEntity } from './validation-script.entity';
 
 @Entity({ name: 'projects' })
@@ -65,6 +66,9 @@ export class ProjectEntity {
 
   @OneToMany(() => ValidationScriptEntity, (validationScript) => validationScript.project)
   validationScripts!: ValidationScriptEntity[];
+
+  @OneToMany(() => ExportScriptEntity, (exportScript) => exportScript.project)
+  exportScripts!: ExportScriptEntity[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

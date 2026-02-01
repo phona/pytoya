@@ -15,6 +15,7 @@ import { ModelsModule } from '../models/models.module';
 import { TextExtractorModule } from '../text-extractor/text-extractor.module';
 import { StorageModule } from '../storage/storage.module';
 import { WebSocketModule } from '../websocket/websocket.module';
+import { ExportScriptsModule } from '../export-scripts/export-scripts.module';
 import { JOB_QUEUE_PORT } from '../ports/job-queue.port';
 import { QueueServiceJobQueueAdapter } from '../ports/queue-service-job-queue.adapter';
 import { BulkManifestsUseCase } from '../usecases/bulk-manifests.usecase';
@@ -48,6 +49,7 @@ import {
     TextExtractorModule,
     StorageModule,
     WebSocketModule,
+    ExportScriptsModule,
   ],
   controllers: [ManifestsController],
   providers: [

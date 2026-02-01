@@ -993,6 +993,93 @@ export const handlers = [
     });
   }),
 
+  // Export scripts
+  http.get('/api/export-scripts', () => {
+    return HttpResponse.json([]);
+  }),
+
+  http.get('/api/export-scripts/:id', ({ params }) => {
+    return HttpResponse.json({
+      id: Number(params.id),
+      name: 'Test Export Script',
+      description: null,
+      projectId: 1,
+      script: 'function exportRows() { return []; }',
+      enabled: true,
+      priority: 0,
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+
+  http.get('/api/export-scripts/project/:projectId', () => {
+    return HttpResponse.json([]);
+  }),
+
+  http.post('/api/export-scripts', async ({ request }) => {
+    const body = await parseJsonBody(request);
+    const projectId = typeof body.projectId === 'number' ? body.projectId : Number(body.projectId ?? 1);
+    return HttpResponse.json({
+      id: 1,
+      name: typeof body.name === 'string' ? body.name : 'Test Export Script',
+      description: typeof body.description === 'string' ? body.description : null,
+      projectId,
+      script: typeof body.script === 'string' ? body.script : 'function exportRows() { return []; }',
+      enabled: typeof body.enabled === 'boolean' ? body.enabled : true,
+      priority: typeof body.priority === 'number' ? body.priority : 0,
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+
+  http.post('/api/export-scripts/validate-syntax', async ({ request }) => {
+    const body = await parseJsonBody(request);
+    const script = typeof body.script === 'string' ? body.script : '';
+    const valid = script.includes('function exportRows');
+    return HttpResponse.json(valid ? { valid: true } : { valid: false, error: 'Missing exportRows()' });
+  }),
+
+  http.post('/api/export-scripts/test', async ({ request }) => {
+    const body = await parseJsonBody(request);
+    const script = typeof body.script === 'string' ? body.script : '';
+
+    const runtimeError = script.includes('throw')
+      ? { message: 'Mock export runtime error', stack: 'Error: Mock export runtime error\nexport-script.js:1:1' }
+      : undefined;
+
+    const logs = script.includes('console.')
+      ? [{ level: 'log', message: 'Mock export console output' }]
+      : [];
+
+    const rows = runtimeError ? [] : [{ ok: true }];
+
+    return HttpResponse.json({
+      rows,
+      debug: { logs },
+      runtimeError,
+    });
+  }),
+
+  http.post('/api/export-scripts/:id', async ({ request, params }) => {
+    const body = await parseJsonBody(request);
+    const projectId = typeof body.projectId === 'number' ? body.projectId : Number(body.projectId ?? 1);
+    return HttpResponse.json({
+      id: Number(params.id),
+      name: typeof body.name === 'string' ? body.name : 'Test Export Script',
+      description: typeof body.description === 'string' ? body.description : null,
+      projectId,
+      script: typeof body.script === 'string' ? body.script : 'function exportRows() { return []; }',
+      enabled: typeof body.enabled === 'boolean' ? body.enabled : true,
+      priority: typeof body.priority === 'number' ? body.priority : 0,
+      createdAt: '2025-01-13T00:00:00.000Z',
+      updatedAt: '2025-01-13T00:00:00.000Z',
+    });
+  }),
+
+  http.delete('/api/export-scripts/:id', () => {
+    return new HttpResponse(null, { status: 204 });
+  }),
+
   http.post('/api/validation/scripts/:id', async ({ request, params }) => {
     const body = await parseJsonBody(request);
     const projectId = typeof body.projectId === 'number'

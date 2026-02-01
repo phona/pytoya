@@ -83,6 +83,7 @@ describe('router configuration', () => {
     const schemaSettingsRoute = findRouteByPath('projects/:id/settings/schema');
     const rulesSettingsRoute = findRouteByPath('projects/:id/settings/rules');
     const validationScriptsSettingsRoute = findRouteByPath('projects/:id/settings/validation-scripts');
+    const exportScriptsSettingsRoute = findRouteByPath('projects/:id/settings/export-scripts');
 
     expect(basicSettingsRoute).toBeDefined();
     expect(modelsSettingsRoute).toBeDefined();
@@ -96,6 +97,8 @@ describe('router configuration', () => {
     expect(rulesSettingsRoute?.element?.type?.name).toBe('AdminRoute');
     expect(validationScriptsSettingsRoute).toBeDefined();
     expect(validationScriptsSettingsRoute?.element?.type?.name).toBe('AdminRoute');
+    expect(exportScriptsSettingsRoute).toBeDefined();
+    expect(exportScriptsSettingsRoute?.element?.type?.name).toBe('AdminRoute');
   });
 
   it('should have extractors route with admin protection', () => {

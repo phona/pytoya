@@ -22,6 +22,7 @@ import { ModelsModule } from './models/models.module';
 import { ProjectsModule } from './projects/projects.module';
 import { TextExtractorModule } from './text-extractor/text-extractor.module';
 import { ExtractorsModule } from './extractors/extractors.module';
+import { ExportScriptsModule } from './export-scripts/export-scripts.module';
 import { QueueModule } from './queue/queue.module';
 import { SchemasModule } from './schemas/schemas.module';
 import { StorageModule } from './storage/storage.module';
@@ -88,6 +89,7 @@ import { MetricsModule } from './metrics/metrics.module';
     ProjectsModule,
     TextExtractorModule,
     ExtractorsModule,
+    ExportScriptsModule,
     QueueModule,
     SchemasModule,
     StorageModule,

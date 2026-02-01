@@ -13,6 +13,7 @@ import { ProjectSettingsExtractorsPage } from '../routes/dashboard/ProjectSettin
 import { ProjectSettingsSchemaPage } from '../routes/dashboard/ProjectSettingsSchemaPage';
 import { ProjectSettingsRulesPage } from '../routes/dashboard/ProjectSettingsRulesPage';
 import { ProjectSettingsValidationScriptsPage } from '../routes/dashboard/ProjectSettingsValidationScriptsPage';
+import { ProjectSettingsExportScriptsPage } from '../routes/dashboard/ProjectSettingsExportScriptsPage';
 import { ManifestsPage } from '../routes/dashboard/ManifestsPage';
 import { ManifestAuditPage } from '../routes/dashboard/ManifestAuditPage';
 import { ModelsPage } from '../routes/dashboard/ModelsPage';
@@ -70,6 +71,11 @@ export const appRoutes = [
           { path: 'projects/:id/settings/validation-scripts', element: (
             <AdminRoute>
               <ProjectSettingsValidationScriptsPage />
+            </AdminRoute>
+          ) },
+          { path: 'projects/:id/settings/export-scripts', element: (
+            <AdminRoute>
+              <ProjectSettingsExportScriptsPage />
             </AdminRoute>
           ) },
           { path: 'projects/:id/groups/:groupId/manifests', element: <ManifestsPage /> },

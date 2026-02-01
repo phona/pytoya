@@ -26,6 +26,7 @@ export function SettingsDropdown({ projectId, schemaId, schemaReady, onDelete }:
   const schemaLink = `/projects/${projectId}/settings/schema`;
   const rulesLink = schemaId ? `/projects/${projectId}/settings/rules` : null;
   const scriptsLink = `/projects/${projectId}/settings/validation-scripts`;
+  const exportScriptsLink = `/projects/${projectId}/settings/export-scripts`;
 
   return (
     <DropdownMenu>
@@ -69,6 +70,9 @@ export function SettingsDropdown({ projectId, schemaId, schemaReady, onDelete }:
         )}
         <DropdownMenuItem onClick={() => navigate(scriptsLink)}>
           {t('project.settingsDropdown.validationScripts')}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate(exportScriptsLink)}>
+          {t('project.settingsDropdown.exportScripts')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>{t('project.settingsDropdown.dangerZone')}</DropdownMenuLabel>

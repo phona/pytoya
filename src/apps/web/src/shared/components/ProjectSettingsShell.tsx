@@ -8,7 +8,7 @@ import { cn } from '@/shared/lib/utils';
 import { useI18n } from '@/shared/providers/I18nProvider';
 import { isSchemaReadyForRules } from '@/shared/utils/schema';
 
-export type ProjectSettingsTab = 'basic' | 'models' | 'extractors' | 'costs' | 'schema' | 'rules' | 'scripts';
+export type ProjectSettingsTab = 'basic' | 'models' | 'extractors' | 'costs' | 'schema' | 'rules' | 'scripts' | 'exportScripts';
 
 export type ProjectSettingsShellProps = {
   projectId: number;
@@ -18,13 +18,14 @@ export type ProjectSettingsShellProps = {
   children: ReactNode;
 };
 
-const projectSettingsTabs = ['basic', 'models', 'extractors', 'costs', 'schema', 'rules', 'scripts'] as const;
+const projectSettingsTabs = ['basic', 'models', 'extractors', 'costs', 'schema', 'rules', 'scripts', 'exportScripts'] as const;
 
 const tabToPath = (projectId: number, tab: ProjectSettingsTab, schemaId: number | null) => {
   if (tab === 'costs') return `/projects/${projectId}/settings/costs`;
   if (tab === 'schema') return `/projects/${projectId}/settings/schema`;
   if (tab === 'rules') return schemaId ? `/projects/${projectId}/settings/rules` : null;
   if (tab === 'scripts') return `/projects/${projectId}/settings/validation-scripts`;
+  if (tab === 'exportScripts') return `/projects/${projectId}/settings/export-scripts`;
   return `/projects/${projectId}/settings/${tab}`;
 };
 
@@ -51,6 +52,7 @@ export function ProjectSettingsShell({
     schema: t('project.settingsDropdown.schema'),
     rules: t('project.settingsDropdown.rules'),
     scripts: t('project.settingsDropdown.validationScripts'),
+    exportScripts: t('project.settingsDropdown.exportScripts'),
   };
   const activeTabLabel = tabLabels[activeTab];
 
@@ -84,6 +86,7 @@ export function ProjectSettingsShell({
             <TabsTrigger value="schema">{tabLabels.schema}</TabsTrigger>
             <TabsTrigger value="rules" disabled={!schemaReady}>{tabLabels.rules}</TabsTrigger>
             <TabsTrigger value="scripts">{tabLabels.scripts}</TabsTrigger>
+            <TabsTrigger value="exportScripts">{tabLabels.exportScripts}</TabsTrigger>
           </TabsList>
         </Tabs>
 

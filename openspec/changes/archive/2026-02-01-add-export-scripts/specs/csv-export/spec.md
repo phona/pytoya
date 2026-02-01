@@ -1,8 +1,5 @@
-# csv-export Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change implement-csv-export. Update Purpose after archive.
-## Requirements
 ### Requirement: CSV Export
 The system SHALL export manifest data to CSV using schema-driven extracted-data columns.
 
@@ -29,4 +26,3 @@ The system SHALL export manifest data to CSV using schema-driven extracted-data 
 - **AND** the export script throws or returns an invalid shape
 - **WHEN** an authenticated user exports CSV
 - **THEN** the export SHALL fail with a user-visible error identifying the script
-

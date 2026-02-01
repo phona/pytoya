@@ -354,6 +354,13 @@ For catching real module wiring issues (missing `TypeOrmModule.forFeature(...)`,
 - When any filter/sort/pagination params are present, responses are `{ data, meta }` with `meta: { total, page, pageSize, totalPages }`. Without params, the endpoint returns a plain array for backward compatibility.
 - Field paths use dot-notation and are validated (letters/numbers/underscore only, no array indexing).
 
+### Export Scripts (CSV/XLSX Normalization)
+- Projects can define **Export Scripts** that normalize CSV/XLSX output.
+- Contract: scripts MUST define `function exportRows(extractedData, ctx)` and return `Row[]` (plain JSON-serializable objects).
+- Execution: enabled scripts run in a restricted VM sandbox and are applied to **all** exports (CSV + XLSX).
+- Failure: if any enabled script throws or returns an invalid shape, the export fails.
+- Docs: see `docs/EXPORT_SCRIPTS.md`.
+
 ### File Naming
 - Backend: kebab-case for files (e.g., `extraction.service.ts`), PascalCase for classes
 - Frontend: PascalCase for components (e.g., `ProjectCard.tsx`), camelCase for utilities

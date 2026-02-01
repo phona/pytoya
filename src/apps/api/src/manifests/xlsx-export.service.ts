@@ -10,6 +10,7 @@ import { ManifestEntity, ManifestStatus } from '../entities/manifest.entity';
 import { ManifestItemEntity } from '../entities/manifest-item.entity';
 import { ProjectEntity } from '../entities/project.entity';
 import { SchemaEntity } from '../entities/schema.entity';
+import { ExportScriptsService } from '../export-scripts/export-scripts.service';
 import type { CsvExportFilters } from './csv-export.service';
 import { toXlsxCellValue } from './xlsx-export.util';
 import { assertValidJsonPath, buildJsonPathQuery } from './utils/json-path.util';
@@ -54,6 +55,7 @@ export class XlsxExportService {
     private readonly projectRepository: Repository<ProjectEntity>,
     @InjectRepository(SchemaEntity)
     private readonly schemaRepository: Repository<SchemaEntity>,
+    private readonly exportScriptsService: ExportScriptsService,
   ) {}
 
   async exportXlsx(
@@ -135,7 +137,7 @@ export class XlsxExportService {
           useSharedStrings: true,
         });
 
-        this.writeManifestsSheet(workbook, options.manifests, options.schemaColumns);
+        await this.writeManifestsSheet(workbook, options.manifests, options.schemaColumns);
         this.writeItemsSheet(workbook, options.manifests, options.items);
         this.writeMetaSheet(workbook, {
           scope: options.scope,
@@ -157,7 +159,7 @@ export class XlsxExportService {
     };
   }
 
-  private writeManifestsSheet(
+  private async writeManifestsSheet(
     workbook: ExcelJS.stream.xlsx.WorkbookWriter,
     manifests: ManifestEntity[],
     schemaColumns: string[],
@@ -174,29 +176,49 @@ export class XlsxExportService {
     ws.addRow(headers).commit();
 
     for (const manifest of manifests) {
-      const extractedData = (manifest.extractedData ?? null) as Record<string, unknown> | null;
-      const row: Record<string, unknown> = {
-        project_name: manifest.group?.project?.name ?? '',
-        group_name: manifest.group?.name ?? '',
-        manifest_id: manifest.id,
-        original_filename: manifest.originalFilename || manifest.filename,
-        status: manifest.status,
-        created_at: manifest.createdAt,
-        confidence: manifest.confidence ?? null,
-        human_verified: Boolean(manifest.humanVerified),
-        extraction_cost: manifest.extractionCost ?? null,
-        extraction_cost_currency: manifest.extractionCostCurrency ?? null,
-      };
+      const project = manifest.group?.project;
+      const exportRows = await this.exportScriptsService.exportRowsForManifest({
+        format: 'xlsx',
+        schemaColumns: normalizedColumns,
+        project: { id: project?.id ?? 0, name: project?.name },
+        manifest: {
+          id: manifest.id,
+          groupName: manifest.group?.name,
+          createdAt: manifest.createdAt ?? null,
+          originalFilename: (manifest.originalFilename || manifest.filename) ?? null,
+          status: manifest.status ?? null,
+          confidence: manifest.confidence ?? null,
+          humanVerified: manifest.humanVerified ?? null,
+          extractionCost: manifest.extractionCost ?? null,
+          extractionCostCurrency: manifest.extractionCostCurrency ?? null,
+        },
+        extractedData: (manifest.extractedData ?? null) as Record<string, unknown> | null,
+      });
 
-      if (normalizedColumns.length === 0) {
-        row[FALLBACK_EXTRACTED_DATA_HEADER] = extractedData ? this.safeJsonStringify(extractedData) : '';
-      } else {
-        for (const path of normalizedColumns) {
-          row[path] = extractedData ? this.getValueAtPath(extractedData, path) : undefined;
+      for (const exportedRow of exportRows) {
+        const row: Record<string, unknown> = {
+          project_name: manifest.group?.project?.name ?? '',
+          group_name: manifest.group?.name ?? '',
+          manifest_id: manifest.id,
+          original_filename: manifest.originalFilename || manifest.filename,
+          status: manifest.status,
+          created_at: manifest.createdAt,
+          confidence: manifest.confidence ?? null,
+          human_verified: Boolean(manifest.humanVerified),
+          extraction_cost: manifest.extractionCost ?? null,
+          extraction_cost_currency: manifest.extractionCostCurrency ?? null,
+        };
+
+        if (normalizedColumns.length === 0) {
+          row[FALLBACK_EXTRACTED_DATA_HEADER] = this.safeJsonStringify(exportedRow);
+        } else {
+          for (const path of normalizedColumns) {
+            row[path] = this.resolveExportedValue(exportedRow, path);
+          }
         }
-      }
 
-      ws.addRow(headers.map((header) => toXlsxCellValue(row[header]))).commit();
+        ws.addRow(headers.map((header) => toXlsxCellValue(row[header]))).commit();
+      }
     }
 
     ws.commit();
@@ -444,10 +466,14 @@ export class XlsxExportService {
     return String(manifest.id);
   }
 
-  private getValueAtPath(root: Record<string, unknown>, fieldPath: string): unknown {
+  private resolveExportedValue(root: Record<string, unknown>, fieldPath: string): unknown {
     const trimmed = fieldPath.trim();
     if (!trimmed) return undefined;
     if (trimmed.includes('[]')) return undefined;
+
+    if (Object.prototype.hasOwnProperty.call(root, trimmed)) {
+      return root[trimmed];
+    }
 
     const segments = trimmed.split('.');
     let current: unknown = root;

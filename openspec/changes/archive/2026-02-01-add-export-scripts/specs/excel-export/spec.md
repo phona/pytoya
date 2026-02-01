@@ -1,8 +1,5 @@
-# excel-export Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change add-excel-export. Update Purpose after archive.
-## Requirements
 ### Requirement: Export Manifests as Excel
 The system SHALL support exporting manifests as an Excel workbook (`.xlsx`) for both filtered and selected scopes.
 
@@ -40,13 +37,3 @@ The Excel workbook SHALL provide tables that support spreadsheet analysis.
 - **AND** the `Manifests` sheet SHALL contain one row per returned row object
 - **AND** each row SHALL include a join key (`manifest_id` or equivalent)
 - **AND** the `Items` sheet behavior SHALL remain unchanged
-
-### Requirement: Excel Export Safety
-The system SHALL prevent spreadsheet injection risks in exported workbooks.
-
-#### Scenario: User-controlled values are not formulas
-- **GIVEN** a manifest contains user-controlled string values beginning with `=`, `+`, `-`, or `@`
-- **WHEN** the system exports to `.xlsx`
-- **THEN** the workbook SHALL store those values as string cells
-- **AND** the workbook SHALL NOT create formula cells from user-controlled content
-

@@ -58,6 +58,9 @@ describe('CsvExportService', () => {
       groupRepository as any,
       projectRepository as any,
       schemaRepository as any,
+      {
+        exportRowsForManifest: async (options: any) => [options.extractedData ?? {}],
+      } as any,
     );
 
     const result = await service.exportCsv(user, { projectId: 1 });
@@ -132,6 +135,9 @@ describe('CsvExportService', () => {
       groupRepository as any,
       projectRepository as any,
       schemaRepository as any,
+      {
+        exportRowsForManifest: async (options: any) => [options.extractedData ?? {}],
+      } as any,
     );
 
     const result = await service.exportCsv(user, { projectId: 1 });

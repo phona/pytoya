@@ -7,6 +7,7 @@ import { ManifestEntity, ManifestStatus } from '../entities/manifest.entity';
 import { ProjectEntity } from '../entities/project.entity';
 import { SchemaEntity } from '../entities/schema.entity';
 import { UserEntity } from '../entities/user.entity';
+import { ExportScriptsService } from '../export-scripts/export-scripts.service';
 import { assertValidJsonPath, buildJsonPathQuery } from './utils/json-path.util';
 
 export interface CsvExportFilters {
@@ -55,6 +56,7 @@ export class CsvExportService {
     private readonly projectRepository: Repository<ProjectEntity>,
     @InjectRepository(SchemaEntity)
     private readonly schemaRepository: Repository<SchemaEntity>,
+    private readonly exportScriptsService: ExportScriptsService,
   ) {}
 
   async exportCsv(
@@ -63,10 +65,35 @@ export class CsvExportService {
   ): Promise<{ filename: string; csv: string }> {
     const schemaColumns = await this.resolveSchemaColumnsForFilters(user, filters);
     const manifests = await this.fetchManifests(user, filters);
-    const headers = this.buildHeaders(schemaColumns);
-    const rows = manifests.map((manifest) =>
-      this.buildRow(manifest, schemaColumns, headers.includes(FALLBACK_EXTRACTED_DATA_HEADER)),
-    );
+    const normalizedColumns = schemaColumns.map((value) => value.trim()).filter((value) => value.length > 0);
+    const headers = this.buildHeaders(normalizedColumns);
+    const includeExtractedDataJson = headers.includes(FALLBACK_EXTRACTED_DATA_HEADER);
+
+    const rows: CsvRow[] = [];
+    for (const manifest of manifests) {
+      const project = manifest.group?.project;
+      const exportRows = await this.exportScriptsService.exportRowsForManifest({
+        format: 'csv',
+        schemaColumns: normalizedColumns,
+        project: { id: project?.id ?? 0, name: project?.name },
+        manifest: {
+          id: manifest.id,
+          groupName: manifest.group?.name,
+          createdAt: manifest.createdAt ?? null,
+          originalFilename: manifest.originalFilename ?? null,
+          status: manifest.status ?? null,
+          confidence: manifest.confidence ?? null,
+          humanVerified: manifest.humanVerified ?? null,
+          extractionCost: manifest.extractionCost ?? null,
+          extractionCostCurrency: manifest.extractionCostCurrency ?? null,
+        },
+        extractedData: (manifest.extractedData ?? null) as Record<string, unknown> | null,
+      });
+
+      for (const dataRow of exportRows) {
+        rows.push(this.buildRow(manifest, dataRow, normalizedColumns, includeExtractedDataJson));
+      }
+    }
 
     const filename = this.buildFilename(filters);
     const csv = this.buildCsv(headers, rows);
@@ -80,10 +107,35 @@ export class CsvExportService {
   ): Promise<{ filename: string; csv: string }> {
     const manifests = await this.fetchManifestsByIds(user, manifestIds);
     const schemaColumns = await this.resolveSchemaColumnsForManifests(manifests);
-    const headers = this.buildHeaders(schemaColumns);
-    const rows = manifests.map((manifest) =>
-      this.buildRow(manifest, schemaColumns, headers.includes(FALLBACK_EXTRACTED_DATA_HEADER)),
-    );
+    const normalizedColumns = schemaColumns.map((value) => value.trim()).filter((value) => value.length > 0);
+    const headers = this.buildHeaders(normalizedColumns);
+    const includeExtractedDataJson = headers.includes(FALLBACK_EXTRACTED_DATA_HEADER);
+
+    const rows: CsvRow[] = [];
+    for (const manifest of manifests) {
+      const project = manifest.group?.project;
+      const exportRows = await this.exportScriptsService.exportRowsForManifest({
+        format: 'csv',
+        schemaColumns: normalizedColumns,
+        project: { id: project?.id ?? 0, name: project?.name },
+        manifest: {
+          id: manifest.id,
+          groupName: manifest.group?.name,
+          createdAt: manifest.createdAt ?? null,
+          originalFilename: manifest.originalFilename ?? null,
+          status: manifest.status ?? null,
+          confidence: manifest.confidence ?? null,
+          humanVerified: manifest.humanVerified ?? null,
+          extractionCost: manifest.extractionCost ?? null,
+          extractionCostCurrency: manifest.extractionCostCurrency ?? null,
+        },
+        extractedData: (manifest.extractedData ?? null) as Record<string, unknown> | null,
+      });
+
+      for (const dataRow of exportRows) {
+        rows.push(this.buildRow(manifest, dataRow, normalizedColumns, includeExtractedDataJson));
+      }
+    }
 
     const filename = this.buildBulkFilename();
     const csv = this.buildCsv(headers, rows);
@@ -105,11 +157,10 @@ export class CsvExportService {
 
   private buildRow(
     manifest: ManifestEntity,
+    exportedRow: Record<string, unknown>,
     schemaColumns: string[],
     includeExtractedDataJson: boolean,
   ): CsvRow {
-    const extractedData = (manifest.extractedData ?? null) as Record<string, unknown> | null;
-
     const row: CsvRow = {
       project_name: this.toCellValue(manifest.group?.project?.name),
       group_name: this.toCellValue(manifest.group?.name),
@@ -124,25 +175,29 @@ export class CsvExportService {
     };
 
     if (includeExtractedDataJson) {
-      row[FALLBACK_EXTRACTED_DATA_HEADER] = extractedData ? this.safeJsonStringify(extractedData) : '';
+      row[FALLBACK_EXTRACTED_DATA_HEADER] = this.safeJsonStringify(exportedRow);
       return row;
     }
 
     for (const path of schemaColumns) {
-      const value = extractedData ? this.getValueAtPath(extractedData, path) : undefined;
+      const value = this.resolveExportedValue(exportedRow, path);
       row[path] = this.toCellValue(value);
     }
 
     return row;
   }
 
-  private getValueAtPath(
+  private resolveExportedValue(
     root: Record<string, unknown>,
     fieldPath: string,
   ): unknown {
     const trimmed = fieldPath.trim();
     if (!trimmed) return undefined;
     if (trimmed.includes('[]')) return undefined;
+
+    if (Object.prototype.hasOwnProperty.call(root, trimmed)) {
+      return root[trimmed];
+    }
 
     const segments = trimmed.split('.');
     let current: unknown = root;

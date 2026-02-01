@@ -291,6 +291,7 @@ describe('ValidationService', () => {
     groups: [],
     schemas: [],
     validationScripts: [],
+    exportScripts: [],
     createdAt: new Date(),
     updatedAt: new Date(),
   };
