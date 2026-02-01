@@ -5,7 +5,6 @@ import { useGroups, useProject, useProjects } from '@/shared/hooks/use-projects'
 import { useProjectSchemas } from '@/shared/hooks/use-schemas';
 import { GroupCard } from '@/shared/components/GroupCard';
 import { GroupForm } from '@/shared/components/GroupForm';
-import { ExportButton } from '@/shared/components/ExportButton';
 import { SettingsDropdown } from '@/shared/components/SettingsDropdown';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { Button } from '@/shared/components/ui/button';
@@ -171,10 +170,6 @@ export function ProjectDetailPage() {
                 schemaId={projectSchema?.id}
                 schemaReady={schemaReady}
                 onDelete={handleDeleteProject}
-              />
-              <ExportButton
-                filters={{ projectId }}
-                filename={`${project.name.replace(/\s+/g, '-')}-export.csv`}
               />
             </div>
           </div>
