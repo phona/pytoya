@@ -3,6 +3,7 @@ import { act } from '@testing-library/react';
 import { fireEvent, renderWithProviders, screen } from '@/tests/utils';
 import { Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { AuditPanel } from './AuditPanel';
+import { useEffect, useState } from 'react';
 
 const updateManifestMutateAsync = vi.hoisted(() => vi.fn());
 const runValidationMutateAsync = vi.hoisted(() => vi.fn());
@@ -405,5 +406,67 @@ describe('AuditPanel', () => {
     });
 
     expect(screen.getByText(/Hello world/)).toBeInTheDocument();
+  });
+
+  it('does not trigger PATCH loop on auto-save (regression test)', async () => {
+    // This test verifies the fix for the PATCH loop bug where:
+    // 1. User edits form -> auto-save schedules a debounced PATCH
+    // 2. Timer state update caused re-render -> new handleAutoSave identity
+    // 3. EditableForm's effect depends on onSave -> re-runs and calls onSave again -> LOOP
+    //
+    // The fix uses useRef instead of useState for the timer, preventing re-renders.
+
+    // Create a mock EditableForm that simulates the real behavior:
+    // It calls onSave from an effect that depends on onSave identity
+    function MockEditableForm({ onSave }: { onSave: (data: any) => void }) {
+      const [isDirty, setIsDirty] = useState(false);
+
+      // This effect simulates the real EditableForm behavior:
+      // It depends on onSave and calls it when dirty
+      useEffect(() => {
+        if (!isDirty) return;
+        // Call onSave - this triggers the debounced auto-save
+        onSave({ extractedData: { invoice: { po_no: '0000002' } } });
+      }, [isDirty, onSave]);
+
+      return (
+        <button
+          type="button"
+          onClick={() => setIsDirty(true)}
+        >
+          Edit Field
+        </button>
+      );
+    }
+
+    // Override the EditableForm mock for this test
+    vi.mocked(await import('./EditableForm')).EditableForm = MockEditableForm as any;
+
+    renderWithProviders(
+      <AuditPanel projectId={1} groupId={1} manifestId={1} onClose={vi.fn()} allManifestIds={[1]} />,
+    );
+
+    // Reset the mock to clear any calls from initial render effects
+    updateManifestMutateAsync.mockClear();
+
+    // Simulate a form edit that triggers auto-save
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Field' }));
+
+    // Advance timers past the 3000ms debounce delay
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    // Only ONE PATCH request should have been made (no loop)
+    // With the bug, this would be 2+ due to the callback identity changing
+    expect(updateManifestMutateAsync).toHaveBeenCalledTimes(1);
+    expect(updateManifestMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        manifestId: 1,
+        data: expect.objectContaining({
+          extractedData: { invoice: { po_no: '0000002' } },
+        }),
+      }),
+    );
   });
 });

@@ -170,7 +170,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     return currentIndex >= 0 && auditNavContext.page < auditNavContext.totalPages;
   }, [auditNavContext, currentIndex, effectiveIds.length]);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [explicitSavePending, setExplicitSavePending] = useState(false);
   const [formResetCounter, setFormResetCounter] = useState(0);
   const [jobProgress, setJobProgress] = useState<{ jobId?: string; progress: number; status: string; error?: string } | null>(null);
@@ -200,6 +200,15 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
   useEffect(() => {
     latestDraftRef.current = null;
   }, [manifestId]);
+
+  // Clear pending debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleTerminalJobStatus = useCallback(
     async (status: string) => {
@@ -456,19 +465,20 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     })();
   }, [auditNavContext, currentIndex, effectiveIds, fetchScopePage, groupId, navigate, projectId]);
 
-  const handleSave = useCallback(async () => {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
+  const handleSave = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
     }
     // Trigger immediate save - the form will call this
     setSaveStatus('saving');
-  }, [debounceTimer]);
+  }, []);
 
   // Auto-save with debouncing
   const handleAutoSave = useCallback(
     (data: Partial<Manifest>) => {
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
       }
 
       latestDraftRef.current = data;
@@ -493,11 +503,11 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
           setSaveStatus('error');
           setTimeout(() => setSaveStatus('idle'), 2000);
         }
-      }, 1000);
+      }, 3000);
 
-      setDebounceTimer(timer);
+      debounceTimerRef.current = timer;
     },
-    [debounceTimer, groupId, manifestId, updateManifest],
+    [groupId, manifestId, updateManifest],
   );
 
   const formatValidationSummary = useCallback(
@@ -547,9 +557,9 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
       return;
     }
 
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-      setDebounceTimer(null);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
     }
 
     const draft = latestDraftRef.current;
@@ -648,7 +658,6 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     }
   }, [
     confirm,
-    debounceTimer,
     formatValidationSummary,
     groupId,
     handleRunValidationClick,
