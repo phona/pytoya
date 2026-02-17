@@ -13,8 +13,6 @@ import type {
   ExtractFilteredDto,
   ExtractFilteredResponseDto,
   DeleteManifestsBulkResponseDto,
-  ReExtractFieldPreviewDto,
-  ReExtractFieldPreviewResponseDto,
 } from '@pytoya/shared/types/manifests';
 
 export type Manifest = Jsonify<ManifestResponseDto>;
@@ -24,7 +22,6 @@ export type OcrResultResponse = Jsonify<OcrResultResponseDto>;
 export type ManifestExtractionHistoryEntry = Jsonify<ManifestExtractionHistoryEntryDto>;
 export type ManifestExtractionHistoryEntryDetails = Jsonify<ManifestExtractionHistoryEntryDetailsDto>;
 export type ManifestOcrHistoryEntry = Jsonify<ManifestOcrHistoryEntryDto>;
-export type ReExtractFieldPreviewResponse = Jsonify<ReExtractFieldPreviewResponseDto>;
 export type ExtractFilteredResponse = Jsonify<ExtractFilteredResponseDto>;
 export type DeleteManifestsBulkResponse = Jsonify<DeleteManifestsBulkResponseDto>;
 export type RefreshOcrRequest = { textExtractorId?: string };
@@ -379,11 +376,6 @@ export const manifestsApi = {
       llmModelId,
       promptId,
     });
-    return response.data;
-  },
-
-  reExtractFieldWithPreview: async (manifestId: number, data: ReExtractFieldPreviewDto) => {
-    const response = await apiClient.post<ReExtractFieldPreviewResponse>(`/manifests/${manifestId}/re-extract-field`, data);
     return response.data;
   },
 

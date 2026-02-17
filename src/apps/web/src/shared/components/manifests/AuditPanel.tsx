@@ -5,7 +5,7 @@ import {
   useManifest,
   useUpdateManifest,
   useManifestExtractionHistory,
-  useReExtractFieldPreview,
+  useReExtractField,
   useQueueOcrRefreshJob,
   useManifestOcrHistory,
 } from '@/shared/hooks/use-manifests';
@@ -70,7 +70,8 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
   const runValidation = useRunValidation();
   const queueOcrRefreshJob = useQueueOcrRefreshJob();
   const { confirm, ModalDialog } = useModalDialog();
-  const reExtractFieldWithPreview = useReExtractFieldPreview();
+  const reExtractField = useReExtractField();
+  const oversizeToastSeenRef = useRef(new Set<string>());
   const { extractors } = useExtractors();
   const { project } = useProject(projectId);
   const { groups } = useGroups(projectId);
@@ -237,8 +238,24 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
           error: data.error,
         });
         void handleTerminalJobStatus(data.status);
+        const normalizedStatus = String(data.status ?? '').toLowerCase();
+        if (
+          normalizedStatus === 'failed' &&
+          typeof data.error === 'string' &&
+          data.error.toLowerCase().includes('ocr context too large')
+        ) {
+          const jobKey = data.jobId ? String(data.jobId) : '';
+          if (jobKey && !oversizeToastSeenRef.current.has(jobKey)) {
+            oversizeToastSeenRef.current.add(jobKey);
+            toast({
+              variant: 'destructive',
+              title: t('audit.reextract.failedTitle'),
+              description: data.error,
+            });
+          }
+        }
       }
-    }, [handleTerminalJobStatus, manifestId]),
+    }, [handleTerminalJobStatus, manifestId, t]),
     onManifestUpdate: useCallback((data: ManifestUpdateEvent) => {
       if (data.manifestId === manifestId) {
         setJobProgress((prev) => ({
@@ -669,13 +686,9 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
       const targetFieldName = getReExtractTargetField(normalized);
 
       try {
-        const result = await reExtractFieldWithPreview.mutateAsync({
+        const result = await reExtractField.mutateAsync({
           manifestId,
-          data: {
-            fieldName: targetFieldName,
-            includeOcrContext: true,
-            previewOnly: false,
-          },
+          fieldName: targetFieldName,
         });
 
         if (result.jobId) {
@@ -694,7 +707,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
         });
       }
     },
-    [getReExtractTargetField, manifestId, normalizeHintPath, reExtractFieldWithPreview, t],
+    [getReExtractTargetField, manifestId, normalizeHintPath, reExtractField, t],
   );
 
   const handleViewExtractionHistory = useCallback(

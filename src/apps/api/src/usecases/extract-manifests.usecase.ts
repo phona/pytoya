@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import type { UserEntity } from '../entities/user.entity';
 import { ManifestsService } from '../manifests/manifests.service';
@@ -7,10 +7,6 @@ import type { BulkExtractDto } from '../manifests/dto/bulk-extract.dto';
 import type { ExtractFilteredDto } from '../manifests/dto/extract-filtered.dto';
 import type { ExtractFilteredResponseDto } from '../manifests/dto/extract-filtered-response.dto';
 import type { ReExtractFieldDto } from '../manifests/dto/re-extract-field.dto';
-import type {
-  ReExtractFieldPreviewDto,
-  ReExtractFieldPreviewResponseDto,
-} from '../manifests/dto/re-extract-field-preview.dto';
 import { GroupsService } from '../groups/groups.service';
 import type {
   ExtractionJobRequest,
@@ -129,40 +125,5 @@ export class ExtractManifestsUseCase {
       fieldName: body.fieldName,
     });
     return { jobId };
-  }
-
-  async reExtractField(
-    user: UserEntity,
-    manifestId: number,
-    body: ReExtractFieldPreviewDto,
-  ): Promise<ReExtractFieldPreviewResponseDto> {
-    const manifest = await this.manifestsService.findOne(user, manifestId);
-
-    if (!manifest.ocrResult) {
-      throw new BadRequestException(
-        'OCR result is required. Run extraction first.',
-      );
-    }
-
-    const includeOcrContext = body.includeOcrContext !== false;
-    const ocrPreview = this.manifestsService.buildOcrContextPreview(
-      manifest,
-      body.fieldName,
-    );
-
-    if (body.previewOnly) {
-      return { fieldName: body.fieldName, ocrPreview };
-    }
-
-    const jobId = await this.jobQueue.enqueueExtractionJob({
-      manifestId,
-      llmModelId: body.llmModelId,
-      promptId: body.promptId,
-      fieldName: body.fieldName,
-      customPrompt: body.customPrompt,
-      textContextSnippet: includeOcrContext ? ocrPreview?.snippet : undefined,
-    });
-
-    return { jobId, fieldName: body.fieldName, ocrPreview };
   }
 }

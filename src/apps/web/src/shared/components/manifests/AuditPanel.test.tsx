@@ -28,7 +28,7 @@ vi.mock('@/shared/hooks/use-manifests', () => ({
   useUpdateManifest: () => ({ mutateAsync: updateManifestMutateAsync, isPending: false }),
   useManifestExtractionHistory: () => ({ data: [], isLoading: false }),
   useManifestOcrHistory: () => ({ data: [], isLoading: false }),
-  useReExtractFieldPreview: () => ({ mutateAsync: vi.fn() }),
+  useReExtractField: () => ({ mutateAsync: vi.fn() }),
   useOcrResult: () => ({ data: null, isLoading: false, error: null }),
   useQueueOcrRefreshJob: () => ({ mutateAsync: queueOcrRefreshJobMutateAsync, isPending: false }),
 }));
@@ -342,6 +342,46 @@ describe('AuditPanel', () => {
     expect(queueOcrRefreshJobMutateAsync).toHaveBeenCalledWith({ manifestId: 1 });
   });
 
+
+  it('shows a toast when re-extract fails due to oversized OCR context', async () => {
+    renderWithProviders(
+      <AuditPanel projectId={1} groupId={1} manifestId={1} onClose={vi.fn()} allManifestIds={[1]} />,
+    );
+
+    expect(webSocketOptionsRef.current?.onJobUpdate).toBeTypeOf('function');
+
+    const message = 'OCR context too large for extraction; choose a larger-context model or reduce pages.';
+
+    await act(async () => {
+      webSocketOptionsRef.current.onJobUpdate({
+        jobId: 'job-oversize',
+        manifestId: 1,
+        kind: 'extraction',
+        progress: 0,
+        status: 'failed',
+        error: message,
+      });
+    });
+
+    await act(async () => {
+      webSocketOptionsRef.current.onJobUpdate({
+        jobId: 'job-oversize',
+        manifestId: 1,
+        kind: 'extraction',
+        progress: 0,
+        status: 'failed',
+        error: message,
+      });
+    });
+
+    expect(toastMock).toHaveBeenCalledTimes(1);
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: 'destructive',
+        description: message,
+      }),
+    );
+  });
   it('renders live text extraction markdown from job-update events', async () => {
     renderWithProviders(
       <AuditPanel projectId={1} groupId={1} manifestId={1} onClose={vi.fn()} allManifestIds={[1]} />,

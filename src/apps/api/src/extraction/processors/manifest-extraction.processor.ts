@@ -12,6 +12,7 @@ import {
   REFRESH_OCR_JOB,
 } from '../../queue/queue.constants';
 import { ExtractionService } from '../extraction.service';
+import { OcrContextTooLargeError } from '../extraction.errors';
 import { TextExtractionProgressUpdate } from '../../text-extractor/types/extractor.types';
 
 type ManifestExtractionJob = {
@@ -215,6 +216,10 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
         });
         throw error;
       }
+
+      if (error instanceof OcrContextTooLargeError) {
+        await job.discard();
+      }
 
       const errorMessage = this.formatError(error);
       const line = [
@@ -340,6 +345,10 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
           error: message,
         });
         throw error;
+      }
+
+      if (error instanceof OcrContextTooLargeError) {
+        await job.discard();
       }
 
       const errorMessage = this.formatError(error);

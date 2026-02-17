@@ -111,72 +111,32 @@ describe('ExtractManifestsUseCase (workflow without BullMQ/Redis)', () => {
 
     nowSpy.mockRestore();
   });
-
-  it('reExtractField previewOnly returns preview and does not enqueue', async () => {
+  it('reExtract enqueues extraction for target field', async () => {
     const manifestsService = {
       findOne: jest.fn().mockResolvedValue({
         id: 123,
-        ocrResult: { ok: true },
       }),
-      buildOcrContextPreview: jest.fn().mockReturnValue({ snippet: 'ctx' }),
     } as any;
 
     const { useCase, jobQueue } = makeExtractUseCaseTestEnv({ manifestsService });
 
-    const result = await useCase.reExtractField(mockUser, 123, {
+    const result = await useCase.reExtract(mockUser, 123, {
       fieldName: 'invoice.po_no',
-      previewOnly: true,
-    } as any);
-
-    expect(result.fieldName).toBe('invoice.po_no');
-    expect(result.jobId).toBeUndefined();
-    expect(jobQueue.getEnqueued()).toEqual([]);
-  });
-
-  it('reExtractField enqueues extraction with OCR snippet when previewOnly is false', async () => {
-    const manifestsService = {
-      findOne: jest.fn().mockResolvedValue({
-        id: 123,
-        ocrResult: { ok: true },
-      }),
-      buildOcrContextPreview: jest.fn().mockReturnValue({ snippet: 'ctx' }),
-    } as any;
-
-    const { useCase, jobQueue } = makeExtractUseCaseTestEnv({ manifestsService });
-
-    const result = await useCase.reExtractField(mockUser, 123, {
-      fieldName: 'invoice.po_no',
-      previewOnly: false,
       llmModelId: 'model-x',
       promptId: 2,
     } as any);
 
     expect(result.jobId).toBe('job_1');
-    expect(jobQueue.getEnqueued()[0]).toMatchObject({
-      kind: 'extraction',
-      request: {
-        manifestId: 123,
-        fieldName: 'invoice.po_no',
-        llmModelId: 'model-x',
-        promptId: 2,
-        textContextSnippet: 'ctx',
+    expect(jobQueue.getEnqueued()).toEqual([
+      {
+        kind: 'extraction',
+        request: {
+          manifestId: 123,
+          fieldName: 'invoice.po_no',
+          llmModelId: 'model-x',
+          promptId: 2,
+        },
       },
-    });
-  });
-
-  it('reExtractField throws when OCR is missing', async () => {
-    const manifestsService = {
-      findOne: jest.fn().mockResolvedValue({ id: 123, ocrResult: null }),
-      buildOcrContextPreview: jest.fn(),
-    } as any;
-
-    const { useCase } = makeExtractUseCaseTestEnv({ manifestsService });
-
-    await expect(
-      useCase.reExtractField(mockUser, 123, {
-        fieldName: 'invoice.po_no',
-        previewOnly: false,
-      } as any),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ]);
   });
 });

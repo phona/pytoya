@@ -38,7 +38,6 @@ import { ManifestResponseDto } from './dto/manifest-response.dto';
 import { ManifestItemResponseDto } from './dto/manifest-item-response.dto';
 import { OcrResultResponseDto } from './dto/ocr-result.dto';
 import { RefreshOcrDto } from './dto/refresh-ocr.dto';
-import { ReExtractFieldPreviewDto, ReExtractFieldPreviewResponseDto } from './dto/re-extract-field-preview.dto';
 import { ReExtractFieldDto } from './dto/re-extract-field.dto';
 import { UpdateManifestDto } from './dto/update-manifest.dto';
 import { DynamicFieldFiltersDto } from './dto/dynamic-field-filters.dto';
@@ -349,15 +348,6 @@ export class ManifestsController {
     @Body() body: ReExtractFieldDto,
   ) {
     return this.extractManifestsUseCase.reExtract(user, id, body);
-  }
-
-  @Post('manifests/:id/re-extract-field')
-  async reExtractField(
-    @CurrentUser() user: UserEntity,
-    @Param('id', ParseIntPipe) id: number,
-    @Body() body: ReExtractFieldPreviewDto,
-  ): Promise<ReExtractFieldPreviewResponseDto> {
-    return this.extractManifestsUseCase.reExtractField(user, id, body);
   }
 
   @Get('manifests/:id')

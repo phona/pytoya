@@ -26,7 +26,6 @@ import { UploadManifestsUseCase } from '../usecases/upload-manifests.usecase';
  *
  * These tests verify the new endpoints added for selective extraction:
  * - GET /manifests/:id/ocr - Retrieve cached OCR result
- * - POST /manifests/:id/re-extract-field - Preview field re-extraction
  */
 describe('ManifestsController - OCR Endpoints Integration', () => {
   let controller: ManifestsController;
@@ -46,7 +45,6 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
     extractBulk: jest.Mock;
     extractFiltered: jest.Mock;
     reExtract: jest.Mock;
-    reExtractField: jest.Mock;
   };
   let updateManifestUseCase: {
     update: jest.Mock;
@@ -165,7 +163,6 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
       findForFilteredExtraction: jest.fn(),
       setTextExtractorForManifests: jest.fn(),
       processOcrForManifest: jest.fn(),
-      buildOcrContextPreview: jest.fn(),
       listOcrHistory: jest.fn(),
     } as unknown as jest.Mocked<ManifestsService>;
 
@@ -207,7 +204,6 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
       extractBulk: jest.fn(),
       extractFiltered: jest.fn(),
       reExtract: jest.fn(),
-      reExtractField: jest.fn(),
     };
 
     updateManifestUseCase = {
@@ -315,89 +311,6 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
         ocrProcessedAt: null,
         qualityScore: null,
       });
-    });
-  });
-
-  describe('POST /manifests/:id/re-extract-field', () => {
-    const mockOcrPreview = {
-      fieldName: 'invoice.po_no',
-      snippet: 'Invoice #001\nPO: 1234567\nDate: 2024-01-15',
-      context: 'Full OCR context here...',
-    };
-
-    it('should return OCR preview for field re-extraction', async () => {
-      extractManifestsUseCase.reExtractField.mockResolvedValue({
-        fieldName: 'invoice.po_no',
-        ocrPreview: mockOcrPreview,
-        jobId: 'job-123',
-      });
-
-      const result = await controller.reExtractField(mockUser, 1, {
-        fieldName: 'invoice.po_no',
-        llmModelId: 'llm-model-1',
-        previewOnly: false,
-      });
-
-      expect(result).toEqual({
-        fieldName: 'invoice.po_no',
-        ocrPreview: mockOcrPreview,
-        jobId: 'job-123',
-      });
-      expect(extractManifestsUseCase.reExtractField).toHaveBeenCalledWith(
-        mockUser,
-        1,
-        {
-          fieldName: 'invoice.po_no',
-          llmModelId: 'llm-model-1',
-          previewOnly: false,
-        },
-      );
-    });
-
-    it('rejects re-extract preview when OCR is not present', async () => {
-      extractManifestsUseCase.reExtractField.mockRejectedValue(new BadRequestException('OCR not present'));
-
-      await expect(
-        controller.reExtractField(mockUser, 1, {
-          fieldName: 'invoice.po_no',
-          previewOnly: false,
-        }),
-      ).rejects.toThrow(BadRequestException);
-      expect(extractManifestsUseCase.reExtractField).toHaveBeenCalledWith(
-        mockUser,
-        1,
-        {
-          fieldName: 'invoice.po_no',
-          previewOnly: false,
-        },
-      );
-    });
-
-    it('should only return preview when previewOnly is true', async () => {
-      extractManifestsUseCase.reExtractField.mockResolvedValue({
-        fieldName: 'invoice.po_no',
-        ocrPreview: mockOcrPreview,
-      });
-
-      const result = await controller.reExtractField(mockUser, 1, {
-        fieldName: 'invoice.po_no',
-        llmModelId: 'llm-model-1',
-        previewOnly: true,
-      });
-
-      expect(result).toEqual({
-        fieldName: 'invoice.po_no',
-        ocrPreview: mockOcrPreview,
-      });
-      expect(extractManifestsUseCase.reExtractField).toHaveBeenCalledWith(
-        mockUser,
-        1,
-        {
-          fieldName: 'invoice.po_no',
-          llmModelId: 'llm-model-1',
-          previewOnly: true,
-        },
-      );
     });
   });
 

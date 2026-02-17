@@ -1,5 +1,6 @@
 import { InternalServerErrorException, Logger } from '@nestjs/common';
 import { ExtractionService } from './extraction.service';
+import { OcrContextTooLargeError, OCR_CONTEXT_TOO_LARGE_MESSAGE } from './extraction.errors';
 import { ManifestStatus } from '../entities/manifest.entity';
 
 describe('ExtractionService', () => {
@@ -85,6 +86,246 @@ describe('ExtractionService', () => {
     );
   });
 
+
+  it('uses cached OCR markdown for field re-extract prompts', async () => {
+    const manifestRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 1,
+        storagePath: '/tmp/test.pdf',
+        originalFilename: 'test.pdf',
+        fileType: 'pdf',
+        status: ManifestStatus.PENDING,
+        extractedData: { invoice: { po_no: 'old' } },
+        textExtractorId: 'extractor-1',
+        ocrResult: {
+          document: { type: 'unknown', language: ['en'], pages: 2 },
+          pages: [
+            { pageNumber: 1, text: 'x', markdown: 'FULL OCR PAGE 1', confidence: 0.9 },
+            { pageNumber: 2, text: 'y', markdown: 'FULL OCR PAGE 2', confidence: 0.9 },
+          ],
+          metadata: { processedAt: '2024-01-15T10:30:00Z' },
+        },
+        group: {
+          project: {
+            id: 1,
+            llmModelId: 'model-1',
+            defaultSchemaId: 'schema-1',
+            textExtractorId: 'extractor-1',
+          },
+        },
+      }),
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const extractorRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'extractor-1',
+        config: { pricing: { mode: 'none' } },
+      }),
+    };
+
+    const modelRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'model-1',
+        adapterType: 'openai',
+        parameters: {
+          baseUrl: 'https://api.openai.com/v1',
+          apiKey: 'sk-test',
+          modelName: 'gpt-4o',
+        },
+        pricing: {
+          effectiveDate: new Date().toISOString(),
+          llm: { inputPrice: 2, outputPrice: 4, currency: 'USD' },
+        },
+      }),
+    };
+
+    const promptRepository = { findOne: jest.fn().mockResolvedValue(null) };
+
+    const llmService = {
+      createChatCompletion: jest.fn().mockResolvedValue({
+        content: '{"invoice":{"po_no":"new"},"_extraction_info":{"confidence":0.9}}',
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      }),
+      providerSupportsStructuredOutput: jest.fn().mockReturnValue(true),
+    };
+
+    const promptBuilderService = {
+      buildExtractionPrompt: jest.fn().mockReturnValue({ systemContext: '', userInput: 'prompt' }),
+      buildReExtractPrompt: jest.fn().mockReturnValue({ systemContext: '', userInput: 'prompt' }),
+    };
+
+    const promptsService = {
+      getSystemPrompt: jest.fn().mockReturnValue('system'),
+      getReExtractSystemPrompt: jest.fn().mockReturnValue('system'),
+    };
+
+    const schemaRulesService = { findBySchema: jest.fn().mockResolvedValue([]) };
+
+    const schemasService = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'schema-1',
+        jsonSchema: {},
+        requiredFields: ['invoice'],
+        systemPromptTemplate: null,
+      }),
+      validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
+    };
+
+    const modelPricingService = {
+      calculateLlmCost: jest.fn().mockReturnValue(0),
+      getCurrency: jest.fn().mockReturnValue('USD'),
+    };
+
+    const configService = { get: jest.fn().mockReturnValue(undefined) };
+
+    const fileSystem = {
+      readFile: jest.fn(),
+      getFileStats: jest.fn().mockResolvedValue({ isFile: true, size: 100 }),
+    };
+
+    const manifestsService = {
+      updateJobPromptSnapshot: jest.fn(),
+      updateJobAssistantResponse: jest.fn(),
+    };
+
+    const service = new ExtractionService(
+      manifestRepository as any,
+      extractorRepository as any,
+      modelRepository as any,
+      promptRepository as any,
+      {} as any,
+      llmService as any,
+      promptBuilderService as any,
+      promptsService as any,
+      schemaRulesService as any,
+      schemasService as any,
+      modelPricingService as any,
+      configService as any,
+      fileSystem as any,
+      manifestsService as any,
+    );
+
+    await service.runExtraction(1, { fieldName: 'invoice.po_no' });
+
+    expect(promptBuilderService.buildReExtractPrompt).toHaveBeenCalled();
+    expect(promptBuilderService.buildReExtractPrompt.mock.calls[0]?.[0]).toBe('FULL OCR PAGE 1\nFULL OCR PAGE 2');
+  });
+
+  it('throws OcrContextTooLargeError when LLM rejects oversized context', async () => {
+    const manifestRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 1,
+        storagePath: '/tmp/test.pdf',
+        originalFilename: 'test.pdf',
+        fileType: 'pdf',
+        status: ManifestStatus.PENDING,
+        extractedData: { invoice: { po_no: 'old' } },
+        textExtractorId: 'extractor-1',
+        ocrResult: {
+          document: { type: 'unknown', language: ['en'], pages: 1 },
+          pages: [{ pageNumber: 1, text: 'x', markdown: 'FULL OCR', confidence: 0.9 }],
+          metadata: { processedAt: '2024-01-15T10:30:00Z' },
+        },
+        group: {
+          project: {
+            id: 1,
+            llmModelId: 'model-1',
+            defaultSchemaId: 'schema-1',
+            textExtractorId: 'extractor-1',
+          },
+        },
+      }),
+      save: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const extractorRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'extractor-1',
+        config: { pricing: { mode: 'none' } },
+      }),
+    };
+
+    const modelRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'model-1',
+        adapterType: 'openai',
+        parameters: {
+          baseUrl: 'https://api.openai.com/v1',
+          apiKey: 'sk-test',
+          modelName: 'gpt-4o',
+        },
+        pricing: {
+          effectiveDate: new Date().toISOString(),
+          llm: { inputPrice: 2, outputPrice: 4, currency: 'USD' },
+        },
+      }),
+    };
+
+    const llmService = {
+      createChatCompletion: jest.fn().mockRejectedValue(new Error('maximum context length exceeded')),
+      providerSupportsStructuredOutput: jest.fn().mockReturnValue(true),
+    };
+
+    const promptBuilderService = {
+      buildExtractionPrompt: jest.fn().mockReturnValue({ systemContext: '', userInput: 'prompt' }),
+      buildReExtractPrompt: jest.fn().mockReturnValue({ systemContext: '', userInput: 'prompt' }),
+    };
+
+    const promptsService = {
+      getSystemPrompt: jest.fn().mockReturnValue('system'),
+      getReExtractSystemPrompt: jest.fn().mockReturnValue('system'),
+    };
+
+    const schemaRulesService = { findBySchema: jest.fn().mockResolvedValue([]) };
+
+    const schemasService = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'schema-1',
+        jsonSchema: {},
+        requiredFields: ['invoice'],
+        systemPromptTemplate: null,
+      }),
+      validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
+    };
+
+    const modelPricingService = {
+      calculateLlmCost: jest.fn().mockReturnValue(0),
+      getCurrency: jest.fn().mockReturnValue('USD'),
+    };
+
+    const configService = { get: jest.fn().mockReturnValue(undefined) };
+
+    const fileSystem = {
+      readFile: jest.fn(),
+      getFileStats: jest.fn().mockResolvedValue({ isFile: true, size: 100 }),
+    };
+
+    const manifestsService = {
+      updateJobPromptSnapshot: jest.fn(),
+      updateJobAssistantResponse: jest.fn(),
+    };
+
+    const service = new ExtractionService(
+      manifestRepository as any,
+      extractorRepository as any,
+      modelRepository as any,
+      { findOne: jest.fn().mockResolvedValue(null) } as any,
+      {} as any,
+      llmService as any,
+      promptBuilderService as any,
+      promptsService as any,
+      schemaRulesService as any,
+      schemasService as any,
+      modelPricingService as any,
+      configService as any,
+      fileSystem as any,
+      manifestsService as any,
+    );
+
+    await expect(service.runExtraction(1, { fieldName: 'invoice.po_no' })).rejects.toBeInstanceOf(OcrContextTooLargeError);
+    await expect(service.runExtraction(1, { fieldName: 'invoice.po_no' })).rejects.toThrow(OCR_CONTEXT_TOO_LARGE_MESSAGE);
+  });
   it('runs extraction with text extractor and aggregates costs', async () => {
     const manifestRepository = {
       findOne: jest.fn().mockResolvedValue({

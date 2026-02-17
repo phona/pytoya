@@ -30,7 +30,6 @@ import {
 } from './utils/json-path.util';
 import { resolveFieldSemanticFromJsonSchema } from './utils/schema-field-semantic.util';
 import { OcrResultDto } from './dto/ocr-result.dto';
-import { OcrContextPreviewDto } from './dto/re-extract-field-preview.dto';
 import { ManifestExtractionHistoryEntryDto } from './dto/manifest-extraction-history.dto';
 import { ManifestExtractionHistoryEntryDetailsDto } from './dto/manifest-extraction-history-details.dto';
 import { ManifestOcrHistoryEntryDto } from './dto/manifest-ocr-history.dto';
@@ -614,62 +613,6 @@ export class ManifestsService {
       processedAt: manifest.ocrProcessedAt ?? null,
     });
     return cachedResult;
-  }
-
-  buildOcrContextPreview(
-    manifest: ManifestEntity,
-    fieldName: string,
-  ): OcrContextPreviewDto | undefined {
-    const ocrResult = manifest.ocrResult as OcrResultDto | null;
-    if (!ocrResult || !Array.isArray(ocrResult.pages)) {
-      return undefined;
-    }
-
-    const MAX_SNIPPET_CHARS = 800;
-    const CONTEXT_CHARS = 280;
-
-    const excerpt = (text: string, index: number) => {
-      const safe = text ?? '';
-      const clamped = Math.max(0, Math.min(index, safe.length));
-      const start = Math.max(0, clamped - CONTEXT_CHARS);
-      const end = Math.min(safe.length, clamped + CONTEXT_CHARS);
-      const core = safe.slice(start, end).trim();
-      const prefix = start > 0 ? '…' : '';
-      const suffix = end < safe.length ? '…' : '';
-      const joined = `${prefix}${core}${suffix}`;
-      return joined.length > MAX_SNIPPET_CHARS ? joined.slice(0, MAX_SNIPPET_CHARS - 1) + '…' : joined;
-    };
-
-    const rawField = fieldName.split('.').pop() ?? fieldName;
-    const normalizedField = rawField.replace(/_/g, ' ').toLowerCase();
-    const candidates = [normalizedField, rawField.toLowerCase()];
-
-    for (const page of ocrResult.pages) {
-      const text = page.markdown || page.text || '';
-      const trimmed = text.trim();
-      if (!trimmed) continue;
-      const lower = text.toLowerCase();
-      const matchIndex = candidates.map((term) => lower.indexOf(term)).find((index) => index >= 0);
-
-      if (matchIndex !== undefined && matchIndex >= 0) {
-        return {
-          fieldName,
-          snippet: excerpt(text, matchIndex),
-          pageNumber: page.pageNumber,
-          confidence: page.confidence,
-        };
-      }
-    }
-
-    const firstPage = ocrResult.pages.find((page) => (page.markdown || page.text || '').trim().length > 0) ?? ocrResult.pages[0];
-    const firstText = firstPage ? (firstPage.markdown || firstPage.text || '') : '';
-
-    return {
-      fieldName,
-      snippet: excerpt(firstText, 0),
-      pageNumber: firstPage?.pageNumber,
-      confidence: firstPage?.confidence,
-    };
   }
 
   async backfillOcrResults(options?: {

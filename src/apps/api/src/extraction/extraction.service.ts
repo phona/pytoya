@@ -45,6 +45,7 @@ import {
   TextExtractionState,
 } from './extraction.types';
 import { adapterRegistry } from '../models/adapters/adapter-registry';
+import { OcrContextTooLargeError } from './extraction.errors';
 
 type ExtractionOptions = {
   llmModel?: ModelEntity;
@@ -737,6 +738,9 @@ export class ExtractionService {
         tokenUsage,
       };
     } catch (error) {
+      if (this.isContextLengthExceeded(error)) {
+        throw new OcrContextTooLargeError();
+      }
       return {
         data: {},
         success: false,
@@ -1280,6 +1284,68 @@ export class ExtractionService {
     };
   }
 
+
+  private isContextLengthExceeded(error: unknown): boolean {
+    const parts: string[] = [];
+
+    const push = (value: unknown) => {
+      if (value === undefined || value === null) {
+        return;
+      }
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed) {
+          parts.push(trimmed.length > 2000 ? `${trimmed.slice(0, 2000)}...` : trimmed);
+        }
+        return;
+      }
+      if (value instanceof Error) {
+        push(value.message);
+        return;
+      }
+      if (typeof value === 'number' || typeof value === 'boolean') {
+        parts.push(String(value));
+        return;
+      }
+      if (typeof value === 'object') {
+        try {
+          const serialized = JSON.stringify(value);
+          if (serialized) {
+            parts.push(serialized.length > 2000 ? `${serialized.slice(0, 2000)}...` : serialized);
+          }
+        } catch {
+          // Ignore unserializable values.
+        }
+      }
+    };
+
+    push(error);
+    if (typeof error === 'object' && error) {
+      const anyError = error as any;
+      push(anyError.code);
+      push(anyError.type);
+      push(anyError.status);
+      push(anyError.response?.data);
+      push(anyError.response?.message);
+      push(anyError.cause);
+      if (typeof anyError.getResponse === 'function') {
+        try {
+          push(anyError.getResponse());
+        } catch {
+          // Ignore.
+        }
+      }
+    }
+
+    const haystack = parts.join(' | ').toLowerCase();
+    return (
+      haystack.includes('context_length_exceeded') ||
+      haystack.includes('maximum context length') ||
+      haystack.includes('too many tokens') ||
+      haystack.includes('context length') ||
+      haystack.includes('prompt is too long')
+    );
+  }
   private formatError(error: unknown): string {
     if (error instanceof Error) {
       return error.message;

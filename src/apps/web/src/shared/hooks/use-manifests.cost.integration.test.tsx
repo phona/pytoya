@@ -3,9 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, vi, beforeEach, beforeAll, afterEach, afterAll } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/tests/mocks/server';
-import { useExtractBulk, useOcrResult, useTriggerExtraction, useReExtractFieldPreview } from './use-manifests';
+import { useExtractBulk, useOcrResult, useTriggerExtraction, useReExtractField } from './use-manifests';
 
-// Mock WebSocket
 vi.mock('./use-websocket', () => ({
   useWebSocket: () => ({
     isConnected: false,
@@ -62,14 +61,10 @@ describe('use-manifests - OCR and Extraction Integration', () => {
         qualityScore: 90,
       };
 
-      server.use(
-        http.get('/api/manifests/1/ocr', () => HttpResponse.json(mockOcrResult)),
-      );
+      server.use(http.get('/api/manifests/1/ocr', () => HttpResponse.json(mockOcrResult)));
 
       const { result } = renderHook(() => useOcrResult(1), {
-        wrapper: ({ children }) => (
-          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-        ),
+        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
       });
 
       await waitFor(() => {
@@ -79,14 +74,10 @@ describe('use-manifests - OCR and Extraction Integration', () => {
     });
 
     it('returns 404 when OCR result does not exist', async () => {
-      server.use(
-        http.get('/api/manifests/1/ocr', () => new HttpResponse(null, { status: 404 })),
-      );
+      server.use(http.get('/api/manifests/1/ocr', () => new HttpResponse(null, { status: 404 })));
 
       const { result } = renderHook(() => useOcrResult(1), {
-        wrapper: ({ children }) => (
-          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-        ),
+        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
       });
 
       await waitFor(() => {
@@ -101,14 +92,10 @@ describe('use-manifests - OCR and Extraction Integration', () => {
         jobId: 'job-123',
       };
 
-      server.use(
-        http.post('/api/manifests/1/extract', () => HttpResponse.json(mockResponse)),
-      );
+      server.use(http.post('/api/manifests/1/extract', () => HttpResponse.json(mockResponse)));
 
       const { result } = renderHook(() => useTriggerExtraction(), {
-        wrapper: ({ children }) => (
-          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-        ),
+        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
       });
 
       await act(async () => {
@@ -128,14 +115,10 @@ describe('use-manifests - OCR and Extraction Integration', () => {
         manifestCount: 3,
       };
 
-      server.use(
-        http.post('/api/manifests/extract-bulk', () => HttpResponse.json(mockResponse)),
-      );
+      server.use(http.post('/api/manifests/extract-bulk', () => HttpResponse.json(mockResponse)));
 
       const { result } = renderHook(() => useExtractBulk(), {
-        wrapper: ({ children }) => (
-          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-        ),
+        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
       });
 
       await act(async () => {
@@ -149,71 +132,25 @@ describe('use-manifests - OCR and Extraction Integration', () => {
     });
   });
 
-  describe('useReExtractFieldPreview', () => {
+  describe('useReExtractField', () => {
     it('queues field re-extraction', async () => {
       const mockResponse = {
         jobId: 'job-field-456',
-        fieldName: 'invoice.po_no',
-        ocrPreview: {
-          fieldName: 'invoice.po_no',
-          snippet: 'Invoice #001\nPO: 1234567',
-          pageNumber: 1,
-          confidence: 0.92,
-        },
       };
 
-      server.use(
-        http.post('/api/manifests/1/re-extract-field', () => HttpResponse.json(mockResponse)),
-      );
+      server.use(http.post('/api/manifests/1/re-extract', () => HttpResponse.json(mockResponse)));
 
-      const { result } = renderHook(() => useReExtractFieldPreview(), {
-        wrapper: ({ children }) => (
-          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-        ),
+      const { result } = renderHook(() => useReExtractField(), {
+        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
       });
 
       await act(async () => {
         const response = await result.current.mutateAsync({
           manifestId: 1,
-          data: {
-            fieldName: 'invoice.po_no',
-            llmModelId: 'gpt-4o',
-            previewOnly: false,
-          },
+          fieldName: 'invoice.po_no',
+          llmModelId: 'gpt-4o',
         });
         expect(response.jobId).toBe('job-field-456');
-      });
-    });
-
-    it('returns preview without job when previewOnly is true', async () => {
-      const mockResponse = {
-        fieldName: 'invoice.po_no',
-        ocrPreview: {
-          fieldName: 'invoice.po_no',
-          snippet: 'Invoice #001\nPO: 1234567',
-        },
-      };
-
-      server.use(
-        http.post('/api/manifests/1/re-extract-field', () => HttpResponse.json(mockResponse)),
-      );
-
-      const { result } = renderHook(() => useReExtractFieldPreview(), {
-        wrapper: ({ children }) => (
-          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-        ),
-      });
-
-      await act(async () => {
-        const response = await result.current.mutateAsync({
-          manifestId: 1,
-          data: {
-            fieldName: 'invoice.po_no',
-            previewOnly: true,
-          },
-        });
-        expect(response.jobId).toBeUndefined();
-        expect(response.ocrPreview).toBeDefined();
       });
     });
   });

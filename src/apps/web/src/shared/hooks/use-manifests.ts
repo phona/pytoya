@@ -95,36 +95,6 @@ export function useReExtractField() {
   });
 }
 
-export function useReExtractFieldPreview() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      manifestId,
-      data,
-    }: {
-      manifestId: number;
-      data: Parameters<typeof manifestsApi.reExtractFieldWithPreview>[1];
-    }) => manifestsApi.reExtractFieldWithPreview(manifestId, data),
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId] });
-      if (!data.jobId) {
-        return;
-      }
-      const now = new Date().toISOString();
-      useJobsStore.getState().upsertJob({
-        id: String(data.jobId),
-        kind: 'extraction',
-        manifestId: variables.manifestId,
-        status: 'waiting',
-        progress: 0,
-        error: null,
-        createdAt: now,
-        updatedAt: now,
-      });
-    },
-  });
-}
 
 export function useTriggerExtraction() {
   const queryClient = useQueryClient();

@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { ManifestExtractionProcessor } from './manifest-extraction.processor';
 import { ExtractionService } from '../extraction.service';
+import { OcrContextTooLargeError, OCR_CONTEXT_TOO_LARGE_MESSAGE } from '../extraction.errors';
 import { ManifestsService } from '../../manifests/manifests.service';
 import { ProgressPublisherService } from '../../websocket/progress-publisher.service';
 import { PROCESS_MANIFEST_JOB } from '../../queue/queue.constants';
@@ -120,6 +121,43 @@ describe('ManifestExtractionProcessor (workflow without BullMQ/Redis)', () => {
     }
   });
 
+
+  it('discards job (no retry) when OCR context is too large', async () => {
+    const extractionService = {
+      runExtraction: jest.fn().mockRejectedValue(new OcrContextTooLargeError()),
+    } as unknown as jest.Mocked<ExtractionService>;
+
+    const manifestsService = {
+      getJobCancelRequest: jest.fn().mockResolvedValue({ requested: false }),
+      updateJobProgressByQueueJobId: jest.fn(),
+      updateJobCompleted: jest.fn(),
+      updateStatus: jest.fn(),
+      updateJobFailed: jest.fn(),
+      markJobCanceled: jest.fn(),
+    } as unknown as jest.Mocked<ManifestsService>;
+
+    const progressPublisher = {
+      publishJobUpdate: jest.fn(),
+      publishManifestUpdate: jest.fn(),
+    } as unknown as jest.Mocked<ProgressPublisherService>;
+
+    const processor = new ManifestExtractionProcessor(
+      extractionService,
+      manifestsService,
+      { get: jest.fn() } as unknown as ConfigService,
+      progressPublisher,
+    );
+
+    const job = makeJob();
+
+    await expect(processor.process(job)).rejects.toThrow(OCR_CONTEXT_TOO_LARGE_MESSAGE);
+
+    expect(job.discard).toHaveBeenCalled();
+    expect(manifestsService.updateJobFailed).toHaveBeenCalled();
+    expect(progressPublisher.publishJobUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'failed', error: OCR_CONTEXT_TOO_LARGE_MESSAGE }),
+    );
+  });
   it('marks job failed when extraction throws', async () => {
     const extractionService = {
       runExtraction: jest.fn().mockRejectedValue(new Error('LLM failed')),
