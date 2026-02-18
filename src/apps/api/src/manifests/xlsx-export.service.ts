@@ -168,12 +168,10 @@ export class XlsxExportService {
     const normalizedColumns = schemaColumns
       .map((value) => value.trim())
       .filter((value) => value.length > 0);
-    const headers =
-      normalizedColumns.length === 0
-        ? [...METADATA_HEADERS, FALLBACK_EXTRACTED_DATA_HEADER]
-        : [...METADATA_HEADERS, ...normalizedColumns];
 
-    ws.addRow(headers).commit();
+    // First pass: collect all exported rows to determine columns
+    const exportedDataByManifest = new Map<ManifestEntity, Record<string, unknown>[]>();
+    const dynamicColumnSet = new Set<string>();
 
     for (const manifest of manifests) {
       const project = manifest.group?.project;
@@ -195,6 +193,31 @@ export class XlsxExportService {
         extractedData: (manifest.extractedData ?? null) as Record<string, unknown> | null,
       });
 
+      exportedDataByManifest.set(manifest, exportRows);
+
+      // Collect column keys from export script output when no schema columns defined
+      if (normalizedColumns.length === 0) {
+        for (const row of exportRows) {
+          for (const key of Object.keys(row)) {
+            dynamicColumnSet.add(key);
+          }
+        }
+      }
+    }
+
+    // Determine headers: schema columns take precedence, then dynamic columns, then fallback
+    const dynamicColumns = Array.from(dynamicColumnSet);
+    const useDynamicColumns = normalizedColumns.length === 0 && dynamicColumns.length > 0;
+    const dataHeaders = useDynamicColumns ? dynamicColumns : normalizedColumns;
+    const headers =
+      dataHeaders.length === 0
+        ? [...METADATA_HEADERS, FALLBACK_EXTRACTED_DATA_HEADER]
+        : [...METADATA_HEADERS, ...dataHeaders];
+
+    ws.addRow(headers).commit();
+
+    // Second pass: write data rows with determined headers
+    for (const [manifest, exportRows] of exportedDataByManifest) {
       for (const exportedRow of exportRows) {
         const row: Record<string, unknown> = {
           project_name: manifest.group?.project?.name ?? '',
@@ -209,10 +232,10 @@ export class XlsxExportService {
           extraction_cost_currency: manifest.extractionCostCurrency ?? null,
         };
 
-        if (normalizedColumns.length === 0) {
+        if (dataHeaders.length === 0) {
           row[FALLBACK_EXTRACTED_DATA_HEADER] = this.safeJsonStringify(exportedRow);
         } else {
-          for (const path of normalizedColumns) {
+          for (const path of dataHeaders) {
             row[path] = this.resolveExportedValue(exportedRow, path);
           }
         }

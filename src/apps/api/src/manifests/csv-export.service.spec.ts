@@ -95,7 +95,7 @@ describe('CsvExportService', () => {
     expect(cells[11]).toBe('FIN');
   });
 
-  it('falls back to JSON-stringified extractedData when x-table-columns is empty/absent', async () => {
+  it('falls back to JSON-stringified extractedData when x-table-columns is empty and export script returns no row keys', async () => {
     const schemaRepository = {
       findOne: jest.fn().mockResolvedValue({
         id: 10,
@@ -130,13 +130,14 @@ describe('CsvExportService', () => {
       createQueryBuilder: jest.fn().mockReturnValue(qb),
     };
 
+    // Export script returns rows without keys (empty objects), triggering fallback
     const service = new CsvExportService(
       manifestRepository as any,
       groupRepository as any,
       projectRepository as any,
       schemaRepository as any,
       {
-        exportRowsForManifest: async (options: any) => [options.extractedData ?? {}],
+        exportRowsForManifest: async () => [{}],
       } as any,
     );
 
@@ -144,6 +145,138 @@ describe('CsvExportService', () => {
     const [headerLine, rowLine] = result.csv.split('\n');
 
     expect(headerLine.split(',').slice(-1)[0]).toBe('extractedDataJson');
-    expect(rowLine).toContain('\"{'); // JSON string is quoted in CSV
+    // Empty object {} doesn't need quotes in CSV, check it's there
+    expect(rowLine).toContain('{}');
+  });
+
+  it('uses export script row keys as columns when x-table-columns is empty', async () => {
+    const schemaRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 10,
+        jsonSchema: { 'x-table-columns': [] },
+      }),
+    };
+    const projectRepository = {
+      findOne: jest.fn().mockResolvedValue({ id: 1, ownerId: 7, defaultSchemaId: 10 }),
+    };
+    const groupRepository = { findOne: jest.fn() };
+
+    const manifests = [
+      {
+        id: 123,
+        originalFilename: 'invoice.pdf',
+        status: 'completed',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        confidence: 0.95,
+        humanVerified: true,
+        extractionCost: 0.05,
+        extractionCostCurrency: 'USD',
+        extractedData: {
+          invoice: { po_no: '0000009' },
+          items: [
+            { name: 'Item A', quantity: 10 },
+            { name: 'Item B', quantity: 20 },
+          ],
+        },
+        group: {
+          name: 'Group A',
+          project: { name: 'Project A', id: 1, defaultSchemaId: 10 },
+        },
+      },
+    ];
+
+    const qb = createQueryBuilder(manifests);
+    const manifestRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue(qb),
+    };
+
+    // Export script returns rows with custom keys
+    const service = new CsvExportService(
+      manifestRepository as any,
+      groupRepository as any,
+      projectRepository as any,
+      schemaRepository as any,
+      {
+        exportRowsForManifest: async (options: any) => {
+          const data = options.extractedData ?? { invoice: {}, items: [] };
+          const items = data.items || [];
+          return items.map((item: any) => ({
+            po_no: data.invoice?.po_no || '',
+            name: item.name || '',
+            quantity: item.quantity ?? '',
+          }));
+        },
+      } as any,
+    );
+
+    const result = await service.exportCsv(user, { projectId: 1 });
+    const lines = result.csv.split('\n');
+
+    // Header should include metadata + script-defined columns (po_no, name, quantity)
+    const headerLine = lines[0];
+    const headers = headerLine.split(',');
+    expect(headers).toContain('po_no');
+    expect(headers).toContain('name');
+    expect(headers).toContain('quantity');
+    expect(headers).not.toContain('extractedDataJson');
+
+    // Should have 2 data rows (one per item)
+    expect(lines.length).toBe(3); // header + 2 rows
+  });
+
+  it('prefers x-table-columns over export script row keys', async () => {
+    const schemaRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 10,
+        jsonSchema: { 'x-table-columns': ['invoice.po_no'] },
+      }),
+    };
+    const projectRepository = {
+      findOne: jest.fn().mockResolvedValue({ id: 1, ownerId: 7, defaultSchemaId: 10 }),
+    };
+    const groupRepository = { findOne: jest.fn() };
+
+    const manifests = [
+      {
+        id: 123,
+        originalFilename: 'invoice.pdf',
+        status: 'completed',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        confidence: 0.95,
+        humanVerified: false,
+        extractionCost: null,
+        extractionCostCurrency: null,
+        extractedData: { invoice: { po_no: '0000009' } },
+        group: {
+          name: 'Group A',
+          project: { name: 'Project A', id: 1, defaultSchemaId: 10 },
+        },
+      },
+    ];
+
+    const qb = createQueryBuilder(manifests);
+    const manifestRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue(qb),
+    };
+
+    // Export script returns different columns, but x-table-columns should win
+    const service = new CsvExportService(
+      manifestRepository as any,
+      groupRepository as any,
+      projectRepository as any,
+      schemaRepository as any,
+      {
+        exportRowsForManifest: async (options: any) => {
+          return [{ custom_column: 'value' }];
+        },
+      } as any,
+    );
+
+    const result = await service.exportCsv(user, { projectId: 1 });
+    const [headerLine] = result.csv.split('\n');
+
+    // Should use x-table-columns, not script columns
+    expect(headerLine).toContain('invoice.po_no');
+    expect(headerLine).not.toContain('custom_column');
   });
 });

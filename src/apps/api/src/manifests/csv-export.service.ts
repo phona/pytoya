@@ -66,10 +66,11 @@ export class CsvExportService {
     const schemaColumns = await this.resolveSchemaColumnsForFilters(user, filters);
     const manifests = await this.fetchManifests(user, filters);
     const normalizedColumns = schemaColumns.map((value) => value.trim()).filter((value) => value.length > 0);
-    const headers = this.buildHeaders(normalizedColumns);
-    const includeExtractedDataJson = headers.includes(FALLBACK_EXTRACTED_DATA_HEADER);
 
-    const rows: CsvRow[] = [];
+    // First pass: collect all exported rows to determine columns
+    const exportedDataByManifest = new Map<ManifestEntity, Record<string, unknown>[]>();
+    const dynamicColumnSet = new Set<string>();
+
     for (const manifest of manifests) {
       const project = manifest.group?.project;
       const exportRows = await this.exportScriptsService.exportRowsForManifest({
@@ -90,8 +91,30 @@ export class CsvExportService {
         extractedData: (manifest.extractedData ?? null) as Record<string, unknown> | null,
       });
 
+      exportedDataByManifest.set(manifest, exportRows);
+
+      // Collect column keys from export script output when no schema columns defined
+      if (normalizedColumns.length === 0) {
+        for (const row of exportRows) {
+          for (const key of Object.keys(row)) {
+            dynamicColumnSet.add(key);
+          }
+        }
+      }
+    }
+
+    // Determine headers: schema columns take precedence, then dynamic columns, then fallback
+    const dynamicColumns = Array.from(dynamicColumnSet);
+    const useDynamicColumns = normalizedColumns.length === 0 && dynamicColumns.length > 0;
+    const dataHeaders = useDynamicColumns ? dynamicColumns : normalizedColumns;
+    const headers = this.buildHeaders(dataHeaders);
+    const includeExtractedDataJson = headers.includes(FALLBACK_EXTRACTED_DATA_HEADER);
+
+    // Second pass: build rows with determined headers
+    const rows: CsvRow[] = [];
+    for (const [manifest, exportRows] of exportedDataByManifest) {
       for (const dataRow of exportRows) {
-        rows.push(this.buildRow(manifest, dataRow, normalizedColumns, includeExtractedDataJson));
+        rows.push(this.buildRow(manifest, dataRow, dataHeaders, includeExtractedDataJson));
       }
     }
 
@@ -108,10 +131,11 @@ export class CsvExportService {
     const manifests = await this.fetchManifestsByIds(user, manifestIds);
     const schemaColumns = await this.resolveSchemaColumnsForManifests(manifests);
     const normalizedColumns = schemaColumns.map((value) => value.trim()).filter((value) => value.length > 0);
-    const headers = this.buildHeaders(normalizedColumns);
-    const includeExtractedDataJson = headers.includes(FALLBACK_EXTRACTED_DATA_HEADER);
 
-    const rows: CsvRow[] = [];
+    // First pass: collect all exported rows to determine columns
+    const exportedDataByManifest = new Map<ManifestEntity, Record<string, unknown>[]>();
+    const dynamicColumnSet = new Set<string>();
+
     for (const manifest of manifests) {
       const project = manifest.group?.project;
       const exportRows = await this.exportScriptsService.exportRowsForManifest({
@@ -132,8 +156,30 @@ export class CsvExportService {
         extractedData: (manifest.extractedData ?? null) as Record<string, unknown> | null,
       });
 
+      exportedDataByManifest.set(manifest, exportRows);
+
+      // Collect column keys from export script output when no schema columns defined
+      if (normalizedColumns.length === 0) {
+        for (const row of exportRows) {
+          for (const key of Object.keys(row)) {
+            dynamicColumnSet.add(key);
+          }
+        }
+      }
+    }
+
+    // Determine headers: schema columns take precedence, then dynamic columns, then fallback
+    const dynamicColumns = Array.from(dynamicColumnSet);
+    const useDynamicColumns = normalizedColumns.length === 0 && dynamicColumns.length > 0;
+    const dataHeaders = useDynamicColumns ? dynamicColumns : normalizedColumns;
+    const headers = this.buildHeaders(dataHeaders);
+    const includeExtractedDataJson = headers.includes(FALLBACK_EXTRACTED_DATA_HEADER);
+
+    // Second pass: build rows with determined headers
+    const rows: CsvRow[] = [];
+    for (const [manifest, exportRows] of exportedDataByManifest) {
       for (const dataRow of exportRows) {
-        rows.push(this.buildRow(manifest, dataRow, normalizedColumns, includeExtractedDataJson));
+        rows.push(this.buildRow(manifest, dataRow, dataHeaders, includeExtractedDataJson));
       }
     }
 
