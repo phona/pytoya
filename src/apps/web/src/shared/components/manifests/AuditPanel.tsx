@@ -169,8 +169,10 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     if (!auditNavContext || auditNavContext.scope === 'selected') return false;
     return currentIndex >= 0 && auditNavContext.page < auditNavContext.totalPages;
   }, [auditNavContext, currentIndex, effectiveIds.length]);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'pending' | 'saving' | 'saved' | 'error'>('idle');
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const saveInProgressRef = useRef(false);
+  const manifestIdRef = useRef(manifestId);
   const [explicitSavePending, setExplicitSavePending] = useState(false);
   const [formResetCounter, setFormResetCounter] = useState(0);
   const [jobProgress, setJobProgress] = useState<{ jobId?: string; progress: number; status: string; error?: string } | null>(null);
@@ -201,14 +203,20 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     latestDraftRef.current = null;
   }, [manifestId]);
 
-  // Clear pending debounce timer on unmount
+  // Keep manifestIdRef in sync for debounce callback
+  useEffect(() => {
+    manifestIdRef.current = manifestId;
+  }, [manifestId]);
+
+  // Clear pending debounce timer on unmount or manifest change
   useEffect(() => {
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
       }
     };
-  }, []);
+  }, [manifestId]);
 
   const handleTerminalJobStatus = useCallback(
     async (status: string) => {
@@ -465,15 +473,6 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     })();
   }, [auditNavContext, currentIndex, effectiveIds, fetchScopePage, groupId, navigate, projectId]);
 
-  const handleSave = useCallback(() => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = null;
-    }
-    // Trigger immediate save - the form will call this
-    setSaveStatus('saving');
-  }, []);
-
   // Auto-save with debouncing
   const handleAutoSave = useCallback(
     (data: Partial<Manifest>) => {
@@ -482,19 +481,37 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
       }
 
       latestDraftRef.current = data;
-      setSaveStatus('saving');
+      setSaveStatus('pending');
 
       const timer = setTimeout(async () => {
+        // Skip if a save is already in progress (prevent concurrent PATCH)
+        if (saveInProgressRef.current) {
+          setSaveStatus('idle');
+          return;
+        }
+
+        // Use ref values to avoid stale closures
+        const currentDraft = latestDraftRef.current;
+        const currentManifestId = manifestIdRef.current;
+
+        if (!currentDraft) {
+          setSaveStatus('idle');
+          return;
+        }
+
+        saveInProgressRef.current = true;
+        setSaveStatus('saving');
         try {
           await updateManifest.mutateAsync({
-            manifestId,
+            manifestId: currentManifestId,
             groupId,
             data: {
-              extractedData: data.extractedData ?? undefined,
-              confidence: data.confidence ?? undefined,
-              purchaseOrder: data.purchaseOrder ?? undefined,
-              invoiceDate: data.invoiceDate ?? undefined,
-              department: data.department ?? undefined,
+              extractedData: currentDraft.extractedData ?? undefined,
+              confidence: currentDraft.confidence ?? undefined,
+              purchaseOrder: currentDraft.purchaseOrder ?? undefined,
+              invoiceDate: currentDraft.invoiceDate ?? undefined,
+              department: currentDraft.department ?? undefined,
+              humanVerified: currentDraft.humanVerified,
             },
           });
           setSaveStatus('saved');
@@ -502,12 +519,14 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
         } catch {
           setSaveStatus('error');
           setTimeout(() => setSaveStatus('idle'), 2000);
+        } finally {
+          saveInProgressRef.current = false;
         }
       }, 3000);
 
       debounceTimerRef.current = timer;
     },
-    [groupId, manifestId, updateManifest],
+    [groupId, updateManifest],
   );
 
   const formatValidationSummary = useCallback(
@@ -557,6 +576,11 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
       return;
     }
 
+    // Skip if a save is already in progress (prevent concurrent PATCH)
+    if (saveInProgressRef.current) {
+      return;
+    }
+
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
@@ -567,6 +591,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     const shouldGateHumanVerifiedSave = desiredHumanVerified;
     const extractedDataToSave = draft?.extractedData ?? manifest.extractedData;
 
+    saveInProgressRef.current = true;
     setExplicitSavePending(true);
     setSaveStatus('saving');
 
@@ -654,6 +679,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
         description: getApiErrorText(error, t),
       });
     } finally {
+      saveInProgressRef.current = false;
       setExplicitSavePending(false);
     }
   }, [
@@ -670,6 +696,11 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     t,
     updateManifest,
   ]);
+
+  const handleSaveShortcut = useCallback(() => {
+    // Trigger explicit save (same as clicking Save button)
+    void handleExplicitSave();
+  }, [handleExplicitSave]);
 
   const normalizeHintPath = useCallback((path: string) => path.replace(/\[(\d+)\]/g, '[]'), []);
 
@@ -816,7 +847,8 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
       if (isInputLike(e.target) || isDialogOpen()) {
         if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
           e.preventDefault();
-          handleSave();
+          void handleSaveShortcut();
+          return;
         }
         return;
       }
@@ -866,7 +898,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     handleRefreshOcrCache,
     handleRefreshResults,
     handleRunValidationClick,
-    handleSave,
+    handleSaveShortcut,
     onClose,
   ]);
 
@@ -927,14 +959,18 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
                   ? 'text-[color:var(--status-completed-text)]'
                   : saveStatus === 'error'
                     ? 'text-destructive'
-                    : 'text-muted-foreground'
+                    : saveStatus === 'pending'
+                      ? 'text-amber-500 dark:text-amber-400'
+                      : 'text-muted-foreground'
               }`}
             >
               {saveStatus === 'saved'
                 ? t('audit.save.saved')
                 : saveStatus === 'error'
                   ? t('audit.save.failed')
-                  : t('audit.save.saving')}
+                  : saveStatus === 'pending'
+                    ? t('audit.save.pending')
+                    : t('audit.save.saving')}
             </span>
           )}
 

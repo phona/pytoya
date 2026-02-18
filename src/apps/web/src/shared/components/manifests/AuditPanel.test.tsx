@@ -408,6 +408,58 @@ describe('AuditPanel', () => {
     expect(screen.getByText(/Hello world/)).toBeInTheDocument();
   });
 
+  it('includes humanVerified in auto-save payload (regression test)', async () => {
+    // Regression test: humanVerified was not included in autosave payload,
+    // causing it to be reset to false on the backend when extractedData was updated.
+
+    function MockEditableForm({ onSave }: { onSave: (data: any) => void }) {
+      const [isDirty, setIsDirty] = useState(false);
+
+      useEffect(() => {
+        if (!isDirty) return;
+        // Simulate marking as human verified along with data change
+        onSave({ extractedData: { invoice: { po_no: '0000002' } }, humanVerified: true });
+      }, [isDirty, onSave]);
+
+      return (
+        <button
+          type="button"
+          onClick={() => setIsDirty(true)}
+        >
+          Edit and Verify
+        </button>
+      );
+    }
+
+    vi.mocked(await import('./EditableForm')).EditableForm = MockEditableForm as any;
+
+    renderWithProviders(
+      <AuditPanel projectId={1} groupId={1} manifestId={1} onClose={vi.fn()} allManifestIds={[1]} />,
+    );
+
+    updateManifestMutateAsync.mockClear();
+
+    // Simulate a form edit that marks as verified
+    fireEvent.click(screen.getByRole('button', { name: 'Edit and Verify' }));
+
+    // Advance timers past the 3000ms debounce delay
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    // Verify humanVerified is included in the autosave payload
+    expect(updateManifestMutateAsync).toHaveBeenCalledTimes(1);
+    expect(updateManifestMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        manifestId: 1,
+        data: expect.objectContaining({
+          extractedData: { invoice: { po_no: '0000002' } },
+          humanVerified: true,
+        }),
+      }),
+    );
+  });
+
   it('does not trigger PATCH loop on auto-save (regression test)', async () => {
     // This test verifies the fix for the PATCH loop bug where:
     // 1. User edits form -> auto-save schedules a debounced PATCH
@@ -468,5 +520,185 @@ describe('AuditPanel', () => {
         }),
       }),
     );
+  });
+
+  it('clears debounce timer on manifest navigation (regression test)', async () => {
+    // Regression test: When navigating between manifests, the old debounce timer
+    // could fire and save to the wrong manifest.
+
+    function MockEditableForm({ onSave }: { onSave: (data: any) => void }) {
+      const [isDirty, setIsDirty] = useState(false);
+
+      useEffect(() => {
+        if (!isDirty) return;
+        onSave({ extractedData: { invoice: { po_no: '0000002' } } });
+      }, [isDirty, onSave]);
+
+      return (
+        <button
+          type="button"
+          onClick={() => setIsDirty(true)}
+        >
+          Edit Field
+        </button>
+      );
+    }
+
+    vi.mocked(await import('./EditableForm')).EditableForm = MockEditableForm as any;
+
+    function AuditPanelRoute() {
+      const params = useParams();
+      const routeManifestId = Number(params.manifestId);
+      return (
+        <AuditPanel
+          projectId={1}
+          groupId={1}
+          manifestId={routeManifestId}
+          onClose={vi.fn()}
+          allManifestIds={[1, 2]}
+        />
+      );
+    }
+
+    function LocationDisplay() {
+      const location = useLocation();
+      return <div data-testid="pathname">{location.pathname}</div>;
+    }
+
+    renderWithProviders(
+      <>
+        <Routes>
+          <Route path="/projects/1/groups/1/manifests/:manifestId" element={<AuditPanelRoute />} />
+        </Routes>
+        <LocationDisplay />
+      </>,
+      { route: '/projects/1/groups/1/manifests/1' },
+    );
+
+    updateManifestMutateAsync.mockClear();
+
+    // Edit form to trigger debounce timer (on manifest 1)
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Field' }));
+
+    // Navigate to manifest 2 BEFORE debounce fires (within 3 seconds)
+    fireEvent.click(screen.getByTitle('Next (→)'));
+    expect(screen.getByTestId('pathname')).toHaveTextContent('/projects/1/groups/1/manifests/2');
+
+    // Advance timers past the original debounce delay
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000);
+    });
+
+    // No PATCH should have been made to manifest 1 because timer was cleared on navigation
+    expect(updateManifestMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('Ctrl+S triggers explicit save, not just status change (regression test)', async () => {
+    // Regression test: handleSave only set status to 'saving' without actually saving.
+    // Ctrl+S should trigger handleExplicitSave.
+
+    // Reset EditableForm mock to the original for this test
+    vi.mocked(await import('./EditableForm')).EditableForm = (({ onSave }: { onSave: (data: any) => void }) => (
+      <button
+        type="button"
+        onClick={() => onSave({ extractedData: { invoice: { po_no: '0000001' } }, humanVerified: true })}
+      >
+        Mark Human Verified
+      </button>
+    )) as any;
+
+    runValidationMutateAsync.mockResolvedValue({
+      issues: [],
+      errorCount: 0,
+      warningCount: 0,
+      validatedAt: new Date().toISOString(),
+    });
+
+    renderWithProviders(
+      <AuditPanel projectId={1} groupId={1} manifestId={1} onClose={vi.fn()} allManifestIds={[1]} />,
+    );
+
+    updateManifestMutateAsync.mockClear();
+
+    // Simulate editing the form first
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Human Verified' }));
+
+    // Press Ctrl+S (the keyboard handler handles both input and non-input contexts)
+    fireEvent.keyDown(window, { key: 's', ctrlKey: true });
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    // Explicit save should have been triggered
+    expect(updateManifestMutateAsync).toHaveBeenCalled();
+  });
+
+  it('prevents concurrent PATCH requests (regression test)', async () => {
+    // Regression test: If autosave PATCH is in flight and user clicks Save,
+    // two PATCHes could race.
+
+    let resolveFirstPatch: () => void;
+    const firstPatchPromise = new Promise<void>((resolve) => {
+      resolveFirstPatch = resolve;
+    });
+
+    updateManifestMutateAsync.mockImplementation(async () => {
+      await firstPatchPromise;
+      return { ...manifest };
+    });
+
+    function MockEditableForm({ onSave }: { onSave: (data: any) => void }) {
+      const [isDirty, setIsDirty] = useState(false);
+
+      useEffect(() => {
+        if (!isDirty) return;
+        onSave({ extractedData: { invoice: { po_no: '0000002' } } });
+      }, [isDirty, onSave]);
+
+      return (
+        <button
+          type="button"
+          onClick={() => setIsDirty(true)}
+        >
+          Edit Field
+        </button>
+      );
+    }
+
+    vi.mocked(await import('./EditableForm')).EditableForm = MockEditableForm as any;
+
+    renderWithProviders(
+      <AuditPanel projectId={1} groupId={1} manifestId={1} onClose={vi.fn()} allManifestIds={[1]} />,
+    );
+
+    updateManifestMutateAsync.mockClear();
+    updateManifestMutateAsync.mockImplementation(async () => {
+      await firstPatchPromise;
+      return { ...manifest };
+    });
+
+    // Trigger auto-save
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Field' }));
+
+    // Advance timer to start auto-save (which will hang due to unresolved promise)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    // Auto-save PATCH is now in progress
+    expect(updateManifestMutateAsync).toHaveBeenCalledTimes(1);
+
+    // Try to click explicit save while auto-save is in progress
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    // Only one PATCH should have been made (explicit save skipped due to concurrent guard)
+    expect(updateManifestMutateAsync).toHaveBeenCalledTimes(1);
+
+    // Resolve the hanging promise to clean up
+    await act(async () => {
+      resolveFirstPatch!();
+      await vi.runAllTimersAsync();
+    });
   });
 });
