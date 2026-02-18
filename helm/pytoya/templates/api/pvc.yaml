@@ -8,6 +8,8 @@ metadata:
   labels:
     {{- include "pytoya.labels" . | nindent 4 }}
     app.kubernetes.io/component: api
+  annotations:
+    "helm.sh/resource-policy": keep
 spec:
   accessModes:
     {{- toYaml (.Values.api.persistence.accessModes | default (list "ReadWriteOnce")) | nindent 4 }}
