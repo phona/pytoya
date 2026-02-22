@@ -406,6 +406,13 @@ export const zhCNMessages: Record<string, string> = {
   'manifests.list.batchValidation.progressLabel': '正在校验 {{completed}}/{{total}}',
   'manifests.list.batchValidation.summaryMessage':
     '校验完成！\n\n已校验 {{count}} 个清单\n{{errors}} 个错误\n{{warnings}} 个警告',
+  'manifests.list.batchValidationResults.validated': '已校验 {{count}} 个清单',
+  'manifests.list.batchValidationResults.errors': '{{count}} 个错误',
+  'manifests.list.batchValidationResults.warnings': '{{count}} 个警告',
+  'manifests.list.batchValidationResults.hasErrors': '有错误（{{count}}）',
+  'manifests.list.batchValidationResults.hasWarnings': '有警告（{{count}}）',
+  'manifests.list.batchValidationResults.passed': '通过（{{count}}）',
+  'manifests.list.batchValidationResults.failed': '失败（{{count}}）',
 
   'manifests.extractModal.title': '提取',
   'manifests.extractModal.subtitle': '为所选或筛选后的清单开始提取。',

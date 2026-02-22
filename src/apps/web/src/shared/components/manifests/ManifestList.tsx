@@ -7,6 +7,10 @@ import { Pagination } from './Pagination';
 import { OcrPreviewModal } from './OcrPreviewModal';
 import { ExtractFilteredModal } from './ExtractFilteredModal';
 import { ManifestBatchScopeModal } from './ManifestBatchScopeModal';
+import {
+  BatchValidationResultsModal,
+  type BatchValidationResults,
+} from './BatchValidationResultsModal';
 import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/shared/hooks/use-websocket';
 import { useRunBatchValidation } from '@/shared/hooks/use-validation-scripts';
 import { useDeleteManifestsBulk } from '@/shared/hooks/use-manifests';
@@ -84,7 +88,7 @@ export function ManifestList({
 }: ManifestListProps) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
-  const { alert, ModalDialog } = useModalDialog();
+  const { ModalDialog } = useModalDialog();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() => {
@@ -112,6 +116,8 @@ export function ManifestList({
   const [ocrPreviewManifestId, setOcrPreviewManifestId] = useState<number | null>(null);
   const [ocrPreviewOpen, setOcrPreviewOpen] = useState(false);
   const [manifestProgress, setManifestProgress] = useState<Record<number, { progress: number; status: string; error?: string }>>({});
+  const [validationResultsOpen, setValidationResultsOpen] = useState(false);
+  const [validationResults, setValidationResults] = useState<BatchValidationResults | null>(null);
 
   const runBatchValidation = useRunBatchValidation();
   const deleteManifestsBulk = useDeleteManifestsBulk();
@@ -254,25 +260,58 @@ export function ManifestList({
     const totalErrors = okOutcomes.reduce((sum, entry) => sum + (entry.result?.errorCount ?? 0), 0);
     const totalWarnings = okOutcomes.reduce((sum, entry) => sum + (entry.result?.warningCount ?? 0), 0);
 
-    const failedIds = manifestIds.filter((id) => outcomes[id]?.ok !== true);
-    const failedCount = failedIds.length;
+    // Categorize manifests
+    const manifestsWithErrors: BatchValidationResults['manifestsWithErrors'] = [];
+    const manifestsWithWarnings: BatchValidationResults['manifestsWithWarnings'] = [];
+    const manifestsPassed: BatchValidationResults['manifestsPassed'] = [];
+    const manifestsFailed: BatchValidationResults['manifestsFailed'] = [];
 
-    const message = t('manifests.list.batchValidation.summaryMessage', {
-      count: manifestIds.length,
-      errors: totalErrors,
-      warnings: totalWarnings,
+    for (const manifestId of manifestIds) {
+      const outcome = outcomes[manifestId];
+      const manifest = manifests.find((m) => m.id === manifestId);
+      const filename = manifest?.filename ?? `Manifest ${manifestId}`;
+
+      if (!outcome?.ok) {
+        manifestsFailed.push({
+          id: manifestId,
+          filename,
+          error: outcome?.error?.message,
+        });
+      } else if ((outcome.result?.errorCount ?? 0) > 0) {
+        manifestsWithErrors.push({
+          id: manifestId,
+          filename,
+          errorCount: outcome.result?.errorCount,
+        });
+      } else if ((outcome.result?.warningCount ?? 0) > 0) {
+        manifestsWithWarnings.push({
+          id: manifestId,
+          filename,
+          warningCount: outcome.result?.warningCount,
+        });
+      } else {
+        manifestsPassed.push({
+          id: manifestId,
+          filename,
+        });
+      }
+    }
+
+    setValidationResults({
+      manifestsWithErrors,
+      manifestsWithWarnings,
+      manifestsPassed,
+      manifestsFailed,
+      totalValidated: manifestIds.length,
+      totalErrors,
+      totalWarnings,
     });
-
-    const failureDetails = failedCount > 0
-      ? `\n\nFailed: ${failedCount}\n${failedIds.slice(0, 10).map((id) => `- ${id}: ${outcomes[id]?.error?.message ?? 'Unknown error'}`).join('\n')}${failedCount > 10 ? '\n…' : ''}`
-      : '';
-
-    await alert({ title: t('manifests.list.batchValidation.completeTitle'), message: `${message}${failureDetails}` });
+    setValidationResultsOpen(true);
 
     queryClient.invalidateQueries({ queryKey: ['manifests', 'group', groupId] });
     setSelectedIds(new Set());
     setSelectAll(false);
-  }, [alert, groupId, queryClient, runBatchValidation, t]);
+  }, [groupId, manifests, queryClient, runBatchValidation]);
 
   const handlePageChange = useCallback((page: number) => {
     setSelectedIds(new Set());
@@ -644,6 +683,12 @@ export function ManifestList({
         manifestId={ocrPreviewManifestId ?? 0}
         open={ocrPreviewOpen}
         onClose={() => setOcrPreviewOpen(false)}
+      />
+      <BatchValidationResultsModal
+        open={validationResultsOpen}
+        onClose={() => setValidationResultsOpen(false)}
+        results={validationResults}
+        onViewManifest={onSelectManifest}
       />
 
       {/* Content */}

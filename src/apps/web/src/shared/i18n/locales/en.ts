@@ -412,6 +412,13 @@ export const enMessages: Record<string, string> = {
   'manifests.list.batchValidation.progressLabel': 'Validating {{completed}}/{{total}}',
   'manifests.list.batchValidation.summaryMessage':
     'Validation complete!\n\n{{count}} manifests validated\n{{errors}} errors\n{{warnings}} warnings',
+  'manifests.list.batchValidationResults.validated': '{{count}} manifests validated',
+  'manifests.list.batchValidationResults.errors': '{{count}} errors',
+  'manifests.list.batchValidationResults.warnings': '{{count}} warnings',
+  'manifests.list.batchValidationResults.hasErrors': 'Has Errors ({{count}})',
+  'manifests.list.batchValidationResults.hasWarnings': 'Has Warnings ({{count}})',
+  'manifests.list.batchValidationResults.passed': 'Passed ({{count}})',
+  'manifests.list.batchValidationResults.failed': 'Failed ({{count}})',
 
   'manifests.deleteTitle': 'Delete manifest',
   'manifests.deleteMessage': 'Delete "{{name}}"? This will delete the file from storage.',
