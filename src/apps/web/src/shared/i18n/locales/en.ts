@@ -564,6 +564,7 @@ export const enMessages: Record<string, string> = {
   'audit.save.failed': '✗ Failed',
   'audit.save.saving': 'Saving...',
   'audit.save.pending': '● Unsaved changes',
+  'audit.save.saveAndNext': 'Save & Next',
   'audit.save.validationTitle': 'Validation',
   'audit.save.validationFailedTitle': 'Validation failed',
   'audit.save.validationFailedDescription': 'Validation could not run. Human Verified was not saved.',

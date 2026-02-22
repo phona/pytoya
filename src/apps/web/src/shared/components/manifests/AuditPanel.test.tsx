@@ -701,4 +701,235 @@ describe('AuditPanel', () => {
       await vi.runAllTimersAsync();
     });
   });
+
+  describe('Save & Next button', () => {
+    it('shows Save & Next button when humanVerified is true and there is a next manifest', () => {
+      manifest.humanVerified = true;
+      runValidationMutateAsync.mockResolvedValue({
+        issues: [],
+        errorCount: 0,
+        warningCount: 0,
+        validatedAt: new Date().toISOString(),
+      });
+
+      renderWithProviders(
+        <AuditPanel projectId={1} groupId={1} manifestId={1} onClose={vi.fn()} allManifestIds={[1, 2, 3]} />,
+      );
+
+      // manifest.humanVerified is true, so showSaveAndNext should be true (canGoNext is true since there's manifest 2)
+      expect(screen.getByRole('button', { name: 'Save & Next' })).toBeInTheDocument();
+    });
+
+    it('hides Save & Next button when there is no next manifest', () => {
+      manifest.humanVerified = true;
+
+      renderWithProviders(
+        <AuditPanel projectId={1} groupId={1} manifestId={3} onClose={vi.fn()} allManifestIds={[1, 2, 3]} />,
+      );
+
+      // manifest 3 is the last one, so canGoNext is false
+      expect(screen.queryByRole('button', { name: 'Save & Next' })).not.toBeInTheDocument();
+    });
+
+    it('hides Save & Next button when humanVerified is false', () => {
+      manifest.humanVerified = false;
+
+      renderWithProviders(
+        <AuditPanel projectId={1} groupId={1} manifestId={1} onClose={vi.fn()} allManifestIds={[1, 2, 3]} />,
+      );
+
+      expect(screen.queryByRole('button', { name: 'Save & Next' })).not.toBeInTheDocument();
+    });
+
+    it('saves and navigates to next manifest when Save & Next succeeds', async () => {
+      manifest.humanVerified = true;
+      runValidationMutateAsync.mockResolvedValue({
+        issues: [],
+        errorCount: 0,
+        warningCount: 0,
+        validatedAt: new Date().toISOString(),
+      });
+
+      function AuditPanelRoute() {
+        const params = useParams();
+        const routeManifestId = Number(params.manifestId);
+        return (
+          <AuditPanel
+            projectId={1}
+            groupId={1}
+            manifestId={routeManifestId}
+            onClose={vi.fn()}
+            allManifestIds={[1, 2, 3]}
+          />
+        );
+      }
+
+      function LocationDisplay() {
+        const location = useLocation();
+        return <div data-testid="pathname">{location.pathname}</div>;
+      }
+
+      renderWithProviders(
+        <>
+          <Routes>
+            <Route path="/projects/1/groups/1/manifests/:manifestId" element={<AuditPanelRoute />} />
+          </Routes>
+          <LocationDisplay />
+        </>,
+        { route: '/projects/1/groups/1/manifests/1' },
+      );
+
+      expect(screen.getByTestId('pathname')).toHaveTextContent('/projects/1/groups/1/manifests/1');
+
+      // Reset mock to track calls
+      updateManifestMutateAsync.mockClear();
+
+      // Click Save & Next
+      fireEvent.click(screen.getByRole('button', { name: 'Save & Next' }));
+
+      // Wait for all async operations
+      await act(async () => {
+        await vi.runAllTimersAsync();
+      });
+
+      // Should have saved twice (first with humanVerified: false, then with humanVerified: true)
+      expect(updateManifestMutateAsync).toHaveBeenCalledTimes(2);
+      expect(runValidationMutateAsync).toHaveBeenCalledWith({ manifestId: 1 });
+      // Should have navigated to next manifest
+      expect(screen.getByTestId('pathname')).toHaveTextContent('/projects/1/groups/1/manifests/2');
+    });
+
+    it('does not navigate when Save & Next fails due to validation error', async () => {
+      manifest.humanVerified = true;
+      runValidationMutateAsync.mockRejectedValue(new Error('Validation failed'));
+
+      function AuditPanelRoute() {
+        const params = useParams();
+        const routeManifestId = Number(params.manifestId);
+        return (
+          <AuditPanel
+            projectId={1}
+            groupId={1}
+            manifestId={routeManifestId}
+            onClose={vi.fn()}
+            allManifestIds={[1, 2, 3]}
+          />
+        );
+      }
+
+      function LocationDisplay() {
+        const location = useLocation();
+        return <div data-testid="pathname">{location.pathname}</div>;
+      }
+
+      renderWithProviders(
+        <>
+          <Routes>
+            <Route path="/projects/1/groups/1/manifests/:manifestId" element={<AuditPanelRoute />} />
+          </Routes>
+          <LocationDisplay />
+        </>,
+        { route: '/projects/1/groups/1/manifests/1' },
+      );
+
+      expect(screen.getByTestId('pathname')).toHaveTextContent('/projects/1/groups/1/manifests/1');
+
+      // Click Save & Next
+      fireEvent.click(screen.getByRole('button', { name: 'Save & Next' }));
+
+      await vi.runAllTimersAsync();
+
+      // Should still be on the same manifest (navigation should not happen)
+      expect(screen.getByTestId('pathname')).toHaveTextContent('/projects/1/groups/1/manifests/1');
+    });
+
+    it('does not navigate when user cancels on validation errors', async () => {
+      manifest.humanVerified = true;
+      runValidationMutateAsync.mockResolvedValue({
+        issues: [],
+        errorCount: 2,
+        warningCount: 1,
+        validatedAt: new Date().toISOString(),
+      });
+      confirmMock.mockResolvedValue(false); // User cancels
+
+      function AuditPanelRoute() {
+        const params = useParams();
+        const routeManifestId = Number(params.manifestId);
+        return (
+          <AuditPanel
+            projectId={1}
+            groupId={1}
+            manifestId={routeManifestId}
+            onClose={vi.fn()}
+            allManifestIds={[1, 2, 3]}
+          />
+        );
+      }
+
+      function LocationDisplay() {
+        const location = useLocation();
+        return <div data-testid="pathname">{location.pathname}</div>;
+      }
+
+      renderWithProviders(
+        <>
+          <Routes>
+            <Route path="/projects/1/groups/1/manifests/:manifestId" element={<AuditPanelRoute />} />
+          </Routes>
+          <LocationDisplay />
+        </>,
+        { route: '/projects/1/groups/1/manifests/1' },
+      );
+
+      expect(screen.getByTestId('pathname')).toHaveTextContent('/projects/1/groups/1/manifests/1');
+
+      // Click Save & Next
+      fireEvent.click(screen.getByRole('button', { name: 'Save & Next' }));
+
+      await vi.runAllTimersAsync();
+
+      // User cancelled, so should still be on the same manifest
+      expect(screen.getByTestId('pathname')).toHaveTextContent('/projects/1/groups/1/manifests/1');
+      expect(confirmMock).toHaveBeenCalled();
+    });
+
+    it('is disabled during save operation', async () => {
+      manifest.humanVerified = true;
+      let resolveValidation: () => void;
+      const validationPromise = new Promise<any>((resolve) => {
+        resolveValidation = () => resolve({
+          issues: [],
+          errorCount: 0,
+          warningCount: 0,
+          validatedAt: new Date().toISOString(),
+        });
+      });
+      runValidationMutateAsync.mockReturnValue(validationPromise);
+
+      renderWithProviders(
+        <AuditPanel projectId={1} groupId={1} manifestId={1} onClose={vi.fn()} allManifestIds={[1, 2, 3]} />,
+      );
+
+      const saveAndNextButton = screen.getByRole('button', { name: 'Save & Next' });
+      expect(saveAndNextButton).not.toBeDisabled();
+
+      // Click Save & Next
+      fireEvent.click(saveAndNextButton);
+
+      // Advance timers to trigger the save but validation is still pending
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+
+      // Button should be disabled during save
+      expect(saveAndNextButton).toBeDisabled();
+
+      // Resolve validation to clean up
+      await act(async () => {
+        resolveValidation!();
+        await vi.runAllTimersAsync();
+      });
+    });
+  });
 });

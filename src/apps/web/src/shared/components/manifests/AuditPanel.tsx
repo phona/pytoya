@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronLeft, ChevronRight, X, Eye, Play, Save } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, X, Eye, Play, Save, ArrowRight } from 'lucide-react';
 import {
   useManifest,
   useUpdateManifest,
@@ -198,9 +198,11 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     limit: 50,
   });
   const latestDraftRef = useRef<Partial<Manifest> | null>(null);
+  const [draftHumanVerified, setDraftHumanVerified] = useState<boolean | undefined>(undefined);
 
   useEffect(() => {
     latestDraftRef.current = null;
+    setDraftHumanVerified(undefined);
   }, [manifestId]);
 
   // Keep manifestIdRef in sync for debounce callback
@@ -481,6 +483,9 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
       }
 
       latestDraftRef.current = data;
+      if (data.humanVerified !== undefined) {
+        setDraftHumanVerified(data.humanVerified);
+      }
       setSaveStatus('pending');
 
       const timer = setTimeout(async () => {
@@ -571,14 +576,14 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     }
   }, [formatValidationSummary, manifest, runValidation, setActiveTab, t]);
 
-  const handleExplicitSave = useCallback(async () => {
+  const handleExplicitSave = useCallback(async (): Promise<boolean> => {
     if (!manifest) {
-      return;
+      return false;
     }
 
     // Skip if a save is already in progress (prevent concurrent PATCH)
     if (saveInProgressRef.current) {
-      return;
+      return false;
     }
 
     if (debounceTimerRef.current) {
@@ -624,7 +629,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
 
           setSaveStatus('saved');
           setTimeout(() => setSaveStatus('idle'), 2000);
-          return;
+          return false;
         }
 
         toast({
@@ -655,7 +660,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
             setFormResetCounter((prev) => prev + 1);
             setSaveStatus('saved');
             setTimeout(() => setSaveStatus('idle'), 2000);
-            return;
+            return false;
           }
         }
 
@@ -669,6 +674,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
 
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
+      return true;
     } catch (error) {
       setSaveStatus('error');
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -678,6 +684,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
         title: t('audit.save.failed'),
         description: getApiErrorText(error, t),
       });
+      return false;
     } finally {
       saveInProgressRef.current = false;
       setExplicitSavePending(false);
@@ -701,6 +708,18 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     // Trigger explicit save (same as clicking Save button)
     void handleExplicitSave();
   }, [handleExplicitSave]);
+
+  const showSaveAndNext = useMemo(() => {
+    const desiredHumanVerified = draftHumanVerified ?? manifest?.humanVerified ?? false;
+    return desiredHumanVerified && canGoNext;
+  }, [draftHumanVerified, manifest?.humanVerified, canGoNext]);
+
+  const handleSaveAndNext = useCallback(async () => {
+    const success = await handleExplicitSave();
+    if (success && canGoNext) {
+      goToNext();
+    }
+  }, [handleExplicitSave, canGoNext, goToNext]);
 
   const normalizeHintPath = useCallback((path: string) => path.replace(/\[(\d+)\]/g, '[]'), []);
 
@@ -1011,6 +1030,21 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
             <Save className="h-4 w-4" />
             {explicitSavePending ? t('common.saving') : t('common.save')}
           </Button>
+
+          {showSaveAndNext && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={navPending || explicitSavePending || updateManifest.isPending || runValidation.isPending}
+              onClick={() => void handleSaveAndNext()}
+              title={t('audit.save.saveAndNext')}
+            >
+              <ArrowRight className="h-4 w-4" />
+              {explicitSavePending ? t('common.saving') : t('audit.save.saveAndNext')}
+            </Button>
+          )}
 
           <Button
             type="button"

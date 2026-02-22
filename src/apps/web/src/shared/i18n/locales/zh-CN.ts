@@ -553,6 +553,7 @@ export const zhCNMessages: Record<string, string> = {
   'audit.save.failed': '✗ 保存失败',
   'audit.save.saving': '正在保存…',
   'audit.save.pending': '● 未保存更改',
+  'audit.save.saveAndNext': '保存并下一个',
   'audit.save.validationTitle': '校验',
   'audit.save.validationFailedTitle': '校验失败',
   'audit.save.validationFailedDescription': '校验未能运行，无法保存为人工确认。',
