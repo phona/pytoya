@@ -16,3 +16,4 @@ export type { DynamicFieldFiltersDto } from '../../../apps/api/src/manifests/dto
 export type { ManifestExtractionHistoryEntryDto } from '../../../apps/api/src/manifests/dto/manifest-extraction-history.dto';
 export type { ManifestExtractionHistoryEntryDetailsDto } from '../../../apps/api/src/manifests/dto/manifest-extraction-history-details.dto';
 export type { ManifestOcrHistoryEntryDto } from '../../../apps/api/src/manifests/dto/manifest-ocr-history.dto';
+export type { OperationLogResponseDto } from '../../../apps/api/src/manifests/dto/operation-log-response.dto';

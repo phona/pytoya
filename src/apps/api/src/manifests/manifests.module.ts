@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { JobEntity } from '../entities/job.entity';
 import { ManifestEntity } from '../entities/manifest.entity';
+import { OperationLogEntity } from '../entities/operation-log.entity';
 import { ManifestItemEntity } from '../entities/manifest-item.entity';
 import { ModelEntity } from '../entities/model.entity';
 import { PromptEntity } from '../entities/prompt.entity';
@@ -43,6 +44,7 @@ import {
       GroupEntity,
       ProjectEntity,
       SchemaEntity,
+      OperationLogEntity,
     ]),
     GroupsModule,
     ModelsModule,

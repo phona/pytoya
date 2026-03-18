@@ -27,6 +27,7 @@ import { OcrViewer } from './OcrViewer';
 import { ValidationResultsPanel } from '@/shared/components/ValidationResultsPanel';
 import { CostBreakdownPanel } from '@/shared/components/CostBreakdownPanel';
 import { OcrPreviewModal } from './OcrPreviewModal';
+import { CorrectionHistoryPanel } from './CorrectionHistoryPanel';
 import { ExtractionHistoryPanel } from './ExtractionHistoryPanel';
 import { OcrHistoryPanel } from './OcrHistoryPanel';
 import { FieldHintDialog } from './FieldHintDialog';
@@ -607,6 +608,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
         data: {
           extractedData: extractedDataToSave ?? undefined,
           humanVerified: shouldGateHumanVerifiedSave ? false : desiredHumanVerified,
+          saveSource: 'explicit',
         },
       });
       queryClient.setQueryData(['manifests', manifestId], firstSave);
@@ -1267,6 +1269,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
                 loading={isHistoryLoading}
               />
               <OcrHistoryPanel history={ocrHistory ?? []} loading={isOcrHistoryLoading} />
+              <CorrectionHistoryPanel manifestId={manifest.id} />
             </div>
           ) : activeTab === 'validation' ? (
             <ValidationResultsPanel

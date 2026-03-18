@@ -8,6 +8,7 @@ import { ManifestItemEntity } from '../entities/manifest-item.entity';
 import { JobEntity } from '../entities/job.entity';
 import { ModelEntity } from '../entities/model.entity';
 import { PromptEntity } from '../entities/prompt.entity';
+import { OperationLogEntity } from '../entities/operation-log.entity';
 import { SchemaEntity } from '../entities/schema.entity';
 import { GroupsService } from '../groups/groups.service';
 import { StorageService } from '../storage/storage.service';
@@ -71,6 +72,7 @@ describe('ManifestsService.create (business workflow, no DB)', () => {
         { provide: getRepositoryToken(ModelEntity), useValue: {} },
         { provide: getRepositoryToken(PromptEntity), useValue: {} },
         { provide: getRepositoryToken(SchemaEntity), useValue: { findOne: jest.fn() } },
+        { provide: getRepositoryToken(OperationLogEntity), useValue: {} },
         { provide: GroupsService, useValue: groupsService },
         { provide: StorageService, useValue: storageService },
         { provide: TextExtractorService, useValue: {} },

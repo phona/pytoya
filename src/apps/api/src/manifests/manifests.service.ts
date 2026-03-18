@@ -33,6 +33,8 @@ import { OcrResultDto } from './dto/ocr-result.dto';
 import { ManifestExtractionHistoryEntryDto } from './dto/manifest-extraction-history.dto';
 import { ManifestExtractionHistoryEntryDetailsDto } from './dto/manifest-extraction-history-details.dto';
 import { ManifestOcrHistoryEntryDto } from './dto/manifest-ocr-history.dto';
+import { OperationLogEntity } from '../entities/operation-log.entity';
+import { OperationLogResponseDto } from './dto/operation-log-response.dto';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const DEFAULT_PAGE_SIZE = 25;
@@ -86,6 +88,8 @@ export class ManifestsService {
     private readonly storageService: StorageService,
     private readonly textExtractorService: TextExtractorService,
     private readonly webSocketService: WebSocketService,
+    @InjectRepository(OperationLogEntity)
+    private readonly operationLogRepository: Repository<OperationLogEntity>,
     @Inject('IFileAccessService')
     private readonly fileSystem: IFileAccessService,
   ) {}
@@ -489,6 +493,25 @@ export class ManifestsService {
       return 1;
     }
     return Math.min(resolved, 100);
+  }
+
+  async listOperationLogs(
+    user: UserEntity,
+    manifestId: number,
+    options: { limit?: number } = {},
+  ): Promise<OperationLogResponseDto[]> {
+    await this.findOne(user, manifestId);
+
+    const limit = this.normalizeHistoryLimit(options.limit);
+
+    const logs = await this.operationLogRepository.find({
+      where: { manifestId },
+      relations: ['user'],
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+
+    return logs.map((log) => OperationLogResponseDto.fromEntity(log));
   }
 
   async remove(user: UserEntity, id: number): Promise<ManifestEntity> {

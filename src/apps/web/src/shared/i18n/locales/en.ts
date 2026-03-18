@@ -709,6 +709,17 @@ export const enMessages: Record<string, string> = {
   'audit.ocrHistory.columns.completed': 'Completed',
   'audit.ocrHistory.columns.duration': 'Duration',
 
+  'audit.correctionHistory.title': 'Correction History',
+  'audit.correctionHistory.empty': 'No corrections recorded yet.',
+  'audit.correctionHistory.action.manual_edit': 'Manual Edit',
+  'audit.correctionHistory.action.human_verified': 'Verified',
+  'audit.correctionHistory.by': 'By {{user}}',
+  'audit.correctionHistory.fieldsChanged': '{{count}} field(s) changed',
+  'audit.correctionHistory.field': 'Field',
+  'audit.correctionHistory.before': 'Before',
+  'audit.correctionHistory.after': 'After',
+  'audit.correctionHistory.noDiffs': 'No field changes recorded.',
+
   'audit.extractionHistory.defaultModel': 'Default model',
   'audit.extractionHistory.promptNumber': 'Prompt #{{id}}',
   'audit.extractionHistory.defaultPrompt': 'Default prompt',

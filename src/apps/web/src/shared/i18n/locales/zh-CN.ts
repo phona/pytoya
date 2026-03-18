@@ -697,6 +697,17 @@ export const zhCNMessages: Record<string, string> = {
   'audit.ocrHistory.columns.completed': '完成时间',
   'audit.ocrHistory.columns.duration': '耗时',
 
+  'audit.correctionHistory.title': '修正历史',
+  'audit.correctionHistory.empty': '暂无修正记录。',
+  'audit.correctionHistory.action.manual_edit': '手动编辑',
+  'audit.correctionHistory.action.human_verified': '已验证',
+  'audit.correctionHistory.by': '操作人：{{user}}',
+  'audit.correctionHistory.fieldsChanged': '{{count}} 个字段已修改',
+  'audit.correctionHistory.field': '字段',
+  'audit.correctionHistory.before': '修改前',
+  'audit.correctionHistory.after': '修改后',
+  'audit.correctionHistory.noDiffs': '无字段变更记录。',
+
   'audit.extractionHistory.defaultModel': '默认模型',
   'audit.extractionHistory.promptNumber': '提示词 #{{id}}',
   'audit.extractionHistory.defaultPrompt': '默认提示词',

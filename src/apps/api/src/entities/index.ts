@@ -6,6 +6,7 @@ import { ManifestItemEntity } from './manifest-item.entity';
 import { ModelEntity } from './model.entity';
 import { ExtractorEntity } from './extractor.entity';
 import { ExportScriptEntity } from './export-script.entity';
+import { OperationLogEntity } from './operation-log.entity';
 import { ProjectEntity } from './project.entity';
 import { PromptEntity } from './prompt.entity';
 import { SchemaEntity } from './schema.entity';
@@ -22,6 +23,7 @@ export {
   ModelEntity,
   ExtractorEntity,
   ExportScriptEntity,
+  OperationLogEntity,
   ProjectEntity,
   PromptEntity,
   SchemaEntity,
@@ -50,4 +52,5 @@ export const entities = [
   ExtractionHistoryEntity,
   ValidationScriptEntity,
   ExportScriptEntity,
+  OperationLogEntity,
 ];

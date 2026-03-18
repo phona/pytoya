@@ -29,6 +29,7 @@ const createManifest = (overrides: Partial<ManifestEntity> = {}): ManifestEntity
   textExtractor: null,
   manifestItems: [],
   extractionHistory: [],
+  operationLogs: [],
   ...overrides,
   contentSha256: overrides.contentSha256 ?? null,
   textCost: overrides.textCost ?? null,

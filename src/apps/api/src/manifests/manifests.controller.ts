@@ -45,6 +45,7 @@ import { ManifestExportFiltersDto } from './dto/manifest-export-filters.dto';
 import { ManifestExtractionHistoryEntryDto } from './dto/manifest-extraction-history.dto';
 import { ManifestExtractionHistoryEntryDetailsDto } from './dto/manifest-extraction-history-details.dto';
 import { ManifestOcrHistoryEntryDto } from './dto/manifest-ocr-history.dto';
+import { OperationLogResponseDto } from './dto/operation-log-response.dto';
 import { ManifestsService } from './manifests.service';
 import { QueueService } from '../queue/queue.service';
 import {
@@ -379,6 +380,18 @@ export class ManifestsController {
   ): Promise<ManifestOcrHistoryEntryDto[]> {
     const parsedLimit = limit ? Number(limit) : undefined;
     return this.manifestsService.listOcrHistory(user, id, {
+      limit: Number.isFinite(parsedLimit as number) ? (parsedLimit as number) : undefined,
+    });
+  }
+
+  @Get('manifests/:id/operation-logs')
+  async getOperationLogs(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('limit') limit?: string,
+  ): Promise<OperationLogResponseDto[]> {
+    const parsedLimit = limit ? Number(limit) : undefined;
+    return this.manifestsService.listOperationLogs(user, id, {
       limit: Number.isFinite(parsedLimit as number) ? (parsedLimit as number) : undefined,
     });
   }

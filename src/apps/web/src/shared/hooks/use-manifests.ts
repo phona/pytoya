@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { manifestsApi, Manifest, ManifestListResponse, UpdateManifestDto } from '@/api/manifests';
+import { manifestsApi, Manifest, ManifestListResponse, UpdateManifestDto, OperationLog } from '@/api/manifests';
 import { ManifestListQueryParams } from '@/shared/types/manifests';
 import { useJobsStore } from '@/shared/stores/jobs';
 
@@ -35,6 +35,9 @@ export function useUpdateManifest() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId] });
       queryClient.invalidateQueries({ queryKey: ['manifests', 'group', variables.groupId] });
+      if (variables.data.saveSource === 'explicit') {
+        queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId, 'operation-logs'] });
+      }
     },
   });
 }
@@ -167,6 +170,15 @@ export function useRefreshOcrResult() {
       queryClient.invalidateQueries({ queryKey: ['ocr', variables.manifestId] });
       queryClient.invalidateQueries({ queryKey: ['manifests', variables.manifestId] });
     },
+  });
+}
+
+export function useOperationLogs(manifestId: number, options: { limit?: number; enabled?: boolean } = {}) {
+  const enabled = options.enabled ?? true;
+  return useQuery<OperationLog[]>({
+    queryKey: ['manifests', manifestId, 'operation-logs', options.limit],
+    queryFn: () => manifestsApi.getOperationLogs(manifestId, { limit: options.limit }),
+    enabled: enabled && manifestId > 0,
   });
 }
 

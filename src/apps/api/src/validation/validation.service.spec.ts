@@ -334,6 +334,7 @@ describe('ValidationService', () => {
     jobs: [],
     manifestItems: [],
     extractionHistory: [],
+    operationLogs: [],
     createdAt: new Date(),
     updatedAt: new Date(),
   };

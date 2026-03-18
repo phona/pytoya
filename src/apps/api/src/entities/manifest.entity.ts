@@ -14,6 +14,7 @@ import { GroupEntity } from './group.entity';
 import { JobEntity } from './job.entity';
 import { ManifestItemEntity } from './manifest-item.entity';
 import { ExtractorEntity } from './extractor.entity';
+import { OperationLogEntity } from './operation-log.entity';
 
 export interface ValidationIssue {
   field: string;
@@ -162,6 +163,9 @@ export class ManifestEntity {
     (history) => history.manifest,
   )
   extractionHistory!: ExtractionHistoryEntity[];
+
+  @OneToMany(() => OperationLogEntity, (log) => log.manifest)
+  operationLogs!: OperationLogEntity[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

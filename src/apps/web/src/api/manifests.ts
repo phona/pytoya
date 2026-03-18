@@ -9,6 +9,7 @@ import type {
   ManifestExtractionHistoryEntryDto,
   ManifestExtractionHistoryEntryDetailsDto,
   ManifestOcrHistoryEntryDto,
+  OperationLogResponseDto,
   BulkExtractDto,
   ExtractFilteredDto,
   ExtractFilteredResponseDto,
@@ -22,6 +23,7 @@ export type OcrResultResponse = Jsonify<OcrResultResponseDto>;
 export type ManifestExtractionHistoryEntry = Jsonify<ManifestExtractionHistoryEntryDto>;
 export type ManifestExtractionHistoryEntryDetails = Jsonify<ManifestExtractionHistoryEntryDetailsDto>;
 export type ManifestOcrHistoryEntry = Jsonify<ManifestOcrHistoryEntryDto>;
+export type OperationLog = Jsonify<OperationLogResponseDto>;
 export type ExtractFilteredResponse = Jsonify<ExtractFilteredResponseDto>;
 export type DeleteManifestsBulkResponse = Jsonify<DeleteManifestsBulkResponseDto>;
 export type RefreshOcrRequest = { textExtractorId?: string };
@@ -243,6 +245,14 @@ export const manifestsApi = {
   getExtractionHistoryEntry: async (manifestId: number, jobId: number) => {
     const response = await apiClient.get<ManifestExtractionHistoryEntryDetails>(
       `/manifests/${manifestId}/extraction-history/${jobId}`,
+    );
+    return response.data;
+  },
+
+  getOperationLogs: async (manifestId: number, params?: { limit?: number }) => {
+    const response = await apiClient.get<OperationLog[]>(
+      `/manifests/${manifestId}/operation-logs`,
+      { params },
     );
     return response.data;
   },

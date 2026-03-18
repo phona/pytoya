@@ -108,6 +108,7 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
     jobs: [],
     manifestItems: [],
     extractionHistory: [],
+    operationLogs: [],
     textExtractor: null,
     ...overrides,
     contentSha256: overrides.contentSha256 ?? null,

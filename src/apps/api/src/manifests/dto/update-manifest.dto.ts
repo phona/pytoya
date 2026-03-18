@@ -47,4 +47,8 @@ export class UpdateManifestDto {
   @IsOptional()
   @IsString()
   department?: string;
+
+  @IsOptional()
+  @IsString()
+  saveSource?: 'explicit' | 'auto';
 }

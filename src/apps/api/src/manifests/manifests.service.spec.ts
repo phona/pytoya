@@ -7,6 +7,7 @@ import { ManifestEntity } from '../entities/manifest.entity';
 import { ManifestItemEntity } from '../entities/manifest-item.entity';
 import { ModelEntity } from '../entities/model.entity';
 import { PromptEntity } from '../entities/prompt.entity';
+import { OperationLogEntity } from '../entities/operation-log.entity';
 import { SchemaEntity } from '../entities/schema.entity';
 import { GroupsService } from '../groups/groups.service';
 import { TextExtractorService } from '../text-extractor/text-extractor.service';
@@ -82,6 +83,7 @@ describe('ManifestsService', () => {
         { provide: getRepositoryToken(ModelEntity), useValue: {} },
         { provide: getRepositoryToken(PromptEntity), useValue: {} },
         { provide: getRepositoryToken(SchemaEntity), useValue: schemaRepository },
+        { provide: getRepositoryToken(OperationLogEntity), useValue: {} },
         { provide: GroupsService, useValue: groupsService },
         { provide: StorageService, useValue: storageService },
         { provide: TextExtractorService, useValue: {} },
