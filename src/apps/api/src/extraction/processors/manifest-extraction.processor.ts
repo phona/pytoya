@@ -83,6 +83,7 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
     let cancelRequested = false;
     let cancelReason: string | undefined;
     let lastProgress = 0;
+    const abortController = new AbortController();
     const startCancelPolling = () => {
       const timer = setInterval(() => {
         void this.manifestsService
@@ -90,6 +91,9 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
           .then((result) => {
             cancelRequested = result.requested;
             cancelReason = result.reason;
+            if (result.requested) {
+              abortController.abort(new JobCanceledError(result.reason));
+            }
           })
           .catch(() => {
             // Ignore polling errors; cancellation is best-effort.
@@ -145,6 +149,7 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
           customPrompt,
           textContextSnippet,
           onTextProgress: reportTextProgress,
+          abortSignal: abortController.signal,
         },
         reportProgress,
       );
@@ -197,13 +202,19 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
     } catch (error) {
       stopCancelPolling();
 
-      if (error instanceof JobCanceledError) {
-        const message = error.message;
+      // When the abort signal fires (from cancel polling), the in-flight
+      // HTTP request throws a CanceledError which gets wrapped by services.
+      // Detect this by checking the cancelRequested flag or error type.
+      const isAbortCancel = cancelRequested && !(error instanceof JobCanceledError);
+      const cancelError = isAbortCancel ? new JobCanceledError(cancelReason) : error;
+
+      if (cancelError instanceof JobCanceledError) {
+        const message = cancelError.message;
         this.logger.warn(`Extraction job ${job.id} canceled: ${message}`);
 
         await job.discard();
         await this.manifestsService.updateStatus(manifestId, ManifestStatus.FAILED);
-        await this.manifestsService.markJobCanceled(String(job.id), error.reason, job.attemptsMade);
+        await this.manifestsService.markJobCanceled(String(job.id), cancelError.reason, job.attemptsMade);
 
         this.progressPublisher.publishJobUpdate({
           jobId: String(job.id),
@@ -219,7 +230,7 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
           progress: lastProgress,
           error: message,
         });
-        throw error;
+        throw cancelError;
       }
 
       if (error instanceof OcrContextTooLargeError) {

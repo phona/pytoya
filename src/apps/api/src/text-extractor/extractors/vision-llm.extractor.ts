@@ -115,6 +115,7 @@ export class VisionLlmExtractor extends BaseTextExtractor<VisionLlmConfig> {
       maxTokens: this.config.maxTokens,
       apiKey: this.config.apiKey,
       timeoutMs: this.configService?.get<number>('LLM_TIMEOUT'),
+      abortSignal: input.abortSignal,
     };
 
     const pages = input.pages ?? [];

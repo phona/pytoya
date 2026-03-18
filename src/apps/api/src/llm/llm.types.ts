@@ -46,6 +46,7 @@ export interface LlmChatOptions {
   responseFormat?: LlmResponseFormat;
   maxRetries?: number;
   useStream?: boolean;
+  abortSignal?: AbortSignal;
 }
 
 export interface LlmProviderConfig {

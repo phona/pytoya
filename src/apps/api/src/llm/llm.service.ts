@@ -103,6 +103,7 @@ export class LlmService {
       options.maxTokens ?? provider?.maxTokens ?? this.maxTokens;
     const timeoutMs = options.timeoutMs ?? this.timeoutMs;
     const useStream = options.useStream ?? this.useStreamByDefault;
+    const abortSignal = options.abortSignal;
 
     const payload: LlmChatCompletionRequest = {
       model,
@@ -190,6 +191,7 @@ export class LlmService {
               Authorization: `Bearer ${apiKey}`,
               'Content-Type': 'application/json',
             },
+            signal: abortSignal,
           },
         );
 
@@ -250,6 +252,7 @@ export class LlmService {
     const maxTokens =
       options.maxTokens ?? provider?.maxTokens ?? this.maxTokens;
     const timeoutMs = options.timeoutMs ?? this.timeoutMs;
+    const streamAbortSignal = options.abortSignal;
 
     const payload: LlmChatCompletionRequest = {
       model,
@@ -290,6 +293,7 @@ export class LlmService {
               Authorization: `Bearer ${apiKey}`,
               'Content-Type': 'application/json',
             },
+            signal: streamAbortSignal,
           },
         );
 

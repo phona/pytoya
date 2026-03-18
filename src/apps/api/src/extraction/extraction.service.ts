@@ -17,7 +17,7 @@ import { PromptEntity } from '../entities/prompt.entity';
 import { SchemaEntity } from '../entities/schema.entity';
 import { SchemaRuleEntity } from '../entities/schema-rule.entity';
 import { ExtractorEntity } from '../entities/extractor.entity';
-import { LlmResponseFormat, LlmChatMessage, LlmProviderConfig } from '../llm/llm.types';
+import { LlmChatOptions, LlmResponseFormat, LlmChatMessage, LlmProviderConfig } from '../llm/llm.types';
 import { LlmService } from '../llm/llm.service';
 import { PromptBuilderService } from '../prompts/prompt-builder.service';
 import { PromptsService } from '../prompts/prompts.service';
@@ -58,6 +58,7 @@ type ExtractionOptions = {
   customPrompt?: string;
   textContextSnippet?: string;
   onTextProgress?: (update: TextExtractionProgressUpdate) => void | Promise<void>;
+  abortSignal?: AbortSignal;
 };
 
 type StageLogExtras = {
@@ -344,6 +345,7 @@ export class ExtractionService {
                   }
                   await options.onTextProgress?.(update);
                 },
+                options.abortSignal,
               );
           state.textResult = textResult;
           reportProgress(40);
@@ -439,6 +441,7 @@ export class ExtractionService {
     buffer: Buffer,
     extractorId: string,
     onProgress?: (update: TextExtractionProgressUpdate) => void | Promise<void>,
+    abortSignal?: AbortSignal,
   ): Promise<TextExtractionState> {
     const mimeType = this.getMimeTypeFromFilename(manifest.originalFilename);
     const { extractor, result } = await this.textExtractorService.extract(extractorId, {
@@ -448,6 +451,7 @@ export class ExtractionService {
       originalFilename: manifest.originalFilename,
       mimeType,
       onProgress,
+      abortSignal,
     });
 
     const ocrResult = result.metadata.ocrResult ?? null;
@@ -626,6 +630,7 @@ export class ExtractionService {
         contextOverride,
         customPrompt,
         queueJobId,
+        options.abortSignal,
       );
       state.extractionResult = extractionResult;
 
@@ -653,6 +658,7 @@ export class ExtractionService {
     contextOverride?: string,
     customPrompt?: string,
     queueJobId?: string,
+    abortSignal?: AbortSignal,
   ): Promise<ExtractionStateResult> {
     const previousExtraction = state.extractionResult;
     const useReExtract = state.extractionRetryCount > 0 && Boolean(previousExtraction);
@@ -672,8 +678,9 @@ export class ExtractionService {
 
     await this.persistPromptSnapshot(queueJobId, messages);
 
-    const llmOptions: { responseFormat?: LlmResponseFormat; useStream?: boolean } = {
+    const llmOptions: LlmChatOptions = {
       useStream: providerConfig?.type?.toLowerCase() === 'openai' || !providerConfig?.type ? true : undefined,
+      abortSignal,
     };
     if (schema && providerConfig) {
       const supportsStructuredOutput =

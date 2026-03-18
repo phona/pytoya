@@ -65,6 +65,7 @@ export type TextExtractionInput = {
   mimeType?: string;
   pages?: ConvertedPage[];
   onProgress?: (update: TextExtractionProgressUpdate) => void | Promise<void>;
+  abortSignal?: AbortSignal;
 };
 
 export type TextExtractionProgressUpdate = {

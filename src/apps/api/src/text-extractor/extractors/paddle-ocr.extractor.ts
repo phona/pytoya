@@ -221,7 +221,7 @@ export class PaddleOcrExtractor extends BaseTextExtractor<PaddleOcrConfig> {
 
   async extract(input: TextExtractionInput): Promise<TextExtractionResult> {
     const start = Date.now();
-    const response = await this.processBuffer(input.buffer, input.fileType);
+    const response = await this.processBuffer(input.buffer, input.fileType, input.abortSignal);
     const processingTimeMs = Date.now() - start;
     const cachedResult = buildCachedOcrResult(response, processingTimeMs);
     const pagesProcessed = response.layout?.num_pages ?? cachedResult.document.pages ?? 1;
@@ -241,7 +241,7 @@ export class PaddleOcrExtractor extends BaseTextExtractor<PaddleOcrConfig> {
     };
   }
 
-  private async processBuffer(buffer: Buffer, fileType: TextExtractionInput['fileType']): Promise<OcrResponse> {
+  private async processBuffer(buffer: Buffer, fileType: TextExtractionInput['fileType'], abortSignal?: AbortSignal): Promise<OcrResponse> {
     if (!buffer || buffer.length === 0) {
       throw new Error('Empty buffer provided to OCR extractor');
     }
@@ -275,11 +275,11 @@ export class PaddleOcrExtractor extends BaseTextExtractor<PaddleOcrConfig> {
       showFormulaNumber: this.config.showFormulaNumber ?? true,
     });
 
-    const result = await this.sendRequest(payload);
+    const result = await this.sendRequest(payload, abortSignal);
     return this.parseResponse(result);
   }
 
-  private async sendRequest(payload: LayoutParsingRequest): Promise<LayoutParsingResponseData> {
+  private async sendRequest(payload: LayoutParsingRequest, abortSignal?: AbortSignal): Promise<LayoutParsingResponseData> {
     let lastError: unknown;
     const endpointsToTry = this.getEndpointsToTry();
     for (let attempt = 0; attempt < this.maxRetries; attempt += 1) {
@@ -290,6 +290,7 @@ export class PaddleOcrExtractor extends BaseTextExtractor<PaddleOcrConfig> {
               baseURL: this.baseUrl,
               timeout: this.timeoutMs,
               headers: this.buildHeaders(this.config.apiKey),
+              signal: abortSignal,
             });
 
             const data = response.data as unknown as any;
