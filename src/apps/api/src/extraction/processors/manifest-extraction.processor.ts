@@ -29,7 +29,12 @@ type OcrRefreshJob = {
   textExtractorId?: string;
 };
 
-@Processor(EXTRACTION_QUEUE)
+@Processor(EXTRACTION_QUEUE, {
+  // OCR + LLM jobs can legitimately take several minutes.
+  // A generous lock prevents premature stall detection while
+  // the stream-idle-timeout in LlmService handles true hangs.
+  lockDuration: 300000, // 5 minutes
+})
 export class ManifestExtractionProcessor extends WorkerHost implements OnApplicationBootstrap {
   private readonly logger = new Logger(ManifestExtractionProcessor.name);
 
@@ -216,7 +221,7 @@ export class ManifestExtractionProcessor extends WorkerHost implements OnApplica
         });
         throw error;
       }
-
+
       if (error instanceof OcrContextTooLargeError) {
         await job.discard();
       }

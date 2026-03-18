@@ -24,6 +24,7 @@ import {
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 const DEFAULT_TIMEOUT_MS = 180000;
+const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 60000;
 const DEFAULT_MODEL = 'gpt-4o';
 const DEFAULT_TEMPERATURE = 0.1;
 const DEFAULT_MAX_TOKENS = 2000;
@@ -38,6 +39,7 @@ export class LlmService {
   private readonly temperature: number;
   private readonly maxTokens: number;
   private readonly useStreamByDefault: boolean;
+  private readonly streamIdleTimeoutMs: number;
 
   constructor(
     private readonly configService: ConfigService,
@@ -54,6 +56,10 @@ export class LlmService {
     this.timeoutMs = this.getNumberConfig(
       'LLM_TIMEOUT',
       DEFAULT_TIMEOUT_MS,
+    );
+    this.streamIdleTimeoutMs = this.getNumberConfig(
+      'LLM_STREAM_IDLE_TIMEOUT',
+      DEFAULT_STREAM_IDLE_TIMEOUT_MS,
     );
     this.model =
       this.configService.get<string>('LLM_MODEL') ?? DEFAULT_MODEL;
@@ -289,8 +295,9 @@ export class LlmService {
 
       upstream = response.data;
 
+      const idleTimeoutMs = this.streamIdleTimeoutMs;
       let buffer = '';
-      for await (const chunk of upstream) {
+      for await (const chunk of this.withStreamIdleTimeout(upstream, idleTimeoutMs)) {
         buffer += chunk.toString();
 
         while (true) {
@@ -389,6 +396,50 @@ export class LlmService {
 
     // For PADDLEX and CUSTOM providers, check if vision is explicitly configured
     return false;
+  }
+
+  /**
+   * Wraps a readable stream with an idle timeout. If no data is received
+   * within `idleMs`, the stream is destroyed and an error is thrown.
+   * This prevents the job from hanging indefinitely when the LLM server
+   * stops sending data mid-stream without closing the connection.
+   */
+  private async *withStreamIdleTimeout(
+    stream: NodeJS.ReadableStream,
+    idleMs: number,
+  ): AsyncGenerator<Buffer, void, void> {
+    const iterator = (stream as AsyncIterable<Buffer>)[Symbol.asyncIterator]();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let timedOut = false;
+
+    const resetTimer = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timedOut = true;
+        if (typeof (stream as any).destroy === 'function') {
+          (stream as any).destroy();
+        }
+      }, idleMs);
+    };
+
+    try {
+      resetTimer();
+      while (true) {
+        const { value, done } = await iterator.next();
+        if (done) break;
+        resetTimer();
+        yield value;
+      }
+    } catch (error) {
+      if (timedOut) {
+        throw new Error(
+          `LLM stream idle timeout: no data received for ${Math.round(idleMs / 1000)}s`,
+        );
+      }
+      throw error;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   private formatError(error: unknown): string {
