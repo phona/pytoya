@@ -638,6 +638,17 @@ export function EditableForm({
         <ExtractionAlert extractionInfo={draft.extractedData._extraction_info} />
       )}
 
+      {manifest.status === 'partial' && (
+        <div className="bg-[color:var(--status-warning-bg)] border border-border rounded-lg p-4">
+          <div className="flex items-start">
+            <AlertTriangle className="h-5 w-5 text-[color:var(--status-warning-text)] mt-0.5 mr-2 shrink-0" />
+            <p className="text-sm text-[color:var(--status-warning-text)]">
+              {t('audit.form.partialExtractionWarning')}
+            </p>
+          </div>
+        </div>
+      )}
+
       {!jsonSchema && (
         <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
           Project schema is not available (or invalid) for this manifest. Fix the project JSON Schema so the root object defines `properties`.

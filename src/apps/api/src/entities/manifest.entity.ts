@@ -39,6 +39,7 @@ export enum ManifestStatus {
   PENDING = 'pending',
   PROCESSING = 'processing',
   COMPLETED = 'completed',
+  PARTIAL = 'partial',
   FAILED = 'failed',
 }
 

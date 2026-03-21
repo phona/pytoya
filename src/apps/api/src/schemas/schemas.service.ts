@@ -15,6 +15,7 @@ import { ProjectOwnershipException } from '../projects/exceptions/project-owners
 import { CreateSchemaDto } from './dto/create-schema.dto';
 import { UpdateSchemaDto } from './dto/update-schema.dto';
 import { ValidateSchemaDto } from './dto/validate-schema.dto';
+import { CrossFieldRule, validateCrossFieldRules } from './cross-field-validator';
 import { SchemaNotFoundException } from './exceptions/schema-not-found.exception';
 
 const JSON_SCHEMA_KEYWORDS = new Set<string>([
@@ -413,6 +414,7 @@ export class SchemasService {
 
   validateWithRequiredFields(
     dto: ValidateSchemaDto,
+    options?: { validationSettings?: Record<string, unknown> | null },
   ): { valid: boolean; errors?: string[]; missingFields?: string[] } {
     if (!dto.data) {
       throw new BadRequestException('Validation data is required');
@@ -462,11 +464,30 @@ export class SchemasService {
       }
     }
 
+    // Run cross-field validation rules if present
+    const crossFieldRules = this.extractCrossFieldRules(options?.validationSettings);
+    if (crossFieldRules.length > 0) {
+      const crossFieldIssues = validateCrossFieldRules(dto.data as Record<string, unknown>, crossFieldRules);
+      for (const issue of crossFieldIssues) {
+        errors.push(`[${issue.severity}] ${issue.message}`);
+      }
+    }
+
     return {
       valid: errors.length === 0,
       errors: errors.length > 0 ? errors : undefined,
       missingFields: missingFields.length > 0 ? missingFields : undefined,
     };
+  }
+
+  private extractCrossFieldRules(validationSettings?: Record<string, unknown> | null): CrossFieldRule[] {
+    if (!validationSettings) return [];
+    const rules = validationSettings.crossFieldRules;
+    if (!Array.isArray(rules)) return [];
+    return rules.filter(
+      (r): r is CrossFieldRule =>
+        r && typeof r === 'object' && typeof r.expression === 'string' && typeof r.enabled === 'boolean',
+    );
   }
 
   parseSchemaContent(

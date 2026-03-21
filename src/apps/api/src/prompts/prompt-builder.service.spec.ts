@@ -168,4 +168,248 @@ describe('PromptBuilderService', () => {
     expect(previousBlock).not.toContain('"total"');
     expect(previousBlock).not.toContain('"items"');
   });
+
+  it('includes OCR quality assessment for poor quality score', () => {
+    const schema = {
+      id: 1,
+      name: 'Schema',
+      schemaVersion: null,
+      jsonSchema: { type: 'object', properties: {} },
+      requiredFields: [],
+      projectId: 1,
+      description: null,
+      systemPromptTemplate: null,
+      validationSettings: null,
+      rules: [],
+      project: {} as any,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as SchemaEntity;
+
+    const { systemContext } = service.buildExtractionPrompt('OCR text', schema, [], undefined, {
+      ocrQualityScore: 55,
+    });
+
+    expect(systemContext).toContain('OCR Quality Assessment:');
+    expect(systemContext).toContain('55/100 (Poor)');
+    expect(systemContext).toContain('Characters easily confused');
+  });
+
+  it('includes OCR quality assessment for good quality score', () => {
+    const schema = {
+      id: 1,
+      name: 'Schema',
+      schemaVersion: null,
+      jsonSchema: { type: 'object', properties: {} },
+      requiredFields: [],
+      projectId: 1,
+      description: null,
+      systemPromptTemplate: null,
+      validationSettings: null,
+      rules: [],
+      project: {} as any,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as SchemaEntity;
+
+    const { systemContext } = service.buildExtractionPrompt('OCR text', schema, [], undefined, {
+      ocrQualityScore: 80,
+    });
+
+    expect(systemContext).toContain('80/100 (Good)');
+    expect(systemContext).toContain('character-level errors');
+    expect(systemContext).not.toContain('Characters easily confused');
+  });
+
+  it('omits OCR quality block for excellent score', () => {
+    const schema = {
+      id: 1,
+      name: 'Schema',
+      schemaVersion: null,
+      jsonSchema: { type: 'object', properties: {} },
+      requiredFields: [],
+      projectId: 1,
+      description: null,
+      systemPromptTemplate: null,
+      validationSettings: null,
+      rules: [],
+      project: {} as any,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as SchemaEntity;
+
+    const { systemContext } = service.buildExtractionPrompt('OCR text', schema, [], undefined, {
+      ocrQualityScore: 95,
+    });
+
+    expect(systemContext).toContain('95/100 (Excellent)');
+    expect(systemContext).not.toContain('character-level errors');
+  });
+
+  it('omits OCR quality block when no score is provided', () => {
+    const schema = {
+      id: 1,
+      name: 'Schema',
+      schemaVersion: null,
+      jsonSchema: { type: 'object', properties: {} },
+      requiredFields: [],
+      projectId: 1,
+      description: null,
+      systemPromptTemplate: null,
+      validationSettings: null,
+      rules: [],
+      project: {} as any,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as SchemaEntity;
+
+    const { systemContext } = service.buildExtractionPrompt('OCR text', schema, []);
+
+    expect(systemContext).not.toContain('OCR Quality Assessment:');
+  });
+
+  it('includes structured tables in user input', () => {
+    const schema = {
+      id: 1,
+      name: 'Schema',
+      schemaVersion: null,
+      jsonSchema: { type: 'object', properties: {} },
+      requiredFields: [],
+      projectId: 1,
+      description: null,
+      systemPromptTemplate: null,
+      validationSettings: null,
+      rules: [],
+      project: {} as any,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as SchemaEntity;
+
+    const { userInput } = service.buildExtractionPrompt('OCR text', schema, [], undefined, {
+      structuredTables: [
+        {
+          pageNumber: 1,
+          cells: [
+            ['Name', 'Qty', 'Price'],
+            ['Widget', '10', '5.00'],
+            ['Gadget', '5', '12.50'],
+          ],
+        },
+      ],
+    });
+
+    expect(userInput).toContain('Structured Table Data');
+    expect(userInput).toContain('Table (Page 1)');
+    expect(userInput).toContain('Name');
+    expect(userInput).toContain('Widget');
+    expect(userInput).toContain('more reliable than the raw OCR text');
+  });
+
+  it('omits structured tables block when no tables provided', () => {
+    const schema = {
+      id: 1,
+      name: 'Schema',
+      schemaVersion: null,
+      jsonSchema: { type: 'object', properties: {} },
+      requiredFields: [],
+      projectId: 1,
+      description: null,
+      systemPromptTemplate: null,
+      validationSettings: null,
+      rules: [],
+      project: {} as any,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as SchemaEntity;
+
+    const { userInput } = service.buildExtractionPrompt('OCR text', schema, [], undefined, {
+      structuredTables: [],
+    });
+
+    expect(userInput).not.toContain('Structured Table Data');
+  });
+
+  it('includes _extraction_info instructions in extraction prompt header', () => {
+    const schema = {
+      id: 1,
+      name: 'Schema',
+      schemaVersion: null,
+      jsonSchema: { type: 'object', properties: {} },
+      requiredFields: [],
+      projectId: 1,
+      description: null,
+      systemPromptTemplate: null,
+      validationSettings: null,
+      rules: [],
+      project: {} as any,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as SchemaEntity;
+
+    const { systemContext } = service.buildExtractionPrompt('OCR text', schema, []);
+
+    expect(systemContext).toContain('_extraction_info');
+    expect(systemContext).toContain('field_confidences');
+    expect(systemContext).toContain('uncertain_fields');
+  });
+
+  it('includes _extraction_info instructions in re-extract prompt', () => {
+    const schema = {
+      id: 1,
+      name: 'Schema',
+      schemaVersion: null,
+      jsonSchema: { type: 'object', properties: {} },
+      requiredFields: [],
+      projectId: 1,
+      description: null,
+      systemPromptTemplate: null,
+      validationSettings: null,
+      rules: [],
+      project: {} as any,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as SchemaEntity;
+
+    const { systemContext } = service.buildReExtractPrompt(
+      'OCR text',
+      { invoice: { total: 100 } } as any,
+      ['invoice.po_no'],
+      'Missing PO',
+      schema,
+      [],
+    );
+
+    expect(systemContext).toContain('_extraction_info');
+    expect(systemContext).toContain('field_confidences');
+  });
+
+  it('formats cross-field rules in validation settings', () => {
+    const schema = {
+      id: 1,
+      name: 'Schema',
+      schemaVersion: null,
+      jsonSchema: { type: 'object', properties: {} },
+      requiredFields: [],
+      projectId: 1,
+      description: null,
+      systemPromptTemplate: null,
+      validationSettings: {
+        crossFieldRules: [
+          { id: '1', name: 'Sum check', expression: 'sum(items[].amount) == totalAmount', errorMessage: 'Sum mismatch', severity: 'error', enabled: true },
+          { id: '2', name: 'Disabled rule', expression: 'x == y', errorMessage: 'N/A', severity: 'warning', enabled: false },
+        ],
+      },
+      rules: [],
+      project: {} as any,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as SchemaEntity;
+
+    const { systemContext } = service.buildExtractionPrompt('OCR text', schema, []);
+
+    expect(systemContext).toContain('Cross-Field Validation Rules');
+    expect(systemContext).toContain('Sum check');
+    expect(systemContext).toContain('sum(items[].amount) == totalAmount');
+    expect(systemContext).not.toContain('Disabled rule');
+  });
 });

@@ -55,6 +55,35 @@ export interface ImportSchemaResult {
   errors?: SchemaValidationError[];
 }
 
+export interface CorrectionAnalysisResult {
+  totalLogs: number;
+  totalDiffs: number;
+  dateRange: { from: string | null; to: string | null };
+  topCorrectedFields: Array<{
+    path: string;
+    count: number;
+    examples: Array<{ before: unknown; after: unknown; count: number }>;
+  }>;
+  ocrConfusions: Array<{
+    from: string;
+    to: string;
+    count: number;
+    contexts: string[];
+  }>;
+  summary: {
+    manifestsWithCorrections: number;
+    uniqueFieldsCorrected: number;
+    avgDiffsPerLog: number;
+  };
+}
+
+export interface CorrectionSuggestion {
+  fieldPath: string;
+  correctionCount: number;
+  patterns: Array<{ before: string; after: string; count: number }>;
+  suggestedRule: string;
+}
+
 export interface GeneratePromptRulesMarkdownDto {
   modelId: string;
   prompt: string;
@@ -132,6 +161,33 @@ export const schemasApi = {
 
   generateRulesFromSchema: async (data: GenerateRulesDto) => {
     const response = await apiClient.post<{ rules: GeneratedSchemaRule[] }>('/schemas/generate-rules', data);
+    return response.data;
+  },
+
+  getCorrectionSummary: async (schemaId: number) => {
+    const response = await apiClient.get<{
+      totalCorrections: number;
+      uniqueFieldsCorrected: number;
+      manifestsAffected: number;
+      hasNewPatterns: boolean;
+    }>(`/schemas/${schemaId}/correction-summary`);
+    return response.data;
+  },
+
+  getCorrectionSuggestions: async (schemaId: number, threshold?: number) => {
+    const params = threshold !== undefined ? { threshold } : {};
+    const response = await apiClient.get<CorrectionSuggestion[]>(
+      `/schemas/${schemaId}/correction-suggestions`,
+      { params },
+    );
+    return response.data;
+  },
+
+  getCorrectionAnalysis: async (schemaId: number, params?: { since?: string; limit?: number }) => {
+    const response = await apiClient.post<CorrectionAnalysisResult>(
+      `/schemas/${schemaId}/correction-analysis`,
+      params ?? {},
+    );
     return response.data;
   },
 

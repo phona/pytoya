@@ -173,6 +173,27 @@ export function useValidateWithRequired() {
   });
 }
 
+export function useCorrectionAnalysis(schemaId: number) {
+  return useMutation({
+    mutationFn: (params?: { since?: string; limit?: number }) =>
+      schemasApi.getCorrectionAnalysis(schemaId, params),
+  });
+}
 
+export function useCorrectionSummary(schemaId: number | undefined) {
+  return useQuery({
+    queryKey: ['correction-summary', schemaId],
+    queryFn: () => schemasApi.getCorrectionSummary(schemaId!),
+    enabled: !!schemaId,
+    staleTime: 60_000,
+  });
+}
 
-
+export function useCorrectionSuggestions(schemaId: number | undefined) {
+  return useQuery({
+    queryKey: ['correction-suggestions', schemaId],
+    queryFn: () => schemasApi.getCorrectionSuggestions(schemaId!),
+    enabled: !!schemaId,
+    staleTime: 60_000,
+  });
+}

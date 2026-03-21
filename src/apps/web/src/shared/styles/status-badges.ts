@@ -5,6 +5,7 @@ const manifestStatusClasses = {
   pending: 'bg-[color:var(--status-pending-bg)] text-[color:var(--status-pending-text)]',
   processing: 'bg-[color:var(--status-processing-bg)] text-[color:var(--status-processing-text)]',
   failed: 'bg-[color:var(--status-failed-bg)] text-[color:var(--status-failed-text)]',
+  partial: 'bg-[color:var(--status-warning-bg)] text-[color:var(--status-warning-text)]',
 } as const;
 
 type ManifestStatusKey = keyof typeof manifestStatusClasses;

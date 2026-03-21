@@ -24,7 +24,7 @@ import { PromptsService } from '../prompts/prompts.service';
 import { SchemaRulesService } from '../schemas/schema-rules.service';
 import { SchemasService } from '../schemas/schemas.service';
 import { IFileAccessService } from '../file-access/file-access.service';
-import { ExtractedData } from '../prompts/types/prompts.types';
+import { ExtractedData, ExtractionPromptEnhancements, FewShotExample, OcrTableData } from '../prompts/types/prompts.types';
 import { ModelPricingService } from '../models/model-pricing.service';
 import { TextExtractorService } from '../text-extractor/text-extractor.service';
 import { PricingConfig, TextExtractionMetadata, TextExtractionProgressUpdate } from '../text-extractor/types/extractor.types';
@@ -353,6 +353,17 @@ export class ExtractionService {
         () => ({ extractionRetryCount: state.extractionRetryCount }),
       );
 
+      // Fetch few-shot examples from verified manifests in the same project
+      try {
+        state.fewShotExamples = await this.fetchFewShotExamples(
+          project.id,
+          schema.id,
+          manifest.id,
+        );
+      } catch (error) {
+        this.logger.warn(`Failed to fetch few-shot examples: ${this.formatError(error)}`);
+      }
+
       await this.withStageBoundaryLogs(
         ExtractionStatus.EXTRACTING,
         logBase,
@@ -413,7 +424,7 @@ export class ExtractionService {
             );
           }
 
-          await this.saveResult(manifest, state);
+          await this.saveResult(manifest, state, schema);
           state.status = ExtractionStatus.COMPLETED;
           reportProgress(100);
         },
@@ -431,7 +442,12 @@ export class ExtractionService {
       state.errors.push(message);
       state.currentError = message;
       state.status = ExtractionStatus.FAILED;
-      await this.updateManifestStatus(manifest, ManifestStatus.FAILED);
+
+      // Save partial results if we have any extracted data despite failure
+      const saved = await this.savePartialResult(manifest, state);
+      if (!saved) {
+        await this.updateManifestStatus(manifest, ManifestStatus.FAILED);
+      }
       throw error;
     }
   }
@@ -638,6 +654,16 @@ export class ExtractionService {
         return;
       }
 
+      // Skip retry for permanent failures (type mismatches, auth errors, etc.)
+      if (extractionResult.retryable === false) {
+        this.logger.warn(
+          `Extraction for manifest ${state.manifestId} failed with non-retryable error, skipping retries`,
+        );
+        throw new InternalServerErrorException(
+          extractionResult.error ?? 'Extraction failed (non-retryable)',
+        );
+      }
+
       if (this.canRetryExtraction(state)) {
         await this.delayWithBackoff(state.extractionRetryCount);
       } else {
@@ -713,10 +739,13 @@ export class ExtractionService {
 
       let validation: ExtractionValidationResult;
       if (schema) {
-        const ajvResult = this.schemasService.validateWithRequiredFields({
-          jsonSchema: schema.jsonSchema as Record<string, unknown>,
-          data,
-        });
+        const ajvResult = this.schemasService.validateWithRequiredFields(
+          {
+            jsonSchema: schema.jsonSchema as Record<string, unknown>,
+            data,
+          },
+          { validationSettings: schema.validationSettings as Record<string, unknown> | null },
+        );
         validation = {
           valid: ajvResult.valid,
           missingFields: ajvResult.missingFields ?? [],
@@ -732,6 +761,7 @@ export class ExtractionService {
           success: false,
           error: validation.errors.join('; '),
           retryCount: state.extractionRetryCount,
+          retryable: this.isValidationRetryable(validation, state.textResult?.markdown),
           validation,
           tokenUsage,
         };
@@ -753,6 +783,7 @@ export class ExtractionService {
         success: false,
         error: this.formatError(error),
         retryCount: state.extractionRetryCount,
+        retryable: this.isLlmErrorRetryable(error),
       };
     }
   }
@@ -816,6 +847,7 @@ export class ExtractionService {
     }
 
     const textMarkdown = contextOverride ?? state.textResult?.markdown ?? '';
+    const enhancements = this.buildPromptEnhancements(state);
     const promptParts =
       useReExtract && previousExtraction
         ? this.promptBuilderService.buildReExtractPrompt(
@@ -826,8 +858,9 @@ export class ExtractionService {
             schema,
             rules,
             requiredFields,
+            enhancements,
           )
-        : this.promptBuilderService.buildExtractionPrompt(textMarkdown, schema, rules, requiredFields);
+        : this.promptBuilderService.buildExtractionPrompt(textMarkdown, schema, rules, requiredFields, enhancements);
 
     let nextSystemPrompt = useReExtract ? reExtractSystemPrompt : systemPrompt;
     if (promptParts.systemContext) {
@@ -848,6 +881,103 @@ export class ExtractionService {
       },
     ];
   }
+
+  private buildPromptEnhancements(state: ExtractionWorkflowState): ExtractionPromptEnhancements {
+    const enhancements: ExtractionPromptEnhancements = {};
+
+    // Pass OCR quality score to help LLM calibrate error correction
+    if (state.textResult?.metadata?.qualityScore !== undefined) {
+      enhancements.ocrQualityScore = state.textResult.metadata.qualityScore;
+    }
+
+    // Extract structured tables from OCR result for better table extraction
+    const tables = this.extractStructuredTables(state);
+    if (tables.length > 0) {
+      enhancements.structuredTables = tables;
+    }
+
+    // Include few-shot examples from verified manifests
+    if (state.fewShotExamples && state.fewShotExamples.length > 0) {
+      enhancements.fewShotExamples = state.fewShotExamples;
+    }
+
+    return enhancements;
+  }
+
+  private extractStructuredTables(state: ExtractionWorkflowState): OcrTableData[] {
+    const ocrResult = state.textResult?.ocrResult;
+    if (!ocrResult?.pages) {
+      return [];
+    }
+
+    const tables: OcrTableData[] = [];
+    for (const page of ocrResult.pages) {
+      const pageData = page as unknown as Record<string, unknown>;
+      const layout = pageData.layout as { tables?: Array<{ cells?: string[][] }> } | undefined;
+      if (!layout?.tables) {
+        continue;
+      }
+      for (const table of layout.tables) {
+        if (table.cells && table.cells.length > 1) {
+          tables.push({
+            pageNumber: pageData.pageNumber as number,
+            cells: table.cells,
+          });
+        }
+      }
+    }
+
+    return tables;
+  }
+
+  private async fetchFewShotExamples(
+    projectId: number,
+    _schemaId: number,
+    excludeManifestId: number,
+  ): Promise<FewShotExample[]> {
+    const MAX_EXAMPLES = 3;
+    const MAX_OCR_SNIPPET_LENGTH = 500;
+
+    const manifests = await this.manifestRepository
+      .createQueryBuilder('m')
+      .innerJoin('m.group', 'g')
+      .where('g.projectId = :projectId', { projectId })
+      .andWhere('m.humanVerified = true')
+      .andWhere('m.extractedData IS NOT NULL')
+      .andWhere('m.id != :excludeManifestId', { excludeManifestId })
+      .orderBy('m.updatedAt', 'DESC')
+      .limit(MAX_EXAMPLES)
+      .select(['m.id', 'm.extractedData', 'm.ocrResult'])
+      .getMany();
+
+    const examples: FewShotExample[] = [];
+    for (const m of manifests) {
+      if (!m.extractedData || typeof m.extractedData !== 'object') continue;
+
+      // Extract OCR markdown snippet
+      let ocrSnippet = '';
+      const ocrResult = m.ocrResult as Record<string, unknown> | null;
+      if (ocrResult?.pages && Array.isArray(ocrResult.pages)) {
+        for (const page of ocrResult.pages as Array<Record<string, unknown>>) {
+          const markdown = page.markdown as string | undefined;
+          if (markdown) {
+            ocrSnippet += (ocrSnippet ? '\n' : '') + markdown;
+            if (ocrSnippet.length >= MAX_OCR_SNIPPET_LENGTH) break;
+          }
+        }
+      }
+
+      if (!ocrSnippet) continue;
+
+      examples.push({
+        ocrSnippet: ocrSnippet.slice(0, MAX_OCR_SNIPPET_LENGTH),
+        extractedData: m.extractedData as ExtractedData,
+      });
+    }
+
+    return examples;
+  }
+
 
   private async validateManifest(
     manifest: ManifestEntity,
@@ -929,7 +1059,11 @@ export class ExtractionService {
     return { textCost, llmCost, totalCost, currency };
   }
 
-  private async saveResult(manifest: ManifestEntity, state: ExtractionWorkflowState): Promise<void> {
+  private async saveResult(
+    manifest: ManifestEntity,
+    state: ExtractionWorkflowState,
+    schema?: SchemaEntity,
+  ): Promise<void> {
     const extraction = state.extractionResult;
     if (!extraction || !extraction.success) {
       throw new InternalServerErrorException('Cannot save: extraction failed');
@@ -945,7 +1079,76 @@ export class ExtractionService {
     }
 
     manifest.status = ManifestStatus.COMPLETED;
+
+    // Auto-approve if confidence exceeds schema threshold and validation passed
+    if (schema && confidence !== undefined) {
+      const settings = schema.validationSettings as Record<string, unknown> | null;
+      const threshold = settings?.autoApproveConfidenceThreshold as number | undefined;
+      if (
+        threshold !== undefined &&
+        threshold > 0 &&
+        confidence >= threshold &&
+        (!extraction.validation || extraction.validation.valid)
+      ) {
+        manifest.humanVerified = true;
+        this.logger.log(
+          `Auto-approved manifest ${manifest.id} (confidence=${confidence.toFixed(3)}, threshold=${threshold})`,
+        );
+      }
+    }
+
     await this.manifestRepository.save(manifest);
+  }
+
+  /** Save partial extraction data when extraction fails after retries. Returns true if partial data was saved. */
+  private async savePartialResult(
+    manifest: ManifestEntity,
+    state: ExtractionWorkflowState,
+  ): Promise<boolean> {
+    try {
+      const extraction = state.extractionResult;
+      if (!extraction?.data || Object.keys(extraction.data).length === 0) {
+        return false;
+      }
+
+      // Only save partial if there's meaningful data (not just _extraction_info)
+      const dataKeys = Object.keys(extraction.data).filter((k) => !k.startsWith('_'));
+      if (dataKeys.length === 0) {
+        return false;
+      }
+
+      manifest.extractedData = extraction.data;
+      manifest.status = ManifestStatus.PARTIAL;
+
+      const confidence =
+        (extraction.data._extraction_info as Record<string, unknown> | undefined)?.confidence as
+          | number
+          | undefined;
+      if (confidence !== undefined) {
+        manifest.confidence = confidence;
+      }
+
+      // Store validation failure info for frontend display
+      if (extraction.validation) {
+        manifest.validationResults = {
+          issues: (extraction.validation.errors ?? []).map((e) => ({
+            field: '',
+            message: e,
+            severity: 'error' as const,
+          })),
+          errorCount: extraction.validation.errors?.length ?? 0,
+          warningCount: 0,
+          validatedAt: new Date().toISOString(),
+        };
+      }
+
+      await this.manifestRepository.save(manifest);
+      this.logger.log(`Saved partial extraction for manifest ${manifest.id} (${dataKeys.length} fields)`);
+      return true;
+    } catch (error) {
+      this.logger.warn(`Failed to save partial extraction for manifest ${manifest.id}: ${this.formatError(error)}`);
+      return false;
+    }
   }
 
   private async updateManifestStatus(
@@ -1353,6 +1556,50 @@ export class ExtractionService {
       haystack.includes('prompt is too long')
     );
   }
+  private isValidationRetryable(
+    validation: ExtractionValidationResult,
+    ocrMarkdown?: string,
+  ): boolean | undefined {
+    const errors = validation.errors;
+
+    // All errors are type mismatches — LLM is unlikely to fix these on retry
+    if (errors.length > 0 && errors.every((e) => /must be (number|integer|boolean|array|object|string)/.test(e))) {
+      return false;
+    }
+
+    // All missing fields have no trace in OCR text — data likely not in the document
+    if (ocrMarkdown && validation.missingFields.length > 0 && errors.length === 0) {
+      const lowerMarkdown = ocrMarkdown.toLowerCase();
+      const allMissing = validation.missingFields.every((field) => {
+        const leafName = field.split('.').pop()?.replace(/[\[\]0-9]/g, '') ?? '';
+        return leafName.length > 2 && !lowerMarkdown.includes(leafName.toLowerCase());
+      });
+      if (allMissing) {
+        return false;
+      }
+    }
+
+    return undefined; // default: retryable
+  }
+
+  private isLlmErrorRetryable(error: unknown): boolean | undefined {
+    if (!(error instanceof Error)) {
+      return undefined;
+    }
+
+    const anyError = error as unknown as Record<string, unknown>;
+    const status = (anyError.status ?? (anyError.response as Record<string, unknown> | undefined)?.status) as
+      | number
+      | undefined;
+
+    // Auth / not found / bad request errors won't resolve on retry
+    if (status === 401 || status === 403 || status === 404) {
+      return false;
+    }
+
+    return undefined; // default: retryable (e.g., 429 rate limit, 500 server error)
+  }
+
   private formatError(error: unknown): string {
     if (error instanceof Error) {
       return error.message;

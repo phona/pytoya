@@ -1,5 +1,5 @@
 import { OcrResultDto } from '../manifests/dto/ocr-result.dto';
-import { ExtractedData } from '../prompts/types/prompts.types';
+import { ExtractedData, FewShotExample } from '../prompts/types/prompts.types';
 import { TextExtractionMetadata } from '../text-extractor/types/extractor.types';
 
 export enum ExtractionStatus {
@@ -31,6 +31,8 @@ export interface ExtractionStateResult {
   success: boolean;
   error?: string;
   retryCount: number;
+  /** When false, retry will be skipped (permanent failure). Undefined defaults to retryable. */
+  retryable?: boolean;
   validation?: ExtractionValidationResult;
   tokenUsage?: {
     promptTokens: number;
@@ -48,6 +50,7 @@ export interface ExtractionWorkflowState {
   extractionRetryCount: number;
   textResult?: TextExtractionState;
   extractionResult?: ExtractionStateResult;
+  fewShotExamples?: FewShotExample[];
   textCost?: number;
   llmCost?: number;
   extractionCost?: number;

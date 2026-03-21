@@ -4,6 +4,7 @@ import request from 'supertest';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SchemaEntity } from '../entities/schema.entity';
+import { CorrectionAnalysisService } from './correction-analysis.service';
 import { SchemasController } from './schemas.controller';
 import { SchemasService } from './schemas.service';
 import { SchemaGeneratorService } from './schema-generator.service';
@@ -37,6 +38,11 @@ describe('SchemasController', () => {
     generate: jest.fn(),
   };
 
+  const correctionAnalysisService = {
+    aggregateCorrections: jest.fn(),
+    getCorrectionSummary: jest.fn(),
+  };
+
   const schema: SchemaEntity = {
     id: 1,
     name: 'Invoice Schema',
@@ -61,6 +67,7 @@ describe('SchemasController', () => {
         { provide: SchemaGeneratorService, useValue: schemaGeneratorService },
         { provide: RuleGeneratorService, useValue: ruleGeneratorService },
         { provide: PromptRulesGeneratorService, useValue: promptRulesGeneratorService },
+        { provide: CorrectionAnalysisService, useValue: correctionAnalysisService },
       ],
     })
       .overrideGuard(JwtAuthGuard)

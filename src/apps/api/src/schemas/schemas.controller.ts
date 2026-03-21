@@ -8,6 +8,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   Res,
   UploadedFile,
   UseGuards,
@@ -22,11 +23,13 @@ import { UserEntity } from '../entities/user.entity';
 import { CreateSchemaDto } from './dto/create-schema.dto';
 import { GenerateRulesDto } from './dto/generate-rules.dto';
 import { GenerateSchemaDto } from './dto/generate-schema.dto';
+import { CorrectionAnalysisQueryDto, CorrectionSuggestionsQueryDto, GenerateRulesFromCorrectionsDto } from './dto/correction-analysis.dto';
 import { GeneratePromptRulesDto } from './dto/generate-prompt-rules.dto';
 import { ImportSchemaDto } from './dto/import-schema.dto';
 import { SchemaResponseDto } from './dto/schema-response.dto';
 import { UpdateSchemaDto } from './dto/update-schema.dto';
 import { ValidateSchemaDto } from './dto/validate-schema.dto';
+import { CorrectionAnalysisService } from './correction-analysis.service';
 import { PromptRulesGeneratorService } from './prompt-rules-generator.service';
 import { RuleGeneratorService } from './rule-generator.service';
 import { SchemaGeneratorService } from './schema-generator.service';
@@ -40,6 +43,7 @@ export class SchemasController {
     private readonly schemaGeneratorService: SchemaGeneratorService,
     private readonly ruleGeneratorService: RuleGeneratorService,
     private readonly promptRulesGeneratorService: PromptRulesGeneratorService,
+    private readonly correctionAnalysisService: CorrectionAnalysisService,
   ) {}
 
   @Post()
@@ -144,6 +148,89 @@ export class SchemasController {
 
     try {
       for await (const chunk of this.promptRulesGeneratorService.generateStream(schema, generatePromptRulesDto)) {
+        res.write(JSON.stringify({ type: 'delta', content: chunk }) + '\n');
+      }
+      res.write(JSON.stringify({ type: 'done' }) + '\n');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error ?? 'Unknown error');
+      res.write(JSON.stringify({ type: 'error', message }) + '\n');
+    } finally {
+      res.end();
+    }
+  }
+
+  @Post(':id/correction-analysis')
+  async getCorrectionAnalysis(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() query: CorrectionAnalysisQueryDto,
+  ) {
+    await this.schemasService.findOne(user, id);
+    const since = query.since ? new Date(query.since) : undefined;
+    return this.correctionAnalysisService.aggregateCorrections(id, {
+      since,
+      limit: query.limit,
+    });
+  }
+
+  @Get(':id/correction-summary')
+  async getCorrectionSummary(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('since') since?: string,
+  ) {
+    await this.schemasService.findOne(user, id);
+    const sinceDate = since ? new Date(since) : undefined;
+    return this.correctionAnalysisService.getCorrectionSummary(id, sinceDate);
+  }
+
+  @Get(':id/correction-suggestions')
+  async getCorrectionSuggestions(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: CorrectionSuggestionsQueryDto,
+  ) {
+    await this.schemasService.findOne(user, id);
+    return this.correctionAnalysisService.suggestRuleUpdates(id, query.threshold);
+  }
+
+  @Post(':id/generate-prompt-rules-from-corrections/stream')
+  async generateRulesFromCorrectionsStream(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: GenerateRulesFromCorrectionsDto,
+    @Res() res: Response,
+  ) {
+    const schema = await this.schemasService.findOne(user, id);
+    const since = body.since ? new Date(body.since) : undefined;
+    const analysis = await this.correctionAnalysisService.aggregateCorrections(id, {
+      since,
+      limit: body.limit,
+    });
+
+    if (analysis.totalLogs === 0) {
+      throw new BadRequestException('No corrections found to analyze');
+    }
+
+    const analysisPrompt = this.correctionAnalysisService.buildAnalysisPrompt(analysis);
+    const currentRules = (schema.validationSettings as Record<string, unknown> | null)
+      ?.promptRulesMarkdown;
+
+    res.status(200);
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+
+    res.write(JSON.stringify({ type: 'start', analysis }) + '\n');
+
+    try {
+      for await (const chunk of this.promptRulesGeneratorService.generateStream(schema, {
+        modelId: body.modelId,
+        prompt: analysisPrompt,
+        currentRulesMarkdown: typeof currentRules === 'string' ? currentRules : undefined,
+        feedback: body.feedback,
+      })) {
         res.write(JSON.stringify({ type: 'delta', content: chunk }) + '\n');
       }
       res.write(JSON.stringify({ type: 'done' }) + '\n');
