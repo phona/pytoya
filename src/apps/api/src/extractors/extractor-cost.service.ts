@@ -130,7 +130,7 @@ export class ExtractorCostService {
       .andWhere('manifest.extractionCost IS NOT NULL')
       .groupBy('manifest.textExtractorId')
       .addGroupBy(currencyExpr)
-      .orderBy('extractorId', 'ASC')
+      .orderBy('"extractorId"', 'ASC')
       .addOrderBy('currency', 'ASC')
       .getRawMany<{ extractorId: string; currency: string; count: string; total: string }>();
 

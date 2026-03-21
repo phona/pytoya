@@ -820,6 +820,7 @@ export const zhCNMessages: Record<string, string> = {
   'jobs.empty': '暂无任务。',
   'jobs.progress': '进度',
   'jobs.cancel': '取消',
+  'jobs.dismiss': '移除',
   'jobs.cancelRequestedTitle': '已请求取消',
   'jobs.cancelRequestedBody': '任务将尽快停止。',
   'jobs.cancelFailedTitle': '取消失败',

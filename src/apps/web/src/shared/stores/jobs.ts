@@ -92,6 +92,7 @@ export interface JobsState {
   setOwnerUserId: (userId: number | null) => void;
   reset: () => void;
   clearCompleted: () => void;
+  removeJob: (jobId: string) => void;
 
   upsertJob: (job: JobItem) => void;
   upsertFromHistory: (history: JobHistory[]) => void;
@@ -131,6 +132,9 @@ export const useJobsStore = create<JobsState>()(
 
       clearCompleted: () =>
         set((state) => ({ jobs: state.jobs.filter((job) => !isTerminal(job.status)) })),
+
+      removeJob: (jobId) =>
+        set((state) => ({ jobs: state.jobs.filter((job) => job.id !== jobId) })),
 
       upsertJob: (job) =>
         set((state) => ({

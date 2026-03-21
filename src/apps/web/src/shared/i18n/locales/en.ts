@@ -831,6 +831,7 @@ export const enMessages: Record<string, string> = {
   'jobs.empty': 'No jobs to show.',
   'jobs.progress': 'Progress',
   'jobs.cancel': 'Cancel',
+  'jobs.dismiss': 'Dismiss',
   'jobs.cancelRequestedTitle': 'Cancellation requested',
   'jobs.cancelRequestedBody': 'The job will stop as soon as possible.',
   'jobs.cancelFailedTitle': 'Cancel failed',

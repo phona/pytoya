@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, Loader2, XCircle } from 'lucide-react';
+import { Download, Loader2, X, XCircle } from 'lucide-react';
 import { useJobHistory, useJobsStats } from '@/shared/hooks/use-jobs';
 import { useWebSocket } from '@/shared/hooks/use-websocket';
 import { jobsApi } from '@/api/jobs';
@@ -34,11 +34,13 @@ function JobRow({
   manifestTitle,
   cancelingJobId,
   onCancel,
+  onRemove,
 }: {
   job: JobItem;
   manifestTitle?: string | null;
   cancelingJobId: string | null;
   onCancel: (jobId: string) => void | Promise<void>;
+  onRemove: (jobId: string) => void;
 }) {
   const { t } = useI18n();
   const title = manifestTitle
@@ -100,6 +102,17 @@ function JobRow({
           >
             {cancelingJobId === job.id ? <Loader2 className="h-4 w-4 animate-spin" /> : t('jobs.cancel')}
           </Button>
+        ) : isTerminal(job.status) ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            aria-label={t('jobs.dismiss')}
+            onClick={() => onRemove(job.id)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
         ) : null}
       </div>
 
@@ -119,6 +132,7 @@ export function JobsPanel() {
   const isOpen = useUiStore((state) => state.isJobsPanelOpen);
   const setOpen = useUiStore((state) => state.setJobsPanelOpen);
   const clearCompleted = useJobsStore((state) => state.clearCompleted);
+  const removeJob = useJobsStore((state) => state.removeJob);
   const jobs = useJobsStore((state) => state.jobs);
   const upsertFromHistory = useJobsStore((state) => state.upsertFromHistory);
 
@@ -279,6 +293,7 @@ export function JobsPanel() {
                   manifestTitle={titleByManifestId.get(job.manifestId) ?? null}
                   cancelingJobId={cancelingJobId}
                   onCancel={handleCancel}
+                  onRemove={removeJob}
                 />
               ))}
             </div>
