@@ -189,6 +189,13 @@ export function useCorrectionSummary(schemaId: number | undefined) {
   });
 }
 
+export function useGenerateDomainHints(schemaId: number | undefined) {
+  return useMutation({
+    mutationFn: (threshold?: number) =>
+      schemasApi.generateDomainHints(schemaId!, threshold),
+  });
+}
+
 export function useCorrectionSuggestions(schemaId: number | undefined) {
   return useQuery({
     queryKey: ['correction-suggestions', schemaId],

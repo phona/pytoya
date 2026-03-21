@@ -12,6 +12,7 @@ import type {
   CorrectionSuggestion,
   OcrConfusion,
 } from './dto/correction-analysis.dto';
+import type { OcrDomainHints } from '../prompts/types/prompts.types';
 
 @Injectable()
 export class CorrectionAnalysisService {
@@ -189,6 +190,57 @@ export class CorrectionAnalysisService {
     }
 
     return suggestions;
+  }
+
+  async generateDomainHints(
+    schemaId: number,
+    threshold: number = 3,
+  ): Promise<OcrDomainHints> {
+    const analysis = await this.aggregateCorrections(schemaId);
+    const hints: OcrDomainHints = {};
+
+    // Extract known OCR confusions (character-level swaps that occur >= threshold times)
+    if (analysis.ocrConfusions.length > 0) {
+      hints.knownConfusions = analysis.ocrConfusions
+        .filter((c) => c.count >= threshold)
+        .slice(0, 20)
+        .map((c) => ({
+          from: c.from,
+          to: c.to,
+          context: c.contexts.slice(0, 2).join(', ') || undefined,
+        }));
+    }
+
+    // Extract field-specific hints from top corrected fields
+    if (analysis.topCorrectedFields.length > 0) {
+      const fieldHints: Array<{ field: string; hint: string }> = [];
+
+      for (const field of analysis.topCorrectedFields) {
+        if (field.count < threshold) continue;
+
+        const displayPath = field.path.replace(/\.\d+\./g, '.*.').replace(/\.\d+$/, '.*');
+        // Skip if already added (different array indices map to same wildcard path)
+        if (fieldHints.some((fh) => fh.field === displayPath)) continue;
+
+        const topPatterns = field.examples
+          .filter((ex) => ex.count >= 2)
+          .slice(0, 3)
+          .map((ex) => `${this.formatValue(ex.before)}→${this.formatValue(ex.after)}`);
+
+        if (topPatterns.length > 0) {
+          fieldHints.push({
+            field: displayPath,
+            hint: `Common corrections: ${topPatterns.join(', ')}`,
+          });
+        }
+      }
+
+      if (fieldHints.length > 0) {
+        hints.fieldHints = fieldHints.slice(0, 10);
+      }
+    }
+
+    return hints;
   }
 
   // --- Private helpers ---

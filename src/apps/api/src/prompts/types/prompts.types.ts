@@ -7,10 +7,19 @@ export interface FewShotExample {
   extractedData: ExtractedData;
 }
 
+export interface OcrDomainHints {
+  documentType?: string;
+  language?: string;
+  knownConfusions?: Array<{ from: string; to: string; context?: string }>;
+  fieldHints?: Array<{ field: string; hint: string }>;
+  customInstructions?: string;
+}
+
 export interface ExtractionPromptEnhancements {
   ocrQualityScore?: number;
   structuredTables?: OcrTableData[];
   fewShotExamples?: FewShotExample[];
+  ocrDomainHints?: OcrDomainHints;
 }
 
 export interface OcrTableData {

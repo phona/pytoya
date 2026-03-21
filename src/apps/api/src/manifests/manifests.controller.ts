@@ -453,12 +453,16 @@ export class ManifestsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateManifestDto: UpdateManifestDto,
   ) {
-    const manifest = await this.updateManifestUseCase.update(
+    const { manifest, correctionFeedbackAvailable } = await this.updateManifestUseCase.update(
       user,
       id,
       updateManifestDto,
     );
-    return ManifestResponseDto.fromEntity(manifest);
+    const dto = ManifestResponseDto.fromEntity(manifest);
+    if (correctionFeedbackAvailable) {
+      return { ...dto, _meta: { correctionFeedbackAvailable: true } };
+    }
+    return dto;
   }
 
   @Delete('manifests/:id')

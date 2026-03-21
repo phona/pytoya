@@ -847,7 +847,7 @@ export class ExtractionService {
     }
 
     const textMarkdown = contextOverride ?? state.textResult?.markdown ?? '';
-    const enhancements = this.buildPromptEnhancements(state);
+    const enhancements = this.buildPromptEnhancements(state, schema);
     const promptParts =
       useReExtract && previousExtraction
         ? this.promptBuilderService.buildReExtractPrompt(
@@ -882,7 +882,7 @@ export class ExtractionService {
     ];
   }
 
-  private buildPromptEnhancements(state: ExtractionWorkflowState): ExtractionPromptEnhancements {
+  private buildPromptEnhancements(state: ExtractionWorkflowState, schema?: SchemaEntity | null): ExtractionPromptEnhancements {
     const enhancements: ExtractionPromptEnhancements = {};
 
     // Pass OCR quality score to help LLM calibrate error correction
@@ -899,6 +899,12 @@ export class ExtractionService {
     // Include few-shot examples from verified manifests
     if (state.fewShotExamples && state.fewShotExamples.length > 0) {
       enhancements.fewShotExamples = state.fewShotExamples;
+    }
+
+    // Include OCR domain hints from schema settings
+    const domainHints = (schema?.validationSettings as Record<string, unknown> | null)?.ocrDomainHints;
+    if (domainHints && typeof domainHints === 'object') {
+      enhancements.ocrDomainHints = domainHints as ExtractionPromptEnhancements['ocrDomainHints'];
     }
 
     return enhancements;

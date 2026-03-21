@@ -1,11 +1,11 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { API_BASE_URL, getApiErrorText } from '@/api/client';
-import type { CorrectionAnalysisResult, CorrectionSuggestion } from '@/api/schemas';
+import type { CorrectionAnalysisResult, CorrectionSuggestion, OcrDomainHints } from '@/api/schemas';
 import { ProjectSettingsShell } from '@/shared/components/ProjectSettingsShell';
 import { Button } from '@/shared/components/ui/button';
 import { useProject } from '@/shared/hooks/use-projects';
-import { useCorrectionAnalysis, useCorrectionSuggestions, useCorrectionSummary, useProjectSchemas, useSchema, useSchemas } from '@/shared/hooks/use-schemas';
+import { useCorrectionAnalysis, useCorrectionSuggestions, useCorrectionSummary, useGenerateDomainHints, useProjectSchemas, useSchema, useSchemas } from '@/shared/hooks/use-schemas';
 import { useAuthStore } from '@/shared/stores/auth';
 import { useI18n } from '@/shared/providers/I18nProvider';
 import { isSchemaReadyForRules } from '@/shared/utils/schema';
@@ -93,6 +93,41 @@ export function ProjectSettingsRulesPage() {
       setAutoApproveThreshold(0.95);
     }
   }, [savedAutoApproveThreshold]);
+
+  // OCR Domain Hints
+  const generateDomainHints = useGenerateDomainHints(schema?.id);
+  const savedDomainHints = useMemo(() => {
+    const raw = (schemaRecord?.validationSettings as Record<string, unknown> | null | undefined)
+      ?.ocrDomainHints as OcrDomainHints | undefined;
+    return raw ?? null;
+  }, [schemaRecord?.validationSettings]);
+
+  const [domainDocType, setDomainDocType] = useState('');
+  const [domainLanguage, setDomainLanguage] = useState('');
+  const [domainConfusions, setDomainConfusions] = useState<Array<{ from: string; to: string; context: string }>>([]);
+  const [domainFieldHints, setDomainFieldHints] = useState<Array<{ field: string; hint: string }>>([]);
+  const [domainCustomInstructions, setDomainCustomInstructions] = useState('');
+  const [domainHintsSaveError, setDomainHintsSaveError] = useState<string | null>(null);
+  const [isDomainHintsSaving, setIsDomainHintsSaving] = useState(false);
+  const [isDomainHintsGenerating, setIsDomainHintsGenerating] = useState(false);
+
+  useEffect(() => {
+    if (savedDomainHints) {
+      setDomainDocType(savedDomainHints.documentType ?? '');
+      setDomainLanguage(savedDomainHints.language ?? '');
+      setDomainConfusions(
+        (savedDomainHints.knownConfusions ?? []).map((c) => ({ from: c.from, to: c.to, context: c.context ?? '' })),
+      );
+      setDomainFieldHints(savedDomainHints.fieldHints ?? []);
+      setDomainCustomInstructions(savedDomainHints.customInstructions ?? '');
+    } else {
+      setDomainDocType('');
+      setDomainLanguage('');
+      setDomainConfusions([]);
+      setDomainFieldHints([]);
+      setDomainCustomInstructions('');
+    }
+  }, [savedDomainHints]);
 
   const handleSaveAutoApproveThreshold = async (value: number | null) => {
     try {
@@ -553,6 +588,246 @@ export function ProjectSettingsRulesPage() {
               {!autoApproveEnabled && (
                 <p className="text-xs text-muted-foreground">{t('settings.rules.autoApprove.disabled')}</p>
               )}
+            </div>
+          </div>
+
+          {/* OCR Domain Hints */}
+          <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">{t('settings.rules.domainHints.title')}</h2>
+                  <p className="text-sm text-muted-foreground">{t('settings.rules.domainHints.description')}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={async () => {
+                      setIsDomainHintsGenerating(true);
+                      setDomainHintsSaveError(null);
+                      try {
+                        const hints = await generateDomainHints.mutateAsync(undefined);
+                        if (hints.knownConfusions?.length) {
+                          setDomainConfusions(hints.knownConfusions.map((c) => ({ from: c.from, to: c.to, context: c.context ?? '' })));
+                        }
+                        if (hints.fieldHints?.length) {
+                          setDomainFieldHints(hints.fieldHints);
+                        }
+                      } catch (error) {
+                        setDomainHintsSaveError(getApiErrorText(error, t));
+                      } finally {
+                        setIsDomainHintsGenerating(false);
+                      }
+                    }}
+                    disabled={isDomainHintsGenerating || isDomainHintsSaving}
+                  >
+                    {isDomainHintsGenerating ? t('settings.rules.domainHints.generating') : t('settings.rules.domainHints.generateFromCorrections')}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      setDomainHintsSaveError(null);
+                      setIsDomainHintsSaving(true);
+                      try {
+                        const hints: OcrDomainHints = {};
+                        if (domainDocType.trim()) hints.documentType = domainDocType.trim();
+                        if (domainLanguage.trim()) hints.language = domainLanguage.trim();
+                        if (domainConfusions.length > 0) {
+                          hints.knownConfusions = domainConfusions
+                            .filter((c) => c.from.trim() && c.to.trim())
+                            .map((c) => ({ from: c.from.trim(), to: c.to.trim(), context: c.context.trim() || undefined }));
+                        }
+                        if (domainFieldHints.length > 0) {
+                          hints.fieldHints = domainFieldHints
+                            .filter((fh) => fh.field.trim() && fh.hint.trim());
+                        }
+                        if (domainCustomInstructions.trim()) hints.customInstructions = domainCustomInstructions.trim();
+
+                        const hasContent = Object.keys(hints).length > 0;
+                        const nextValidationSettings = {
+                          ...(schemaRecord?.validationSettings ?? {}),
+                          ocrDomainHints: hasContent ? hints : null,
+                        };
+                        await updateSchema({ id: schemaId, data: { validationSettings: nextValidationSettings } });
+                      } catch (error) {
+                        setDomainHintsSaveError(getApiErrorText(error, t));
+                      } finally {
+                        setIsDomainHintsSaving(false);
+                      }
+                    }}
+                    disabled={isDomainHintsSaving || isUpdating}
+                  >
+                    {isDomainHintsSaving ? t('common.saving') : t('common.save')}
+                  </Button>
+                </div>
+              </div>
+
+              {domainHintsSaveError && <p className="text-sm text-destructive">{domainHintsSaveError}</p>}
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <label className="text-sm font-medium text-muted-foreground">{t('settings.rules.domainHints.documentType')}</label>
+                  <input
+                    type="text"
+                    value={domainDocType}
+                    onChange={(e) => setDomainDocType(e.target.value)}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-ring"
+                    placeholder={t('settings.rules.domainHints.documentTypePlaceholder')}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <label className="text-sm font-medium text-muted-foreground">{t('settings.rules.domainHints.language')}</label>
+                  <input
+                    type="text"
+                    value={domainLanguage}
+                    onChange={(e) => setDomainLanguage(e.target.value)}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-ring"
+                    placeholder={t('settings.rules.domainHints.languagePlaceholder')}
+                  />
+                </div>
+              </div>
+
+              {/* Known Confusions */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-muted-foreground">{t('settings.rules.domainHints.knownConfusions')}</label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDomainConfusions([...domainConfusions, { from: '', to: '', context: '' }])}
+                  >
+                    + {t('common.add')}
+                  </Button>
+                </div>
+                {domainConfusions.length > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 text-xs font-medium text-muted-foreground px-1">
+                      <span>From</span>
+                      <span>To</span>
+                      <span>{t('settings.rules.domainHints.confusionContext')}</span>
+                      <span className="w-8" />
+                    </div>
+                    {domainConfusions.map((c, i) => (
+                      <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
+                        <input
+                          type="text"
+                          value={c.from}
+                          onChange={(e) => {
+                            const next = [...domainConfusions];
+                            next[i] = { ...next[i], from: e.target.value };
+                            setDomainConfusions(next);
+                          }}
+                          className="rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono focus:border-ring focus:outline-none"
+                          placeholder="理弧焊"
+                        />
+                        <input
+                          type="text"
+                          value={c.to}
+                          onChange={(e) => {
+                            const next = [...domainConfusions];
+                            next[i] = { ...next[i], to: e.target.value };
+                            setDomainConfusions(next);
+                          }}
+                          className="rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono focus:border-ring focus:outline-none"
+                          placeholder="埋弧焊"
+                        />
+                        <input
+                          type="text"
+                          value={c.context}
+                          onChange={(e) => {
+                            const next = [...domainConfusions];
+                            next[i] = { ...next[i], context: e.target.value };
+                            setDomainConfusions(next);
+                          }}
+                          className="rounded-md border border-border bg-background px-2 py-1.5 text-sm focus:border-ring focus:outline-none"
+                          placeholder={t('settings.rules.domainHints.confusionContextPlaceholder')}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => setDomainConfusions(domainConfusions.filter((_, j) => j !== i))}
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Field Hints */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-muted-foreground">{t('settings.rules.domainHints.fieldHints')}</label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDomainFieldHints([...domainFieldHints, { field: '', hint: '' }])}
+                  >
+                    + {t('common.add')}
+                  </Button>
+                </div>
+                {domainFieldHints.length > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="grid grid-cols-[1fr_2fr_auto] gap-2 text-xs font-medium text-muted-foreground px-1">
+                      <span>{t('settings.rules.domainHints.fieldPath')}</span>
+                      <span>{t('settings.rules.domainHints.hint')}</span>
+                      <span className="w-8" />
+                    </div>
+                    {domainFieldHints.map((fh, i) => (
+                      <div key={i} className="grid grid-cols-[1fr_2fr_auto] gap-2 items-center">
+                        <input
+                          type="text"
+                          value={fh.field}
+                          onChange={(e) => {
+                            const next = [...domainFieldHints];
+                            next[i] = { ...next[i], field: e.target.value };
+                            setDomainFieldHints(next);
+                          }}
+                          className="rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono focus:border-ring focus:outline-none"
+                          placeholder="items.*.model"
+                        />
+                        <input
+                          type="text"
+                          value={fh.hint}
+                          onChange={(e) => {
+                            const next = [...domainFieldHints];
+                            next[i] = { ...next[i], hint: e.target.value };
+                            setDomainFieldHints(next);
+                          }}
+                          className="rounded-md border border-border bg-background px-2 py-1.5 text-sm focus:border-ring focus:outline-none"
+                          placeholder={t('settings.rules.domainHints.hintPlaceholder')}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => setDomainFieldHints(domainFieldHints.filter((_, j) => j !== i))}
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Custom Instructions */}
+              <div className="grid gap-1.5">
+                <label className="text-sm font-medium text-muted-foreground">{t('settings.rules.domainHints.customInstructions')}</label>
+                <textarea
+                  value={domainCustomInstructions}
+                  onChange={(e) => setDomainCustomInstructions(e.target.value)}
+                  className="min-h-[80px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-ring"
+                  placeholder={t('settings.rules.domainHints.customInstructionsPlaceholder')}
+                />
+              </div>
             </div>
           </div>
 

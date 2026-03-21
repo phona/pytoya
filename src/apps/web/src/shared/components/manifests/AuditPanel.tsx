@@ -613,6 +613,23 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
       });
       queryClient.setQueryData(['manifests', manifestId], firstSave);
 
+      // Check if backend signals that correction feedback is available
+      const meta = (firstSave as Record<string, unknown>)?._meta as { correctionFeedbackAvailable?: boolean } | undefined;
+      if (meta?.correctionFeedbackAvailable) {
+        toast({
+          title: t('audit.correctionFeedback.title'),
+          description: t('audit.correctionFeedback.description'),
+          action: (
+            <ToastAction
+              altText={t('audit.correctionFeedback.action')}
+              onClick={() => navigate(`/projects/${projectId}/settings/rules`)}
+            >
+              {t('audit.correctionFeedback.action')}
+            </ToastAction>
+          ),
+        });
+      }
+
       if (shouldGateHumanVerifiedSave) {
         let validation: ValidationResult;
         try {

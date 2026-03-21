@@ -47,6 +47,8 @@ describe('ProjectSettingsRulesPage', () => {
     server.use(
       http.get('/api/schemas/project/1', () => HttpResponse.json([schema])),
       http.get('/api/schemas/:id', () => HttpResponse.json(schema)),
+      http.get('/api/schemas/:id/correction-summary', () => HttpResponse.json({ totalCorrections: 0, uniqueFieldsCorrected: 0, manifestsAffected: 0, hasNewPatterns: false })),
+      http.get('/api/schemas/:id/correction-suggestions', () => HttpResponse.json([])),
     );
 
     await act(async () => {
@@ -54,8 +56,8 @@ describe('ProjectSettingsRulesPage', () => {
     });
 
     await screen.findByText('Invoice Schema');
-    expect(screen.getByRole('button', { name: /Save/i })).toBeInTheDocument();
-    expect(screen.getByText(/Prompt Rules/i)).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Save/i }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Prompt Rules/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByPlaceholderText(/Enter prompt rules as Markdown/i)).toBeInTheDocument();
     expect(screen.getByText(/AI Assistant/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Generate$/i })).toBeInTheDocument();
@@ -97,6 +99,8 @@ describe('ProjectSettingsRulesPage', () => {
     server.use(
       http.get('/api/schemas/project/1', () => HttpResponse.json([schema])),
       http.get('/api/schemas/:id', () => HttpResponse.json(schema)),
+      http.get('/api/schemas/:id/correction-summary', () => HttpResponse.json({ totalCorrections: 0, uniqueFieldsCorrected: 0, manifestsAffected: 0, hasNewPatterns: false })),
+      http.get('/api/schemas/:id/correction-suggestions', () => HttpResponse.json([])),
     );
 
     await act(async () => {

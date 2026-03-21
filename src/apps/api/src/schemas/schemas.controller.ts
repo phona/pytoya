@@ -184,6 +184,17 @@ export class SchemasController {
     return this.correctionAnalysisService.getCorrectionSummary(id, sinceDate);
   }
 
+  @Get(':id/generate-domain-hints')
+  async generateDomainHints(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('threshold') threshold?: string,
+  ) {
+    await this.schemasService.findOne(user, id);
+    const t = threshold ? parseInt(threshold, 10) : undefined;
+    return this.correctionAnalysisService.generateDomainHints(id, t);
+  }
+
   @Get(':id/correction-suggestions')
   async getCorrectionSuggestions(
     @CurrentUser() user: UserEntity,

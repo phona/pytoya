@@ -84,6 +84,14 @@ export interface CorrectionSuggestion {
   suggestedRule: string;
 }
 
+export interface OcrDomainHints {
+  documentType?: string;
+  language?: string;
+  knownConfusions?: Array<{ from: string; to: string; context?: string }>;
+  fieldHints?: Array<{ field: string; hint: string }>;
+  customInstructions?: string;
+}
+
 export interface GeneratePromptRulesMarkdownDto {
   modelId: string;
   prompt: string;
@@ -178,6 +186,15 @@ export const schemasApi = {
     const params = threshold !== undefined ? { threshold } : {};
     const response = await apiClient.get<CorrectionSuggestion[]>(
       `/schemas/${schemaId}/correction-suggestions`,
+      { params },
+    );
+    return response.data;
+  },
+
+  generateDomainHints: async (schemaId: number, threshold?: number) => {
+    const params = threshold !== undefined ? { threshold } : {};
+    const response = await apiClient.get<OcrDomainHints>(
+      `/schemas/${schemaId}/generate-domain-hints`,
       { params },
     );
     return response.data;

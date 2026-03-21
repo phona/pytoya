@@ -190,9 +190,9 @@ describe('PromptBuilderService', () => {
       ocrQualityScore: 55,
     });
 
-    expect(systemContext).toContain('OCR Quality Assessment:');
+    expect(systemContext).toContain('OCR Domain Context:');
     expect(systemContext).toContain('55/100 (Poor)');
-    expect(systemContext).toContain('Characters easily confused');
+    expect(systemContext).toContain('Common OCR confusions:');
   });
 
   it('includes OCR quality assessment for good quality score', () => {
@@ -411,5 +411,192 @@ describe('PromptBuilderService', () => {
     expect(systemContext).toContain('Sum check');
     expect(systemContext).toContain('sum(items[].amount) == totalAmount');
     expect(systemContext).not.toContain('Disabled rule');
+  });
+
+  describe('buildReExtractPrompt — scope narrowing', () => {
+    const fullSchema = {
+      id: 1,
+      name: 'Invoice',
+      schemaVersion: null,
+      jsonSchema: {
+        type: 'object',
+        properties: {
+          invoiceNo: { type: 'string' },
+          poNumber: { type: 'string' },
+          vendor: { type: 'string' },
+          totalAmount: { type: 'number' },
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                unitPrice: { type: 'number' },
+                quantity: { type: 'number' },
+              },
+              required: ['name', 'unitPrice'],
+            },
+          },
+        },
+        required: ['invoiceNo', 'poNumber', 'vendor', 'totalAmount', 'items'],
+      },
+      requiredFields: ['invoiceNo', 'poNumber', 'vendor', 'totalAmount', 'items'],
+      projectId: 1,
+      description: null,
+      systemPromptTemplate: null,
+      validationSettings: null,
+      rules: [],
+      project: {} as any,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as SchemaEntity;
+
+    const allRules: SchemaRuleEntity[] = [
+      {
+        id: 1, schemaId: 1, fieldPath: 'poNumber', ruleType: SchemaRuleType.VERIFICATION,
+        ruleOperator: SchemaRuleOperator.PATTERN, ruleConfig: { pattern: '^\\d{7}$' },
+        priority: 10, errorMessage: '7 digits', enabled: true, description: null,
+        schema: fullSchema, createdAt: new Date(),
+      } as SchemaRuleEntity,
+      {
+        id: 2, schemaId: 1, fieldPath: 'items.*.unitPrice', ruleType: SchemaRuleType.RESTRICTION,
+        ruleOperator: SchemaRuleOperator.RANGE_MIN, ruleConfig: { value: 0 },
+        priority: 5, errorMessage: 'positive', enabled: true, description: null,
+        schema: fullSchema, createdAt: new Date(),
+      } as SchemaRuleEntity,
+      {
+        id: 3, schemaId: 1, fieldPath: 'vendor', ruleType: SchemaRuleType.VERIFICATION,
+        ruleOperator: SchemaRuleOperator.PATTERN, ruleConfig: {},
+        priority: 5, errorMessage: 'required', enabled: true, description: null,
+        schema: fullSchema, createdAt: new Date(),
+      } as SchemaRuleEntity,
+    ];
+
+    it('narrows schema to target fields on re-extract', () => {
+      const { systemContext } = service.buildReExtractPrompt(
+        'OCR text',
+        { invoiceNo: 'INV-001', vendor: 'Acme', totalAmount: 100 } as any,
+        ['poNumber'],
+        'Missing required field: poNumber',
+        fullSchema,
+        allRules,
+      );
+
+      // Schema section should say "target fields only"
+      expect(systemContext).toContain('target fields only');
+      // Extract the schema JSON block to verify field narrowing
+      const schemaSection = systemContext.split('JSON Schema (target fields only):')[1]?.split('\n\nRequired')[0] ?? '';
+      expect(schemaSection).toContain('poNumber');
+      expect(schemaSection).not.toContain('"vendor"');
+      expect(schemaSection).not.toContain('"totalAmount"');
+      expect(schemaSection).not.toContain('"items"');
+    });
+
+    it('narrows rules to target fields on re-extract', () => {
+      const { systemContext } = service.buildReExtractPrompt(
+        'OCR text',
+        { invoiceNo: 'INV-001' } as any,
+        ['poNumber'],
+        'Missing required field: poNumber',
+        fullSchema,
+        allRules,
+      );
+
+      // Should include poNumber rule but not items rules
+      const rulesSection = systemContext.split('Validation Rules:')[1]?.split('\n\n')[0] ?? '';
+      expect(rulesSection).toContain('7 digits');
+      expect(rulesSection).not.toContain('positive');
+    });
+
+    it('narrows array sub-fields in schema', () => {
+      const { systemContext } = service.buildReExtractPrompt(
+        'OCR text',
+        { invoiceNo: 'INV-001', poNumber: '0000009' } as any,
+        ['items[].unitPrice'],
+        'items.0.unitPrice must be number',
+        fullSchema,
+        allRules,
+      );
+
+      // Schema section should contain items with unitPrice but not other top-level fields
+      const schemaSection = systemContext.split('JSON Schema (target fields only):')[1]?.split('\n\nRequired')[0] ?? '';
+      expect(schemaSection).toContain('unitPrice');
+      expect(schemaSection).not.toContain('"vendor"');
+      expect(schemaSection).not.toContain('"poNumber"');
+      // items rule should be included, poNumber rule should not
+      const rulesSection = systemContext.split('Validation Rules:')[1]?.split('\n\n')[0] ?? '';
+      expect(rulesSection).toContain('positive');
+      expect(rulesSection).not.toContain('7 digits');
+    });
+
+    it('keeps full prompt when missingFields is empty', () => {
+      const { systemContext } = service.buildReExtractPrompt(
+        'OCR text',
+        { invoiceNo: 'INV-001' } as any,
+        [],
+        'General validation error',
+        fullSchema,
+        allRules,
+      );
+
+      // Full schema should be present
+      expect(systemContext).toContain('"invoiceNo"');
+      expect(systemContext).toContain('"vendor"');
+      expect(systemContext).toContain('"totalAmount"');
+      expect(systemContext).toContain('"items"');
+      // All rules
+      expect(systemContext).toContain('7 digits');
+      expect(systemContext).toContain('positive');
+    });
+
+    it('trims few-shot examples to target fields', () => {
+      const fewShot = [
+        {
+          ocrSnippet: 'Invoice text...',
+          extractedData: {
+            invoiceNo: 'INV-001',
+            poNumber: '0000009',
+            vendor: 'FewShotVendorXYZ',
+            totalAmount: 99999,
+          } as any,
+        },
+      ];
+
+      const { systemContext } = service.buildReExtractPrompt(
+        'OCR text',
+        { invoiceNo: 'INV-001' } as any,
+        ['poNumber'],
+        'Missing poNumber',
+        fullSchema,
+        [],
+        undefined,
+        { fewShotExamples: fewShot },
+      );
+
+      // Few-shot section should only show poNumber field
+      const fewShotSection = systemContext.split('Few-Shot Examples')[1] ?? '';
+      expect(fewShotSection).toContain('0000009');
+      expect(fewShotSection).not.toContain('FewShotVendorXYZ');
+      expect(fewShotSection).not.toContain('99999');
+    });
+
+    it('narrows required fields to targets', () => {
+      const { systemContext } = service.buildReExtractPrompt(
+        'OCR text',
+        {} as any,
+        ['poNumber', 'vendor'],
+        'Missing fields',
+        fullSchema,
+        allRules,
+      );
+
+      // Required fields should only list poNumber and vendor
+      expect(systemContext).toContain('poNumber');
+      expect(systemContext).toContain('vendor');
+      // Should not list other required fields in the required block
+      const requiredSection = systemContext.split('Required fields')[1]?.split('\n\n')[0] ?? '';
+      expect(requiredSection).not.toContain('totalAmount');
+      expect(requiredSection).not.toContain('invoiceNo');
+    });
   });
 });
