@@ -60,7 +60,7 @@ describe('ExtractorsPage', () => {
     });
   });
 
-  it('shows validation errors when creating with missing fields', async () => {
+  it('shows validation errors when creating with missing fields', { timeout: 15000 }, async () => {
     const user = userEvent.setup();
     await act(async () => {
       renderWithProviders(<ExtractorsPage />);

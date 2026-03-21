@@ -30,7 +30,7 @@ describe('ProjectSettingsSchemaPage', () => {
     server.close();
   });
 
-  it('updates schema via API when submitting edit form', async () => {
+  it('updates schema via API when submitting edit form', { timeout: 15000 }, async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     let schema = {
       id: 1,

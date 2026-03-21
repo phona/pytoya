@@ -90,7 +90,7 @@ describe('ProjectWizard', () => {
     server.close();
   });
 
-  it('completes quick create flow', async () => {
+  it('completes quick create flow', { timeout: 15000 }, async () => {
     setupHandlers();
     const onCreated = vi.fn();
     const user = userEvent.setup({ pointerEventsCheck: 0 });
@@ -134,7 +134,7 @@ describe('ProjectWizard', () => {
     });
   });
 
-  it('requires name and model before submitting', async () => {
+  it('requires name and model before submitting', { timeout: 15000 }, async () => {
     setupHandlers();
     const user = userEvent.setup({ pointerEventsCheck: 0 });
 

@@ -36,6 +36,29 @@ if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
 
+// Fix MSW v2 + jsdom cross-realm AbortSignal incompatibility.
+// React Router v7 creates Request objects with AbortSignal during navigation.
+// jsdom provides its own AbortSignal that fails Node's undici instanceof check.
+// Only strip the signal on TypeError (when undici rejects it), leaving valid
+// HTTP request signals intact so MSW interception works correctly.
+const NativeRequest = globalThis.Request;
+globalThis.Request = new Proxy(NativeRequest, {
+  construct(target, args, newTarget) {
+    try {
+      return Reflect.construct(target, args, newTarget);
+    } catch (e) {
+      if (e instanceof TypeError && String(e).includes('AbortSignal')) {
+        const init = args[1];
+        if (init && typeof init === 'object' && 'signal' in init) {
+          const { signal: _signal, ...rest } = init as Record<string, unknown>;
+          return Reflect.construct(target, [args[0], rest], newTarget);
+        }
+      }
+      throw e;
+    }
+  },
+}) as typeof Request;
+
 // Blob URL helpers are not always present in jsdom
 if (typeof window !== 'undefined' && window.URL) {
   if (!('createObjectURL' in window.URL)) {

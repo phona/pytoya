@@ -549,6 +549,30 @@ export const handlers = [
       updatedAt: '2025-01-13T00:00:00.000Z',
     });
   }),
+  http.get('/api/schemas/:id/correction-summary', () => {
+    return HttpResponse.json({
+      totalCorrections: 0,
+      uniqueFieldsCorrected: 0,
+      manifestsAffected: 0,
+      hasNewPatterns: false,
+    });
+  }),
+  http.get('/api/schemas/:id/correction-suggestions', () => {
+    return HttpResponse.json([]);
+  }),
+  http.get('/api/schemas/:id/generate-domain-hints', () => {
+    return HttpResponse.json({});
+  }),
+  http.post('/api/schemas/:id/correction-analysis', () => {
+    return HttpResponse.json({
+      totalLogs: 0,
+      totalDiffs: 0,
+      dateRange: { from: null, to: null },
+      topCorrectedFields: [],
+      ocrConfusions: [],
+      summary: { manifestsWithCorrections: 0, uniqueFieldsCorrected: 0, avgDiffsPerLog: 0 },
+    });
+  }),
   http.get('/api/schemas/:schemaId/rules', () => {
     return HttpResponse.json([]);
   }),

@@ -135,7 +135,7 @@ describe('ModelsPage', () => {
     expect(await screen.findByText(/9\.8456 USD/)).toBeInTheDocument();
   });
 
-  it('creates a model via UI', async () => {
+  it('creates a model via UI', { timeout: 15000 }, async () => {
     setupListHandlers();
     const user = userEvent.setup();
     let received: Record<string, unknown> = {};

@@ -33,8 +33,9 @@ vi.mock('@/api/manifests', async (importOriginal) => {
 });
 
 describe('Core journeys (RTL + MSW)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.setItem('pytoya-locale', 'en');
+    await useAuthStore.persist.rehydrate();
   });
 
   afterEach(async () => {
