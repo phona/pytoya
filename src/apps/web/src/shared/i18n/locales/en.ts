@@ -893,6 +893,7 @@ export const enMessages: Record<string, string> = {
   'analytics.recommendations.severity.critical': 'Critical',
   'analytics.recommendations.action.editExtractor': 'Tune extractor',
   'analytics.recommendations.action.editRules': 'Edit prompt rules',
+  'analytics.recommendations.action.autoDraftRules': 'Auto-draft rules from corrections',
   'analytics.recommendations.action.editModels': 'Review LLM models',
   'analytics.recommendations.action.viewManifests': 'Open manifests',
   'analytics.recommendations.ocrQuality.title': 'OCR quality is low for {{percent}}% of recent documents',
