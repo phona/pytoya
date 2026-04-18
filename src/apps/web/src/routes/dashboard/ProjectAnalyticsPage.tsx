@@ -1,8 +1,14 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useProjectAnalytics, useProjectOperationLogs, useProject } from '@/shared/hooks/use-projects';
+import {
+  useProjectAnalytics,
+  useProjectOperationLogs,
+  useProject,
+  useProjectRecommendations,
+} from '@/shared/hooks/use-projects';
 import { AppBreadcrumbs } from '@/shared/components/AppBreadcrumbs';
+import { RecommendationsPanel } from '@/shared/components/RecommendationsPanel';
 import { useI18n } from '@/shared/providers/I18nProvider';
 import type { ProjectOperationLog } from '@/api/projects';
 
@@ -310,6 +316,7 @@ export function ProjectAnalyticsPage() {
   const projectId = Number(params.id);
   const { project } = useProject(projectId);
   const { analytics, isLoading } = useProjectAnalytics(projectId);
+  const { recommendations } = useProjectRecommendations(projectId);
 
   const projectLabel = project?.name ?? `Project ${projectId}`;
 
@@ -340,6 +347,8 @@ export function ProjectAnalyticsPage() {
           <h2 className="text-2xl font-bold text-foreground">{t('analytics.title')}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t('analytics.subtitle')}</p>
         </div>
+
+        <RecommendationsPanel recommendations={recommendations} />
 
         {/* Summary cards */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

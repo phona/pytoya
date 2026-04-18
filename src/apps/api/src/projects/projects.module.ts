@@ -12,6 +12,7 @@ import { ValidationModule } from '../validation/validation.module';
 import { SchemasModule } from '../schemas/schemas.module';
 import { ProjectsController } from './projects.controller';
 import { ProjectsService } from './projects.service';
+import { AnalyticsRecommendationsService } from './analytics-recommendations.service';
 
 @Module({
   imports: [
@@ -28,7 +29,7 @@ import { ProjectsService } from './projects.service';
     SchemasModule,
   ],
   controllers: [ProjectsController],
-  providers: [ProjectsService],
+  providers: [ProjectsService, AnalyticsRecommendationsService],
   exports: [ProjectsService],
 })
 export class ProjectsModule {}

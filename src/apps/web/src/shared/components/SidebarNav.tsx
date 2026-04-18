@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ChevronLeft, Menu, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/shared/hooks/use-auth';
 import { useAuthStore } from '@/shared/stores/auth';
+import { useRecentProjectStore } from '@/shared/stores/recent-project';
 import { ThemeToggle } from '@/shared/components/ThemeToggle';
 import { useI18n } from '@/shared/providers/I18nProvider';
 import { Button } from '@/shared/components/ui/button';
@@ -16,7 +17,11 @@ type SidebarNavProps = {
   onDesktopExpand: () => void;
 };
 
-type NavItem = { labelKey: string; to: string };
+type NavItem = {
+  labelKey: string;
+  to: string;
+  isActive?: (pathname: string) => boolean;
+};
 type NavSection = { titleKey: string; items: NavItem[]; adminOnly?: boolean };
 
 const extractProjectId = (pathname: string): number | null => {
@@ -24,24 +29,28 @@ const extractProjectId = (pathname: string): number | null => {
   return match ? Number(match[1]) : null;
 };
 
-const buildNavSections = (projectId: number | null): NavSection[] => {
-  const sections: NavSection[] = [
+const isAnalyticsPath = (pathname: string) =>
+  /^\/projects\/\d+\/analytics(\/|$)/.test(pathname);
+
+const buildNavSections = (analyticsTarget: string): NavSection[] => {
+  return [
     {
       titleKey: 'sidebar.section.work',
-      items: [{ labelKey: 'nav.projects', to: '/projects' }],
-    },
-  ];
-
-  if (projectId !== null) {
-    sections.push({
-      titleKey: 'sidebar.section.project',
       items: [
-        { labelKey: 'nav.analytics', to: `/projects/${projectId}/analytics` },
+        {
+          labelKey: 'nav.projects',
+          to: '/projects',
+          isActive: (pathname) =>
+            (pathname === '/projects' || pathname.startsWith('/projects/')) &&
+            !isAnalyticsPath(pathname),
+        },
+        {
+          labelKey: 'nav.analytics',
+          to: analyticsTarget,
+          isActive: isAnalyticsPath,
+        },
       ],
-    });
-  }
-
-  sections.push(
+    },
     {
       titleKey: 'sidebar.section.systemAdminOnly',
       adminOnly: true,
@@ -54,9 +63,7 @@ const buildNavSections = (projectId: number | null): NavSection[] => {
       titleKey: 'sidebar.section.account',
       items: [{ labelKey: 'nav.profile', to: '/profile' }],
     },
-  );
-
-  return sections;
+  ];
 };
 
 const isPathActive = (currentPath: string, targetPath: string) => {
@@ -77,11 +84,27 @@ export function SidebarNav({
   const location = useLocation();
   const { logout } = useAuth();
   const user = useAuthStore((state) => state.user);
+  const lastProjectId = useRecentProjectStore((state) => state.lastProjectId);
+  const setLastProjectId = useRecentProjectStore((state) => state.setLastProjectId);
   const { locale, setLocale, t } = useI18n();
   const isAdmin = user?.role === 'admin';
   const isSidebarHidden = isDesktop ? isDesktopCollapsed : !isOpen;
   const projectId = extractProjectId(location.pathname);
-  const navSections = useMemo(() => buildNavSections(projectId), [projectId]);
+
+  useEffect(() => {
+    if (projectId !== null && projectId !== lastProjectId) {
+      setLastProjectId(projectId);
+    }
+  }, [projectId, lastProjectId, setLastProjectId]);
+
+  const resolvedProjectId = projectId ?? lastProjectId;
+  const analyticsTarget = resolvedProjectId
+    ? `/projects/${resolvedProjectId}/analytics`
+    : '/projects';
+  const navSections = useMemo(
+    () => buildNavSections(analyticsTarget),
+    [analyticsTarget],
+  );
   const visibleSections = navSections.filter(
     (section) => !section.adminOnly || isAdmin,
   );
@@ -158,10 +181,12 @@ export function SidebarNav({
                   {t(section.titleKey)}
                 </div>
                 {section.items.map((item) => {
-                  const isActive = isPathActive(location.pathname, item.to);
+                  const isActive = item.isActive
+                    ? item.isActive(location.pathname)
+                    : isPathActive(location.pathname, item.to);
                   return (
                     <Link
-                      key={item.to}
+                      key={item.labelKey}
                       to={item.to}
                       onClick={onClose}
                       aria-current={isActive ? 'page' : undefined}

@@ -1,6 +1,8 @@
 import apiClient from '@/api/client';
 import type { Jsonify } from '@/api/types';
 import type {
+  AnalyticsRecommendationDto,
+  AnalyticsRecommendationsResponseDto,
   CreateGroupDto,
   CreateProjectDto,
   CreateProjectWizardDto,
@@ -79,6 +81,9 @@ export interface ProjectAnalytics {
   activityOverTime: ActivityEntry[];
   recentCorrectionsCount: number;
 }
+
+export type AnalyticsRecommendation = Jsonify<AnalyticsRecommendationDto>;
+export type AnalyticsRecommendationsResponse = Jsonify<AnalyticsRecommendationsResponseDto>;
 
 export const projectsApi = {
   // Projects
@@ -166,6 +171,13 @@ export const projectsApi = {
     const response = await apiClient.get<ProjectOperationLogsResponse>(
       `/projects/${projectId}/operation-logs`,
       { params },
+    );
+    return response.data;
+  },
+
+  getProjectRecommendations: async (projectId: number) => {
+    const response = await apiClient.get<AnalyticsRecommendationsResponse>(
+      `/projects/${projectId}/analytics/recommendations`,
     );
     return response.data;
   },
