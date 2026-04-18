@@ -27,6 +27,7 @@ export const makeManifest = (overrides: Partial<Manifest> = {}): Manifest => {
     llmCost: null,
     extractionCostCurrency: null,
     textExtractorId: null,
+    lastError: null,
     createdAt: now,
     updatedAt: now,
     ...overrides,
