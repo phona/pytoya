@@ -3,6 +3,12 @@ export type { CreateProjectWizardDto } from '../../../apps/api/src/projects/dto/
 export type { UpdateProjectDto } from '../../../apps/api/src/projects/dto/update-project.dto';
 export type { ProjectResponseDto } from '../../../apps/api/src/projects/dto/project-response.dto';
 export type { ProjectCostSummaryDto } from '../../../apps/api/src/projects/dto/project-cost-summary.dto';
+export type {
+  AnalyticsEvidenceDto,
+  AnalyticsRecommendationDto,
+  AnalyticsRecommendationsResponseDto,
+  RecommendationSeverity,
+} from '../../../apps/api/src/projects/dto/analytics-recommendations.dto';
 export type { UpdateProjectExtractorDto } from '../../../apps/api/src/projects/dto/update-project-extractor.dto';
 export type { CreateGroupDto } from '../../../apps/api/src/groups/dto/create-group.dto';
 export type { UpdateGroupDto } from '../../../apps/api/src/groups/dto/update-group.dto';

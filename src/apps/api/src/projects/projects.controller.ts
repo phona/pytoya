@@ -23,12 +23,17 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 import { UpdateProjectExtractorDto } from './dto/update-project-extractor.dto';
 import { ProjectCostSummaryDto } from './dto/project-cost-summary.dto';
 import { ProjectsService } from './projects.service';
+import { AnalyticsRecommendationsService } from './analytics-recommendations.service';
+import { AnalyticsRecommendationsResponseDto } from './dto/analytics-recommendations.dto';
 import { SchemaResponseDto } from '../schemas/dto/schema-response.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('projects')
 export class ProjectsController {
-  constructor(private readonly projectsService: ProjectsService) {}
+  constructor(
+    private readonly projectsService: ProjectsService,
+    private readonly analyticsRecommendationsService: AnalyticsRecommendationsService,
+  ) {}
 
   @Post('wizard')
   async createWizard(
@@ -120,6 +125,14 @@ export class ProjectsController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.projectsService.getProjectAnalytics(user, id);
+  }
+
+  @Get(':id/analytics/recommendations')
+  async getAnalyticsRecommendations(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<AnalyticsRecommendationsResponseDto> {
+    return this.analyticsRecommendationsService.getRecommendations(user, id);
   }
 
   @Get(':id/operation-logs')

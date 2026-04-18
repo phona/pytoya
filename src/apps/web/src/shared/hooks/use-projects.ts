@@ -130,6 +130,21 @@ export function useProjectAnalytics(projectId: number) {
   };
 }
 
+export function useProjectRecommendations(projectId: number) {
+  const query = useQuery({
+    queryKey: ['project', projectId, 'analytics', 'recommendations'],
+    queryFn: () => projectsApi.getProjectRecommendations(projectId),
+    enabled: !!projectId,
+  });
+
+  return {
+    recommendations: query.data?.recommendations ?? [],
+    generatedAt: query.data?.generatedAt,
+    isLoading: query.isLoading,
+    error: query.error,
+  };
+}
+
 export function useProjectOperationLogs(
   projectId: number,
   params?: { limit?: number; offset?: number },
