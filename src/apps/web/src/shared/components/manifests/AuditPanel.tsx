@@ -30,6 +30,7 @@ import { OcrPreviewModal } from './OcrPreviewModal';
 import { CorrectionHistoryPanel } from './CorrectionHistoryPanel';
 import { ExtractionHistoryPanel } from './ExtractionHistoryPanel';
 import { OcrHistoryPanel } from './OcrHistoryPanel';
+import { CoveragePanel } from './CoveragePanel';
 import { FieldHintDialog } from './FieldHintDialog';
 import { Manifest, ValidationResult } from '@/api/manifests';
 import { toast } from '@/shared/hooks/use-toast';
@@ -112,7 +113,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     }
   }, [auditNavContext]);
 
-  const [activeTab, setActiveTab] = useState<'form' | 'extraction' | 'ocr' | 'validation' | 'history'>('form');
+  const [activeTab, setActiveTab] = useState<'form' | 'extraction' | 'ocr' | 'coverage' | 'validation' | 'history'>('form');
 
   const effectiveIds = useMemo(() => {
     if (
@@ -189,7 +190,10 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     open: boolean;
     fieldPath: string;
   } | null>(null);
-  const { data: ocrData, isLoading: isOcrLoading, error: ocrError } = useOcrResult(manifestId, activeTab === 'ocr');
+  const { data: ocrData, isLoading: isOcrLoading, error: ocrError } = useOcrResult(
+    manifestId,
+    activeTab === 'ocr' || activeTab === 'coverage',
+  );
   const { data: extractionHistory, isLoading: isHistoryLoading } = useManifestExtractionHistory(manifestId, {
     enabled: activeTab === 'history' || fieldHistoryOpen,
     limit: 50,
@@ -1292,6 +1296,13 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
             <ValidationResultsPanel
               result={manifest.validationResults}
               isLoading={runValidation.isPending}
+            />
+          ) : activeTab === 'coverage' ? (
+            <CoveragePanel
+              extractedData={manifest.extractedData}
+              jsonSchema={jsonSchema}
+              ocrResult={ocrData?.ocrResult ?? null}
+              isOcrLoading={isOcrLoading}
             />
           ) : (
             <OcrViewer manifest={manifest} />
