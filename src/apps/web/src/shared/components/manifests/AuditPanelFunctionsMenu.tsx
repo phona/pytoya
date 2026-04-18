@@ -13,7 +13,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { getStatusBadgeClasses } from '@/shared/styles/status-badges';
 import { useI18n } from '@/shared/providers/I18nProvider';
 
-export type AuditPanelTab = 'form' | 'extraction' | 'ocr' | 'validation' | 'history';
+export type AuditPanelTab = 'form' | 'extraction' | 'ocr' | 'coverage' | 'validation' | 'history';
 
 type AuditPanelFunctionsMenuProps = {
   activeTab: AuditPanelTab;
@@ -26,6 +26,7 @@ const tabOptions: Array<{ value: AuditPanelTab; label: string }> = [
   { value: 'form', label: 'audit.tab.form' },
   { value: 'extraction', label: 'audit.tab.extraction' },
   { value: 'ocr', label: 'audit.tab.ocr' },
+  { value: 'coverage', label: 'audit.tab.coverage' },
   { value: 'history', label: 'audit.tab.history' },
   { value: 'validation', label: 'audit.tab.validation' },
 ];
