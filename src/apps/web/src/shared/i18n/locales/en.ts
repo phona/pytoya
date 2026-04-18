@@ -422,6 +422,14 @@ export const enMessages: Record<string, string> = {
   'manifests.list.audit': 'Audit',
   'manifests.list.deleteBulk': 'Delete…',
 
+  'manifests.retryFailed.label': 'Retry failed ({{count}})',
+  'manifests.retryFailed.retrying': 'Retrying…',
+  'manifests.retryFailed.noneTooltip': 'No failed manifests in the current view or selection.',
+  'manifests.retryFailed.toastTitle': 'Retry queued',
+  'manifests.retryFailed.toastDescription': 'Re-extracting {{count}} failed manifest(s).',
+  'manifests.retryFailed.toastErrorTitle': 'Retry failed',
+  'manifests.failureReason.ariaLabel': 'Last failure reason: {{reason}}',
+
   'manifests.auditMenu.title': 'Audit',
   'manifests.auditMenu.filtered': 'Audit filtered results ({{count}})',
   'manifests.auditMenu.selected': 'Audit selected ({{count}})',

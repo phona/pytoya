@@ -13,7 +13,7 @@ import {
 } from './BatchValidationResultsModal';
 import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/shared/hooks/use-websocket';
 import { useRunBatchValidation } from '@/shared/hooks/use-validation-scripts';
-import { useDeleteManifestsBulk } from '@/shared/hooks/use-manifests';
+import { useDeleteManifestsBulk, useExtractBulk } from '@/shared/hooks/use-manifests';
 import { ManifestFilterValues, ManifestSort } from '@/shared/types/manifests';
 import { useExtractorTypes, useExtractors } from '@/shared/hooks/use-extractors';
 import {
@@ -121,6 +121,7 @@ export function ManifestList({
 
   const runBatchValidation = useRunBatchValidation();
   const deleteManifestsBulk = useDeleteManifestsBulk();
+  const extractBulk = useExtractBulk();
   const { extractors } = useExtractors();
   const { types: extractorTypes } = useExtractorTypes();
 
@@ -244,6 +245,36 @@ export function ManifestList({
     if (selectedIds.size === 0) return [];
     return manifests.filter((m) => selectedIds.has(m.id));
   }, [manifests, selectedIds]);
+
+  const failedManifestsInScope = useMemo(() => {
+    const scope =
+      selectedIds.size > 0
+        ? manifests.filter((m) => selectedIds.has(m.id))
+        : manifests;
+    return scope.filter((m) => m.status === 'failed');
+  }, [manifests, selectedIds]);
+
+  const handleRetryFailed = useCallback(async () => {
+    const ids = failedManifestsInScope.map((m) => m.id);
+    if (ids.length === 0) return;
+    try {
+      await extractBulk.mutateAsync({ manifestIds: ids, groupId });
+      toast({
+        title: t('manifests.retryFailed.toastTitle'),
+        description: t('manifests.retryFailed.toastDescription', {
+          count: ids.length,
+        }),
+      });
+      setSelectedIds(new Set());
+      setSelectAll(false);
+    } catch (error) {
+      toast({
+        title: t('manifests.retryFailed.toastErrorTitle'),
+        description: getApiErrorText(error, t),
+        variant: 'destructive',
+      });
+    }
+  }, [extractBulk, failedManifestsInScope, groupId, t]);
 
   const validationEligibility = useMemo(() => {
     return {
@@ -490,6 +521,26 @@ export function ManifestList({
             </Button>
             <Button type="button" size="sm" variant="outline" onClick={() => setExtractModalOpen(true)}>
               {t('manifests.list.extract')}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleRetryFailed}
+              disabled={
+                failedManifestsInScope.length === 0 || extractBulk.isPending
+              }
+              title={
+                failedManifestsInScope.length === 0
+                  ? t('manifests.retryFailed.noneTooltip')
+                  : undefined
+              }
+            >
+              {extractBulk.isPending
+                ? t('manifests.retryFailed.retrying')
+                : t('manifests.retryFailed.label', {
+                    count: failedManifestsInScope.length,
+                  })}
             </Button>
             <Button type="button" size="sm" variant="destructive" onClick={handleBatchDelete}>
               {t('manifests.list.deleteBulk')}

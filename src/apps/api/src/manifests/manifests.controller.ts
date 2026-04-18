@@ -129,7 +129,19 @@ export class ManifestsController {
       query,
     );
 
-    const data = result.data.map((m) => ManifestResponseDto.fromEntity(m));
+    const failedIds = result.data
+      .filter((m) => m.status === ManifestStatus.FAILED)
+      .map((m) => m.id);
+    const lastErrors =
+      failedIds.length > 0
+        ? await this.manifestsService.getLastErrorsForManifests(failedIds)
+        : new Map<number, string>();
+
+    const data = result.data.map((m) =>
+      ManifestResponseDto.fromEntity(m, {
+        lastError: lastErrors.get(m.id) ?? null,
+      }),
+    );
 
     return {
       data,
@@ -357,7 +369,14 @@ export class ManifestsController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     const manifest = await this.manifestsService.findOne(user, id);
-    return ManifestResponseDto.fromEntity(manifest);
+    let lastError: string | null = null;
+    if (manifest.status === ManifestStatus.FAILED) {
+      const errors = await this.manifestsService.getLastErrorsForManifests([
+        manifest.id,
+      ]);
+      lastError = errors.get(manifest.id) ?? null;
+    }
+    return ManifestResponseDto.fromEntity(manifest, { lastError });
   }
 
   @Get('manifests/:id/extraction-history')
