@@ -7,7 +7,7 @@ import {
   type SortingState,
   useReactTable,
 } from '@tanstack/react-table';
-import { ChevronDown, ChevronUp, Filter } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronUp, Filter } from 'lucide-react';
 import { Manifest } from '@/api/manifests';
 import { DataTable } from '@/shared/components/DataTable';
 import { EmptyState } from '@/shared/components/EmptyState';
@@ -544,9 +544,21 @@ export function ManifestTable({
                     : effectiveStatus;
           const progress = manifestProgress?.[row.original.id];
           const showProgress = effectiveStatus === 'processing' || Boolean(progress);
+          const lastError = row.original.lastError;
           return (
             <div className="flex flex-col gap-2">
-              <Badge className={`px-2 py-1 w-fit ${getStatusBadgeClasses(effectiveStatus)}`}>{statusLabel}</Badge>
+              <div className="flex items-center gap-1.5">
+                <Badge className={`px-2 py-1 w-fit ${getStatusBadgeClasses(effectiveStatus)}`}>{statusLabel}</Badge>
+                {effectiveStatus === 'failed' && lastError ? (
+                  <span
+                    className="inline-flex"
+                    title={lastError}
+                    aria-label={t('manifests.failureReason.ariaLabel', { reason: lastError })}
+                  >
+                    <AlertCircle className="h-4 w-4 text-red-500" />
+                  </span>
+                ) : null}
+              </div>
               {showProgress ? (
                 <div className="w-32">
                   <ProgressBar

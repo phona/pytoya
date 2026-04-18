@@ -31,12 +31,13 @@ export class ManifestResponseDto {
   extractionCostCurrency!: string | null;
   textExtractorId!: string | null;
   isDuplicate?: boolean;
+  lastError!: string | null;
   createdAt!: Date;
   updatedAt!: Date;
 
   static fromEntity(
     manifest: ManifestEntity,
-    options: { includeOcr?: boolean } = {},
+    options: { includeOcr?: boolean; lastError?: string | null } = {},
   ): ManifestResponseDto {
     const textCost =
       typeof manifest.textCost === 'string'
@@ -77,6 +78,7 @@ export class ManifestResponseDto {
       extractionCost,
       extractionCostCurrency: manifest.extractionCostCurrency ?? null,
       textExtractorId: manifest.textExtractorId ?? null,
+      lastError: options.lastError ?? null,
       createdAt: manifest.createdAt,
       updatedAt: manifest.updatedAt,
     };

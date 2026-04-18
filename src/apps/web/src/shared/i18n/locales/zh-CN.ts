@@ -414,6 +414,14 @@ export const zhCNMessages: Record<string, string> = {
   'manifests.list.audit': '审核',
   'manifests.list.deleteBulk': '删除…',
 
+  'manifests.retryFailed.label': '重试失败（{{count}}）',
+  'manifests.retryFailed.retrying': '正在重试…',
+  'manifests.retryFailed.noneTooltip': '当前视图或所选中没有失败的文档。',
+  'manifests.retryFailed.toastTitle': '已排队重试',
+  'manifests.retryFailed.toastDescription': '正在重新提取 {{count}} 个失败文档。',
+  'manifests.retryFailed.toastErrorTitle': '重试失败',
+  'manifests.failureReason.ariaLabel': '最近失败原因：{{reason}}',
+
   'manifests.auditMenu.title': '审核',
   'manifests.auditMenu.filtered': '审核筛选结果（{{count}}）',
   'manifests.auditMenu.selected': '审核所选（{{count}}）',

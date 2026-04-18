@@ -182,6 +182,34 @@ export class ManifestsService {
     }
   }
 
+  async getLastErrorsForManifests(
+    manifestIds: number[],
+  ): Promise<Map<number, string>> {
+    const map = new Map<number, string>();
+    if (manifestIds.length === 0) return map;
+
+    // Latest failed job per manifest. distinctOn + ORDER BY manifestId, createdAt DESC
+    // returns the most recent error per manifest. Postgres-only, which is fine —
+    // the project's only supported DB is Postgres.
+    const rows = await this.jobRepository
+      .createQueryBuilder('job')
+      .select('job.manifestId', 'manifestId')
+      .addSelect('job.error', 'errorMessage')
+      .where('job.manifestId IN (:...ids)', { ids: manifestIds })
+      .andWhere('job.error IS NOT NULL')
+      .distinctOn(['job.manifestId'])
+      .orderBy('job.manifestId', 'ASC')
+      .addOrderBy('job.createdAt', 'DESC')
+      .getRawMany<{ manifestId: number | string; errorMessage: string | null }>();
+
+    for (const row of rows) {
+      const id = Number(row.manifestId);
+      if (!Number.isFinite(id) || !row.errorMessage) continue;
+      map.set(id, row.errorMessage);
+    }
+    return map;
+  }
+
   async findByGroup(
     user: UserEntity,
     groupId: number,
