@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { API_BASE_URL, getApiErrorText } from '@/api/client';
 import type { CorrectionAnalysisResult, CorrectionSuggestion, OcrDomainHints } from '@/api/schemas';
 import { ProjectSettingsShell } from '@/shared/components/ProjectSettingsShell';
@@ -255,6 +255,51 @@ export function ProjectSettingsRulesPage() {
 
     return assembled;
   };
+
+  const runCorrectionGenerate = async () => {
+    if (!project?.llmModelId) {
+      setCorrectionGenerateError('Project LLM model is not configured.');
+      return;
+    }
+    setCorrectionGenerateError(null);
+    setCorrectionCandidate('');
+    setCorrectionFeedback('');
+    setShowCorrectionDiff(false);
+
+    correctionAbortRef.current?.abort();
+    const controller = new AbortController();
+    correctionAbortRef.current = controller;
+    setIsCorrectionGenerating(true);
+
+    try {
+      await streamCorrectionRules(
+        { modelId: project.llmModelId, feedback: undefined },
+        controller,
+      );
+    } catch (error) {
+      if (!isAbortError(error)) {
+        setCorrectionGenerateError(getApiErrorText(error, t));
+      }
+    } finally {
+      setIsCorrectionGenerating(false);
+      correctionAbortRef.current = null;
+    }
+  };
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autoGenTriggeredRef = useRef(false);
+
+  useEffect(() => {
+    if (autoGenTriggeredRef.current) return;
+    if (searchParams.get('autoGenerateFromCorrections') !== '1') return;
+    if (!schemaReady || !project?.llmModelId || isCorrectionGenerating) return;
+    autoGenTriggeredRef.current = true;
+    const next = new URLSearchParams(searchParams);
+    next.delete('autoGenerateFromCorrections');
+    setSearchParams(next, { replace: true });
+    void runCorrectionGenerate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, schemaReady, project?.llmModelId, isCorrectionGenerating]);
 
   useEffect(() => {
     if (!schemaId || !schemaRecord) return;

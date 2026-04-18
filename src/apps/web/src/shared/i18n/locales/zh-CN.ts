@@ -882,6 +882,7 @@ export const zhCNMessages: Record<string, string> = {
   'analytics.recommendations.severity.critical': '严重',
   'analytics.recommendations.action.editExtractor': '调整提取器',
   'analytics.recommendations.action.editRules': '编辑规则',
+  'analytics.recommendations.action.autoDraftRules': '根据修正自动生成规则',
   'analytics.recommendations.action.editModels': '检查大模型',
   'analytics.recommendations.action.viewManifests': '查看文档',
   'analytics.recommendations.ocrQuality.title': '最近 {{percent}}% 的文档 OCR 质量偏低',

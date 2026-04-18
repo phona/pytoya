@@ -177,8 +177,8 @@ export class AnalyticsRecommendationsService {
           value: String(entry.count),
         },
       ],
-      actionHref: `/projects/${projectId}/settings/rules`,
-      actionLabelKey: 'analytics.recommendations.action.editRules',
+      actionHref: `/projects/${projectId}/settings/rules?autoGenerateFromCorrections=1`,
+      actionLabelKey: 'analytics.recommendations.action.autoDraftRules',
     }));
   }
 
