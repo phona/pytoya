@@ -45,8 +45,8 @@ The analytics recommendations service SHALL run at minimum the following analyze
 
 - **OCR quality**: emits a recommendation when, over the last 30 days, at least 5 manifests have an `ocrQualityScore` and the share of manifests with `ocrQualityScore < 70` exceeds 25%.
 - **Field correction**: aggregates paths from `OperationLogEntity.diffs[].path` over the last 30 days and emits one recommendation per field path that has been corrected in 5 or more distinct manifests, up to the top 3 such paths.
-- **Model failure**: emits a recommendation when, over the last 30 days, at least 10 manifests reached a terminal status and more than 10% are `failed`.
-- **Backlog**: emits a recommendation when 5 or more manifests have been in `pending` or `partial` status for longer than 7 days.
+- **Model failure**: emits a recommendation when, over the last 30 days, at least 10 manifests reached a terminal status (`completed` or `failed` — `partial` is intentionally excluded because the production `manifest_status_enum` does not contain it) and more than 10% are `failed`.
+- **Backlog**: emits a recommendation when 5 or more manifests have been in `pending` status for longer than 7 days.
 
 The service MUST be purely deterministic (no LLM calls), expose each analyzer as a pure function over repository reads, and return results sorted by severity (`critical` first, then `warning`, then `info`).
 

@@ -191,12 +191,12 @@ export class AnalyticsRecommendationsService {
       .innerJoin('manifest.group', 'group')
       .where('group.projectId = :projectId', { projectId })
       .andWhere('manifest.createdAt >= :since', { since })
+      // NOTE: Do not include ManifestStatus.PARTIAL here. The TS enum has
+      // 'partial' but the Postgres enum (manifest_status_enum) only has
+      // pending/processing/completed/failed, so binding 'partial' raises
+      // "invalid input value for enum".
       .andWhere('manifest.status IN (:...terminal)', {
-        terminal: [
-          ManifestStatus.COMPLETED,
-          ManifestStatus.PARTIAL,
-          ManifestStatus.FAILED,
-        ],
+        terminal: [ManifestStatus.COMPLETED, ManifestStatus.FAILED],
       })
       .select('COUNT(*)', 'total')
       .addSelect(
@@ -247,9 +247,9 @@ export class AnalyticsRecommendationsService {
       .createQueryBuilder('manifest')
       .innerJoin('manifest.group', 'group')
       .where('group.projectId = :projectId', { projectId })
-      .andWhere('manifest.status IN (:...stuck)', {
-        stuck: [ManifestStatus.PENDING, ManifestStatus.PARTIAL],
-      })
+      // See note above: ManifestStatus.PARTIAL is intentionally excluded.
+      // Backlog here means "never finished", so pending is the right signal.
+      .andWhere('manifest.status = :stuck', { stuck: ManifestStatus.PENDING })
       .andWhere('manifest.createdAt <= :cutoff', { cutoff })
       .select('COUNT(*)', 'count')
       .getRawOne<{ count: string }>();
