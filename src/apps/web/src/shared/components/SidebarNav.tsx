@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { ChevronLeft, Menu, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/shared/hooks/use-auth';
@@ -18,24 +19,45 @@ type SidebarNavProps = {
 type NavItem = { labelKey: string; to: string };
 type NavSection = { titleKey: string; items: NavItem[]; adminOnly?: boolean };
 
-const navSections: NavSection[] = [
-  {
-    titleKey: 'sidebar.section.work',
-    items: [{ labelKey: 'nav.projects', to: '/projects' }],
-  },
-  {
-    titleKey: 'sidebar.section.systemAdminOnly',
-    adminOnly: true,
-    items: [
-      { labelKey: 'nav.extractors', to: '/extractors' },
-      { labelKey: 'nav.models', to: '/models' },
-    ],
-  },
-  {
-    titleKey: 'sidebar.section.account',
-    items: [{ labelKey: 'nav.profile', to: '/profile' }],
-  },
-];
+const extractProjectId = (pathname: string): number | null => {
+  const match = pathname.match(/^\/projects\/(\d+)/);
+  return match ? Number(match[1]) : null;
+};
+
+const buildNavSections = (projectId: number | null): NavSection[] => {
+  const sections: NavSection[] = [
+    {
+      titleKey: 'sidebar.section.work',
+      items: [{ labelKey: 'nav.projects', to: '/projects' }],
+    },
+  ];
+
+  if (projectId !== null) {
+    sections.push({
+      titleKey: 'sidebar.section.project',
+      items: [
+        { labelKey: 'nav.analytics', to: `/projects/${projectId}/analytics` },
+      ],
+    });
+  }
+
+  sections.push(
+    {
+      titleKey: 'sidebar.section.systemAdminOnly',
+      adminOnly: true,
+      items: [
+        { labelKey: 'nav.extractors', to: '/extractors' },
+        { labelKey: 'nav.models', to: '/models' },
+      ],
+    },
+    {
+      titleKey: 'sidebar.section.account',
+      items: [{ labelKey: 'nav.profile', to: '/profile' }],
+    },
+  );
+
+  return sections;
+};
 
 const isPathActive = (currentPath: string, targetPath: string) => {
   if (currentPath === targetPath) {
@@ -58,6 +80,8 @@ export function SidebarNav({
   const { locale, setLocale, t } = useI18n();
   const isAdmin = user?.role === 'admin';
   const isSidebarHidden = isDesktop ? isDesktopCollapsed : !isOpen;
+  const projectId = extractProjectId(location.pathname);
+  const navSections = useMemo(() => buildNavSections(projectId), [projectId]);
   const visibleSections = navSections.filter(
     (section) => !section.adminOnly || isAdmin,
   );

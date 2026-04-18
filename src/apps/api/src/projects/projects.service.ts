@@ -6,6 +6,7 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ExtractorEntity } from '../entities/extractor.entity';
 import { ModelEntity } from '../entities/model.entity';
 import { ManifestEntity } from '../entities/manifest.entity';
+import { OperationLogEntity } from '../entities/operation-log.entity';
 import { ProjectEntity } from '../entities/project.entity';
 import { SchemaEntity } from '../entities/schema.entity';
 import { UserEntity } from '../entities/user.entity';
@@ -31,6 +32,8 @@ export class ProjectsService {
     private readonly modelRepository: Repository<ModelEntity>,
     @InjectRepository(ManifestEntity)
     private readonly manifestRepository: Repository<ManifestEntity>,
+    @InjectRepository(OperationLogEntity)
+    private readonly operationLogRepository: Repository<OperationLogEntity>,
     private readonly extractorRepository: ExtractorRepository,
     private readonly schemasService: SchemasService,
     private readonly schemaRulesService: SchemaRulesService,
@@ -285,6 +288,167 @@ export class ProjectsService {
         extractionCost: Number(row.extractionCost),
       })),
       dateRange: dateRange?.from && dateRange?.to ? { from: dateRange.from, to: dateRange.to } : undefined,
+    };
+  }
+
+  async getProjectOperationLogs(
+    user: UserEntity,
+    projectId: number,
+    options: { limit?: number; offset?: number } = {},
+  ) {
+    await this.findOne(user, projectId);
+
+    const limit = Math.min(Math.max(options.limit ?? 50, 1), 200);
+    const offset = Math.max(options.offset ?? 0, 0);
+
+    const [logs, total] = await this.operationLogRepository
+      .createQueryBuilder('log')
+      .innerJoin('log.manifest', 'manifest')
+      .innerJoin('manifest.group', 'group')
+      .innerJoin('log.user', 'user')
+      .where('group.projectId = :projectId', { projectId })
+      .select([
+        'log.id',
+        'log.manifestId',
+        'log.userId',
+        'log.action',
+        'log.diffs',
+        'log.metadata',
+        'log.createdAt',
+        'user.username',
+        'manifest.originalFilename',
+      ])
+      .orderBy('log.createdAt', 'DESC')
+      .take(limit)
+      .skip(offset)
+      .getManyAndCount();
+
+    return {
+      data: logs.map((log) => ({
+        id: log.id,
+        manifestId: log.manifestId,
+        manifestFilename: log.manifest?.originalFilename ?? null,
+        userId: log.userId,
+        username: log.user?.username ?? `user-${log.userId}`,
+        action: log.action,
+        diffs: log.diffs,
+        metadata: log.metadata,
+        createdAt: log.createdAt.toISOString(),
+      })),
+      meta: { total, limit, offset },
+    };
+  }
+
+  async getProjectAnalytics(
+    user: UserEntity,
+    projectId: number,
+  ) {
+    await this.findOne(user, projectId);
+
+    const baseQuery = this.manifestRepository
+      .createQueryBuilder('manifest')
+      .innerJoin('manifest.group', 'group')
+      .where('group.projectId = :projectId', { projectId });
+
+    // Status distribution
+    const statusRows = await baseQuery
+      .clone()
+      .select('manifest.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('manifest.status')
+      .getRawMany<{ status: string; count: string }>();
+
+    const statusDistribution = statusRows.reduce<Record<string, number>>(
+      (acc, row) => {
+        acc[row.status] = Number(row.count);
+        return acc;
+      },
+      {},
+    );
+
+    const totalManifests = statusRows.reduce(
+      (sum, row) => sum + Number(row.count),
+      0,
+    );
+
+    // OCR quality distribution
+    const ocrQualityRows = await baseQuery
+      .clone()
+      .select(
+        `CASE
+          WHEN manifest.ocrQualityScore >= 90 THEN 'excellent'
+          WHEN manifest.ocrQualityScore >= 70 THEN 'good'
+          WHEN manifest.ocrQualityScore IS NOT NULL THEN 'poor'
+          ELSE 'unknown'
+        END`,
+        'quality',
+      )
+      .addSelect('COUNT(*)', 'count')
+      .addSelect('COALESCE(AVG(manifest.ocrQualityScore), 0)', 'avgScore')
+      .groupBy(
+        `CASE
+          WHEN manifest.ocrQualityScore >= 90 THEN 'excellent'
+          WHEN manifest.ocrQualityScore >= 70 THEN 'good'
+          WHEN manifest.ocrQualityScore IS NOT NULL THEN 'poor'
+          ELSE 'unknown'
+        END`,
+      )
+      .getRawMany<{ quality: string; count: string; avgScore: string }>();
+
+    const ocrQuality = ocrQualityRows.map((row) => ({
+      quality: row.quality,
+      count: Number(row.count),
+      avgScore: Math.round(Number(row.avgScore)),
+    }));
+
+    // Extraction activity over time (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const activityRows = await baseQuery
+      .clone()
+      .select("TO_CHAR(manifest.createdAt, 'YYYY-MM-DD')", 'date')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect(
+        `SUM(CASE WHEN manifest.status = 'completed' THEN 1 ELSE 0 END)`,
+        'completed',
+      )
+      .addSelect(
+        `SUM(CASE WHEN manifest.status = 'failed' THEN 1 ELSE 0 END)`,
+        'failed',
+      )
+      .andWhere('manifest.createdAt >= :since', { since: thirtyDaysAgo })
+      .groupBy("TO_CHAR(manifest.createdAt, 'YYYY-MM-DD')")
+      .orderBy('date', 'ASC')
+      .getRawMany<{
+        date: string;
+        count: string;
+        completed: string;
+        failed: string;
+      }>();
+
+    const activityOverTime = activityRows.map((row) => ({
+      date: row.date,
+      total: Number(row.count),
+      completed: Number(row.completed),
+      failed: Number(row.failed),
+    }));
+
+    // Recent corrections count
+    const recentCorrectionsCount = await this.operationLogRepository
+      .createQueryBuilder('log')
+      .innerJoin('log.manifest', 'manifest')
+      .innerJoin('manifest.group', 'group')
+      .where('group.projectId = :projectId', { projectId })
+      .andWhere('log.createdAt >= :since', { since: thirtyDaysAgo })
+      .getCount();
+
+    return {
+      totalManifests,
+      statusDistribution,
+      ocrQuality,
+      activityOverTime,
+      recentCorrectionsCount,
     };
   }
 

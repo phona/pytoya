@@ -19,6 +19,7 @@ import { ManifestAuditPage } from '../routes/dashboard/ManifestAuditPage';
 import { ModelsPage } from '../routes/dashboard/ModelsPage';
 import { ExtractorsPage } from '../routes/dashboard/ExtractorsPage';
 import { ProjectCostSummaryPage } from '../routes/dashboard/ProjectCostSummaryPage';
+import { ProjectAnalyticsPage } from '../routes/dashboard/ProjectAnalyticsPage';
 import { ProfilePage } from '../routes/dashboard/ProfilePage';
 import { RootLayout } from '../routes/RootLayout';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
@@ -57,6 +58,7 @@ export const appRoutes = [
               <ProjectSettingsExtractorsPage />
             </AdminRoute>
           ) },
+          { path: 'projects/:id/analytics', element: <ProjectAnalyticsPage /> },
           { path: 'projects/:id/settings/costs', element: <ProjectCostSummaryPage /> },
           { path: 'projects/:id/settings/schema', element: (
             <AdminRoute>

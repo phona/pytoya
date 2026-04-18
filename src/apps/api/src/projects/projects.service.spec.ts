@@ -40,11 +40,15 @@ describe('ProjectsService', () => {
     extractorRepository = {
       findOne: jest.fn(),
     };
+    const operationLogRepository = {
+      createQueryBuilder: jest.fn(),
+    };
     service = new ProjectsService(
       dataSource,
       projectRepository as any,
       modelRepository as any,
       manifestRepository as any,
+      operationLogRepository as any,
       extractorRepository as any,
       schemasService,
       schemaRulesService,

@@ -42,6 +42,44 @@ export type {
 export type ProjectCostSummary = Jsonify<ProjectCostSummaryDto>;
 export type ProjectWizardResponse = { project: Project; schema: Jsonify<SchemaResponseDto> };
 
+export interface ProjectOperationLog {
+  id: number;
+  manifestId: number;
+  manifestFilename: string | null;
+  userId: number;
+  username: string;
+  action: string;
+  diffs: Array<{ path: string; before: unknown; after: unknown }>;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface ProjectOperationLogsResponse {
+  data: ProjectOperationLog[];
+  meta: { total: number; limit: number; offset: number };
+}
+
+export interface OcrQualityEntry {
+  quality: string;
+  count: number;
+  avgScore: number;
+}
+
+export interface ActivityEntry {
+  date: string;
+  total: number;
+  completed: number;
+  failed: number;
+}
+
+export interface ProjectAnalytics {
+  totalManifests: number;
+  statusDistribution: Record<string, number>;
+  ocrQuality: OcrQualityEntry[];
+  activityOverTime: ActivityEntry[];
+  recentCorrectionsCount: number;
+}
+
 export const projectsApi = {
   // Projects
   listProjects: async () => {
@@ -113,6 +151,23 @@ export const projectsApi = {
 
   deleteGroup: async (_projectId: number, groupId: number) => {
     await apiClient.delete(`/groups/${groupId}`);
+  },
+
+  // Analytics
+  getProjectAnalytics: async (projectId: number) => {
+    const response = await apiClient.get<ProjectAnalytics>(`/projects/${projectId}/analytics`);
+    return response.data;
+  },
+
+  getProjectOperationLogs: async (
+    projectId: number,
+    params?: { limit?: number; offset?: number },
+  ) => {
+    const response = await apiClient.get<ProjectOperationLogsResponse>(
+      `/projects/${projectId}/operation-logs`,
+      { params },
+    );
+    return response.data;
   },
 };
 

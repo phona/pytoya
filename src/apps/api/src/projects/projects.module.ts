@@ -5,6 +5,7 @@ import { ProjectEntity } from '../entities/project.entity';
 import { PromptEntity } from '../entities/prompt.entity';
 import { ModelEntity } from '../entities/model.entity';
 import { ManifestEntity } from '../entities/manifest.entity';
+import { OperationLogEntity } from '../entities/operation-log.entity';
 import { UsersModule } from '../users/users.module';
 import { TextExtractorModule } from '../text-extractor/text-extractor.module';
 import { ValidationModule } from '../validation/validation.module';
@@ -19,6 +20,7 @@ import { ProjectsService } from './projects.service';
       ModelEntity,
       PromptEntity,
       ManifestEntity,
+      OperationLogEntity,
     ]),
     UsersModule,
     TextExtractorModule,

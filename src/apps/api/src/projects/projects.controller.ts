@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Delete,
   Get,
   Param,
@@ -111,6 +112,24 @@ export class ProjectsController {
       from,
       to,
     });
+  }
+
+  @Get(':id/analytics')
+  async getAnalytics(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.projectsService.getProjectAnalytics(user, id);
+  }
+
+  @Get(':id/operation-logs')
+  async getOperationLogs(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number,
+  ) {
+    return this.projectsService.getProjectOperationLogs(user, id, { limit, offset });
   }
 
   @Delete(':id')

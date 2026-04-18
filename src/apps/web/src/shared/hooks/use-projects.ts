@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { projectsApi, CreateProjectDto, UpdateProjectDto, CreateGroupDto, UpdateGroupDto } from '@/api/projects';
 
 export function useProjects() {
@@ -113,6 +113,38 @@ export function useGroups(projectId: number) {
     isCreating: createGroup.isPending,
     isUpdating: updateGroup.isPending,
     isDeleting: deleteGroup.isPending,
+  };
+}
+
+export function useProjectAnalytics(projectId: number) {
+  const query = useQuery({
+    queryKey: ['project', projectId, 'analytics'],
+    queryFn: () => projectsApi.getProjectAnalytics(projectId),
+    enabled: !!projectId,
+  });
+
+  return {
+    analytics: query.data,
+    isLoading: query.isLoading,
+    error: query.error,
+  };
+}
+
+export function useProjectOperationLogs(
+  projectId: number,
+  params?: { limit?: number; offset?: number },
+) {
+  const query = useQuery({
+    queryKey: ['project', projectId, 'operation-logs', params],
+    queryFn: () => projectsApi.getProjectOperationLogs(projectId, params),
+    enabled: !!projectId,
+    placeholderData: keepPreviousData,
+  });
+
+  return {
+    operationLogs: query.data,
+    isLoading: query.isLoading,
+    error: query.error,
   };
 }
 
