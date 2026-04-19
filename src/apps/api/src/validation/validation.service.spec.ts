@@ -571,15 +571,32 @@ describe('ValidationService', () => {
       ).rejects.toThrow(ManifestNotFoundException);
     });
 
-    it('should throw error if manifest is not completed', async () => {
+    it('should throw error if manifest has no extractedData (regardless of status)', async () => {
       manifestRepository.findOne.mockResolvedValue({
         ...mockManifest,
         status: ManifestStatus.PENDING,
+        extractedData: null,
       } as any);
 
       await expect(
         service.runValidation(mockUser, { manifestId: 1 }),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should allow validation on a non-COMPLETED manifest that has extractedData', async () => {
+      // A manifest can end up failed/partial with usable extractedData
+      // (crashed worker, operator reconciliation). The only real
+      // prerequisite for validation is having data to validate.
+      manifestRepository.findOne.mockResolvedValue({
+        ...mockManifest,
+        status: ManifestStatus.FAILED,
+        extractedData: { invoice: { total_amount_inc_tax: 100 } },
+      } as any);
+      validationScriptRepository.find.mockResolvedValue([]);
+
+      await expect(
+        service.runValidation(mockUser, { manifestId: 1 }),
+      ).resolves.toBeDefined();
     });
   });
 
