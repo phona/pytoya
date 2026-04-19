@@ -670,6 +670,8 @@ export const zhCNMessages: Record<string, string> = {
 
   'audit.validation.errors': '{{count}} 个错误',
   'audit.validation.warnings': '{{count}} 个警告',
+  'audit.validation.dialogTitle': '校验未通过',
+  'audit.validation.dialogSubtitle': '下面列出所有问题。关闭窗口继续编辑。',
   'audit.validation.passed': '通过',
 
   'audit.job.processingInvoice': '正在处理发票',
