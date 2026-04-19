@@ -11,7 +11,7 @@ import { ValidationScriptEntity, ValidationSeverity } from '../entities/validati
 import { LlmChatMessage } from '../llm/llm.types';
 import { LlmService } from '../llm/llm.service';
 import { ModelEntity } from '../entities/model.entity';
-import { ManifestEntity, ManifestStatus, ValidationResult, ValidationIssue } from '../entities/manifest.entity';
+import { ManifestEntity, ValidationResult, ValidationIssue } from '../entities/manifest.entity';
 import { ProjectEntity } from '../entities/project.entity';
 import { SchemaEntity } from '../entities/schema.entity';
 import { UserEntity, UserRole } from '../entities/user.entity';
@@ -197,13 +197,12 @@ export class ValidationService {
       throw new ProjectOwnershipException(manifest.group.projectId);
     }
 
-    // Check if extraction is complete
-    if (manifest.status !== ManifestStatus.COMPLETED) {
-      throw new BadRequestException(
-        'Cannot validate manifest that has not completed extraction',
-      );
-    }
-
+    // The only real prerequisite for running validation is having
+    // extractedData to validate. A manifest that ended up as 'failed'
+    // (worker crashed mid-run, operator reconciled state) or 'partial'
+    // may still carry useful extracted data that the operator wants
+    // checked. If not, the second guard catches it with a clearer
+    // message than a status mismatch would give.
     if (!manifest.extractedData) {
       throw new BadRequestException('No extracted data to validate');
     }
