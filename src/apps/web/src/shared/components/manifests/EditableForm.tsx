@@ -233,14 +233,26 @@ function AuditFieldInput({
   onEditHint?: () => void;
 }) {
   const inputId = toInputId(fieldPath);
-  const inputType =
-    field.type === 'number' || field.type === 'integer'
-      ? 'number'
-      : field.format === 'date'
-        ? 'date'
-        : field.format === 'date-time'
-          ? 'datetime-local'
-          : 'text';
+  // For numeric fields we intentionally avoid <input type="number">.
+  // The native number input lets the scroll wheel increment / decrement
+  // the value when the input still has focus — users edit a cell, forget
+  // to blur, scroll the page, and silently change the value, which then
+  // trips validation. Use type="text" with a numeric inputMode so mobile
+  // keyboards still show digits but the wheel no longer mutates the
+  // value. The onChange handler below already parses text to number.
+  const isNumeric = field.type === 'number' || field.type === 'integer';
+  const inputType = isNumeric
+    ? 'text'
+    : field.format === 'date'
+      ? 'date'
+      : field.format === 'date-time'
+        ? 'datetime-local'
+        : 'text';
+  const inputMode: 'numeric' | 'decimal' | undefined = isNumeric
+    ? field.type === 'integer'
+      ? 'numeric'
+      : 'decimal'
+    : undefined;
 
   const displayValue =
     field.type === 'number' || field.type === 'integer'
@@ -342,6 +354,7 @@ function AuditFieldInput({
           <input
             id={inputId}
             type={inputType}
+            inputMode={inputMode}
             value={displayValue}
           onChange={(e) => {
             const raw = e.target.value;
