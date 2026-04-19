@@ -680,6 +680,8 @@ export const enMessages: Record<string, string> = {
 
   'audit.validation.errors': '{{count}} errors',
   'audit.validation.warnings': '{{count}} warnings',
+  'audit.validation.dialogTitle': 'Validation issues',
+  'audit.validation.dialogSubtitle': 'Review each item below. Close to keep editing.',
   'audit.validation.passed': 'Passed',
 
   'audit.job.processingInvoice': 'Processing Invoice',

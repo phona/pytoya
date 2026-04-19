@@ -204,7 +204,7 @@ describe('AuditPanel', () => {
     });
   });
 
-  it('shows validation summary on Save when validation has warnings', async () => {
+  it('opens the validation dialog on Save when validation has warnings', async () => {
     runValidationMutateAsync.mockResolvedValue({
       issues: [],
       errorCount: 0,
@@ -221,12 +221,8 @@ describe('AuditPanel', () => {
 
     await vi.runAllTimersAsync();
 
-    expect(toastMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'Validation',
-        description: '2 warnings',
-      }),
-    );
+    // The modal replaces the tab-switch toast for any result with issues.
+    expect(screen.getByText('Validation issues')).toBeInTheDocument();
   });
 
   it('shows a retryable error when Save-triggered validation fails', async () => {

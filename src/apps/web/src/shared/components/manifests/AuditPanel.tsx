@@ -25,6 +25,7 @@ import { PdfViewer } from './PdfViewer';
 import { EditableForm } from './EditableForm';
 import { OcrViewer } from './OcrViewer';
 import { ValidationResultsPanel } from '@/shared/components/ValidationResultsPanel';
+import { ValidationResultsDialog } from './ValidationResultsDialog';
 import { CostBreakdownPanel } from '@/shared/components/CostBreakdownPanel';
 import { OcrPreviewModal } from './OcrPreviewModal';
 import { CorrectionHistoryPanel } from './CorrectionHistoryPanel';
@@ -185,6 +186,8 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
   } | null>(null);
   const [showOcrPreviewModal, setShowOcrPreviewModal] = useState(false);
   const [fieldHistoryOpen, setFieldHistoryOpen] = useState(false);
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [validationDialogResult, setValidationDialogResult] = useState<ValidationResult | null>(null);
   const [historyFieldFilter, setHistoryFieldFilter] = useState<string | null>(null);
   const [fieldHintEditor, setFieldHintEditor] = useState<{
     open: boolean;
@@ -562,16 +565,19 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
     try {
       const result = await runValidation.mutateAsync({ manifestId: manifest.id });
 
-      toast({
-        title: t('audit.menu.runValidation'),
-        description: formatValidationSummary(result),
-        variant: result.errorCount > 0 ? 'destructive' : 'default',
-        action: (
-          <ToastAction altText={t('common.view')} onClick={() => setActiveTab('validation')}>
-            {t('common.view')}
-          </ToastAction>
-        ),
-      });
+      // When there's something to look at, pop the modal directly instead
+      // of showing a toast + making the user switch tabs. Clean runs still
+      // get a passive toast confirming success.
+      if (result.errorCount > 0 || result.warningCount > 0) {
+        setValidationDialogResult(result);
+        setValidationDialogOpen(true);
+      } else {
+        toast({
+          title: t('audit.menu.runValidation'),
+          description: formatValidationSummary(result),
+          variant: 'default',
+        });
+      }
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -579,7 +585,7 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
         description: getApiErrorText(error, t),
       });
     }
-  }, [formatValidationSummary, manifest, runValidation, setActiveTab, t]);
+  }, [formatValidationSummary, manifest, runValidation, t]);
 
   const handleExplicitSave = useCallback(async (): Promise<boolean> => {
     if (!manifest) {
@@ -655,16 +661,19 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
           return false;
         }
 
-        toast({
-          title: t('audit.save.validationTitle'),
-          description: formatValidationSummary(validation),
-          variant: validation.errorCount > 0 ? 'destructive' : 'default',
-          action: (
-            <ToastAction altText={t('common.view')} onClick={() => setActiveTab('validation')}>
-              {t('common.view')}
-            </ToastAction>
-          ),
-        });
+        if (validation.errorCount > 0 || validation.warningCount > 0) {
+          // Surface the issues in a modal instead of a tab-switch toast so
+          // the user sees exactly what failed before deciding whether to
+          // override (handled by the confirm dialog immediately below).
+          setValidationDialogResult(validation);
+          setValidationDialogOpen(true);
+        } else {
+          toast({
+            title: t('audit.save.validationTitle'),
+            description: formatValidationSummary(validation),
+            variant: 'default',
+          });
+        }
 
         const allowValidationErrors = validation.errorCount > 0;
         if (allowValidationErrors) {
@@ -1316,6 +1325,12 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
         manifestId={manifest.id}
         open={showOcrPreviewModal}
         onClose={() => setShowOcrPreviewModal(false)}
+      />
+
+      <ValidationResultsDialog
+        open={validationDialogOpen}
+        onClose={() => setValidationDialogOpen(false)}
+        result={validationDialogResult}
       />
 
       <Dialog open={fieldHistoryOpen} onOpenChange={setFieldHistoryOpen}>
