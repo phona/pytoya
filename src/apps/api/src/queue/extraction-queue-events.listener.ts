@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Job, Queue } from 'bullmq';
 import { Repository } from 'typeorm';
 
-import { JobEntity } from '../entities/job.entity';
+import { JobEntity, JobStatus } from '../entities/job.entity';
 import { ManifestEntity, ManifestStatus } from '../entities/manifest.entity';
 import { ProgressPublisherService } from '../websocket/progress-publisher.service';
 import { EXTRACTION_QUEUE, PROCESS_MANIFEST_JOB, REFRESH_OCR_JOB } from './queue.constants';
@@ -155,7 +155,58 @@ export class ExtractionQueueEventsListener extends QueueEventsHost {
         progress: context.progress,
         error,
       });
+
+      // Persist to the DB here as a safety net for the case where the worker
+      // process died mid-job (OOMKilled, pod rescheduled, SIGKILL). The
+      // processor's own catch block doesn't run in that case, so without this
+      // write the manifest row stays at status='processing' forever and the
+      // UI shows a ghost "in progress" job.
+      try {
+        await this.reconcileDbOnFailure(
+          jobId,
+          context.manifestId,
+          error ?? (status === 'canceled' ? 'Canceled' : null),
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Failed to reconcile DB on ${status} for job ${jobId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
     }
+  }
+
+  private async reconcileDbOnFailure(
+    jobId: string,
+    manifestId: number,
+    error: string | null,
+  ): Promise<void> {
+    // Only flip the manifest if it's still in a non-terminal state.
+    // Avoid clobbering a COMPLETED manifest (rare race, but cheap to guard).
+    await this.manifestRepository
+      .createQueryBuilder()
+      .update(ManifestEntity)
+      .set({ status: ManifestStatus.FAILED })
+      .where('id = :id', { id: manifestId })
+      .andWhere('status IN (:...nonTerminal)', {
+        nonTerminal: [ManifestStatus.PENDING, ManifestStatus.PROCESSING],
+      })
+      .execute();
+
+    // Also close the corresponding jobs row if it's still open, so lastError
+    // on the list API surfaces this reason.
+    await this.jobRepository
+      .createQueryBuilder()
+      .update(JobEntity)
+      .set({
+        status: JobStatus.FAILED,
+        error: error ?? 'worker terminated without emitting a failure',
+        completedAt: new Date(),
+      })
+      .where('queueJobId = :qid', { qid: jobId })
+      .andWhere('completedAt IS NULL')
+      .execute();
   }
 
   private async emitCompletion(jobId: string) {
