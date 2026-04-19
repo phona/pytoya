@@ -842,6 +842,8 @@ export const zhCNMessages: Record<string, string> = {
   'jobs.tab.completed': '已完成',
   'jobs.tab.all': '全部',
   'jobs.clearCompleted': '清除已结束',
+  'jobs.clearAll': '清除全部',
+  'jobs.clearAll.tooltip': '清空面板里所有任务(仅前端视图,不影响后端)。',
   'jobs.loading': '正在加载任务…',
   'jobs.empty': '暂无任务。',
   'jobs.progress': '进度',

@@ -39,6 +39,14 @@ export type JobItem = {
 
 const MAX_JOBS = 200;
 
+// When the app rehydrates from localStorage, any non-terminal job whose
+// last update is older than this threshold is almost certainly a ghost:
+// the api pod died (SIGKILL / OOMKilled) before it could publish the
+// final WS event, so the store has no way to ever receive the real
+// terminal state. Prune them on rehydrate so the user doesn't see a
+// forever-running job they can't cancel.
+const STALE_JOB_MS = 5 * 60 * 1000;
+
 const normalizeStatus = (status: string): JobStatus => {
   const normalized = status.toLowerCase();
   if (normalized === 'pending' || normalized === 'queued') {
@@ -73,6 +81,14 @@ const normalizeProgress = (progress: unknown): number => {
 const isTerminal = (status: JobStatus) =>
   status === 'completed' || status === 'failed' || status === 'canceled';
 
+const pruneStaleJobs = (jobs: JobItem[], nowMs: number): JobItem[] =>
+  jobs.filter((job) => {
+    if (isTerminal(job.status)) return true;
+    const updatedAt = Date.parse(job.updatedAt);
+    if (!Number.isFinite(updatedAt)) return true;
+    return nowMs - updatedAt < STALE_JOB_MS;
+  });
+
 const upsertById = (jobs: JobItem[], next: JobItem): JobItem[] => {
   const index = jobs.findIndex((job) => job.id === next.id);
   const merged = index === -1 ? next : { ...jobs[index], ...next };
@@ -92,6 +108,7 @@ export interface JobsState {
   setOwnerUserId: (userId: number | null) => void;
   reset: () => void;
   clearCompleted: () => void;
+  clearAll: () => void;
   removeJob: (jobId: string) => void;
 
   upsertJob: (job: JobItem) => void;
@@ -132,6 +149,8 @@ export const useJobsStore = create<JobsState>()(
 
       clearCompleted: () =>
         set((state) => ({ jobs: state.jobs.filter((job) => !isTerminal(job.status)) })),
+
+      clearAll: () => set({ jobs: [] }),
 
       removeJob: (jobId) =>
         set((state) => ({ jobs: state.jobs.filter((job) => job.id !== jobId) })),
@@ -188,7 +207,13 @@ export const useJobsStore = create<JobsState>()(
     {
       name: 'pytoya-jobs',
       onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
+        if (state) {
+          const pruned = pruneStaleJobs(state.jobs ?? [], Date.now());
+          if (pruned.length !== (state.jobs ?? []).length) {
+            state.jobs = pruned;
+          }
+          state.setHasHydrated(true);
+        }
       },
       partialize: (state) => ({
         ownerUserId: state.ownerUserId,

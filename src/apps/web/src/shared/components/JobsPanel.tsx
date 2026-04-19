@@ -132,6 +132,7 @@ export function JobsPanel() {
   const isOpen = useUiStore((state) => state.isJobsPanelOpen);
   const setOpen = useUiStore((state) => state.setJobsPanelOpen);
   const clearCompleted = useJobsStore((state) => state.clearCompleted);
+  const clearAll = useJobsStore((state) => state.clearAll);
   const removeJob = useJobsStore((state) => state.removeJob);
   const jobs = useJobsStore((state) => state.jobs);
   const upsertFromHistory = useJobsStore((state) => state.upsertFromHistory);
@@ -266,9 +267,20 @@ export function JobsPanel() {
               </TabsList>
             </Tabs>
 
-            <Button type="button" variant="outline" size="sm" onClick={clearCompleted}>
-              {t('jobs.clearCompleted')}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={clearCompleted}>
+                {t('jobs.clearCompleted')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={clearAll}
+                title={t('jobs.clearAll.tooltip')}
+              >
+                {t('jobs.clearAll')}
+              </Button>
+            </div>
           </div>
 
           <ScrollArea className="h-[calc(100vh-14rem)] rounded-md border border-border">
