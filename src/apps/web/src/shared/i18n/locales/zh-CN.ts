@@ -473,6 +473,9 @@ export const zhCNMessages: Record<string, string> = {
   'manifests.list.batchValidation.summaryMessage':
     '校验完成！\n\n已校验 {{count}} 个清单\n{{errors}} 个错误\n{{warnings}} 个警告',
   'manifests.list.batchValidationResults.validated': '已校验 {{count}} 个清单',
+  'manifests.list.batchValidationResults.recheck': '重新校验',
+  'manifests.list.batchValidationResults.rechecking': '正在重新校验…',
+  'manifests.list.batchValidationResults.recheckTooltip': '对这批清单再跑一次校验,刚修好的会从列表里消失。',
   'manifests.list.batchValidationResults.errors': '{{count}} 个错误',
   'manifests.list.batchValidationResults.warnings': '{{count}} 个警告',
   'manifests.list.batchValidationResults.hasErrors': '有错误（{{count}}）',

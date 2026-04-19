@@ -478,6 +478,9 @@ export const enMessages: Record<string, string> = {
   'manifests.list.batchValidation.summaryMessage':
     'Validation complete!\n\n{{count}} manifests validated\n{{errors}} errors\n{{warnings}} warnings',
   'manifests.list.batchValidationResults.validated': '{{count}} manifests validated',
+  'manifests.list.batchValidationResults.recheck': 'Recheck',
+  'manifests.list.batchValidationResults.rechecking': 'Rechecking…',
+  'manifests.list.batchValidationResults.recheckTooltip': 'Re-run validation on the same manifests so items you just fixed drop off the list.',
   'manifests.list.batchValidationResults.errors': '{{count}} errors',
   'manifests.list.batchValidationResults.warnings': '{{count}} warnings',
   'manifests.list.batchValidationResults.hasErrors': 'Has Errors ({{count}})',
