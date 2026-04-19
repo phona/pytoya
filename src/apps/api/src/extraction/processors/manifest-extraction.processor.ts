@@ -34,6 +34,16 @@ type OcrRefreshJob = {
   // A generous lock prevents premature stall detection while
   // the stream-idle-timeout in LlmService handles true hangs.
   lockDuration: 300000, // 5 minutes
+
+  // Auto-recovery after a worker crash (OOMKilled, SIGKILL, pod rescheduled):
+  // when the worker dies mid-job, its lock stops being renewed. BullMQ's
+  // stall-check (every stalledInterval) notices the expired lock and, up to
+  // maxStalledCount times, moves the job back to "waiting" so another worker
+  // can pick it up. Default maxStalledCount is 1, which means a single crash
+  // leaves the job permanently failed — operators want to see the work
+  // retry automatically on the next pod, not pile up as ghost manifests.
+  stalledInterval: 30000, // 30s — how often BullMQ runs the stall check
+  maxStalledCount: 3,     // up to 3 stall detections before permanent failure
 })
 export class ManifestExtractionProcessor extends WorkerHost implements OnApplicationBootstrap {
   private readonly logger = new Logger(ManifestExtractionProcessor.name);
