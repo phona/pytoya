@@ -1,17 +1,25 @@
-import { Fragment, useMemo } from 'react';
+import { Fragment, useMemo, type ReactNode } from 'react';
 import type { OcrResultDto } from '@pytoya/shared/types/manifests';
 import { useI18n } from '@/shared/providers/I18nProvider';
 import {
   deriveSchemaAuditFields,
+  type SchemaArrayObjectField,
   type SchemaLeafField,
 } from '@/shared/utils/schema';
 
 type CoverageStatus = 'found' | 'missing' | 'empty';
 
 interface CoverageRow {
+  // Full display path including array indices, e.g. "items[0].name".
+  // Used as the React key and the primary path label.
+  path: string;
   field: SchemaLeafField;
   value: string | null;
   status: CoverageStatus;
+  // When present, this row belongs to an array item; used to insert a
+  // group header separator between items.
+  groupKey?: string;
+  groupLabel?: string;
 }
 
 type CoveragePanelProps = {
@@ -106,26 +114,79 @@ export function CoveragePanel({
 }: CoveragePanelProps) {
   const { t } = useI18n();
 
-  const scalarFields = useMemo<SchemaLeafField[]>(() => {
-    if (!jsonSchema) return [];
-    const { scalarFields: leaves } = deriveSchemaAuditFields(jsonSchema);
-    return leaves;
+  const schemaFields = useMemo<{
+    scalarFields: SchemaLeafField[];
+    arrayObjectFields: SchemaArrayObjectField[];
+  }>(() => {
+    if (!jsonSchema) return { scalarFields: [], arrayObjectFields: [] };
+    const { scalarFields, arrayObjectFields } = deriveSchemaAuditFields(jsonSchema);
+    return { scalarFields, arrayObjectFields };
   }, [jsonSchema]);
 
   const ocrText = useMemo(() => collectOcrText(ocrResult), [ocrResult]);
   const normalizedOcr = useMemo(() => normalize(ocrText), [ocrText]);
 
   const rows = useMemo<CoverageRow[]>(() => {
-    return scalarFields.map((field) => {
+    const out: CoverageRow[] = [];
+
+    // Top-level scalar fields (object leaves, not inside arrays).
+    for (const field of schemaFields.scalarFields) {
       const raw = getValueAtPath(
         (extractedData ?? null) as Record<string, unknown> | null,
         field.path,
       );
       const value = formatValue(raw);
-      const status = computeStatus(normalizedOcr, value);
-      return { field, value, status };
-    });
-  }, [scalarFields, extractedData, normalizedOcr]);
+      out.push({
+        path: field.path,
+        field,
+        value,
+        status: computeStatus(normalizedOcr, value),
+      });
+    }
+
+    // Array-of-object fields: flatten each item into rows with a group header.
+    // itemField.path from deriveSchemaAuditFields is prefixed with the array
+    // placeholder, e.g. "items[].name" for an items array. Strip that prefix
+    // before looking up the value inside a concrete item object.
+    const arrayPlaceholderPrefix = (arrayPath: string) => `${arrayPath}[].`;
+    for (const arrayField of schemaFields.arrayObjectFields) {
+      const arrayValue = getValueAtPath(
+        (extractedData ?? null) as Record<string, unknown> | null,
+        arrayField.path,
+      );
+      const items = Array.isArray(arrayValue) ? arrayValue : [];
+      const prefix = arrayPlaceholderPrefix(arrayField.path);
+      items.forEach((itemData, index) => {
+        const groupKey = `${arrayField.path}[${index}]`;
+        const groupLabel = `${arrayField.title ?? arrayField.path} #${index + 1}`;
+        const itemRecord =
+          itemData && typeof itemData === 'object'
+            ? (itemData as Record<string, unknown>)
+            : null;
+        for (const itemField of arrayField.itemFields) {
+          const relativePath = itemField.path.startsWith(prefix)
+            ? itemField.path.slice(prefix.length)
+            : itemField.path;
+          const raw = itemRecord
+            ? getValueAtPath(itemRecord, relativePath)
+            : undefined;
+          const value = formatValue(raw);
+          out.push({
+            path: `${groupKey}.${relativePath}`,
+            // Adjust the field's path for display so it shows the relative
+            // leaf (e.g. "name") rather than the schema placeholder form.
+            field: { ...itemField, path: relativePath },
+            value,
+            status: computeStatus(normalizedOcr, value),
+            groupKey,
+            groupLabel,
+          });
+        }
+      });
+    }
+
+    return out;
+  }, [schemaFields, extractedData, normalizedOcr]);
 
   const counts = useMemo(() => {
     return rows.reduce(
@@ -208,49 +269,70 @@ export function CoveragePanel({
           <div className="max-h-[500px] overflow-y-auto">
             <table className="w-full text-sm">
               <tbody>
-                {rows.map((row) => {
-                  const { dot, labelKey } = STATUS_STYLES[row.status];
-                  return (
-                    <tr
-                      key={row.field.path}
-                      className="border-b border-border/50 align-top"
-                    >
-                      <td className="w-4 py-2 pl-3 pr-1">
-                        <span
-                          className={`inline-block h-2 w-2 rounded-full ${dot}`}
-                          title={t(labelKey)}
-                        />
-                      </td>
-                      <td className="py-2 pr-3">
-                        <div className="font-mono text-xs text-muted-foreground">
-                          {row.field.path}
-                        </div>
-                        {row.field.title ? (
-                          <div className="text-xs text-foreground/80">
-                            {row.field.title}
-                          </div>
-                        ) : null}
-                      </td>
-                      <td className="py-2 pr-3 text-xs">
-                        {row.value !== null ? (
+                {(() => {
+                  const out: ReactNode[] = [];
+                  let lastGroupKey: string | undefined;
+                  for (const row of rows) {
+                    if (row.groupKey && row.groupKey !== lastGroupKey) {
+                      out.push(
+                        <tr
+                          key={`group-${row.groupKey}`}
+                          className="bg-muted/40"
+                        >
+                          <td colSpan={3} className="py-1 px-3 text-xs font-semibold text-muted-foreground">
+                            {row.groupLabel ?? row.groupKey}
+                          </td>
+                        </tr>,
+                      );
+                      lastGroupKey = row.groupKey;
+                    }
+                    if (!row.groupKey) {
+                      lastGroupKey = undefined;
+                    }
+                    const { dot, labelKey } = STATUS_STYLES[row.status];
+                    out.push(
+                      <tr
+                        key={row.path}
+                        className="border-b border-border/50 align-top"
+                      >
+                        <td className="w-4 py-2 pl-3 pr-1">
                           <span
-                            className={
-                              row.status === 'found'
-                                ? 'bg-green-500/15 text-green-700 dark:text-green-300 rounded px-1'
-                                : 'text-foreground'
-                            }
-                          >
-                            {row.value}
-                          </span>
-                        ) : (
-                          <span className="italic text-muted-foreground">
-                            {t('audit.coverage.status.empty')}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                            className={`inline-block h-2 w-2 rounded-full ${dot}`}
+                            title={t(labelKey)}
+                          />
+                        </td>
+                        <td className="py-2 pr-3">
+                          <div className="font-mono text-xs text-muted-foreground">
+                            {row.groupKey ? row.field.path : row.path}
+                          </div>
+                          {row.field.title ? (
+                            <div className="text-xs text-foreground/80">
+                              {row.field.title}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td className="py-2 pr-3 text-xs">
+                          {row.value !== null ? (
+                            <span
+                              className={
+                                row.status === 'found'
+                                  ? 'bg-green-500/15 text-green-700 dark:text-green-300 rounded px-1'
+                                  : 'text-foreground'
+                              }
+                            >
+                              {row.value}
+                            </span>
+                          ) : (
+                            <span className="italic text-muted-foreground">
+                              {t('audit.coverage.status.empty')}
+                            </span>
+                          )}
+                        </td>
+                      </tr>,
+                    );
+                  }
+                  return out;
+                })()}
                 {rows.length === 0 ? (
                   <tr>
                     <td
