@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Job, Queue } from 'bullmq';
 import { Repository } from 'typeorm';
 
-import { JobEntity } from '../entities/job.entity';
+import { JobEntity, JobStatus } from '../entities/job.entity';
 import { ManifestsService } from '../manifests/manifests.service';
 import { UserEntity, UserRole } from '../entities/user.entity';
 import { JobNotFoundException } from './exceptions/job-not-found.exception';
@@ -25,6 +25,25 @@ type ExtractionJobData = {
 type OcrRefreshJobData = {
   manifestId: number;
   textExtractorId?: string;
+};
+
+// Defensive coercion for jobs.history DTO output.
+// A job row can end up in an "impossible" state where completed_at is set
+// but status is still 'processing' — this happened in practice when the
+// api pod was SIGKILLed between TypeORM writing the timestamp and the
+// status column flush, or as residue from older code paths. The frontend
+// JobsPanel then shows the job as in-progress forever, the cancel API
+// rejects it with "Job already finished", and the user has no way out.
+// Report the row as failed once completed_at has landed — it's the only
+// self-consistent interpretation and matches the cancel API's truth.
+const coerceInconsistentStatus = (
+  status: JobStatus,
+  completedAt: Date | null,
+): JobStatus => {
+  if (completedAt && status === JobStatus.PROCESSING) {
+    return JobStatus.FAILED;
+  }
+  return status;
 };
 
 @Injectable()
@@ -274,7 +293,7 @@ export class QueueService {
       manifestFilename: job.manifest?.filename ?? null,
       manifestOriginalFilename: job.manifest?.originalFilename ?? null,
       kind: job.kind ?? 'extraction',
-      status: job.status,
+      status: coerceInconsistentStatus(job.status, job.completedAt),
       llmModelId: job.llmModelId,
       promptId: job.promptId,
       queueJobId: job.queueJobId,
