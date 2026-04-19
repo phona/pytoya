@@ -700,7 +700,11 @@ describe('ValidationService', () => {
       const mockManifest2 = {
         ...mockManifest,
         id: 2,
-        status: ManifestStatus.FAILED, // This will cause validation to fail
+        // Missing extractedData triggers the remaining "No extracted
+        // data to validate" guard so batch validation records it as a
+        // failure — the old test relied on the status=FAILED branch,
+        // which is now intentionally permissive.
+        extractedData: null,
       };
 
       manifestRepository.findOne.mockImplementation((arg: any) => {
