@@ -853,6 +853,8 @@ export const enMessages: Record<string, string> = {
   'jobs.tab.completed': 'Completed',
   'jobs.tab.all': 'All',
   'jobs.clearCompleted': 'Clear finished',
+  'jobs.clearAll': 'Clear all',
+  'jobs.clearAll.tooltip': 'Remove every job from this panel (local view only).',
   'jobs.loading': 'Loading jobs...',
   'jobs.empty': 'No jobs to show.',
   'jobs.progress': 'Progress',
