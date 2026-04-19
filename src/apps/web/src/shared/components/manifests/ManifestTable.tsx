@@ -673,14 +673,14 @@ export function ManifestTable({
               <div className="space-y-2">
                 <div className="grid grid-cols-2 gap-2">
                   <Input
-                    type="number"
+                    type="text"
                     inputMode="decimal"
                     value={toPercent(filters.confidenceMin)}
                     placeholder="0"
                     onChange={(event) => updateFilters({ confidenceMin: parsePercent(event.target.value) })}
                   />
                   <Input
-                    type="number"
+                    type="text"
                     inputMode="decimal"
                     value={toPercent(filters.confidenceMax)}
                     placeholder="100"
@@ -718,7 +718,7 @@ export function ManifestTable({
               <div className="space-y-2">
                 <div className="grid grid-cols-2 gap-2">
                   <Input
-                    type="number"
+                    type="text"
                     inputMode="decimal"
                     value={filters.costMin ?? ''}
                     placeholder="0"
@@ -728,7 +728,7 @@ export function ManifestTable({
                     }}
                   />
                   <Input
-                    type="number"
+                    type="text"
                     inputMode="decimal"
                     value={filters.costMax ?? ''}
                     placeholder=""

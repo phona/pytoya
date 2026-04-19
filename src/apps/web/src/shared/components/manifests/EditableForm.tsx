@@ -233,25 +233,57 @@ function AuditFieldInput({
   onEditHint?: () => void;
 }) {
   const inputId = toInputId(fieldPath);
-  const inputType =
-    field.type === 'number' || field.type === 'integer'
-      ? 'number'
-      : field.format === 'date'
-        ? 'date'
-        : field.format === 'date-time'
-          ? 'datetime-local'
-          : 'text';
+  // For numeric fields we intentionally avoid <input type="number">.
+  // The native number input lets the scroll wheel increment / decrement
+  // the value when the input still has focus — users edit a cell, forget
+  // to blur, scroll the page, and silently change the value, which then
+  // trips validation. Use type="text" with a numeric inputMode so mobile
+  // keyboards still show digits but the wheel no longer mutates the
+  // value.
+  const isNumeric = field.type === 'number' || field.type === 'integer';
+  const inputType = isNumeric
+    ? 'text'
+    : field.format === 'date'
+      ? 'date'
+      : field.format === 'date-time'
+        ? 'datetime-local'
+        : 'text';
+  const inputMode: 'numeric' | 'decimal' | undefined = isNumeric
+    ? field.type === 'integer'
+      ? 'numeric'
+      : 'decimal'
+    : undefined;
 
-  const displayValue =
-    field.type === 'number' || field.type === 'integer'
-      ? typeof value === 'number'
-        ? value
-        : typeof value === 'string'
-          ? value
-          : ''
-      : typeof value === 'string' || typeof value === 'number'
-        ? String(value)
-        : '';
+  // For numeric text inputs, the controlled-input pattern loses transient
+  // states like "123." (parsed to 123, re-rendered as "123", dropping the
+  // dot on the next keystroke). Keep a local string buffer that reflects
+  // exactly what the user typed; only sync from the incoming prop when
+  // the underlying numeric value actually changed (e.g. LLM re-extract or
+  // form reset), not on every keystroke round-trip.
+  const [numericDraft, setNumericDraft] = useState<string>(() => {
+    if (typeof value === 'number') return String(value);
+    if (typeof value === 'string') return value;
+    return '';
+  });
+  const lastCommittedRef = useRef<unknown>(value);
+  useEffect(() => {
+    if (!isNumeric) return;
+    if (value === lastCommittedRef.current) return;
+    lastCommittedRef.current = value;
+    if (typeof value === 'number') {
+      setNumericDraft(String(value));
+    } else if (typeof value === 'string') {
+      setNumericDraft(value);
+    } else {
+      setNumericDraft('');
+    }
+  }, [isNumeric, value]);
+
+  const displayValue = isNumeric
+    ? numericDraft
+    : typeof value === 'string' || typeof value === 'number'
+      ? String(value)
+      : '';
 
   return (
     <div>
@@ -342,25 +374,34 @@ function AuditFieldInput({
           <input
             id={inputId}
             type={inputType}
+            inputMode={inputMode}
             value={displayValue}
           onChange={(e) => {
             const raw = e.target.value;
             if (field.type === 'integer') {
+              setNumericDraft(raw);
               if (!raw.trim()) {
+                lastCommittedRef.current = null;
                 onChange(null);
                 return;
               }
               const parsed = Number.parseInt(raw, 10);
-              onChange(Number.isFinite(parsed) ? parsed : null);
+              const next = Number.isFinite(parsed) ? parsed : null;
+              lastCommittedRef.current = next;
+              onChange(next);
               return;
             }
             if (field.type === 'number') {
+              setNumericDraft(raw);
               if (!raw.trim()) {
+                lastCommittedRef.current = null;
                 onChange(null);
                 return;
               }
               const parsed = Number.parseFloat(raw);
-              onChange(Number.isFinite(parsed) ? parsed : null);
+              const next = Number.isFinite(parsed) ? parsed : null;
+              lastCommittedRef.current = next;
+              onChange(next);
               return;
             }
             onChange(raw);
