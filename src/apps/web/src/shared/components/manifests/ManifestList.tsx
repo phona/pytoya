@@ -14,6 +14,7 @@ import {
 import { useWebSocket, JobUpdateEvent, ManifestUpdateEvent } from '@/shared/hooks/use-websocket';
 import { useRunBatchValidation } from '@/shared/hooks/use-validation-scripts';
 import { useDeleteManifestsBulk, useExtractBulk } from '@/shared/hooks/use-manifests';
+import { useBatchValidationStore } from '@/shared/stores/batch-validation';
 import { ManifestFilterValues, ManifestSort } from '@/shared/types/manifests';
 import { useExtractorTypes, useExtractors } from '@/shared/hooks/use-extractors';
 import {
@@ -116,8 +117,16 @@ export function ManifestList({
   const [ocrPreviewManifestId, setOcrPreviewManifestId] = useState<number | null>(null);
   const [ocrPreviewOpen, setOcrPreviewOpen] = useState(false);
   const [manifestProgress, setManifestProgress] = useState<Record<number, { progress: number; status: string; error?: string }>>({});
-  const [validationResultsOpen, setValidationResultsOpen] = useState(false);
-  const [validationResults, setValidationResults] = useState<BatchValidationResults | null>(null);
+
+  // Batch validation result state lives in a store so the modal survives
+  // navigation to/from the audit page when the user clicks a failed item.
+  const batchValidationResults = useBatchValidationStore((s) => s.results);
+  const batchValidationOpen = useBatchValidationStore((s) => s.open);
+  const batchValidationManifestIds = useBatchValidationStore((s) => s.manifestIds);
+  const batchValidationGroupId = useBatchValidationStore((s) => s.groupId);
+  const setBatchValidationResults = useBatchValidationStore((s) => s.setResults);
+  const setBatchValidationOpen = useBatchValidationStore((s) => s.setOpen);
+  const clearBatchValidation = useBatchValidationStore((s) => s.clear);
 
   const runBatchValidation = useRunBatchValidation();
   const deleteManifestsBulk = useDeleteManifestsBulk();
@@ -328,21 +337,45 @@ export function ManifestList({
       }
     }
 
-    setValidationResults({
-      manifestsWithErrors,
-      manifestsWithWarnings,
-      manifestsPassed,
-      manifestsFailed,
-      totalValidated: manifestIds.length,
-      totalErrors,
-      totalWarnings,
-    });
-    setValidationResultsOpen(true);
+    setBatchValidationResults(
+      {
+        manifestsWithErrors,
+        manifestsWithWarnings,
+        manifestsPassed,
+        manifestsFailed,
+        totalValidated: manifestIds.length,
+        totalErrors,
+        totalWarnings,
+      },
+      manifestIds,
+      groupId,
+    );
 
     queryClient.invalidateQueries({ queryKey: ['manifests', 'group', groupId] });
     setSelectedIds(new Set());
     setSelectAll(false);
-  }, [groupId, manifests, queryClient, runBatchValidation]);
+  }, [groupId, manifests, queryClient, runBatchValidation, setBatchValidationResults]);
+
+  // When the user navigates back to a DIFFERENT group's list but the store
+  // still holds results from another group, drop them — those results are
+  // no longer relevant to what's visible.
+  useEffect(() => {
+    if (
+      batchValidationResults &&
+      batchValidationGroupId !== null &&
+      batchValidationGroupId !== groupId
+    ) {
+      clearBatchValidation();
+    }
+  }, [batchValidationGroupId, batchValidationResults, clearBatchValidation, groupId]);
+
+  // "Recheck" button in the modal: re-validate the exact same manifest IDs
+  // so the user can see which items they've already fixed after returning
+  // from the audit page.
+  const handleRecheckBatch = useCallback(async () => {
+    if (batchValidationManifestIds.length === 0) return;
+    await handleStartValidation(batchValidationManifestIds);
+  }, [batchValidationManifestIds, handleStartValidation]);
 
   const handlePageChange = useCallback((page: number) => {
     setSelectedIds(new Set());
@@ -736,10 +769,14 @@ export function ManifestList({
         onClose={() => setOcrPreviewOpen(false)}
       />
       <BatchValidationResultsModal
-        open={validationResultsOpen}
-        onClose={() => setValidationResultsOpen(false)}
-        results={validationResults}
+        open={batchValidationOpen}
+        onClose={() => setBatchValidationOpen(false)}
+        results={batchValidationResults}
         onViewManifest={onSelectManifest}
+        onRecheck={
+          batchValidationManifestIds.length > 0 ? handleRecheckBatch : undefined
+        }
+        isRechecking={runBatchValidation.isPending}
       />
 
       {/* Content */}

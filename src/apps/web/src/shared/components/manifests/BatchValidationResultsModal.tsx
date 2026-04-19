@@ -37,6 +37,8 @@ interface BatchValidationResultsModalProps {
   onClose: () => void;
   results: BatchValidationResults | null;
   onViewManifest: (manifestId: number) => void;
+  onRecheck?: () => void;
+  isRechecking?: boolean;
 }
 
 export function BatchValidationResultsModal({
@@ -44,6 +46,8 @@ export function BatchValidationResultsModal({
   onClose,
   results,
   onViewManifest,
+  onRecheck,
+  isRechecking = false,
 }: BatchValidationResultsModalProps) {
   const { t } = useI18n();
   const [errorsExpanded, setErrorsExpanded] = useState(true);
@@ -64,8 +68,12 @@ export function BatchValidationResultsModal({
   } = results;
 
   const handleViewManifest = (manifestId: number) => {
+    // Deliberately DO NOT close the modal here. The modal's open state
+    // lives in a store that survives the route change, so when the user
+    // navigates back to the list they land in the same context and can
+    // continue working through the remaining failed items instead of
+    // having to re-run the whole batch.
     onViewManifest(manifestId);
-    onClose();
   };
 
   return (
@@ -287,6 +295,19 @@ export function BatchValidationResultsModal({
         </div>
 
         <div className="flex items-center justify-end gap-2 mt-4">
+          {onRecheck ? (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onRecheck}
+              disabled={isRechecking}
+              title={t('manifests.list.batchValidationResults.recheckTooltip')}
+            >
+              {isRechecking
+                ? t('manifests.list.batchValidationResults.rechecking')
+                : t('manifests.list.batchValidationResults.recheck')}
+            </Button>
+          ) : null}
           <Button type="button" variant="outline" onClick={onClose}>
             {t('common.close')}
           </Button>

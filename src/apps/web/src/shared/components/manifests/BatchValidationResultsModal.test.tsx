@@ -109,7 +109,7 @@ describe('BatchValidationResultsModal', () => {
     expect(screen.getByText('Failed (1)')).toBeInTheDocument();
   });
 
-  it('calls onViewManifest when View button is clicked', async () => {
+  it('calls onViewManifest when View button is clicked and keeps the modal open', async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     const onViewManifest = vi.fn();
     const onClose = vi.fn();
@@ -128,7 +128,10 @@ describe('BatchValidationResultsModal', () => {
     await user.click(viewButtons[0]);
 
     expect(onViewManifest).toHaveBeenCalledWith(1);
-    expect(onClose).toHaveBeenCalled();
+    // Open state now lives in a store that survives route navigation,
+    // so the modal deliberately does NOT auto-close on View. The user
+    // returns from the audit page to the same snapshot.
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('calls onClose when Close button is clicked', async () => {
