@@ -5,6 +5,9 @@ server:
   port: {{default SERVER_PORT "3000"}}
   logLevel: {{default SERVER_LOG_LEVEL "info"}}
 
+pdf:
+  imageScale: {{default PDF_IMAGE_SCALE "1"}}
+
 database:
   host: {{default DB_HOST "localhost"}}
   port: {{default DB_PORT "5432"}}

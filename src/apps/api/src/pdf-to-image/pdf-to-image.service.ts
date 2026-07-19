@@ -5,6 +5,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as path from 'path';
 
 import {
@@ -35,14 +36,17 @@ export interface ConvertedPage {
  */
 @Injectable()
 export class PdfToImageService {
-  private readonly DEFAULT_SCALE = 2; // 144 DPI for good quality
+  private readonly defaultScale: number;
 
   constructor(
     @Inject('IPdfConverterAdapter')
     private readonly pdfAdapter: IPdfConverterAdapter,
     @Inject('IFileAccessService')
     private readonly fileSystem: IFileAccessService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.defaultScale = this.configService.get<number>('pdf.imageScale', 1) ?? 1;
+  }
 
   /**
    * Convert a PDF file to images, one image per page
@@ -54,7 +58,7 @@ export class PdfToImageService {
     pdfPath: string,
     options: ConvertPdfToImagesOptions = {},
   ): Promise<ConvertedPage[]> {
-    const { scale = this.DEFAULT_SCALE } = options;
+    const { scale = this.defaultScale } = options;
 
     // Validate PDF exists using injected file system service
     if (!this.fileSystem.fileExists(pdfPath)) {
@@ -99,7 +103,7 @@ export class PdfToImageService {
     pageNumber: number,
     options: ConvertPdfToImagesOptions = {},
   ): Promise<ConvertedPage> {
-    const { scale = this.DEFAULT_SCALE } = options;
+    const { scale = this.defaultScale } = options;
 
     // Validate PDF exists
     if (!this.fileSystem.fileExists(pdfPath)) {
