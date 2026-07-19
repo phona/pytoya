@@ -3,6 +3,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as path from 'path';
 
@@ -49,9 +50,17 @@ describe('PdfToImageService', () => {
     // Mock PDF adapter to return a valid document by default
     mockPdfAdapter.convert.mockResolvedValue(createMockDoc());
 
+    const mockConfigService = {
+      get: jest.fn().mockReturnValue(1),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PdfToImageService,
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
+        },
         {
           provide: 'IPdfConverterAdapter',
           useValue: mockPdfAdapter,
@@ -83,7 +92,7 @@ describe('PdfToImageService', () => {
       const result = await service.convertPdfToImages('/test/file.pdf');
 
       expect(mockPdfAdapter.convert).toHaveBeenCalledWith('/test/file.pdf', {
-        scale: 2,
+        scale: 1,
       });
       expect(result).toHaveLength(2);
       expect(result[0]).toMatchObject({
