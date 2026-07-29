@@ -85,7 +85,7 @@ ocrService:
 
 ### 2. Text Concatenation Strategy
 
-det_v4+rec_v8 runs asynchronously after the main PaddleOCR-VL extraction. Its output is concatenated into the existing `pages[].text` field with a delimiter, so no new DB columns or schema changes are needed.
+det_v4+rec_v8 runs after the main PaddleOCR-VL extraction but before the LLM stage (inline within extraction, not a separate async job). Its output is concatenated into both `pages[].text` and `pages[].markdown` with a delimiter — the extraction pipeline reads from `markdown`, so both must be updated.
 
 **Per-page text format:**
 ```
@@ -124,7 +124,7 @@ Output JSON:
       "field": "<json path>",
       "reason": "confidence_mismatch" | "low_confidence" | "source_mismatch",
       "ocr_text": "<source text from box>",
-      "page_number": <int>,
+      "page": <int>,
       "bbox": [x, y, w, h]
     }
   ]
@@ -161,7 +161,7 @@ Pagination: `_human_review` can be numerous on complex documents. Default page s
 
 #### POST /manifests/:id/crops/verify
 
-Uses query param for field to avoid routing issues with dots in field paths (e.g. `line_items.0.name`).
+Field is sent in request body (not URL path), so dots in field paths (e.g. `line_items.0.name`) are handled naturally.
 
 **Request:**
 ```json
@@ -172,10 +172,12 @@ Uses query param for field to avoid routing issues with dots in field paths (e.g
 }
 ```
 
+Validated with `VerifyCropDto`.
+
 **Actions:**
 1. Validate item hasn't been verified yet (query `extraction_history` where reason=`manual_crop_verification` AND changes->>'field' = field)
 2. Write `extraction_history` record with `reason='manual_crop_verification'`, `changes={field, page, originalText, correctedText}`
-3. Update `manifest.extracted_data[field] = correctedText`  
+3. Update `manifest.extracted_data[field] = correctedText` via existing `updateManifestUseCase` (reuses validation and audit trail logic)
 4. Insert into `training_samples` table
 
 ### 5. Database: training_samples
