@@ -1,5 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Logger } from '@nestjs/common';
 import axios from 'axios';
 
 export interface OcrBoxResult {
@@ -8,19 +7,12 @@ export interface OcrBoxResult {
   bbox: [number, number, number, number];
 }
 
-@Injectable()
 export class OcrServiceClient {
   private readonly logger = new Logger(OcrServiceClient.name);
   private readonly baseUrl: string;
 
-  constructor(configServiceOrUrl?: ConfigService | string) {
-    if (typeof configServiceOrUrl === 'string') {
-      this.baseUrl = configServiceOrUrl;
-    } else if (configServiceOrUrl) {
-      this.baseUrl = configServiceOrUrl.get<string>('ocrService.baseUrl', 'http://localhost:8090');
-    } else {
-      this.baseUrl = 'http://localhost:8090';
-    }
+  constructor(baseUrl?: string) {
+    this.baseUrl = baseUrl ?? 'http://localhost:8090';
   }
 
   async infer(imageBuffer: Buffer): Promise<OcrBoxResult[]> {

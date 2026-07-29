@@ -1,5 +1,3 @@
-import { ConfigService } from '@nestjs/config';
-
 import { BaseTextExtractor } from '../base-text-extractor';
 import { OcrServiceClient } from '../ocr-service.client';
 import {
@@ -49,12 +47,8 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
 
   constructor(config: InferenceOcrConfig, deps?: Record<string, unknown>) {
     super(config);
-    const configService = deps?.configService as ConfigService | undefined;
-    const storage = deps?.ocrServiceClient as OcrServiceClient | undefined;
-    const serviceUrl = configService?.get<string>('ocrService.baseUrl')
-      ?? config.serviceUrl
-      ?? 'http://localhost:8090';
-    this.ocrServiceClient = storage ?? new OcrServiceClient(serviceUrl);
+    const serviceUrl = config.serviceUrl ?? 'http://localhost:8090';
+    this.ocrServiceClient = new OcrServiceClient(serviceUrl);
     this.confidenceThreshold = config.confidenceThreshold ?? 0.8;
   }
 

@@ -22,14 +22,12 @@ import { TextExtractorService } from './text-extractor.service';
   controllers: [ExtractorsController],
   providers: [
     ExtractorRepository,
-    OcrServiceClient,
     TextExtractorFactory,
     TextExtractorRegistry,
     TextExtractorService,
   ],
   exports: [
     ExtractorRepository,
-    OcrServiceClient,
     TextExtractorFactory,
     TextExtractorRegistry,
     TextExtractorService,
