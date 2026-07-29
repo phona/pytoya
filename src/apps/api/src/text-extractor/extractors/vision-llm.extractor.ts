@@ -34,6 +34,18 @@ export class VisionLlmExtractor extends BaseTextExtractor<VisionLlmConfig> {
     category: 'vision',
     supportedFormats: ['image'],
     pricingSchema: PRICING_SCHEMA,
+    configSchema: {
+      type: 'object',
+      properties: {
+        baseUrl: { type: 'string', title: 'Base URL' },
+        apiKey: { type: 'string', title: 'API Key' },
+        model: { type: 'string', title: 'Model' },
+        temperature: { type: 'number', title: 'Temperature', default: 0 },
+        maxTokens: { type: 'number', title: 'Max Tokens' },
+        detail: { type: 'string', title: 'Image Detail', enum: ['low', 'high', 'auto'], default: 'auto' },
+      },
+      required: ['apiKey', 'model'],
+    },
     paramsSchema: {
       baseUrl: {
         type: 'string',

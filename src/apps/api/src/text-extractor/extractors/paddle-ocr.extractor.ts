@@ -61,6 +61,24 @@ export class PaddleOcrExtractor extends BaseTextExtractor<PaddleOcrConfig> {
     category: 'ocr',
     supportedFormats: ['pdf', 'image'],
     pricingSchema: PRICING_SCHEMA,
+    configSchema: {
+      type: 'object',
+      properties: {
+        baseUrl: { type: 'string', title: 'Base URL' },
+        endpoint: { type: 'string', title: 'Endpoint' },
+        apiKey: { type: 'string', title: 'API Key' },
+        model: { type: 'string', title: 'Model' },
+        timeoutMs: { type: 'number', title: 'Timeout (ms)', default: 120000 },
+        maxRetries: { type: 'number', title: 'Max Retries', default: 3 },
+        useDocOrientationClassify: { type: 'boolean', title: 'Orientation Detection', default: true },
+        useDocUnwarping: { type: 'boolean', title: 'Document Unwarping', default: true },
+        useLayoutDetection: { type: 'boolean', title: 'Layout Detection', default: true },
+        useChartRecognition: { type: 'boolean', title: 'Chart Recognition', default: false },
+        visualize: { type: 'boolean', title: 'Visualize', default: false },
+        prettifyMarkdown: { type: 'boolean', title: 'Prettify Markdown', default: true },
+      },
+      required: [],
+    },
     paramsSchema: {
       baseUrl: {
         type: 'string',

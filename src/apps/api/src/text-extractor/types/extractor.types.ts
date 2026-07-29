@@ -44,6 +44,7 @@ export interface ExtractorMetadata {
   version: string;
   category: ExtractorCategory;
   paramsSchema: ExtractorParamSchema;
+  configSchema: Record<string, unknown>;
   supportedFormats: ExtractorSupportedFormat[];
   defaultConfig?: Record<string, unknown>;
   pricingSchema?: ExtractorParamSchema;

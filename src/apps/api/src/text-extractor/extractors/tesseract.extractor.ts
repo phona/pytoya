@@ -31,6 +31,16 @@ export class TesseractExtractor extends BaseTextExtractor<TesseractConfig> {
     category: 'ocr',
     supportedFormats: ['image'],
     pricingSchema: PRICING_SCHEMA,
+    configSchema: {
+      type: 'object',
+      properties: {
+        binaryPath: { type: 'string', title: 'Binary Path', default: 'tesseract' },
+        lang: { type: 'string', title: 'Language', default: 'chi_sim+eng' },
+        psm: { type: 'number', title: 'Page Segmentation Mode', default: 6 },
+        oem: { type: 'number', title: 'OCR Engine Mode', default: 1 },
+      },
+      required: [],
+    },
     paramsSchema: {
       binaryPath: {
         type: 'string',

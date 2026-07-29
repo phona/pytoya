@@ -5,6 +5,7 @@ import {
   TextExtractorClass,
   TextExtractorConfig,
 } from './types/extractor.types';
+import { InferenceOcrExtractor } from './extractors/inference-ocr.extractor';
 import { PaddleOcrExtractor } from './extractors/paddle-ocr.extractor';
 import { VisionLlmExtractor } from './extractors/vision-llm.extractor';
 import { TesseractExtractor } from './extractors/tesseract.extractor';
@@ -15,6 +16,7 @@ export class TextExtractorRegistry implements OnModuleInit {
   private readonly registry = new Map<string, TextExtractorClass>();
 
   onModuleInit(): void {
+    this.register(InferenceOcrExtractor);
     this.register(PaddleOcrExtractor);
     this.register(VisionLlmExtractor);
     this.register(TesseractExtractor);

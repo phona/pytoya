@@ -72,7 +72,7 @@ export class SchemasService {
     private readonly manifestRepository: Repository<ManifestEntity>,
     private readonly abilityFactory: AbilityFactory,
   ) {
-    this.ajv = new Ajv({ allErrors: true, strict: false });
+    this.ajv = new Ajv({ allErrors: true, strict: false, coerceTypes: true });
   }
 
   async create(user: UserEntity, input: CreateSchemaDto): Promise<SchemaEntity> {

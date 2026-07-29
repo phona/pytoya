@@ -6,6 +6,7 @@ import { ExtractorEntity } from '../entities/extractor.entity';
 import { LlmModule } from '../llm/llm.module';
 import { PdfToImageModule } from '../pdf-to-image/pdf-to-image.module';
 import { ExtractorRepository } from '../extractors/extractor.repository';
+import { OcrServiceClient } from './ocr-service.client';
 import { TextExtractorFactory } from './text-extractor.factory';
 import { TextExtractorRegistry } from './text-extractor.registry';
 import { TextExtractorService } from './text-extractor.service';
@@ -19,12 +20,14 @@ import { TextExtractorService } from './text-extractor.service';
   ],
   providers: [
     ExtractorRepository,
+    OcrServiceClient,
     TextExtractorFactory,
     TextExtractorRegistry,
     TextExtractorService,
   ],
   exports: [
     ExtractorRepository,
+    OcrServiceClient,
     TextExtractorFactory,
     TextExtractorRegistry,
     TextExtractorService,
