@@ -242,16 +242,17 @@ export class ExtractionService {
     if (!project.defaultSchemaId) {
       throw new BadRequestException('Project schema is required for extraction');
     }
-    if (!project.textExtractorId) {
-      throw new BadRequestException('Project text extractor is required for extraction');
-    }
-    const textExtractorId = project.textExtractorId;
-
     const schema = this.schemasService.findOneInternal
       ? await this.schemasService.findOneInternal(project.defaultSchemaId)
       : await (this.schemasService as any).findOne(project.defaultSchemaId);
     const rules = await this.schemaRulesService.findBySchema(schema.id);
     const enabledRules = rules.filter((rule) => rule.enabled);
+
+    const ocrExtractors = ((schema?.validationSettings as Record<string, unknown> | null)?.ocrExtractors as Array<{ type: string; config?: Record<string, unknown> }> | undefined)
+      ?? (project.textExtractorId ? [{ type: project.textExtractorId, config: {} }] : undefined);
+    if (!ocrExtractors || ocrExtractors.length === 0) {
+      throw new BadRequestException('Schema ocrExtractors or project textExtractorId is required for extraction');
+    }
 
     const llmModelFromProject = project.llmModelId
       ? await this.modelRepository.findOne({ where: { id: project.llmModelId } })
@@ -331,11 +332,11 @@ export class ExtractionService {
           state.status = ExtractionStatus.TEXT_EXTRACTING;
           reportProgress(25);
           const textResult = manifest.ocrResult
-            ? await this.buildCachedTextExtractionState(manifest, textExtractorId)
+            ? await this.buildCachedTextExtractionState(manifest, ocrExtractors[0]?.type ?? 'paddle-ocr-vl')
             : await this.executeTextExtraction(
                 manifest,
                 await this.fileSystem.readFile(manifest.storagePath),
-                textExtractorId,
+                ocrExtractors,
                 async (update) => {
                   if (update.pagesTotal > 0) {
                     const range = 15;
@@ -455,12 +456,12 @@ export class ExtractionService {
   private async executeTextExtraction(
     manifest: ManifestEntity,
     buffer: Buffer,
-    extractorId: string,
+    ocrExtractors: Array<{ type: string; config?: Record<string, unknown> }>,
     onProgress?: (update: TextExtractionProgressUpdate) => void | Promise<void>,
     abortSignal?: AbortSignal,
   ): Promise<TextExtractionState> {
     const mimeType = this.getMimeTypeFromFilename(manifest.originalFilename);
-    const { extractor, result } = await this.textExtractorService.extract(extractorId, {
+    const { extractors, result } = await this.textExtractorService.extract(ocrExtractors, {
       buffer,
       fileType: manifest.fileType,
       filePath: manifest.storagePath,
@@ -478,7 +479,7 @@ export class ExtractionService {
       manifest.ocrProcessedAt = new Date(ocrResult.metadata.processedAt ?? new Date().toISOString());
       manifest.ocrQualityScore = qualityScore ?? null;
     }
-    manifest.textExtractorId = extractor.id;
+    manifest.textExtractorId = extractors[0] ?? null;
 
     await this.manifestRepository.save(manifest);
 
