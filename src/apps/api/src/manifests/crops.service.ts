@@ -106,7 +106,6 @@ export class CropsService {
     await this.historyRepo.save({
       manifestId,
       reason: 'manual_crop_verification',
-
       changes: { field, page, originalText, correctedText, originalBbox, adjustedBbox, createdBy: user.id },
     });
 
