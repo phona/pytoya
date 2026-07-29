@@ -16,6 +16,7 @@ import { ProjectSettingsValidationScriptsPage } from '../routes/dashboard/Projec
 import { ProjectSettingsExportScriptsPage } from '../routes/dashboard/ProjectSettingsExportScriptsPage';
 import { ManifestsPage } from '../routes/dashboard/ManifestsPage';
 import { ManifestAuditPage } from '../routes/dashboard/ManifestAuditPage';
+import { CorrectionPage } from '../routes/dashboard/CorrectionPage';
 import { ModelsPage } from '../routes/dashboard/ModelsPage';
 import { ExtractorsPage } from '../routes/dashboard/ExtractorsPage';
 import { ProjectCostSummaryPage } from '../routes/dashboard/ProjectCostSummaryPage';
@@ -82,6 +83,7 @@ export const appRoutes = [
           ) },
           { path: 'projects/:id/groups/:groupId/manifests', element: <ManifestsPage /> },
           { path: 'projects/:id/groups/:groupId/manifests/:manifestId', element: <ManifestAuditPage /> },
+          { path: 'projects/:id/groups/:groupId/manifests/:manifestId/correction', element: <CorrectionPage /> },
           { path: 'profile', element: <ProfilePage /> },
           { path: 'models', element: (
             <AdminRoute>

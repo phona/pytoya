@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronLeft, ChevronRight, X, Eye, Play, Save, ArrowRight } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, X, Eye, Play, Save, ArrowRight, Pencil } from 'lucide-react';
 import {
   useManifest,
   useUpdateManifest,
@@ -1089,6 +1089,18 @@ export function AuditPanel({ projectId, groupId, manifestId, onClose, allManifes
           >
             <Play className="h-4 w-4" />
             {runValidation.isPending ? t('audit.menu.runningValidation') : t('audit.menu.runValidation')}
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled={navPending}
+            onClick={() => navigate(`/projects/${projectId}/groups/${groupId}/manifests/${manifestId}/correction`)}
+          >
+            <Pencil className="h-4 w-4" />
+            {t('correction.title')}
           </Button>
 
           <DropdownMenu>

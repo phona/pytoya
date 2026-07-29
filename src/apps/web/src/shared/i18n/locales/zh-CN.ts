@@ -924,4 +924,18 @@ export const zhCNMessages: Record<string, string> = {
   'analytics.recommendations.modelFailure.evidence.failedShare': '{{total}} 条已终态的文档中 {{failed}} 条失败',
   'analytics.recommendations.backlog.title': '有 {{count}} 个文档滞留超过 {{days}} 天',
   'analytics.recommendations.backlog.evidence.count': '滞留的 pending/partial 文档',
+
+  'correction.title': '修正',
+  'correction.back': '返回',
+  'correction.prev': '上一项',
+  'correction.next': '下一项',
+  'correction.submit': '提交修正',
+  'correction.skip': '跳过',
+  'correction.corrected': '校正文本',
+  'correction.ocrText': '原始文本',
+  'correction.noPending': '没有待修正的字段',
+  'correction.allDone': '所有字段已修正完成',
+  'correction.confidence': '置信度',
+  'correction.reason': '原因',
+  'correction.bbox': '标注框',
 };

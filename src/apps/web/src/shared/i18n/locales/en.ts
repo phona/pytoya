@@ -935,4 +935,18 @@ export const enMessages: Record<string, string> = {
   'analytics.recommendations.modelFailure.evidence.failedShare': '{{failed}} failures in {{total}} terminal manifests',
   'analytics.recommendations.backlog.title': '{{count}} manifests have been waiting more than {{days}} days',
   'analytics.recommendations.backlog.evidence.count': 'Stale pending/partial manifests',
+
+  'correction.title': 'Correction',
+  'correction.back': 'Back',
+  'correction.prev': 'Previous',
+  'correction.next': 'Next',
+  'correction.submit': 'Submit Correction',
+  'correction.skip': 'Skip',
+  'correction.corrected': 'Corrected Text',
+  'correction.ocrText': 'Original Text',
+  'correction.noPending': 'No pending corrections',
+  'correction.allDone': 'All fields have been corrected',
+  'correction.confidence': 'Confidence',
+  'correction.reason': 'Reason',
+  'correction.bbox': 'Bounding Box',
 };
