@@ -59,6 +59,7 @@ type ExtractionOptions = {
   textContextSnippet?: string;
   onTextProgress?: (update: TextExtractionProgressUpdate) => void | Promise<void>;
   abortSignal?: AbortSignal;
+  ocrExtractors?: Array<{ type: string; config?: Record<string, unknown> }>;
 };
 
 type StageLogExtras = {
@@ -376,6 +377,7 @@ export class ExtractionService {
               llmModel,
               systemPromptOverride,
               reExtractPromptOverride,
+              ocrExtractors,
             },
             schema,
             enabledRules,
@@ -623,7 +625,7 @@ export class ExtractionService {
     requiredFields: string[],
   ): Promise<void> {
     const providerConfig = this.buildLlmProviderConfig(options.llmModel);
-    const systemPrompt = this.getSystemPrompt(schema, options.systemPromptOverride);
+    const systemPrompt = this.getSystemPrompt(schema, options.systemPromptOverride, options.ocrExtractors);
     const reExtractSystemPrompt = this.getReExtractPrompt(schema, options.reExtractPromptOverride);
     const activeRules = (rules ?? []).filter((rule) => rule.enabled !== false);
     const contextOverride = options.textContextSnippet?.trim() || undefined;
@@ -1274,10 +1276,13 @@ export class ExtractionService {
     current[parts[parts.length - 1]] = value;
   }
 
-  private getSystemPrompt(schema: SchemaEntity | null, override?: string): string {
+  private getSystemPrompt(schema: SchemaEntity | null, override?: string, ocrExtractors?: Array<{ type: string; config?: Record<string, unknown> }>): string {
     const base = (() => {
       if (override) return override;
       if (schema?.systemPromptTemplate) return schema.systemPromptTemplate;
+      if (ocrExtractors && ocrExtractors.length > 1) {
+        return this.promptsService.getMultiOcrSystemPrompt(ocrExtractors);
+      }
       return this.promptsService.getSystemPrompt();
     })();
 
