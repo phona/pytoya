@@ -20,8 +20,8 @@ export class ExtractionHistoryEntity {
   manifestId!: number;
 
   @Index()
-  @Column({ name: 'job_id' })
-  jobId!: number;
+  @Column({ name: 'job_id', nullable: true })
+  jobId!: number | null;
 
   @Column({ type: 'jsonb', name: 'extracted_data', nullable: true })
   extractedData!: Record<string, unknown> | null;

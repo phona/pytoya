@@ -60,6 +60,13 @@ export class CropsService {
     return { items, total: items.length };
   }
 
+  /**
+   * TODO(v2): Support multi-page PDF extraction.
+   * For v1:
+   *   - For PDFs: returns the whole file (frontend handles PDF rendering)
+   *   - For images: single page, returns as-is
+   *   - The `page` parameter is reserved for future multi-page support
+   */
   async getPageImage(manifestId: number, page: number) {
     const manifest = await this.manifestRepo.findOne({ where: { id: manifestId } });
     if (!manifest || !manifest.storagePath) return null;
@@ -99,7 +106,7 @@ export class CropsService {
     await this.historyRepo.save({
       manifestId,
       reason: 'manual_crop_verification',
-      jobId: 0,
+
       changes: { field, page, originalText, correctedText, originalBbox, adjustedBbox, createdBy: user.id },
     });
 
