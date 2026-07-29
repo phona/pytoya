@@ -13,6 +13,11 @@ import {
   TextExtractionResult,
 } from './types/extractor.types';
 
+interface OcrExtractorConfig {
+  type: string;
+  config?: Record<string, unknown>;
+}
+
 @Injectable()
 export class TextExtractorService {
   constructor(
@@ -25,7 +30,25 @@ export class TextExtractorService {
   async extract(extractorId: string, input: TextExtractionInput): Promise<{
     extractor: ExtractorEntity;
     result: TextExtractionResult;
-  }> {
+  }>;
+  async extract(ocrExtractors: OcrExtractorConfig[], input: TextExtractionInput): Promise<{
+    extractors: string[];
+    result: TextExtractionResult;
+  }>;
+  async extract(
+    first: string | OcrExtractorConfig[],
+    input: TextExtractionInput,
+  ): Promise<any> {
+    if (typeof first === 'string') {
+      return this.extractSingle(first, input);
+    }
+    return this.extractMultiple(first, input);
+  }
+
+  private async extractSingle(
+    extractorId: string,
+    input: TextExtractionInput,
+  ): Promise<{ extractor: ExtractorEntity; result: TextExtractionResult }> {
     const extractor = await this.extractorRepository.findOne(extractorId);
     if (!extractor) {
       throw new BadRequestException(`Extractor ${extractorId} not found`);
@@ -115,5 +138,71 @@ export class TextExtractorService {
       throw new BadRequestException('PDF file path is required for image-based extractors');
     }
     return this.pdfToImageService.convertPdfToImages(filePath);
+  }
+
+  private async runSingleExtractor(
+    type: string,
+    config: Record<string, unknown> | undefined,
+    input: TextExtractionInput,
+  ) {
+    const extractorClass = this.extractorRegistry.get(type);
+    if (!extractorClass) return null;
+
+    const instance = this.extractorFactory.createInstance(type, config ?? {}, type);
+
+    const supportedFormats = extractorClass.metadata.supportedFormats ?? [];
+    const shouldConvert =
+      input.fileType === FileType.PDF &&
+      !supportedFormats.includes('pdf') &&
+      supportedFormats.includes('image');
+
+    const pages = shouldConvert
+      ? await this.convertPdfToPages(input.filePath)
+      : input.pages;
+
+    const result = await instance.extract({ ...input, pages });
+    return { extractorName: type, result };
+  }
+
+  private async extractMultiple(
+    ocrExtractors: OcrExtractorConfig[],
+    input: TextExtractionInput,
+  ): Promise<{ extractors: string[]; result: TextExtractionResult }> {
+    const extractionResults = await Promise.allSettled(
+      ocrExtractors.map((e) => this.runSingleExtractor(e.type, e.config, input)),
+    );
+
+    const succeeded = extractionResults
+      .filter((r): r is PromiseFulfilledResult<{ extractorName: string; result: TextExtractionResult }> =>
+        r.status === 'fulfilled' && r.value !== null)
+      .map(r => r.value);
+
+    if (succeeded.length === 0) {
+      throw new BadRequestException('All extractors failed');
+    }
+
+    const primary = succeeded[0];
+    const mergedMetadata = primary.result.metadata;
+
+    if (!mergedMetadata.ocrResult) {
+      mergedMetadata.ocrResult = this.buildFallbackOcrResult(primary.result, primary.extractorName);
+    }
+
+    for (let i = 1; i < succeeded.length; i++) {
+      const { extractorName, result } = succeeded[i];
+      const ocrResult = result.metadata?.ocrResult;
+      if (!ocrResult) continue;
+
+      const delimiter = `\n\n=== Extractor: ${extractorName} ===\n`;
+      for (let p = 0; p < Math.min(mergedMetadata.ocrResult.pages.length, ocrResult.pages.length); p++) {
+        mergedMetadata.ocrResult.pages[p].markdown += delimiter + ocrResult.pages[p].markdown;
+      }
+    }
+
+    if (mergedMetadata.qualityScore === undefined) {
+      mergedMetadata.qualityScore = calculateOcrQualityScore(mergedMetadata.ocrResult);
+    }
+
+    return { extractors: succeeded.map(s => s.extractorName), result: primary.result };
   }
 }

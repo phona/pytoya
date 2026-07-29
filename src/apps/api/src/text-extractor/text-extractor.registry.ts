@@ -34,6 +34,13 @@ export class TextExtractorRegistry implements OnModuleInit {
     return this.registry.get(extractorType);
   }
 
+  getAll(): Array<{ type: string; metadata: ExtractorMetadata }> {
+    return Array.from(this.registry.entries()).map(([type, cls]) => ({
+      type,
+      metadata: cls.metadata,
+    }));
+  }
+
   list(): ExtractorMetadata[] {
     return Array.from(this.registry.values()).map((extractor) => extractor.metadata);
   }

@@ -6,6 +6,7 @@ import { ExtractorEntity } from '../entities/extractor.entity';
 import { LlmModule } from '../llm/llm.module';
 import { PdfToImageModule } from '../pdf-to-image/pdf-to-image.module';
 import { ExtractorRepository } from '../extractors/extractor.repository';
+import { ExtractorsController } from './extractors.controller';
 import { OcrServiceClient } from './ocr-service.client';
 import { TextExtractorFactory } from './text-extractor.factory';
 import { TextExtractorRegistry } from './text-extractor.registry';
@@ -18,6 +19,7 @@ import { TextExtractorService } from './text-extractor.service';
     PdfToImageModule,
     TypeOrmModule.forFeature([ExtractorEntity]),
   ],
+  controllers: [ExtractorsController],
   providers: [
     ExtractorRepository,
     OcrServiceClient,
