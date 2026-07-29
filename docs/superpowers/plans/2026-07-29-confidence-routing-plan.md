@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Run multiple OCR extractors in parallel (pipeline), merge results, route low-confidence fields to human reviewers via crop-level verification.
+**Goal:** Run multiple OCR extractors in parallel, merge results, route low-confidence fields to human reviewers via crop-level verification.
 
-**Architecture:** `schema.ocrExtractors` stores default OCR pipeline. `TextExtractorService.extract(pipeline, input)` runs all steps in parallel via `Promise.allSettled`, merges results into `pages[].markdown` with `=== Extractor: <name> ===` delimiter. Each extractor class declares its own `configSchema` for frontend UI rendering and `promptContribution` for LLM context. DeepSeek cross-validates multi-source text and marks `_human_review[]`. Three review endpoints serve pending crops, page images, and accept verifications.
+**Architecture:** `schema.validationSettings.ocrExtractors` stores which OCR extractors to run. `TextExtractorService.extract()` reads this config, runs all extractors in parallel via `Promise.allSettled`, merges results into `pages[].markdown` with `=== Extractor: <name> ===` delimiter. Each extractor class declares its own `configSchema` and `promptContribution` on its static metadata. DeepSeek cross-validates multi-source text and marks `_human_review[]`. Three review endpoints serve pending crops, page images, and accept verifications.
 
 **Tech Stack:** NestJS, TypeORM, PostgreSQL, sharp, JSON Schema
 
@@ -140,9 +140,9 @@ export class InferenceOcrExtractor extends BaseTextExtractor {
       return { text: '', markdown: '', metadata: { processingTimeMs: 0 } };
     }
 
-    // Pipeline config (per-call) merged with static config (creation-time)
-    const pipelineConfig = input.pipelineConfig ?? {};
-    const serviceUrl = (pipelineConfig.serviceUrl as string)
+    // Schema-level config merged with static config (creation-time)
+    const extractorConfig = input.extractorConfig ?? {};
+    const serviceUrl = (extractorConfig.serviceUrl as string)
       ?? this.configService.get<string>('ocrService.baseUrl', 'http://localhost:8090');
 
     const startTime = Date.now();
@@ -223,29 +223,13 @@ git commit -m "feat: add inference-ocr extractor with configSchema and promptCon
 - Create: `src/apps/api/src/text-extractor/extractors.controller.ts`
 - Modify: `src/apps/api/src/text-extractor/text-extractor.service.ts`
 - Modify: `src/apps/api/src/text-extractor/text-extractor.module.ts`
-- Add: `src/apps/api/src/text-extractor/types/pipeline.types.ts`
 
 **Interfaces:**
 - Produces: `GET /extractors` — returns all registered extractor types + their metadata
-- Consumes: `PipelineStep[]` instead of `extractorIds: string[]`
-- Produces: `TextExtractorService.extract(pipeline, input)` — parallel + merge
+- Consumes: `OcrExtractorConfig[]` from schema (internal)
+- Produces: `TextExtractorService.extract(ocrExtractors, input)` — parallel + merge
 
-- [ ] **Step 1: Create pipeline type definitions**
-
-```typescript
-// src/apps/api/src/text-extractor/types/pipeline.types.ts
-export interface PipelineStep {
-  type: string;
-  config?: Record<string, unknown>;
-}
-
-export interface PipelineResult {
-  extractorName: string;
-  result: TextExtractionResult;
-}
-```
-
-- [ ] **Step 2: Create GET /extractors endpoint**
+- [ ] **Step 1: Create GET /extractors endpoint**
 
 ```typescript
 // src/apps/api/src/text-extractor/extractors.controller.ts
@@ -292,56 +276,53 @@ getAll(): Array<{ type: string; metadata: ExtractorMetadata }> {
 }
 ```
 
-- [ ] **Step 4: Rewrite TextExtractorService.extract() for pipeline execution**
+- [ ] **Step 4: Rewrite TextExtractorService.extract() for multi-extractor execution**
 
 ```typescript
 // src/apps/api/src/text-extractor/text-extractor.service.ts
 
-import { PipelineStep } from './types/pipeline.types';
+interface OcrExtractorConfig {
+  type: string;
+  config?: Record<string, unknown>;
+}
 
-async extract(pipeline: PipelineStep[], input: TextExtractionInput): Promise<{
-  results: PipelineResult[];
+private async runSingleExtractor(type: string, config: Record<string, unknown> | undefined, input: TextExtractionInput) {
+  const extractorClass = this.extractorRegistry.get(type);
+  if (!extractorClass) return null;
+
+  const instance = this.extractorFactory.createInstance(type, {}, type);
+
+  const supportedFormats = extractorClass.metadata.supportedFormats ?? [];
+  const shouldConvert =
+    input.fileType === FileType.PDF &&
+    !supportedFormats.includes('pdf') &&
+    supportedFormats.includes('image');
+
+  const pages = shouldConvert
+    ? await this.convertPdfToPages(input.filePath)
+    : input.pages;
+
+  const result = await instance.extract({ ...input, pages, extractorConfig: config });
+  return { extractorName: type, result };
+}
+
+async extract(ocrExtractors: OcrExtractorConfig[], input: TextExtractionInput): Promise<{
+  extractors: string[];
+  result: TextExtractionResult;
 }> {
-  // Run all pipeline steps in parallel
   const extractionResults = await Promise.allSettled(
-    pipeline.map(async (step) => {
-      const extractorClass = this.extractorRegistry.get(step.type);
-      if (!extractorClass) return null;
-
-      // Merge: static config (from DB) is handled upstream.
-      // Pipeline config (from request) is passed through.
-      const instance = this.extractorFactory.createInstance(
-        step.type,
-        {},
-        step.type,
-      );
-      instance.pipelineConfig = step.config ?? {};
-
-      const supportedFormats = extractorClass.metadata.supportedFormats ?? [];
-      const shouldConvert =
-        input.fileType === FileType.PDF &&
-        !supportedFormats.includes('pdf') &&
-        supportedFormats.includes('image');
-
-      const pages = shouldConvert
-        ? await this.convertPdfToPages(input.filePath)
-        : input.pages;
-
-      const result = await instance.extract({ ...input, pages, pipelineConfig: step.config });
-      return { extractorName: step.type, result };
-    }),
+    ocrExtractors.map((e) => this.runSingleExtractor(e.type, e.config, input)),
   );
 
-  const succeeded = extractionResults.filter(
-    (r): r is PromiseFulfilledResult<NonNullable<typeof r.value>> =>
-      r.status === 'fulfilled' && r.value !== null,
-  ).map(r => r.value);
+  const succeeded = extractionResults
+    .filter((r): r is PromiseFulfilledResult<NonNullable<typeof r.value>> =>
+      r.status === 'fulfilled' && r.value !== null)
+    .map(r => r.value);
 
   if (succeeded.length === 0) {
-    throw new BadRequestException('All extractors in pipeline failed');
+    throw new BadRequestException('All extractors failed');
   }
 
-  // Merge results into first extractor's OCR result
   const primary = succeeded[0];
   const mergedMetadata = primary.result.metadata;
 
@@ -352,8 +333,7 @@ async extract(pipeline: PipelineStep[], input: TextExtractionInput): Promise<{
 
     const delimiter = `\n\n=== Extractor: ${extractorName} ===\n`;
     for (let p = 0; p < Math.min(mergedMetadata.ocrResult.pages.length, ocrResult.pages.length); p++) {
-      mergedMetadata.ocrResult.pages[p].markdown +=
-        delimiter + ocrResult.pages[p].markdown;
+      mergedMetadata.ocrResult.pages[p].markdown += delimiter + ocrResult.pages[p].markdown;
     }
   }
 
@@ -361,7 +341,7 @@ async extract(pipeline: PipelineStep[], input: TextExtractionInput): Promise<{
     mergedMetadata.qualityScore = calculateOcrQualityScore(mergedMetadata.ocrResult);
   }
 
-  return { results: succeeded };
+  return { extractors: succeeded.map(s => s.extractorName), result: primary.result };
 }
 ```
 
@@ -379,7 +359,7 @@ git commit -m "feat: pipeline-based multi-extractor execution with GET /extracto
 
 ---
 
-### Task 3: Add Multi-OCR System Prompt with promptContribution Collection
+### Task 3: Add Multi-OCR System Prompt
 
 **Files:**
 - Modify: `src/apps/api/src/prompts/constants/system-prompts.constant.ts`
@@ -422,16 +402,17 @@ export const MULTI_OCR_SYSTEM_PROMPT = [
 ].join('\n');
 ```
 
-The `<EXTRACTOR_CONTRIBUTIONS>` placeholder is replaced at extraction time with the selected extractors' `promptContribution` strings.
+The `<EXTRACTOR_CONTRIBUTIONS>` placeholder is replaced at extraction time with the configured extractors' `promptContribution` strings.
 
 - [ ] **Step 2: Build prompt at extraction time with contributions**
 
-In extraction service, before sending to LLM:
+In extraction service, before sending to LLM — collect `promptContribution` from the configured extractors:
 
 ```typescript
-const contributions = pipeline.map(
-  step => this.extractorRegistry.get(step.type)?.metadata.promptContribution
-).filter(Boolean).join('\n\n');
+const contributions = schema.validationSettings.ocrExtractors
+  .map((e: any) => this.extractorRegistry.get(e.type)?.metadata.promptContribution)
+  .filter(Boolean)
+  .join('\n\n');
 
 const systemPrompt = this.multiOcrSystemPrompt.replace(
   '<EXTRACTOR_CONTRIBUTIONS>',
@@ -448,17 +429,16 @@ git commit -m "feat: multi-OCR prompt with dynamic extractor contributions"
 
 ---
 
-### Task 4: Integrate Pipeline into Schema and Extraction Flow
+### Task 4: Integrate Multi-OCR into Schema and Extraction Flow
 
 **Files:**
 - Modify: `src/apps/api/src/extraction/extraction.service.ts`
 - Modify: `src/apps/api/src/schemas/schemas.service.ts` (or schema entity)
-- Modify: `src/apps/api/src/extraction/dto/extract.dto.ts`
 
 - [ ] **Step 1: Add ocrExtractors to schema config**
 
 ```typescript
-// On SchemaEntity (existing validationSettings JSONB field, or new dedicated field):
+// On SchemaEntity (existing validationSettings JSONB field):
 // validationSettings.ocrExtractors: Array<{ type: string; config: Record<string, unknown> }>
 
 {
@@ -469,49 +449,22 @@ git commit -m "feat: multi-OCR prompt with dynamic extractor contributions"
 }
 ```
 
-- [ ] **Step 2: Update ExtractDto**
-
-```typescript
-// src/apps/api/src/extraction/dto/extract.dto.ts
-import { IsOptional, IsArray, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
-
-export class PipelineStepDto {
-  @IsString()
-  type!: string;
-
-  @IsOptional()
-  config?: Record<string, unknown>;
-}
-
-export class ExtractDto {
-  // ... existing fields ...
-
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => PipelineStepDto)
-  pipeline?: PipelineStepDto[];
-}
-```
-
-- [ ] **Step 3: Update extraction service to resolve pipeline**
+- [ ] **Step 2: Update extraction service to read schema config**
 
 ```typescript
 // In extraction.service.ts, where textExtractorService.extract() is called:
 
-const pipeline = options.pipeline
-  ?? (schema.validationSettings as any)?.ocrExtractors
+const ocrExtractors = (schema.validationSettings as any)?.ocrExtractors
   ?? [{ type: 'paddle-ocr-vl', config: {} }];
 
-const { results } = await this.textExtractorService.extract(pipeline, input);
+const { extractors, result } = await this.textExtractorService.extract(ocrExtractors, input);
 ```
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
 git add src/apps/api/src/extraction/ src/apps/api/src/schemas/
-git commit -m "feat: pipeline config in schema + ExtractDto"
+git commit -m "feat: multi-OCR via schema.validationSettings.ocrExtractors"
 ```
 
 ---

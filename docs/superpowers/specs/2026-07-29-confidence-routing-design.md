@@ -12,14 +12,15 @@ Review UI 遵循**一鱼两吃**原则：前端展示原图 + bbox 框，用户�
 ## Architecture
 
 ```
-extract(pipeline: [{ type, config }], file)
-  │
-  ├─ Promise.allSettled([
-  │    PaddleOCR-VL     → markdown
-  │    inference-ocr    → [{text, confidence, bbox}]
-  │  ])
-  │
-  └─ merge → pages[].markdown
+schema.validationSettings.ocrExtractors = [
+  { type: "paddle-ocr-vl", config: { timeout: 30000 } },
+  { type: "inference-ocr", config: { threshold: 0.75 } }
+]
+
+extract(schema) → 读 ocrExtractors → Promise.allSettled([
+    PaddleOCR-VL   → markdown
+    inference-ocr  → [{text, confidence, bbox}]
+  ]) → merge → pages[].markdown
      "=== Extractor: PaddleOCR-VL ===\n...
       === Extractor: inference-ocr ===\n..."
          ↓
@@ -100,21 +101,22 @@ bbox format: `[x, y, w, h]` (pixel coordinates relative to original page image).
 
 ### 3. Multi-OCR Execution Engine
 
-`TextExtractorService.extract()` receives a **pipeline** — an array of `{ type, config }` steps:
+`TextExtractorService.extract()` reads `schema.validationSettings.ocrExtractors` to determine which extractors to run:
 
 ```typescript
-interface PipelineStep {
-  type: string;                          // extractor type identifier
-  config: Record<string, unknown>;       // pipeline 级参数
+interface OcrExtractorConfig {
+  type: string;
+  config?: Record<string, unknown>;
 }
 ```
 
 Execution:
-1. 遍历 pipeline，按 type 从 registry 找 extractor class
-2. 合并 **基础设施配置**（创建时存入 DB 的静态配置）和 **pipeline 配置**（调用方传入的调参）
-3. 并行执行所有 extractor via `Promise.allSettled`
-4. 成功结果按 `=== Extractor: <name> ===` 分隔符拼进 `pages[].markdown`
-5. 收集所有 extractor 的 `promptContribution` → 追加到 system prompt
+1. 从 schema 配置读 extractor 列表
+2. 按 type 从 registry 找 extractor class
+3. 合并**基础设施配置**（创建时存入 DB 的静态配置）和**schema 级配置**（per-project 调参）
+4. 并行执行所有 extractor via `Promise.allSettled`
+5. 成功结果按 `=== Extractor: <name> ===` 分隔符拼进 `pages[].markdown`
+6. 收集所有 extractor 的 `promptContribution` → 追加到 system prompt
 
 ### 4. GET /extractors
 
@@ -137,9 +139,9 @@ Returns all registered extractor types for frontend UI rendering.
 ]
 ```
 
-### 5. Project / Schema 集成
+### 5. 配置
 
-`schema` / `project` 上加一个配置字段 `ocrExtractors`，作为 workflow 的默认 OCR 配置：
+`schema.validationSettings.ocrExtractors` 字段定义默认使用的 extractor 列表：
 
 ```json
 {
@@ -150,7 +152,7 @@ Returns all registered extractor types for frontend UI rendering.
 }
 ```
 
-`POST /extract` 支持通过 API 覆盖：传 `pipeline` 则优先使用，不传则走 schema 的 `ocrExtractors`。
+extraction 时由此字段决定执行哪些 extractor。不传覆盖，全走 schema 配置。
 
 ### 6. Multi-Source DeepSeek Prompt
 
@@ -180,7 +182,7 @@ Output JSON:
 }
 ```
 
-各 extractor 的 `promptContribution` 自动添加到 system prompt 中。
+根据 schema 配置的 extractor，自动收集其 `promptContribution` 拼入 system prompt。
 
 ### 7. API Endpoints
 
