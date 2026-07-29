@@ -168,6 +168,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['invoice'],
         systemPromptTemplate: null,
+        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
       }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
@@ -285,6 +286,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['invoice'],
         systemPromptTemplate: null,
+        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
       }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
@@ -396,6 +398,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['items'],
         systemPromptTemplate: null,
+        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
       }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
@@ -525,12 +528,14 @@ describe('ExtractionService', () => {
           jsonSchema: { version: 1 },
           requiredFields: ['items'],
           systemPromptTemplate: null,
+        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
         })
         .mockResolvedValueOnce({
           id: 'schema-1',
           jsonSchema: { version: 2 },
           requiredFields: ['items'],
           systemPromptTemplate: null,
+        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
         }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
@@ -658,6 +663,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['items'],
         systemPromptTemplate: null,
+        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
       }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
@@ -767,6 +773,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['items'],
         systemPromptTemplate: null,
+        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
       }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
@@ -888,6 +895,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['items'],
         systemPromptTemplate: null,
+        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
       }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
@@ -988,6 +996,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['items'],
         systemPromptTemplate: null,
+        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
       }),
     };
     const modelPricingService = {
@@ -1097,6 +1106,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['items'],
         systemPromptTemplate: null,
+        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
       }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
@@ -1203,6 +1213,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['items'],
         systemPromptTemplate: null,
+        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
       }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
