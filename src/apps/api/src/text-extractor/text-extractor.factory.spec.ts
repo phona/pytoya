@@ -30,6 +30,7 @@ class TestExtractor extends BaseTextExtractor<TextExtractorConfig> {
       },
     },
     pricingSchema: PRICING_SCHEMA,
+    promptContribution: 'Test extractor prompt contribution.',
   };
 
   constructor(config: TextExtractorConfig, _deps?: Record<string, unknown>) {

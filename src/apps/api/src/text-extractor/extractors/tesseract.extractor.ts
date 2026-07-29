@@ -69,6 +69,7 @@ export class TesseractExtractor extends BaseTextExtractor<TesseractConfig> {
         validation: { min: 0, max: 3 },
       },
     },
+    promptContribution: 'I provide text extracted using Tesseract OCR with per-word confidence scores. Each box includes: text, confidence (0-100), bbox [x, y, w, h].',
   };
 
   async extract(input: TextExtractionInput): Promise<TextExtractionResult> {
