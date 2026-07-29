@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   ParseIntPipe,
   Patch,
@@ -28,6 +29,8 @@ import { UserEntity } from '../entities/user.entity';
 import { StorageService } from '../storage/storage.service';
 import { CsvExportService } from './csv-export.service';
 import { BulkExtractDto } from './dto/bulk-extract.dto';
+import { PendingCropsQueryDto } from './dto/pending-crops.dto';
+import { VerifyCropDto } from './dto/verify-crop.dto';
 import { DeleteManifestsBulkDto, DeleteManifestsBulkResponseDto } from './dto/delete-manifests-bulk.dto';
 import { ExtractFilteredDto } from './dto/extract-filtered.dto';
 import { ExtractFilteredResponseDto } from './dto/extract-filtered-response.dto';
@@ -46,6 +49,7 @@ import { ManifestExtractionHistoryEntryDto } from './dto/manifest-extraction-his
 import { ManifestExtractionHistoryEntryDetailsDto } from './dto/manifest-extraction-history-details.dto';
 import { ManifestOcrHistoryEntryDto } from './dto/manifest-ocr-history.dto';
 import { OperationLogResponseDto } from './dto/operation-log-response.dto';
+import { CropsService } from './crops.service';
 import { ManifestsService } from './manifests.service';
 import { QueueService } from '../queue/queue.service';
 import {
@@ -69,6 +73,7 @@ export class ManifestsController {
     private readonly uploadManifestsUseCase: UploadManifestsUseCase,
     private readonly extractManifestsUseCase: ExtractManifestsUseCase,
     private readonly updateManifestUseCase: UpdateManifestUseCase,
+    private readonly cropsService: CropsService,
   ) {}
 
   @Post('groups/:groupId/manifests/upload')
@@ -482,6 +487,35 @@ export class ManifestsController {
       return { ...dto, _meta: { correctionFeedbackAvailable: true } };
     }
     return dto;
+  }
+
+  @Get('manifests/:id/pending-crops')
+  async getPendingCrops(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() q: PendingCropsQueryDto,
+  ) {
+    return this.cropsService.getPendingCrops(id, q.threshold ?? 0.8);
+  }
+
+  @Get('manifests/:id/pages/:page/image')
+  async getPageImage(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('page', ParseIntPipe) page: number,
+    @Res() res: Response,
+  ) {
+    const result = await this.cropsService.getPageImage(id, page);
+    if (!result) throw new NotFoundException();
+    res.setHeader('Content-Type', result.mimeType);
+    res.send(result.buffer);
+  }
+
+  @Post('manifests/:id/crops/verify')
+  async verifyCrop(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: VerifyCropDto,
+    @CurrentUser() user: UserEntity,
+  ) {
+    await this.cropsService.verifyCrop(id, dto.field, dto.page, dto.correctedText, dto.adjustedBbox, user);
   }
 
   @Delete('manifests/:id')

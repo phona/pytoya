@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { ExtractionHistoryEntity } from '../entities/extraction-history.entity';
 import { JobEntity } from '../entities/job.entity';
 import { ManifestEntity } from '../entities/manifest.entity';
 import { OperationLogEntity } from '../entities/operation-log.entity';
@@ -24,6 +25,7 @@ import { ExtractManifestsUseCase } from '../usecases/extract-manifests.usecase';
 import { UpdateManifestUseCase } from '../usecases/update-manifest.usecase';
 import { UploadManifestsUseCase } from '../usecases/upload-manifests.usecase';
 import { CsvExportService } from './csv-export.service';
+import { CropsService } from './crops.service';
 import { XlsxExportService } from './xlsx-export.service';
 import { ManifestsController } from './manifests.controller';
 import { ManifestsService } from './manifests.service';
@@ -45,6 +47,7 @@ import {
       ProjectEntity,
       SchemaEntity,
       OperationLogEntity,
+      ExtractionHistoryEntity,
     ]),
     GroupsModule,
     ModelsModule,
@@ -56,6 +59,7 @@ import {
   controllers: [ManifestsController],
   providers: [
     CsvExportService,
+    CropsService,
     XlsxExportService,
     ManifestsService,
     PdfFileInterceptor,
