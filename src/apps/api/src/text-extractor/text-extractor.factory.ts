@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { LlmService } from '../llm/llm.service';
-import { OcrServiceClient } from './ocr-service.client';
 import { TextExtractorRegistry } from './text-extractor.registry';
 import { TextExtractorConfig, TextExtractorClass, TextExtractor } from './types/extractor.types';
 
@@ -15,7 +14,6 @@ export class TextExtractorFactory {
     private readonly registry: TextExtractorRegistry,
     private readonly configService: ConfigService,
     private readonly llmService: LlmService,
-    private readonly ocrServiceClient: OcrServiceClient,
   ) {}
 
   createInstance(
@@ -51,7 +49,6 @@ export class TextExtractorFactory {
     const deps = {
       configService: this.configService,
       llmService: this.llmService,
-      ocrServiceClient: this.ocrServiceClient,
     };
 
     try {

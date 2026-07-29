@@ -1,7 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 
 import { BaseTextExtractor } from './base-text-extractor';
-import { OcrServiceClient } from './ocr-service.client';
 import { TextExtractorFactory } from './text-extractor.factory';
 import { TextExtractorRegistry } from './text-extractor.registry';
 import type { ExtractorMetadata, TextExtractionInput, TextExtractionResult, TextExtractorConfig } from './types/extractor.types';
@@ -57,8 +56,7 @@ describe('TextExtractorFactory', () => {
     registry.register(TestExtractor);
     const configService = { get: jest.fn() } as unknown as ConfigService;
     const llmService = { createChatCompletion: jest.fn() };
-    const ocrServiceClient = { infer: jest.fn() } as unknown as OcrServiceClient;
-    return { factory: new TextExtractorFactory(registry, configService, llmService as any, ocrServiceClient), registry };
+    return { factory: new TextExtractorFactory(registry, configService, llmService as any), registry };
   };
 
   it('creates and caches extractor instances by cache key', () => {
