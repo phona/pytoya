@@ -249,10 +249,9 @@ export class ExtractionService {
     const rules = await this.schemaRulesService.findBySchema(schema.id);
     const enabledRules = rules.filter((rule) => rule.enabled);
 
-    const ocrExtractors = ((schema?.validationSettings as Record<string, unknown> | null)?.ocrExtractors as Array<{ type: string; config?: Record<string, unknown> }> | undefined)
-      ?? (project.textExtractorId ? [{ type: project.textExtractorId, config: {} }] : undefined);
+    const ocrExtractors = (schema?.validationSettings as Record<string, unknown> | null)?.ocrExtractors as Array<{ type: string; config?: Record<string, unknown> }> | undefined;
     if (!ocrExtractors || ocrExtractors.length === 0) {
-      throw new BadRequestException('Schema ocrExtractors or project textExtractorId is required for extraction');
+      throw new BadRequestException('Schema ocrExtractors is required for extraction. Run migrations/ocr-extractors-migration.ts to backfill from project.textExtractorId.');
     }
 
     const llmModelFromProject = project.llmModelId
