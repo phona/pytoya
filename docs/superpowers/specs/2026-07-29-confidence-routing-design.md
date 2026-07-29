@@ -7,6 +7,8 @@ Status: Final
 
 PaddleOCR fine-tuning to 99% accuracy is not achievable. Accept OCR imperfection and route low-confidence fields to human reviewers for crop-level verification. Multi-OCR cross-validation (multiple parallel extractors feeding into a single LLM pass) catches inconsistencies and signals where human review is needed.
 
+Review UI 遵循**一鱼两吃**原则：前端展示原图 + bbox 框，用户可以拖拽调框、输入校正文本。后端保存精确框位 + 校正文本，pytoya-ocr 直接取作微调训练数据。
+
 ## Architecture
 
 ```
@@ -26,8 +28,11 @@ extract([extractor_paddleocr_vl, extractor_inference_ocr], file)
     ├─ extracted_data
     └─ _human_review[]
          ↓
-    GET /pending-crops → sharp 本地裁图 → crop base64
-    POST /verify       → extraction_history + update extracted_data
+    GET /pending-crops → 返回 bbox + 预裁 cropImage 预览
+    GET /pages/:page/image → 返回原图（前端渲染 bbox 框，可拖拽调整）
+    POST /verify → 保存 correctedText + adjustedBbox → extraction_history
+         ↓
+    pytoya-ocr 读 extraction_history → { 原图, 精确框位, 校正文本 } → 微调数据
 ```
 
 ## Components
@@ -112,7 +117,7 @@ If all fields have high confidence, `_human_review` is empty array.
 
 #### GET /manifests/:id/pending-crops?threshold=0.8
 
-Reads latest `extraction_history` entry, extracts `_human_review[]`. Filters out already-verified items (query `extraction_history` where reason=`manual_crop_verification`). Crops images using **sharp** (locally, no external service call).
+Reads latest `extraction_history` entry, extracts `_human_review[]`. Filters out already-verified items (query `extraction_history` where reason=`manual_crop_verification`). Returns bbox for frontend rendering + pre-cropped `cropImage` for quick preview.
 
 **Response:**
 ```json
@@ -124,12 +129,22 @@ Reads latest `extraction_history` entry, extracts `_human_review[]`. Filters out
       "cropImage": "base64...",
       "ocrText": "INV-12345",
       "confidence": 0.65,
-      "reason": "low_confidence"
+      "reason": "low_confidence",
+      "bbox": [100, 50, 200, 30]
     }
   ],
   "total": 5
 }
 ```
+
+#### GET /manifests/:id/pages/:page/image
+
+Returns the original page image. Frontend renders bbox overlays on this image, allows user to drag/resize the box. File serving logic:
+
+- Image manifests: return the file directly from `storage_path`
+- PDF manifests: extract the requested page as an image (or return 501 for v1 and require the frontend to handle PDF rendering)
+
+Content-Type: `image/png` or as appropriate.
 
 #### POST /manifests/:id/crops/verify
 
@@ -138,16 +153,19 @@ Reads latest `extraction_history` entry, extracts `_human_review[]`. Filters out
 {
   "field": "invoice_no",
   "page": 1,
-  "correctedText": "INV-67890"
+  "correctedText": "INV-67890",
+  "adjustedBbox": [98, 48, 204, 32]
 }
 ```
 
+`adjustedBbox` is optional — only sent if the user adjusted the bbox in the UI. If omitted, the original bbox from `_human_review` is used.
+
 **Actions:**
 1. Verify field not already verified (idempotency check)
-2. Write `extraction_history` with reason=`manual_crop_verification`, `changes={field, page, originalText, correctedText}`
+2. Write `extraction_history` with reason=`manual_crop_verification`, `changes={field, page, originalText, correctedText, adjustedBbox, originalBbox}`
 3. Update `manifest.extracted_data[field] = correctedText` via `updateManifestUseCase`
 
-No training_samples table. No export script. Training data collection is pytoya-ocr's responsibility.
+pytoya-ocr 侧读 `extraction_history` 时，取 `adjustedBbox ?? originalBbox` 做精确裁图，配合 `correctedText` 组成微调样本。
 
 ### 5. Storage & Data Flow
 
@@ -155,16 +173,16 @@ No training_samples table. No export script. Training data collection is pytoya-
 |------|---------|-------|
 | Multi-extractor results | `manifest.ocr_result.pages[].markdown` | All extractors' output concatenated with delimiters |
 | DeepSeek output | `extraction_history` (reason=`extraction`) | Full output including `_human_review` |
-| Human verification | `extraction_history` (reason=`manual_crop_verification`) | Per-field correction record |
+| Human verification | `extraction_history` (reason=`manual_crop_verification`) | Per-field record: `{field, page, originalText, correctedText, adjustedBbox?, originalBbox}` |
 
 ## Non-Goals
 
 - Changes to `ManifestStatus` enum or `humanVerified` boolean
 - New frontend (crop review UI is in pytoya-mobile)
-- Training data storage or export (pytoya-ocr's concern)
+- Training data storage or export (pytoya-ocr's concern — it reads `extraction_history` directly)
 - Modifications to `OcrResultDto`
 
 ## Open Questions
 
 1. **extractor IDs 来源**：每次 `POST /manifests/:id/extract` API 上传，还是 schema 上配一个默认 extractor 列表？
-2. **sharp 依赖**：需要加到 `package.json`（目前没有），v1 可以 fallback 到不裁图、返回空 cropImage
+2. **PDF 页面图片端点**：v1 是否支持 PDF 翻页，还是只支持单图片？

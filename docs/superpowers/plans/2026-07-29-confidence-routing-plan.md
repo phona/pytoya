@@ -418,7 +418,7 @@ git commit -m "feat: extraction supports multiple extractor IDs"
 
 ---
 
-### Task 5: Implement pending-crops and verify Endpoints
+### Task 5: Implement pending-crops, page image, and verify Endpoints
 
 **Files:**
 - Create: `src/apps/api/src/manifests/dto/pending-crops.dto.ts`
@@ -432,6 +432,7 @@ git commit -m "feat: extraction supports multiple extractor IDs"
 - Consumes: `ExtractionHistoryEntity` (existing)
 - Consumes: `UpdateManifestUseCase` (existing)
 - Produces: `GET /manifests/:id/pending-crops?threshold=0.8`
+- Produces: `GET /manifests/:id/pages/:page/image`
 - Produces: `POST /manifests/:id/crops/verify`
 
 - [ ] **Step 1: Install sharp**
@@ -444,7 +445,7 @@ npm install sharp
 
 ```typescript
 // src/apps/api/src/manifests/dto/pending-crops.dto.ts
-import { IsOptional, IsNumber, Min, Max } from 'class-validator';
+import { IsOptional, IsNumber, Min, Max, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class PendingCropsQueryDto {
@@ -463,6 +464,7 @@ export class PendingCropItemDto {
   ocrText!: string;
   confidence!: number;
   reason!: string;
+  bbox!: number[];  // [x, y, w, h] — returned for frontend bbox overlay
 }
 
 export class PendingCropsResponseDto {
@@ -473,7 +475,7 @@ export class PendingCropsResponseDto {
 
 ```typescript
 // src/apps/api/src/manifests/dto/verify-crop.dto.ts
-import { IsString, IsInt, IsNotEmpty } from 'class-validator';
+import { IsString, IsInt, IsNotEmpty, IsOptional, IsArray } from 'class-validator';
 
 export class VerifyCropDto {
   @IsString()
@@ -486,6 +488,10 @@ export class VerifyCropDto {
   @IsString()
   @IsNotEmpty()
   correctedText!: string;
+
+  @IsOptional()
+  @IsArray()
+  adjustedBbox?: number[];  // [x, y, w, h] — user-adjusted box, optional
 }
 ```
 
@@ -514,7 +520,10 @@ export class CropsService {
     private readonly updateManifestUseCase: UpdateManifestUseCase,
   ) {}
 
-  async getPendingCrops(manifestId: number, threshold: number): Promise<{ items: PendingCropItemDto[]; total: number }> {
+  async getPendingCrops(
+    manifestId: number,
+    threshold: number,
+  ): Promise<{ items: PendingCropItemDto[]; total: number }> {
     const manifest = await this.manifestRepo.findOne({ where: { id: manifestId } });
     if (!manifest) throw new NotFoundException('Manifest not found');
 
@@ -535,25 +544,41 @@ export class CropsService {
     );
 
     const pending = humanReview.filter(
-      (item: any) => item.confidence < threshold && !verifiedFields.has(item.field),
+      (item: any) =>
+        item.confidence < threshold && !verifiedFields.has(item.field),
     );
 
     const items: PendingCropItemDto[] = [];
     for (const item of pending) {
       const cropBase64 = await this.cropFromFile(manifest.storagePath, item.bbox);
-      if (!cropBase64) continue;
-
       items.push({
         field: item.field,
         page: item.page,
-        cropImage: cropBase64,
+        cropImage: cropBase64 ?? '',
         ocrText: item.ocr_text,
         confidence: item.confidence,
         reason: item.reason,
+        bbox: item.bbox as number[],
       });
     }
 
     return { items, total: items.length };
+  }
+
+  async getPageImage(
+    manifestId: number,
+    page: number,
+  ): Promise<{ buffer: Buffer; mimeType: string } | null> {
+    const manifest = await this.manifestRepo.findOne({ where: { id: manifestId } });
+    if (!manifest) throw new NotFoundException('Manifest not found');
+    if (!manifest.storagePath) return null;
+
+    const fs = await import('fs/promises');
+    const buffer = await fs.readFile(manifest.storagePath);
+
+    // For v1: return the full file. Multi-page PDF extraction is a later enhancement.
+    const mimeType = manifest.fileType === 'pdf' ? 'application/pdf' : 'image/png';
+    return { buffer, mimeType };
   }
 
   async verifyCrop(
@@ -561,6 +586,7 @@ export class CropsService {
     field: string,
     page: number,
     correctedText: string,
+    adjustedBbox: number[] | undefined,
     userId: number,
   ): Promise<void> {
     const manifest = await this.manifestRepo.findOne({ where: { id: manifestId } });
@@ -580,11 +606,20 @@ export class CropsService {
     const humanReview = (latestExtraction?.extractedData as any)?._human_review ?? [];
     const reviewItem = humanReview.find((r: any) => r.field === field);
     const originalText = reviewItem?.ocr_text ?? '';
+    const originalBbox = reviewItem?.bbox as number[] | undefined;
 
+    // Save full record: pytoya-ocr reads this for training data
     await this.historyRepo.save({
       manifestId,
       reason: 'manual_crop_verification',
-      changes: { field, page, originalText, correctedText },
+      changes: {
+        field,
+        page,
+        originalText,
+        correctedText,
+        originalBbox,
+        adjustedBbox,  // user-adjusted box, or undefined if unchanged
+      },
       createdBy: userId,
     });
 
@@ -596,17 +631,25 @@ export class CropsService {
     });
   }
 
-  private async cropFromFile(filePath: string | undefined, bbox: number[]): Promise<string | null> {
-    if (!filePath) return null;
+  private async cropFromFile(
+    filePath: string | undefined,
+    bbox: number[],
+  ): Promise<string | null> {
+    if (!filePath || bbox.length < 4) return null;
     try {
       const [x, y, w, h] = bbox;
       const buffer = await sharp(filePath)
-        .extract({ left: Math.round(x), top: Math.round(y), width: Math.round(w), height: Math.round(h) })
+        .extract({
+          left: Math.round(x),
+          top: Math.round(y),
+          width: Math.round(w),
+          height: Math.round(h),
+        })
         .png()
         .toBuffer();
       return buffer.toString('base64');
     } catch (e) {
-      this.logger.warn(`Crop failed for ${filePath}: ${e.message}`);
+      this.logger.warn(`Crop failed for ${filePath}: ${(e as Error).message}`);
       return null;
     }
   }
@@ -640,6 +683,21 @@ async getPendingCrops(
   return this.cropsService.getPendingCrops(id, query.threshold ?? 0.8);
 }
 
+@Get('manifests/:id/pages/:page/image')
+@UseGuards(JwtAuthGuard)
+async getPageImage(
+  @Param('id', ParseIntPipe) id: number,
+  @Param('page', ParseIntPipe) page: number,
+  @Res() res: Response,
+): Promise<void> {
+  const result = await this.cropsService.getPageImage(id, page);
+  if (!result) {
+    throw new NotFoundException('Page image not available');
+  }
+  res.setHeader('Content-Type', result.mimeType);
+  res.send(result.buffer);
+}
+
 @Post('manifests/:id/crops/verify')
 @UseGuards(JwtAuthGuard)
 async verifyCrop(
@@ -647,7 +705,14 @@ async verifyCrop(
   @Body() dto: VerifyCropDto,
   @CurrentUser() user: any,
 ): Promise<void> {
-  await this.cropsService.verifyCrop(id, dto.field, dto.page, dto.correctedText, user.id);
+  await this.cropsService.verifyCrop(
+    id,
+    dto.field,
+    dto.page,
+    dto.correctedText,
+    dto.adjustedBbox,
+    user.id,
+  );
 }
 ```
 
@@ -658,13 +723,12 @@ async verifyCrop(
 import { CropsService } from './crops.service';
 import { ExtractionHistoryEntity } from '../entities/extraction-history.entity';
 import { UpdateManifestUseCase } from '../usecases/update-manifest.usecase';
-import { OcrServiceClient } from '../text-extractor/ocr-service.client';
 import { TextExtractorModule } from '../text-extractor/text-extractor.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([..., ExtractionHistoryEntity]),
-    TextExtractorModule,  // for OcrServiceClient
+    TextExtractorModule,
     ...,
   ],
   providers: [..., CropsService, UpdateManifestUseCase],
@@ -675,5 +739,5 @@ import { TextExtractorModule } from '../text-extractor/text-extractor.module';
 
 ```bash
 git add src/apps/api/src/manifests/ package.json
-git commit -m "feat: add pending-crops and verify endpoints"
+git commit -m "feat: add pending-crops, page image, and verify endpoints"
 ```
