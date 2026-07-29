@@ -41,6 +41,7 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
       required: ['serviceUrl'],
     },
     paramsSchema: {},
+    promptContribution: 'I provide individual text boxes with confidence scores and positions. Each box includes: text, confidence (0-1), bbox [x, y, w, h]. Boxes with confidence < 0.8 may be inaccurate.',
   };
 
   private readonly ocrServiceClient: OcrServiceClient;
@@ -50,7 +51,10 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
     super(config);
     const configService = deps?.configService as ConfigService | undefined;
     const storage = deps?.ocrServiceClient as OcrServiceClient | undefined;
-    this.ocrServiceClient = storage ?? new OcrServiceClient(configService!);
+    const serviceUrl = configService?.get<string>('ocrService.baseUrl')
+      ?? config.serviceUrl
+      ?? 'http://localhost:8090';
+    this.ocrServiceClient = storage ?? new OcrServiceClient(serviceUrl);
     this.confidenceThreshold = config.confidenceThreshold ?? 0.8;
   }
 
@@ -63,8 +67,13 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
     const boxes = await this.ocrServiceClient.infer(input.buffer);
     const processingTimeMs = Date.now() - startTime;
 
-    const text = boxes.map((b) => b.text).join('\n');
-    const boxLines = boxes.map(
+    const threshold = this.confidenceThreshold ?? 0;
+    const filteredBoxes = threshold > 0
+      ? boxes.filter(b => b.confidence >= threshold)
+      : boxes;
+
+    const text = filteredBoxes.map((b) => b.text).join('\n');
+    const boxLines = filteredBoxes.map(
       (b) => `text=${b.text}  conf=${b.confidence}  bbox=[${b.bbox.join(',')}]`,
     );
     const markdown = boxLines.join('\n');
@@ -82,11 +91,11 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
             pageNumber: 1,
             text,
             markdown,
-            confidence: boxes.length > 0
-              ? boxes.reduce((s, b) => s + b.confidence, 0) / boxes.length
+            confidence: filteredBoxes.length > 0
+              ? filteredBoxes.reduce((s, b) => s + b.confidence, 0) / filteredBoxes.length
               : 0,
             layout: {
-              elements: boxes.map((b) => ({
+              elements: filteredBoxes.map((b) => ({
                 type: 'text',
                 confidence: b.confidence,
                 position: { x: b.bbox[0], y: b.bbox[1], width: b.bbox[2], height: b.bbox[3] },
@@ -95,7 +104,7 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
             },
           }],
           metadata: { processedAt: new Date().toISOString(), modelVersion: 'inference-ocr', processingTimeMs },
-          rawResponse: { boxes },
+          rawResponse: { boxes: filteredBoxes },
         },
       },
     };

@@ -48,6 +48,7 @@ export interface ExtractorMetadata {
   supportedFormats: ExtractorSupportedFormat[];
   defaultConfig?: Record<string, unknown>;
   pricingSchema?: ExtractorParamSchema;
+  promptContribution: string;
 }
 
 export type ExtractorPreset = {

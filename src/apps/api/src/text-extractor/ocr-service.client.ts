@@ -13,8 +13,14 @@ export class OcrServiceClient {
   private readonly logger = new Logger(OcrServiceClient.name);
   private readonly baseUrl: string;
 
-  constructor(configService: ConfigService) {
-    this.baseUrl = configService.get<string>('ocrService.baseUrl', 'http://localhost:8090');
+  constructor(configServiceOrUrl?: ConfigService | string) {
+    if (typeof configServiceOrUrl === 'string') {
+      this.baseUrl = configServiceOrUrl;
+    } else if (configServiceOrUrl) {
+      this.baseUrl = configServiceOrUrl.get<string>('ocrService.baseUrl', 'http://localhost:8090');
+    } else {
+      this.baseUrl = 'http://localhost:8090';
+    }
   }
 
   async infer(imageBuffer: Buffer): Promise<OcrBoxResult[]> {
