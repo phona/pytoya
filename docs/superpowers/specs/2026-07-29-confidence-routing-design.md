@@ -85,7 +85,7 @@ ocrService:
 
 ### 2. Text Concatenation Strategy
 
-det_v4+rec_v8 runs after the main PaddleOCR-VL extraction but before the LLM stage (inline within extraction, not a separate async job). Its output is concatenated into both `pages[].text` and `pages[].markdown` with a delimiter — the extraction pipeline reads from `markdown`, so both must be updated.
+det_v4+rec_v8 runs after the main PaddleOCR-VL extraction but before the LLM stage (inline within extraction, not a separate async job). Its output is concatenated into `pages[].markdown` with a delimiter — extraction pipeline reads from `markdown` (`extraction.service.ts:849`), so this is the only field that needs updating.
 
 **Per-page text format:**
 ```
