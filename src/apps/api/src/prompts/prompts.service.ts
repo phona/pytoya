@@ -3,7 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { PromptEntity } from '../entities/prompt.entity';
+import { TextExtractorRegistry } from '../text-extractor/text-extractor.registry';
 import {
+  MULTI_OCR_SYSTEM_PROMPT,
   RE_EXTRACT_SYSTEM_PROMPT,
   SYSTEM_PROMPT,
 } from './constants/system-prompts.constant';
@@ -16,6 +18,7 @@ export class PromptsService {
   constructor(
     @InjectRepository(PromptEntity)
     private readonly promptRepository: Repository<PromptEntity>,
+    private readonly extractorRegistry: TextExtractorRegistry,
   ) {}
 
   async create(input: CreatePromptDto): Promise<PromptEntity> {
@@ -71,5 +74,18 @@ export class PromptsService {
 
   getReExtractSystemPrompt(): string {
     return RE_EXTRACT_SYSTEM_PROMPT;
+  }
+
+  getMultiOcrSystemPrompt(ocrExtractors: Array<{ type: string }>): string {
+    const contributions = ocrExtractors
+      .map(e => this.getPromptContributionFor(e.type))
+      .filter(Boolean)
+      .join('\n\n');
+    return MULTI_OCR_SYSTEM_PROMPT.replace('<EXTRACTOR_CONTRIBUTIONS>', contributions);
+  }
+
+  private getPromptContributionFor(type: string): string | null {
+    const extractorClass = this.extractorRegistry.get(type);
+    return extractorClass?.metadata?.promptContribution ?? null;
   }
 }
