@@ -37,6 +37,17 @@ export interface PricingConfig {
   minimumCharge?: number;
 }
 
+export interface CorrectionData {
+  field: string;
+  page: number;
+  originalText: string;
+  correctedText: string;
+  bbox?: [number, number, number, number];
+  confidence?: number;
+  manifestId: number;
+  userId: number;
+}
+
 export interface ExtractorMetadata {
   id: string;
   name: string;
@@ -49,6 +60,7 @@ export interface ExtractorMetadata {
   defaultConfig?: Record<string, unknown>;
   pricingSchema?: ExtractorParamSchema;
   promptContribution: string;
+  onCorrection?: (data: CorrectionData) => Promise<void>;
 }
 
 export interface OcrExtractorConfig {
