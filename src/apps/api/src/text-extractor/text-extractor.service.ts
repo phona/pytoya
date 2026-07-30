@@ -4,7 +4,6 @@ import { ExtractorRepository } from '../extractors/extractor.repository';
 import { ExtractorEntity } from '../entities/extractor.entity';
 import { FileType } from '../entities/manifest.entity';
 import { ConvertedPage, PdfToImageService } from '../pdf-to-image/pdf-to-image.service';
-import { calculateOcrQualityScore } from '../ocr/ocr-cache.util';
 import { OcrResultDto } from '../manifests/dto/ocr-result.dto';
 import { TextExtractorFactory } from './text-extractor.factory';
 import { TextExtractorRegistry } from './text-extractor.registry';
@@ -91,10 +90,6 @@ export class TextExtractorService {
 
     if (!metadata.ocrResult) {
       metadata.ocrResult = this.buildFallbackOcrResult(result, extractor.name);
-    }
-
-    if (metadata.qualityScore === undefined && metadata.ocrResult) {
-      metadata.qualityScore = calculateOcrQualityScore(metadata.ocrResult);
     }
 
     result.metadata = metadata;
@@ -224,10 +219,6 @@ export class TextExtractorService {
       for (let p = 0; p < Math.min(mergedMetadata.ocrResult.pages.length, ocrResult.pages.length); p++) {
         mergedMetadata.ocrResult.pages[p].markdown += delimiter + ocrResult.pages[p].markdown;
       }
-    }
-
-    if (mergedMetadata.qualityScore === undefined) {
-      mergedMetadata.qualityScore = calculateOcrQualityScore(mergedMetadata.ocrResult);
     }
 
     return { extractors: succeeded.map(s => s.extractorName), result: primary.result };
