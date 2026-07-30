@@ -57,18 +57,9 @@ export function ProjectCard({ project, onDelete, onEdit }: ProjectCardProps) {
 
       <div className="mt-4 grid gap-2 text-xs text-muted-foreground">
         <div className="flex items-center justify-between">
-          <span className="font-medium text-foreground">Text Extractor</span>
-          <span>{project.textExtractorId ? project.textExtractorId : 'Not set'}</span>
-        </div>
-        <div className="flex items-center justify-between">
           <span className="font-medium text-foreground">LLM Model</span>
           <span>{project.llmModelId ? project.llmModelId : 'Not set'}</span>
         </div>
-        {(!project.textExtractorId || !project.llmModelId) && (
-          <div className="rounded-md border border-border bg-[color:var(--status-warning-bg)] px-2 py-1 text-[color:var(--status-warning-text)]">
-            Extractor or LLM not configured
-          </div>
-        )}
       </div>
 
       <div className="mt-4 flex items-center justify-between">

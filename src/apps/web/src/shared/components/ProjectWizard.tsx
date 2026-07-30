@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { getApiErrorText } from '@/api/client';
 import { CreateProjectDto } from '@/api/projects';
 import { useModels } from '@/shared/hooks/use-models';
-import { useExtractors } from '@/shared/hooks/use-extractors';
 import { useProjects } from '@/shared/hooks/use-projects';
 import { useI18n } from '@/shared/providers/I18nProvider';
 import { schemasApi } from '@/api/schemas';
@@ -38,17 +37,14 @@ export type ProjectWizardProps = {
 export function ProjectWizard({ isOpen, onClose, onCreated }: ProjectWizardProps) {
   const { t } = useI18n();
   const { createProject } = useProjects();
-  const { extractors } = useExtractors();
   const { models: llmModels } = useModels({ category: 'llm' });
   const [name, setName] = useState('');
-  const [textExtractorId, setTextExtractorId] = useState('');
   const [llmModelId, setLlmModelId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetForm = () => {
     setName('');
-    setTextExtractorId('');
     setLlmModelId('');
     setError(null);
     setIsSubmitting(false);
@@ -77,7 +73,6 @@ export function ProjectWizard({ isOpen, onClose, onCreated }: ProjectWizardProps
     try {
       const payload: CreateProjectDto = {
         name: trimmedName,
-        textExtractorId,
         llmModelId,
       };
       const project = await createProject(payload);
@@ -94,7 +89,7 @@ export function ProjectWizard({ isOpen, onClose, onCreated }: ProjectWizardProps
     }
   };
 
-  const canSubmit = name.trim().length > 0 && textExtractorId && llmModelId;
+  const canSubmit = name.trim().length > 0 && llmModelId;
 
   return (
     <Dialog
@@ -132,23 +127,6 @@ export function ProjectWizard({ isOpen, onClose, onCreated }: ProjectWizardProps
               placeholder="Invoice Extraction Project"
               required
             />
-          </div>
-          <div>
-            <label htmlFor="text-extractor" className="block text-sm font-medium text-foreground">
-              Text Extractor *
-            </label>
-            <Select value={textExtractorId} onValueChange={setTextExtractorId}>
-              <SelectTrigger id="text-extractor" className="mt-1">
-                <SelectValue placeholder="Select text extractor..." />
-              </SelectTrigger>
-              <SelectContent>
-                {extractors.map((extractor) => (
-                  <SelectItem key={extractor.id} value={extractor.id}>
-                    {extractor.name} {extractor.isActive ? '' : '(Inactive)'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
           <div>
             <label htmlFor="llm-model" className="block text-sm font-medium text-foreground">

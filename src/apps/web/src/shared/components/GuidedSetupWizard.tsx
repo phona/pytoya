@@ -16,7 +16,6 @@ import { RuleEditor, RuleDraft } from '@/shared/components/RuleEditor';
 import { SchemaJsonEditor } from '@/shared/components/SchemaJsonEditor';
 import { ValidationScriptForm } from '@/shared/components/ValidationScriptForm';
 import { useModels } from '@/shared/hooks/use-models';
-import { useExtractors } from '@/shared/hooks/use-extractors';
 import { canonicalizeJsonSchemaForDisplay, deriveRequiredFields } from '@/shared/utils/schema';
 import {
   Dialog,
@@ -95,13 +94,11 @@ export type GuidedSetupWizardProps = {
 export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWizardProps) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
-  const { extractors } = useExtractors();
   const { models: llmModels } = useModels({ category: 'llm' });
 
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [textExtractorId, setTextExtractorId] = useState('');
   const [llmModelId, setLlmModelId] = useState('');
   const [schemaDraft, setSchemaDraft] = useState<SchemaDraft>({
     jsonSchema: DEFAULT_SCHEMA_TEXT,
@@ -133,7 +130,6 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
     setStep(1);
     setName('');
     setDescription('');
-    setTextExtractorId('');
     setLlmModelId('');
     setSchemaDraft({
       jsonSchema: DEFAULT_SCHEMA_TEXT,
@@ -162,7 +158,7 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
       return name.trim().length > 0;
     }
     if (step === 2) {
-      return Boolean(textExtractorId) && Boolean(llmModelId);
+      return Boolean(llmModelId);
     }
     if (step === 3) {
       return !schemaJsonError;
@@ -182,7 +178,6 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
     return {
       name: name.trim(),
       description: description.trim() || undefined,
-      textExtractorId,
       llmModelId: llmModelId,
     };
   };
@@ -379,26 +374,6 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
     if (step === 2) {
       return (
         <div className="space-y-4">
-          <div>
-            <label htmlFor="text-extractor" className="block text-sm font-medium text-foreground">
-              {t('projects.guidedSetup.textExtractorLabel')}
-            </label>
-            <Select value={textExtractorId} onValueChange={setTextExtractorId}>
-              <SelectTrigger id="text-extractor" className="mt-1">
-                <SelectValue placeholder={t('projects.guidedSetup.textExtractorPlaceholder')} />
-              </SelectTrigger>
-              <SelectContent>
-                {extractors.map((extractor) => (
-                  <SelectItem key={extractor.id} value={extractor.id}>
-                    {extractor.name} {extractor.isActive ? '' : t('projects.guidedSetup.inactiveSuffix')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t('projects.guidedSetup.textExtractorHint')}
-            </p>
-          </div>
           <div>
             <label htmlFor="llm-model" className="block text-sm font-medium text-foreground">
               {t('projects.guidedSetup.llmModelLabel')}
@@ -605,9 +580,6 @@ export function GuidedSetupWizard({ isOpen, onClose, onCreated }: GuidedSetupWiz
         </div>
         <div className="rounded-md border border-border p-4">
           <div className="font-semibold">{t('projects.guidedSetup.review.extractionSetupTitle')}</div>
-          <div className="mt-1 text-muted-foreground">
-            {t('projects.guidedSetup.review.extractorLine', { value: textExtractorId || t('projects.guidedSetup.review.none') })}
-          </div>
           <div className="text-muted-foreground">
             {t('projects.guidedSetup.review.llmLine', { value: llmModelId || t('projects.guidedSetup.review.none') })}
           </div>
