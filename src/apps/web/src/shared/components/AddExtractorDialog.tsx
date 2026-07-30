@@ -3,13 +3,13 @@ import { Button } from '@/shared/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
 import { JsonSchemaForm } from '@/shared/components/JsonSchemaForm';
 import type { OcrPipelineEntry, ExtractorTypeInfo } from '@/shared/hooks/use-ocr-pipeline';
-import type { ExtractorResponseDto } from '@pytoya/shared/types/extractors';
+import type { Extractor } from '@/api/extractors';
 import { useI18n } from '@/shared/providers/I18nProvider';
 
 interface AddExtractorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  extractorInstances: ExtractorResponseDto[];
+  extractorInstances: Extractor[];
   extractorTypeMap: Map<string, ExtractorTypeInfo>;
   onConfirm: (entry: OcrPipelineEntry) => void;
   initialEntry?: OcrPipelineEntry | null;

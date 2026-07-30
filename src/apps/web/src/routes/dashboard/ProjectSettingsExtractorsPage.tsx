@@ -1,135 +1,227 @@
-import { useMemo, useState } from 'react';
-import { Package, PencilLine } from 'lucide-react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getApiErrorText } from '@/api/client';
-import { useProject, useProjects } from '@/shared/hooks/use-projects';
-import { useExtractors } from '@/shared/hooks/use-extractors';
-import { useExtractorCostSummary } from '@/shared/hooks/use-extractor-costs';
-import { ExtractorSelectDialog } from '@/shared/components/ExtractorSelectDialog';
-import { ExtractorCostSummary } from '@/shared/components/ExtractorCostSummary';
+import { GripVertical, Plus, PencilLine, Trash2, Save } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Badge } from '@/shared/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { ProjectSettingsShell } from '@/shared/components/ProjectSettingsShell';
+import { AddExtractorDialog } from '@/shared/components/AddExtractorDialog';
+import { useOcrPipeline } from '@/shared/hooks/use-ocr-pipeline';
+import { useProject } from '@/shared/hooks/use-projects';
+import { useProjectSchemas } from '@/shared/hooks/use-schemas';
 import { useI18n } from '@/shared/providers/I18nProvider';
+import type { OcrPipelineEntry } from '@/shared/hooks/use-ocr-pipeline';
+
+function ConfigSummary({ config }: { config: Record<string, unknown> }) {
+  const entries = Object.entries(config).filter(([, v]) => v != null && v !== '');
+  if (entries.length === 0) return <span className="text-xs text-muted-foreground italic">Default config</span>;
+  return (
+    <span className="text-xs text-muted-foreground">
+      {entries.map(([k, v]) => `${k}: ${v}`).join(' · ')}
+    </span>
+  );
+}
 
 export function ProjectSettingsExtractorsPage() {
-  const navigate = useNavigate();
   const params = useParams();
   const projectId = Number(params.id);
+  const navigate = useNavigate();
   const { t } = useI18n();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
-  const { project, isLoading } = useProject(projectId);
-  const { updateProjectExtractor } = useProjects();
-  const { extractors } = useExtractors();
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const { project } = useProject(projectId);
+  const { schemas } = useProjectSchemas(projectId);
+  const schemaId = schemas[0]?.id ?? 0;
 
-  const currentExtractor = useMemo(() => {
-    if (!project?.textExtractorId) return undefined;
-    return extractors.find((extractor) => extractor.id === project.textExtractorId);
-  }, [extractors, project?.textExtractorId]);
+  const {
+    pipeline,
+    isDirty,
+    extractorInstances,
+    instanceMap,
+    extractorTypeMap,
+    add,
+    update,
+    remove,
+    move,
+    save,
+    isSaving,
+    saveError,
+    isLoading,
+  } = useOcrPipeline(schemaId);
 
-  const { summary, isLoading: costLoading } = useExtractorCostSummary(currentExtractor?.id);
+  const dragRef = useRef<{ from: number } | null>(null);
 
-  const handleSelect = async (extractorId: string) => {
-    if (!project) return;
-    setSaveError(null);
-    setIsSaving(true);
-    try {
-      await updateProjectExtractor({ id: project.id, data: { textExtractorId: extractorId } });
-    } catch (error) {
-      setSaveError(getApiErrorText(error, t));
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  const handleConfirmAdd = useCallback(
+    (entry: OcrPipelineEntry) => {
+      if (editingIndex !== null) {
+        update(editingIndex, entry.config);
+      } else {
+        add(entry);
+      }
+      setEditingIndex(null);
+    },
+    [editingIndex, add, update],
+  );
+
+  const openEdit = useCallback((index: number) => {
+    setEditingIndex(index);
+    setDialogOpen(true);
+  }, []);
+
+  const editingEntry = useMemo(() => {
+    if (editingIndex === null) return null;
+    return pipeline[editingIndex] ?? null;
+  }, [editingIndex, pipeline]);
+
+  if (!schemaId) {
+    return (
+      <ProjectSettingsShell projectId={projectId} activeTab="extractors">
+        <div className="rounded-lg border border-border bg-card p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            Create a schema first to configure the OCR pipeline.
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            className="mt-4"
+            onClick={() => navigate(`/projects/${projectId}/settings/schema`)}
+          >
+            Create Schema
+          </Button>
+        </div>
+      </ProjectSettingsShell>
+    );
+  }
 
   return (
     <ProjectSettingsShell projectId={projectId} activeTab="extractors">
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent" />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">OCR Pipeline</h1>
+          <p className="mt-1 text-sm text-muted-foreground max-w-xl">
+            Configure which OCR engines run in parallel during extraction.
+            Results are merged and sent to the LLM. Order determines priority
+            (first = primary). Drag to reorder.
+          </p>
         </div>
-      ) : !project ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="text-center">
-            <h2 className="text-xl font-medium text-foreground">Project not found</h2>
-            <Button type="button" variant="ghost" onClick={() => navigate('/projects')} className="mt-4">
-              Back to Projects
-            </Button>
+      </div>
+
+      <div className="space-y-2">
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent" />
           </div>
-        </div>
-      ) : (
-        <>
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">Extractor Settings</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Select the text extractor used for this project.
+        ) : pipeline.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              No OCR engines configured.
             </p>
           </div>
-
-          {saveError ? (
-            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-              {saveError}
-            </div>
-          ) : null}
-
-          <Card>
-            <CardHeader className="flex flex-row items-start justify-between gap-4">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5 text-primary" />
-                  Current Extractor
-                </CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">Project ID: {project.id}</p>
-              </div>
-              <Button type="button" variant="outline" onClick={() => setIsSelecting(true)}>
-                <PencilLine className="mr-2 h-4 w-4" />
-                Change
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div>
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">Extractor</div>
-                <div className="mt-1 text-foreground">
-                  {currentExtractor ? currentExtractor.name : 'No extractor selected'}
+        ) : (
+          <div className="space-y-1.5">
+            {pipeline.map((entry, index) => {
+              const instance = instanceMap.get(entry.extractorId);
+              return (
+                <div
+                  key={`${entry.extractorId}-${index}`}
+                  className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2.5"
+                  draggable
+                  onDragStart={() => { dragRef.current = { from: index }; }}
+                  onDragOver={(e) => { e.preventDefault(); }}
+                  onDrop={() => {
+                    if (dragRef.current && dragRef.current.from !== index) {
+                      move(dragRef.current.from, index);
+                      dragRef.current = null;
+                    }
+                  }}
+                >
+                  <GripVertical className="h-4 w-4 text-muted-foreground shrink-0 cursor-grab" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground">
+                        {instance?.name ?? entry.extractorId.slice(0, 8) + '...'}
+                      </span>
+                      {instance && (
+                        <Badge variant="outline" className="text-xs">
+                          {instance.extractorType}
+                        </Badge>
+                      )}
+                    </div>
+                    <ConfigSummary config={entry.config} />
+                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => openEdit(index)}
+                      >
+                        <PencilLine className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Edit config</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => remove(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Remove</TooltipContent>
+                  </Tooltip>
                 </div>
-              </div>
-              <div>
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">Type</div>
-                <div className="mt-1 text-foreground">
-                  {currentExtractor ? currentExtractor.extractorType : 'Unknown'}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">Status</div>
-                <div className="mt-1 text-foreground">
-                  {currentExtractor ? (currentExtractor.isActive ? 'Active' : 'Inactive') : 'N/A'}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-          <ExtractorCostSummary summary={costLoading ? undefined : summary} />
-
-          <ExtractorSelectDialog
-            open={isSelecting}
-            onOpenChange={setIsSelecting}
-            extractors={extractors}
-            selectedId={project.textExtractorId ?? undefined}
-            onConfirm={handleSelect}
-          />
-
-          {isSaving && (
-            <div className="fixed inset-0 z-[var(--z-index-overlay)] bg-black/30 flex items-center justify-center">
-              <div className="rounded-md bg-card px-4 py-2 text-sm text-foreground">
-                Saving...
-              </div>
-            </div>
+      <div className="flex items-center gap-3">
+        <Button type="button" variant="outline" onClick={() => { setEditingIndex(null); setDialogOpen(true); }}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add OCR Engine
+        </Button>
+        <Button type="button" onClick={save} disabled={!isDirty || isSaving || isLoading}>
+          {isSaving ? (
+            <>
+              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Save
+            </>
           )}
-        </>
+        </Button>
+      </div>
+
+      {saveError && (
+        <p className="text-sm text-destructive">
+          Failed to save: {(saveError as Error).message}
+        </p>
       )}
+
+      <AddExtractorDialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setEditingIndex(null);
+        }}
+        extractorInstances={extractorInstances}
+        extractorTypeMap={extractorTypeMap}
+        onConfirm={handleConfirmAdd}
+        initialEntry={editingEntry}
+      />
     </ProjectSettingsShell>
   );
 }
