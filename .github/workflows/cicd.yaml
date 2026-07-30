@@ -101,6 +101,6 @@ jobs:
           docker compose build api web
           docker tag pytoya-build-api:latest ghcr.io/phona/pytoya/api:latest
           docker tag pytoya-build-web:latest ghcr.io/phona/pytoya/web:latest
-          cd /root/pytoya
+          cd /home/github-runner/pytoya
           docker compose down
           docker compose up -d
