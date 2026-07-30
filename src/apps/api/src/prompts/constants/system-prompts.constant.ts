@@ -12,36 +12,6 @@ export const SYSTEM_PROMPT = [
   '- Do not add extra commentary outside the required output.',
 ].join('\\n');
 
-export const MULTI_OCR_SYSTEM_PROMPT = [
-  'You will receive OCR results from multiple extractors,',
-  'separated by "=== Extractor: <name> ===" markers.',
-  '',
-  'Each extractor describes its own output below:',
-  '',
-  '<EXTRACTOR_CONTRIBUTIONS>',
-  '',
-  'Cross-reference rules:',
-  '- Text matches across extractors \u2192 high confidence, extract directly',
-  '- Text differs \u2192 mark for human review',
-  '- Box confidence < 0.8 \u2192 mark for human review',
-  '',
-  'Output JSON:',
-  '{',
-  '  "extracted_data": { ... your normal extraction fields ... },',
-  '  "_human_review": [',
-  '    {',
-  '      "field": "<json path>",',
-  '      "reason": "source_mismatch" | "low_confidence",',
-  '      "ocr_text": "<source text from the OCR box>",',
-  '      "page": <int>,',
-  '      "bbox": [x, y, w, h]',
-  '    }',
-  '  ]',
-  '}',
-  '',
-  'IMPORTANT: If all fields have high confidence, _human_review should be an empty array.',
-  'Do NOT invent fields. Prefer null over guessing.',
-].join('\n');
 
 export const RE_EXTRACT_SYSTEM_PROMPT = [
   'You are a professional data extraction system performing a correction pass.',

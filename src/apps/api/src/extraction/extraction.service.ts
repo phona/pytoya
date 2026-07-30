@@ -1294,24 +1294,24 @@ export class ExtractionService {
       return this.promptsService.getSystemPrompt();
     })();
 
+    let prompt = base;
+
     if (ocrExtractors && ocrExtractors.length > 1) {
       const types = await this.resolveExtractorTypes(ocrExtractors);
-      const multiPrompt = this.promptsService.getMultiOcrSystemPrompt(
+      const contributions = this.promptsService.getExtractorContributions(
         types.map((t) => ({ type: t })),
       );
-      const promptRulesMarkdown = this.getPromptRulesMarkdown(schema);
-      if (!promptRulesMarkdown) {
-        return multiPrompt;
+      if (contributions) {
+        prompt += contributions;
       }
-      return `${multiPrompt}\n\nPrompt Rules (Markdown):\n${promptRulesMarkdown}`;
     }
 
     const promptRulesMarkdown = this.getPromptRulesMarkdown(schema);
-    if (!promptRulesMarkdown) {
-      return base;
+    if (promptRulesMarkdown) {
+      prompt += `\n\nPrompt Rules (Markdown):\n${promptRulesMarkdown}`;
     }
 
-    return `${base}\n\nPrompt Rules (Markdown):\n${promptRulesMarkdown}`;
+    return prompt;
   }
 
   private getReExtractPrompt(schema: SchemaEntity | null, override?: string): string {
