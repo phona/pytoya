@@ -99,6 +99,10 @@ export type TextExtractionMetadata = {
   qualityScore?: number;
 };
 
+/**
+ * text: Flat plain text (used for token estimation, search, coverage matching).
+ * markdown: Structured/formatted text (used for LLM prompt).
+ */
 export type TextExtractionResult = {
   text: string;
   markdown: string;

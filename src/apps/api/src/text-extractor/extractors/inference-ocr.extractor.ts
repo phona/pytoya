@@ -67,10 +67,7 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
       : boxes;
 
     const text = filteredBoxes.map((b) => b.text).join('\n');
-    const boxLines = filteredBoxes.map(
-      (b) => `text=${b.text}  conf=${b.confidence}  bbox=[${b.bbox.join(',')}]`,
-    );
-    const markdown = boxLines.join('\n');
+    const markdown = text;
 
     return {
       text,
