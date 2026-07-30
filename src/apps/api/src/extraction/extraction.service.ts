@@ -1281,7 +1281,7 @@ export class ExtractionService {
     if (ocrExtractors.length === 0) return [];
     const ids = ocrExtractors.map((e) => e.extractorId);
     const entities = await this.extractorRepository.find({
-      where: { id: In(ids) },
+      where: { id: In(ids), isActive: true },
     });
     const typeMap = new Map(entities.map((e) => [e.id, e.extractorType]));
     return ocrExtractors.map((e) => typeMap.get(e.extractorId) ?? 'unknown');
