@@ -51,6 +51,11 @@ export interface ExtractorMetadata {
   promptContribution: string;
 }
 
+export interface OcrExtractorConfig {
+  extractorId: string;
+  config?: Record<string, unknown>;
+}
+
 export type ExtractorPreset = {
   id: string;
   name: string;
@@ -68,6 +73,7 @@ export type TextExtractionInput = {
   pages?: ConvertedPage[];
   onProgress?: (update: TextExtractionProgressUpdate) => void | Promise<void>;
   abortSignal?: AbortSignal;
+  extractorConfig?: Record<string, unknown>;
 };
 
 export type TextExtractionProgressUpdate = {

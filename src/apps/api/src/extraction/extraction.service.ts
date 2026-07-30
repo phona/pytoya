@@ -9,7 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as path from 'path';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 import { ManifestEntity, ManifestStatus, FileType } from '../entities/manifest.entity';
 import { ModelEntity } from '../entities/model.entity';
@@ -27,7 +27,7 @@ import { IFileAccessService } from '../file-access/file-access.service';
 import { ExtractedData, ExtractionPromptEnhancements, FewShotExample, OcrTableData } from '../prompts/types/prompts.types';
 import { ModelPricingService } from '../models/model-pricing.service';
 import { TextExtractorService } from '../text-extractor/text-extractor.service';
-import { PricingConfig, TextExtractionMetadata, TextExtractionProgressUpdate } from '../text-extractor/types/extractor.types';
+import { OcrExtractorConfig, PricingConfig, TextExtractionMetadata, TextExtractionProgressUpdate } from '../text-extractor/types/extractor.types';
 import { OcrResultDto } from '../manifests/dto/ocr-result.dto';
 import { ManifestsService } from '../manifests/manifests.service';
 import {
@@ -59,7 +59,7 @@ type ExtractionOptions = {
   textContextSnippet?: string;
   onTextProgress?: (update: TextExtractionProgressUpdate) => void | Promise<void>;
   abortSignal?: AbortSignal;
-  ocrExtractors?: Array<{ type: string; config?: Record<string, unknown> }>;
+  ocrExtractors?: OcrExtractorConfig[];
 };
 
 type StageLogExtras = {
@@ -249,9 +249,9 @@ export class ExtractionService {
     const rules = await this.schemaRulesService.findBySchema(schema.id);
     const enabledRules = rules.filter((rule) => rule.enabled);
 
-    const ocrExtractors = (schema?.validationSettings as Record<string, unknown> | null)?.ocrExtractors as Array<{ type: string; config?: Record<string, unknown> }> | undefined;
+    const ocrExtractors = (schema?.validationSettings as Record<string, unknown> | null)?.ocrExtractors as OcrExtractorConfig[] | undefined;
     if (!ocrExtractors || ocrExtractors.length === 0) {
-      throw new BadRequestException('Schema ocrExtractors is required for extraction. Run migrations/ocr-extractors-migration.ts to backfill from project.textExtractorId.');
+      throw new BadRequestException('Schema ocrExtractors required. Run migration to backfill.');
     }
 
     const llmModelFromProject = project.llmModelId
@@ -332,7 +332,7 @@ export class ExtractionService {
           state.status = ExtractionStatus.TEXT_EXTRACTING;
           reportProgress(25);
           const textResult = manifest.ocrResult
-            ? await this.buildCachedTextExtractionState(manifest, ocrExtractors[0]?.type ?? 'paddle-ocr-vl')
+            ? await this.buildCachedTextExtractionState(manifest, ocrExtractors[0]?.extractorId ?? 'paddle-ocr-vl')
             : await this.executeTextExtraction(
                 manifest,
                 await this.fileSystem.readFile(manifest.storagePath),
@@ -348,6 +348,8 @@ export class ExtractionService {
                 },
                 options.abortSignal,
               );
+
+          // Fetch few-shot examples from verified manifests in the same project
           state.textResult = textResult;
           reportProgress(40);
         },
@@ -457,7 +459,7 @@ export class ExtractionService {
   private async executeTextExtraction(
     manifest: ManifestEntity,
     buffer: Buffer,
-    ocrExtractors: Array<{ type: string; config?: Record<string, unknown> }>,
+    ocrExtractors: OcrExtractorConfig[],
     onProgress?: (update: TextExtractionProgressUpdate) => void | Promise<void>,
     abortSignal?: AbortSignal,
   ): Promise<TextExtractionState> {
@@ -624,7 +626,7 @@ export class ExtractionService {
     requiredFields: string[],
   ): Promise<void> {
     const providerConfig = this.buildLlmProviderConfig(options.llmModel);
-    const systemPrompt = this.getSystemPrompt(schema, options.systemPromptOverride, options.ocrExtractors);
+    const systemPrompt = await this.getSystemPrompt(schema, options.systemPromptOverride, options.ocrExtractors);
     const reExtractSystemPrompt = this.getReExtractPrompt(schema, options.reExtractPromptOverride);
     const activeRules = (rules ?? []).filter((rule) => rule.enabled !== false);
     const contextOverride = options.textContextSnippet?.trim() || undefined;
@@ -1275,15 +1277,34 @@ export class ExtractionService {
     current[parts[parts.length - 1]] = value;
   }
 
-  private getSystemPrompt(schema: SchemaEntity | null, override?: string, ocrExtractors?: Array<{ type: string; config?: Record<string, unknown> }>): string {
+  private async resolveExtractorTypes(ocrExtractors: OcrExtractorConfig[]): Promise<string[]> {
+    if (ocrExtractors.length === 0) return [];
+    const ids = ocrExtractors.map((e) => e.extractorId);
+    const entities = await this.extractorRepository.find({
+      where: { id: In(ids) },
+    });
+    const typeMap = new Map(entities.map((e) => [e.id, e.extractorType]));
+    return ocrExtractors.map((e) => typeMap.get(e.extractorId) ?? 'unknown');
+  }
+
+  private async getSystemPrompt(schema: SchemaEntity | null, override?: string, ocrExtractors?: OcrExtractorConfig[]): Promise<string> {
     const base = (() => {
       if (override) return override;
       if (schema?.systemPromptTemplate) return schema.systemPromptTemplate;
-      if (ocrExtractors && ocrExtractors.length > 1) {
-        return this.promptsService.getMultiOcrSystemPrompt(ocrExtractors);
-      }
       return this.promptsService.getSystemPrompt();
     })();
+
+    if (ocrExtractors && ocrExtractors.length > 1) {
+      const types = await this.resolveExtractorTypes(ocrExtractors);
+      const multiPrompt = this.promptsService.getMultiOcrSystemPrompt(
+        types.map((t) => ({ type: t })),
+      );
+      const promptRulesMarkdown = this.getPromptRulesMarkdown(schema);
+      if (!promptRulesMarkdown) {
+        return multiPrompt;
+      }
+      return `${multiPrompt}\n\nPrompt Rules (Markdown):\n${promptRulesMarkdown}`;
+    }
 
     const promptRulesMarkdown = this.getPromptRulesMarkdown(schema);
     if (!promptRulesMarkdown) {

@@ -9,14 +9,10 @@ import { OcrResultDto } from '../manifests/dto/ocr-result.dto';
 import { TextExtractorFactory } from './text-extractor.factory';
 import { TextExtractorRegistry } from './text-extractor.registry';
 import {
+  OcrExtractorConfig,
   TextExtractionInput,
   TextExtractionResult,
 } from './types/extractor.types';
-
-interface OcrExtractorConfig {
-  type: string;
-  config?: Record<string, unknown>;
-}
 
 @Injectable()
 export class TextExtractorService {
@@ -140,15 +136,39 @@ export class TextExtractorService {
     return this.pdfToImageService.convertPdfToImages(filePath);
   }
 
+  private async resolveExtractorConfig(extractorId: string): Promise<{
+    type: string;
+    infraConfig: Record<string, unknown>;
+  } | null> {
+    const entity = await this.extractorRepository.findOne(extractorId);
+    if (!entity || !entity.isActive) return null;
+    return {
+      type: entity.extractorType,
+      infraConfig: entity.config ?? {},
+    };
+  }
+
   private async runSingleExtractor(
-    type: string,
-    config: Record<string, unknown> | undefined,
+    extractorId: string,
+    pipelineConfig: Record<string, unknown> | undefined,
     input: TextExtractionInput,
   ) {
-    const extractorClass = this.extractorRegistry.get(type);
+    const resolved = await this.resolveExtractorConfig(extractorId);
+    if (!resolved) return null;
+
+    const extractorClass = this.extractorRegistry.get(resolved.type);
     if (!extractorClass) return null;
 
-    const instance = this.extractorFactory.createInstance(type, config ?? {}, type);
+    const mergedConfig = {
+      ...resolved.infraConfig,
+      ...(pipelineConfig ?? {}),
+    };
+
+    const instance = this.extractorFactory.createInstance(
+      resolved.type,
+      resolved.infraConfig,
+      extractorId,
+    );
 
     const supportedFormats = extractorClass.metadata.supportedFormats ?? [];
     const shouldConvert =
@@ -160,8 +180,13 @@ export class TextExtractorService {
       ? await this.convertPdfToPages(input.filePath)
       : input.pages;
 
-    const result = await instance.extract({ ...input, pages });
-    return { extractorName: type, result };
+    const result = await instance.extract({
+      ...input,
+      pages,
+      extractorConfig: mergedConfig,
+    });
+
+    return { extractorName: resolved.type, result };
   }
 
   private async extractMultiple(
@@ -169,7 +194,9 @@ export class TextExtractorService {
     input: TextExtractionInput,
   ): Promise<{ extractors: string[]; result: TextExtractionResult }> {
     const extractionResults = await Promise.allSettled(
-      ocrExtractors.map((e) => this.runSingleExtractor(e.type, e.config, input)),
+      ocrExtractors.map((e) =>
+        this.runSingleExtractor(e.extractorId, e.config, input),
+      ),
     );
 
     const succeeded = extractionResults
