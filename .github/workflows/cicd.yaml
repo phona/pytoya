@@ -107,14 +107,24 @@ jobs:
     environment: production
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ env.SSH_HOST }}
-          username: ${{ env.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
+        shell: bash
+        env:
+          SSH_HOST: ${{ env.SSH_HOST }}
+          SSH_USER: ${{ env.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh "$SSH_USER@$SSH_HOST" bash -s -- \
+            "${{ secrets.GHCR_TOKEN }}" "${{ github.actor }}" << 'REMOTESCRIPT'
+            set -euo pipefail
+            TOKEN="$1" USER="$2"
             cd /home/github-runner/pytoya
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "$TOKEN" | docker login ghcr.io -u "$USER" --password-stdin
             docker compose pull
             docker compose down
             docker compose up -d
+REMOTESCRIPT
