@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 concurrency:
   group: ci-cd-${{ github.ref }}
@@ -15,94 +16,100 @@ concurrency:
 env:
   GHCR_REGISTRY: ghcr.io
   GHCR_OWNER: ${{ vars.GHCR_OWNER || github.repository_owner }}
-  CHART_ID: ${{ vars.CHART_ID || 'pytoya' }}
-  API_IMAGE: pytoya/api
-  WEB_IMAGE: pytoya/web
 
 jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
-      - name: Install
-        run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Type Check
-        run: npm run type-check
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run type-check
 
   test_api:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
-      - name: Install
-        run: npm ci
-
-      - name: Test (API)
-        run: npm run test --workspace=@pytoya/api
+      - run: npm ci
+      - run: npm run test --workspace=@pytoya/api
 
   test_web:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
-      - name: Install
-        run: npm ci
-
-      - name: Test + Coverage Gates (Web)
-        run: npm run test:coverage --workspace=@pytoya/web
+      - run: npm ci
+      - run: npm run test:coverage --workspace=@pytoya/web
 
   ci:
     runs-on: ubuntu-latest
     needs: [quality, test_api, test_web]
     steps:
-      - name: CI summary
-        run: echo "quality + test_api + test_web passed"
+      - run: echo "quality + test_api + test_web passed"
+
+  build_images:
+    runs-on: ubuntu-latest
+    needs: ci
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_name == 'master') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            display: API
+            dockerfile: src/apps/api/Dockerfile
+            build_args: ""
+          - name: web
+            display: Web
+            dockerfile: src/apps/web/Dockerfile
+            build_args: VITE_API_URL=/api
+    name: Build image (${{ matrix.display }})
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          build-args: ${{ matrix.build_args }}
+          tags: |
+            ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_OWNER }}/pytoya/${{ matrix.name }}:latest
+            ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_OWNER }}/pytoya/${{ matrix.name }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     runs-on: [self-hosted, linux]
-    needs: [ci]
+    needs: [build_images]
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_name == 'master') }}
     environment: production
-    permissions:
-      contents: read
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Build and deploy
+      - name: Pull and restart
         shell: bash
-        working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
-          docker compose build api web
-          docker tag pytoya-build-api:latest ghcr.io/phona/pytoya/api:latest
-          docker tag pytoya-build-web:latest ghcr.io/phona/pytoya/web:latest
-          cp docker-compose.yml config.yaml /home/github-runner/pytoya/
+          docker login ghcr.io -u ${{ github.actor }} --password-stdin <<< "${{ secrets.GHCR_TOKEN }}"
           cd /home/github-runner/pytoya
+          docker compose pull
           docker compose down
           docker compose up -d
