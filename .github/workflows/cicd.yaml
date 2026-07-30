@@ -120,5 +120,9 @@ jobs:
             cd /home/github-runner/pytoya
             docker compose pull
             docker compose up -d
-            sleep 5
-            curl -sf http://localhost:3000/api/health || exit 1
+            for i in $(seq 1 12); do
+              curl -sf http://localhost:3001/api/health && break
+              echo "Waiting for API... attempt $i"
+              sleep 5
+            done
+            curl -sf http://localhost:3001/api/health || exit 1
