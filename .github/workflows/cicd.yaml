@@ -160,6 +160,8 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
+          provenance: false
+          sbom: false
           build-args: ${{ matrix.build_args }}
           tags: ${{ matrix.name == 'api' && needs.prepare.outputs.api_ref || needs.prepare.outputs.web_ref }}
           cache-from: type=gha
