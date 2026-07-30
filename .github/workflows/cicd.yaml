@@ -92,15 +92,17 @@ jobs:
     permissions:
       contents: read
     steps:
+      - uses: actions/checkout@v4
+
       - name: Build and deploy
         shell: bash
+        working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
-          cd /home/github-runner/pytoya-build
-          git pull origin master
           docker compose build api web
           docker tag pytoya-build-api:latest ghcr.io/phona/pytoya/api:latest
           docker tag pytoya-build-web:latest ghcr.io/phona/pytoya/web:latest
+          cp docker-compose.yml config.yaml /home/github-runner/pytoya/
           cd /home/github-runner/pytoya
           docker compose down
           docker compose up -d
