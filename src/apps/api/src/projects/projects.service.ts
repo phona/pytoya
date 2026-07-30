@@ -10,7 +10,6 @@ import { ProjectEntity } from '../entities/project.entity';
 import { SchemaEntity } from '../entities/schema.entity';
 import { UserEntity } from '../entities/user.entity';
 import { adapterRegistry } from '../models/adapters/adapter-registry';
-import { ExtractorRepository } from '../extractors/extractor.repository';
 import { SchemasService } from '../schemas/schemas.service';
 import { SchemaRulesService } from '../schemas/schema-rules.service';
 import { ValidationService } from '../validation/validation.service';
@@ -33,7 +32,6 @@ export class ProjectsService {
     private readonly manifestRepository: Repository<ManifestEntity>,
     @InjectRepository(OperationLogEntity)
     private readonly operationLogRepository: Repository<OperationLogEntity>,
-    private readonly extractorRepository: ExtractorRepository,
     private readonly schemasService: SchemasService,
     private readonly schemaRulesService: SchemaRulesService,
     private readonly validationService: ValidationService,
