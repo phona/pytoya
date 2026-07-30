@@ -1,6 +1,7 @@
 import { BaseTextExtractor } from '../base-text-extractor';
 import { OcrServiceClient } from '../ocr-service.client';
 import {
+  CorrectionData,
   ExtractorMetadata,
   TextExtractionInput,
   TextExtractionResult,
@@ -39,7 +40,21 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
       required: ['serviceUrl'],
     },
     paramsSchema: {},
-    promptContribution: 'I provide individual text boxes with confidence scores and positions. Each box includes: text, confidence (0-1), bbox [x, y, w, h]. Boxes with confidence < 0.8 may be inaccurate.',
+    onCorrection: undefined as ((data: CorrectionData) => Promise<void>) | undefined,
+    promptContribution: [
+      'I provide individual text boxes with confidence scores and positions.',
+      'Each box includes: text, confidence (0-1), bbox [x, y, w, h].',
+      '',
+      'For fields where my confidence < 0.8, or when my text differs from other',
+      'sources and my confidence is higher, include in _human_review:',
+      '  "_human_review": [{',
+      '    "field": "<json path>",',
+      '    "reason": "low_confidence" | "ocr_correction",',
+      '    "ocr_text": "<original text>",',
+      '    "page": <int>,',
+      '    "bbox": [x, y, w, h]',
+      '  }]',
+    ].join('\n'),
   };
 
   private readonly ocrServiceClient: OcrServiceClient;
@@ -67,7 +82,10 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
       : boxes;
 
     const text = filteredBoxes.map((b) => b.text).join('\n');
-    const markdown = text;
+    const markdown = filteredBoxes.map((b) => {
+      const tag = b.confidence >= 0.95 ? '[H]' : b.confidence >= 0.8 ? '[M]' : '[L]';
+      return `${tag} ${b.text}  conf=${b.confidence}  bbox=[${b.bbox.join(',')}]`;
+    }).join('\n');
 
     return {
       text,
