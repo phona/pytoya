@@ -113,7 +113,6 @@ describe('ProjectForm', () => {
       expect(onSubmit).toHaveBeenCalledWith({
         name: 'New Project',
         description: undefined,
-        textExtractorId: 'extractor-1',
         llmModelId: 'llm-1',
       });
     });
@@ -132,7 +131,6 @@ describe('ProjectForm', () => {
             description: 'Desc',
             ownerId: 1,
             userId: 1,
-            textExtractorId: 'extractor-1',
             llmModelId: 'llm-1',
             defaultSchemaId: null,
             createdAt: '2025-01-13T00:00:00.000Z',

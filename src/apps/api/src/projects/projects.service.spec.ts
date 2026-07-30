@@ -36,9 +36,6 @@ describe('ProjectsService', () => {
     manifestRepository = {
       createQueryBuilder: jest.fn(),
     };
-    const extractorRepository = {
-      findOne: jest.fn(),
-    };
     const operationLogRepository = {
       createQueryBuilder: jest.fn(),
     };
@@ -48,7 +45,6 @@ describe('ProjectsService', () => {
       modelRepository as any,
       manifestRepository as any,
       operationLogRepository as any,
-      extractorRepository as any,
       schemasService,
       schemaRulesService,
       validationService,

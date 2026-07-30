@@ -3,7 +3,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { CreateProjectDto, UpdateProjectDto, Project } from '@/api/projects';
 import { useModels } from '@/shared/hooks/use-models';
-import { useExtractors } from '@/shared/hooks/use-extractors';
 import { projectSchema, type ProjectFormValues } from '@/shared/schemas/project.schema';
 import { Button } from '@/shared/components/ui/button';
 import {
@@ -32,7 +31,6 @@ interface ProjectFormProps {
 }
 
 export function ProjectForm({ project, onSubmit, onCancel, isLoading }: ProjectFormProps) {
-  const { extractors } = useExtractors();
   const { models: llmModels } = useModels({ category: 'llm' });
 
   const form = useForm<ProjectFormValues>({
@@ -40,7 +38,6 @@ export function ProjectForm({ project, onSubmit, onCancel, isLoading }: ProjectF
     defaultValues: {
       name: project?.name ?? '',
       description: project?.description ?? '',
-      textExtractorId: project?.textExtractorId ?? '',
       llmModelId: project?.llmModelId ?? '',
     },
   });
@@ -49,7 +46,6 @@ export function ProjectForm({ project, onSubmit, onCancel, isLoading }: ProjectF
     form.reset({
       name: project?.name ?? '',
       description: project?.description ?? '',
-      textExtractorId: project?.textExtractorId ?? '',
       llmModelId: project?.llmModelId ?? '',
     });
   }, [form, project]);
@@ -57,14 +53,12 @@ export function ProjectForm({ project, onSubmit, onCancel, isLoading }: ProjectF
   const handleSubmit = async (values: ProjectFormValues) => {
     const name = values.name.trim();
     const description = values.description?.trim() || undefined;
-    const textExtractorId = values.textExtractorId;
     const llmModelId = values.llmModelId;
 
     if (project) {
       const updateData: UpdateProjectDto = {
         name,
         description,
-        textExtractorId,
         llmModelId,
       };
       await onSubmit(updateData);
@@ -72,7 +66,6 @@ export function ProjectForm({ project, onSubmit, onCancel, isLoading }: ProjectF
       const data: CreateProjectDto = {
         name,
         description,
-        textExtractorId,
         llmModelId,
       };
       await onSubmit(data);
@@ -122,33 +115,6 @@ export function ProjectForm({ project, onSubmit, onCancel, isLoading }: ProjectF
         />
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="textExtractorId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Text Extractor *</FormLabel>
-                <Select
-                  value={field.value || ''}
-                  onValueChange={(value) => field.onChange(value)}
-                >
-                  <FormControl>
-                    <SelectTrigger aria-label="Text extractor">
-                      <SelectValue placeholder="Select text extractor..." />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {extractors.map((extractor) => (
-                      <SelectItem key={extractor.id} value={extractor.id}>
-                        {extractor.name} {extractor.isActive ? '' : '(Inactive)'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
           <FormField
             control={form.control}
             name="llmModelId"

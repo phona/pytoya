@@ -11,7 +11,6 @@ import type {
   ProjectCostSummaryDto,
   UpdateGroupDto,
   UpdateProjectDto,
-  UpdateProjectExtractorDto,
 } from '@pytoya/shared/types/projects';
 import type { SchemaResponseDto } from '@pytoya/shared/types/schemas';
 
@@ -109,11 +108,6 @@ export const projectsApi = {
 
   updateProject: async (id: number, data: UpdateProjectDto) => {
     const response = await apiClient.patch<Project>(`/projects/${id}`, data);
-    return response.data;
-  },
-
-  updateProjectExtractor: async (id: number, data: UpdateProjectExtractorDto) => {
-    const response = await apiClient.put<Project>(`/projects/${id}/extractor`, data);
     return response.data;
   },
 
