@@ -6,7 +6,9 @@ import { Repository } from 'typeorm';
 import { ExtractionHistoryEntity } from '../entities/extraction-history.entity';
 import { ManifestEntity } from '../entities/manifest.entity';
 import { UserEntity } from '../entities/user.entity';
+import { TextExtractorRegistry } from '../text-extractor/text-extractor.registry';
 import { UpdateManifestUseCase } from '../usecases/update-manifest.usecase';
+import type { CorrectionData } from '../text-extractor/types/extractor.types';
 import type { PendingCropItemDto, PendingCropsResponseDto } from './dto/pending-crops.dto';
 
 @Injectable()
@@ -17,6 +19,7 @@ export class CropsService {
     @InjectRepository(ExtractionHistoryEntity)
     private readonly historyRepo: Repository<ExtractionHistoryEntity>,
     private readonly updateManifestUseCase: UpdateManifestUseCase,
+    private readonly extractorRegistry: TextExtractorRegistry,
   ) {}
 
   async getPendingCrops(manifestId: number, threshold: number): Promise<PendingCropsResponseDto> {
@@ -112,6 +115,25 @@ export class CropsService {
     const extractedData = { ...((manifest.extractedData as any) || {}) };
     this.setNestedField(extractedData, field, correctedText);
     await this.updateManifestUseCase.update(user, manifestId, { extractedData, humanVerified: false });
+
+    // Call onCorrection on the extractor that produced this field
+    const extractorType = manifest.textExtractorId;
+    if (extractorType) {
+      const extractorClass = this.extractorRegistry.get(extractorType);
+      if (extractorClass?.metadata?.onCorrection) {
+        const data: CorrectionData = {
+          field,
+          page,
+          originalText,
+          correctedText,
+          bbox: (adjustedBbox ?? originalBbox) as [number, number, number, number] | undefined,
+          confidence: reviewItem?.confidence as number | undefined,
+          manifestId,
+          userId: user.id,
+        };
+        await extractorClass.metadata.onCorrection(data);
+      }
+    }
   }
 
   private async cropFromFile(filePath: string | undefined, bbox: number[]) {
