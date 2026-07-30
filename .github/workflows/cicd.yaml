@@ -83,7 +83,7 @@ jobs:
         with:
           registry: ${{ env.GHCR_REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
