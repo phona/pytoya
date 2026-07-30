@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CropsService } from './crops.service';
 import { ManifestsController } from './manifests.controller';
 import { ManifestsService } from './manifests.service';
 import { CsvExportService } from './csv-export.service';
@@ -65,6 +66,7 @@ describe('ManifestsController', () => {
         { provide: UploadManifestsUseCase, useValue: uploadManifestsUseCase },
         { provide: ExtractManifestsUseCase, useValue: extractManifestsUseCase },
         { provide: UpdateManifestUseCase, useValue: updateManifestUseCase },
+        { provide: CropsService, useValue: { getPendingCrops: jest.fn(), verifyCrop: jest.fn(), getPageImage: jest.fn() } },
       ],
     })
       .overrideGuard(JwtAuthGuard)

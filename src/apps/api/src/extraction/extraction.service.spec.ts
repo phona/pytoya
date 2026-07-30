@@ -168,7 +168,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['invoice'],
         systemPromptTemplate: null,
-        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
+        validationSettings: { ocrExtractors: [{ type: 'extractor-1', config: {} }] },
       }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
@@ -286,7 +286,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['invoice'],
         systemPromptTemplate: null,
-        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
+        validationSettings: { ocrExtractors: [{ type: 'extractor-1', config: {} }] },
       }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
@@ -368,7 +368,7 @@ describe('ExtractionService', () => {
     const promptRepository = { findOne: jest.fn().mockResolvedValue(null) };
     const textExtractorService = {
       extract: jest.fn().mockResolvedValue({
-        extractor: { id: 'extractor-1' },
+        extractors: ['extractor-1'],
         result: {
           text: 'extracted text',
           markdown: 'extracted text',
@@ -398,7 +398,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['items'],
         systemPromptTemplate: null,
-        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
+        validationSettings: { ocrExtractors: [{ type: 'extractor-1', config: {} }] },
       }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
@@ -436,7 +436,7 @@ describe('ExtractionService', () => {
     const result = await service.runExtraction(1);
 
     expect(textExtractorService.extract).toHaveBeenCalledWith(
-      'extractor-1',
+      [expect.objectContaining({ type: 'extractor-1' })],
       expect.objectContaining({ fileType: 'pdf', originalFilename: 'test.pdf' }),
     );
     expect(result.textCost).toBe(0.05);
@@ -486,7 +486,7 @@ describe('ExtractionService', () => {
     const promptRepository = { findOne: jest.fn().mockResolvedValue(null) };
     const textExtractorService = {
       extract: jest.fn().mockResolvedValue({
-        extractor: { id: 'extractor-1' },
+        extractors: ['extractor-1'],
         result: {
           text: 'extracted text',
           markdown: 'extracted text',
@@ -528,14 +528,14 @@ describe('ExtractionService', () => {
           jsonSchema: { version: 1 },
           requiredFields: ['items'],
           systemPromptTemplate: null,
-        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
+        validationSettings: { ocrExtractors: [{ type: 'extractor-1', config: {} }] },
         })
         .mockResolvedValueOnce({
           id: 'schema-1',
           jsonSchema: { version: 2 },
           requiredFields: ['items'],
           systemPromptTemplate: null,
-        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
+        validationSettings: { ocrExtractors: [{ type: 'extractor-1', config: {} }] },
         }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
@@ -633,7 +633,7 @@ describe('ExtractionService', () => {
     const promptRepository = { findOne: jest.fn().mockResolvedValue(null) };
     const textExtractorService = {
       extract: jest.fn().mockResolvedValue({
-        extractor: { id: 'extractor-1' },
+        extractors: ['extractor-1'],
         result: {
           text: 'extracted text',
           markdown: 'extracted text',
@@ -663,7 +663,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['items'],
         systemPromptTemplate: null,
-        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
+        validationSettings: { ocrExtractors: [{ type: 'extractor-1', config: {} }] },
       }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
@@ -744,7 +744,7 @@ describe('ExtractionService', () => {
     const promptRepository = { findOne: jest.fn().mockResolvedValue(null) };
     const textExtractorService = {
       extract: jest.fn().mockResolvedValue({
-        extractor: { id: 'extractor-1' },
+        extractors: ['extractor-1'],
         result: {
           text: 'extracted text',
           markdown: 'extracted text',
@@ -773,7 +773,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['items'],
         systemPromptTemplate: null,
-        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
+        validationSettings: { ocrExtractors: [{ type: 'extractor-1', config: {} }] },
       }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
@@ -895,7 +895,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['items'],
         systemPromptTemplate: null,
-        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
+        validationSettings: { ocrExtractors: [{ type: 'extractor-1', config: {} }] },
       }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
@@ -996,7 +996,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['items'],
         systemPromptTemplate: null,
-        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
+        validationSettings: { ocrExtractors: [{ type: 'extractor-1', config: {} }] },
       }),
     };
     const modelPricingService = {
@@ -1076,7 +1076,7 @@ describe('ExtractionService', () => {
     const promptRepository = { findOne: jest.fn().mockResolvedValue(null) };
     const textExtractorService = {
       extract: jest.fn().mockResolvedValue({
-        extractor: { id: 'extractor-1' },
+        extractors: ['extractor-1'],
         result: {
           text: 'extracted text',
           markdown: 'extracted text',
@@ -1106,7 +1106,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['items'],
         systemPromptTemplate: null,
-        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
+        validationSettings: { ocrExtractors: [{ type: 'extractor-1', config: {} }] },
       }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };
@@ -1213,7 +1213,7 @@ describe('ExtractionService', () => {
         jsonSchema: {},
         requiredFields: ['items'],
         systemPromptTemplate: null,
-        validationSettings: { ocrExtractors: [{ type: 'paddle-ocr-vl', config: {} }] },
+        validationSettings: { ocrExtractors: [{ type: 'extractor-1', config: {} }] },
       }),
       validateWithRequiredFields: jest.fn().mockReturnValue({ valid: true, errors: [] }),
     };

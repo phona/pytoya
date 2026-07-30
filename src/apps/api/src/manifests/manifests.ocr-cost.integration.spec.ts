@@ -20,6 +20,7 @@ import { ManifestOcrHistoryEntryDto } from './dto/manifest-ocr-history.dto';
 import { ExtractManifestsUseCase } from '../usecases/extract-manifests.usecase';
 import { UpdateManifestUseCase } from '../usecases/update-manifest.usecase';
 import { UploadManifestsUseCase } from '../usecases/upload-manifests.usecase';
+import { CropsService } from './crops.service';
 
 /**
  * Integration tests for OCR result preview endpoints.
@@ -238,6 +239,7 @@ describe('ManifestsController - OCR Endpoints Integration', () => {
           provide: UpdateManifestUseCase,
           useValue: updateManifestUseCase,
         },
+        { provide: CropsService, useValue: { getPendingCrops: jest.fn(), verifyCrop: jest.fn(), getPageImage: jest.fn() } },
         { provide: getRepositoryToken(ManifestEntity), useValue: manifestRepository },
         { provide: getRepositoryToken(ModelEntity), useValue: {} },
       ],
