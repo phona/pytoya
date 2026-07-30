@@ -7,8 +7,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
-  id-token: write
 
 concurrency:
   group: ci-cd-${{ github.ref }}
@@ -86,144 +84,26 @@ jobs:
       - name: CI summary
         run: echo "quality + test_api + test_web passed"
 
-  prepare:
-    runs-on: ubuntu-latest
-    needs: ci
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_name == 'master') }}
-    outputs:
-      image_tag: ${{ steps.ids.outputs.image_tag }}
-      chart_version: ${{ steps.ids.outputs.chart_version }}
-      chart_ref: ${{ steps.ids.outputs.chart_ref }}
-      api_ref: ${{ steps.ids.outputs.api_ref }}
-      web_ref: ${{ steps.ids.outputs.web_ref }}
-      images_json: ${{ steps.ids.outputs.images_json }}
-    steps:
-      - name: Compute deploy identifiers
-        id: ids
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          image_tag="${GITHUB_SHA:0:12}"
-          chart_version="0.1.0-${image_tag}"
-
-          chart_ref="oci://${GHCR_REGISTRY}/${GHCR_OWNER}/charts/${CHART_ID}"
-          api_ref="${GHCR_REGISTRY}/${GHCR_OWNER}/${API_IMAGE}:${image_tag}"
-          web_ref="${GHCR_REGISTRY}/${GHCR_OWNER}/${WEB_IMAGE}:${image_tag}"
-          images_json="$(printf '{"api":"%s","web":"%s"}' "${api_ref}" "${web_ref}")"
-
-          {
-            echo "image_tag=${image_tag}"
-            echo "chart_version=${chart_version}"
-            echo "chart_ref=${chart_ref}"
-            echo "api_ref=${api_ref}"
-            echo "web_ref=${web_ref}"
-            echo "images_json=${images_json}"
-          } >> "${GITHUB_OUTPUT}"
-
-  build_images:
-    runs-on: ubuntu-latest
-    needs: prepare
-    permissions:
-      contents: read
-      packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: api
-            display: API
-            dockerfile: src/apps/api/Dockerfile
-            build_args: ""
-          - name: web
-            display: Web
-            dockerfile: src/apps/web/Dockerfile
-            build_args: VITE_API_URL=/api
-    name: Build image (${{ matrix.display }})
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.GHCR_REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
-      - name: Build and push image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          provenance: false
-          sbom: false
-          build-args: ${{ matrix.build_args }}
-          tags: ${{ matrix.name == 'api' && needs.prepare.outputs.api_ref || needs.prepare.outputs.web_ref }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  push_helm_chart:
-    runs-on: ubuntu-latest
-    needs: prepare
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
-
-      - name: Log in to GHCR for Helm (OCI)
-        shell: bash
-        env:
-          GHCR_USERNAME: ${{ github.actor }}
-          GHCR_PASSWORD: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          echo "${GHCR_PASSWORD}" | helm registry login "${GHCR_REGISTRY}" -u "${GHCR_USERNAME}" --password-stdin
-
-      - name: Package and push Helm chart (OCI)
-        shell: bash
-        env:
-          IMAGE_TAG: ${{ needs.prepare.outputs.image_tag }}
-          CHART_VERSION: ${{ needs.prepare.outputs.chart_version }}
-          CHART_REF: ${{ needs.prepare.outputs.chart_ref }}
-        run: |
-          set -euo pipefail
-
-          mkdir -p .artifacts
-          helm package helm/pytoya \
-            --destination .artifacts \
-            --version "${CHART_VERSION}" \
-            --app-version "${IMAGE_TAG}"
-
-          chart_tgz="$(ls -1 .artifacts/*.tgz | head -n 1)"
-          helm push "${chart_tgz}" "${CHART_REF%/*}"
-
   deploy:
     runs-on: [self-hosted, linux]
-    needs: [prepare, build_images, push_helm_chart]
+    needs: [ci]
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_name == 'master') }}
     environment: production
     permissions:
       contents: read
     steps:
-      - name: Send deploy signal
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and deploy
         shell: bash
-        env:
-          CHART_REF: ${{ needs.prepare.outputs.chart_ref }}
-          CHART_VERSION: ${{ needs.prepare.outputs.chart_version }}
-          IMAGES_JSON: ${{ needs.prepare.outputs.images_json }}
         run: |
           set -euo pipefail
-          /home/github-runner/deploy-pytoya.sh \
-            --chart "${CHART_REF}" \
-            --chart-version "${CHART_VERSION}" \
-            --images "${IMAGES_JSON}"
+          cd /root/pytoya-build
+          git pull origin master
+          docker compose build api web worker
+          docker tag pytoya-build-api:latest ghcr.io/phona/pytoya/api:latest
+          docker tag pytoya-build-web:latest ghcr.io/phona/pytoya/web:latest
+          cd /root/pytoya
+          docker compose down
+          docker compose up -d
