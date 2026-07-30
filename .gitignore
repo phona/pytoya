@@ -86,3 +86,4 @@ playwright-report/
 .jest-cache
 
 src/apps/api/uploads
+.superpowers
