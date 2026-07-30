@@ -58,7 +58,6 @@ const setupHandlers = () => {
         description: body.description ?? null,
         ownerId: 1,
         userId: 1,
-        textExtractorId: body.textExtractorId ?? null,
         llmModelId: body.llmModelId ?? null,
         defaultSchemaId: body.defaultSchemaId ?? null,
         createdAt: '2025-01-15T00:00:00.000Z',
@@ -88,7 +87,6 @@ const setupHandlers = () => {
         description: null,
         ownerId: 1,
         userId: 1,
-        textExtractorId: body.textExtractorId ?? null,
         llmModelId: body.llmModelId ?? null,
         defaultSchemaId: body.defaultSchemaId ?? null,
         createdAt: '2025-01-15T00:00:00.000Z',
@@ -134,16 +132,6 @@ describe('ProjectsPage', () => {
     });
 
     await act(async () => {
-      await user.click(screen.getByLabelText(/Text Extractor/i));
-    });
-    const extractorListbox = await screen.findByRole('listbox');
-    await act(async () => {
-      const option = within(extractorListbox).getByRole('option', { name: /Vision LLM - GPT-4o/i });
-      fireEvent.pointerDown(option);
-      fireEvent.click(option);
-    });
-
-    await act(async () => {
       await user.click(screen.getByLabelText(/LLM Model/i));
     });
     const listbox = await screen.findByRole('listbox');
@@ -176,7 +164,6 @@ describe('ProjectsPage', () => {
             description: 'Test project description',
             ownerId: 1,
             userId: 1,
-            textExtractorId: 'extractor-1',
             llmModelId: 'llm-1',
             defaultSchemaId: null,
             createdAt: '2025-01-15T00:00:00.000Z',

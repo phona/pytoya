@@ -338,23 +338,6 @@ export const handlers = [
       },
     });
   }),
-  http.put('/api/projects/:id/extractor', async ({ request, params }) => {
-    const body = await parseJsonBody(request);
-    return HttpResponse.json({
-      id: Number(params.id),
-      name: 'Test Project',
-      description: 'Test project description',
-      userId: 1,
-      textExtractorId: body.textExtractorId ?? 'extractor-1',
-      llmModelId: '11111111-1111-1111-1111-111111111111',
-      createdAt: '2025-01-13T00:00:00.000Z',
-      updatedAt: '2025-01-13T00:00:00.000Z',
-      _count: {
-        groups: 2,
-        manifests: 5,
-      },
-    });
-  }),
   http.get('/api/projects/:id/cost-summary', ({ params }) => {
     return HttpResponse.json({
       projectId: Number(params.id),

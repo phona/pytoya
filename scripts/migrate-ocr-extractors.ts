@@ -48,8 +48,19 @@ async function main() {
     const project = projects[0];
     const extractorType = project?.textExtractorId ?? 'paddle-ocr-vl';
 
+    // Resolve the type name to an actual ExtractorEntity UUID
+    const extractors: Array<{ id: string }> = await connection.query(
+      `SELECT id FROM extractors WHERE extractor_type = $1 LIMIT 1`,
+      [extractorType],
+    );
+
+    if (extractors.length === 0) {
+      console.warn(`  Skipping schema ${schema.id}: no Extractor entity found for type "${extractorType}"`);
+      continue;
+    }
+
     const settings = schema.validationSettings ?? {};
-    (settings as any).ocrExtractors = [{ extractorId: extractorType, config: {} }];
+    (settings as any).ocrExtractors = [{ extractorId: extractors[0].id, config: {} }];
 
     if (isDryRun) {
       console.log(`  [DRY RUN] Schema ${schema.id}: ocrExtractors ← [{ extractorId: "${extractorType}" }]`);

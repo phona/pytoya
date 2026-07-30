@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/shared/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
+import { Input } from '@/shared/components/ui/input';
 import { JsonSchemaForm } from '@/shared/components/JsonSchemaForm';
 import type { OcrPipelineEntry, ExtractorTypeInfo } from '@/shared/hooks/use-ocr-pipeline';
 import type { Extractor } from '@/api/extractors';
@@ -28,9 +29,21 @@ export function AddExtractorDialog({
   const [step, setStep] = useState<'select' | 'config'>(initialEntry ? 'config' : 'select');
   const [selectedInstanceId, setSelectedInstanceId] = useState<string>(initialEntry?.extractorId ?? '');
   const [config, setConfig] = useState<Record<string, unknown>>(initialEntry?.config ?? {});
+  const [search, setSearch] = useState('');
 
   const selectedInstance = extractorInstances.find((inst) => inst.id === selectedInstanceId);
   const typeInfo = selectedInstance ? extractorTypeMap.get(selectedInstance.extractorType) : null;
+
+  const filteredInstances = useMemo(() => {
+    if (!search) return extractorInstances;
+    const q = search.toLowerCase();
+    return extractorInstances.filter(
+      (inst) =>
+        inst.name.toLowerCase().includes(q) ||
+        inst.extractorType.toLowerCase().includes(q) ||
+        (inst.description ?? '').toLowerCase().includes(q),
+    );
+  }, [extractorInstances, search]);
 
   const handleNext = () => {
     if (!selectedInstanceId) return;
@@ -45,6 +58,7 @@ export function AddExtractorDialog({
       setStep('select');
       setSelectedInstanceId('');
       setConfig({});
+      setSearch('');
     }, 200);
   };
 
@@ -67,13 +81,22 @@ export function AddExtractorDialog({
         </DialogHeader>
 
         {step === 'select' ? (
-          <div className="space-y-2 max-h-72 overflow-y-auto">
-            {extractorInstances.length === 0 ? (
+          <div className="space-y-2">
+            <Input
+              placeholder="Search extractors..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="mb-2"
+            />
+            <div className="max-h-60 overflow-y-auto space-y-2">
+            {filteredInstances.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
-                No active extractors available. Create one in the admin Extractors page first.
+                {extractorInstances.length === 0
+                  ? 'No active extractors available. Create one in the admin Extractors page first.'
+                  : 'No extractors match your search.'}
               </p>
             ) : (
-              extractorInstances.map((inst) => (
+              filteredInstances.map((inst) => (
                 <label
                   key={inst.id}
                   className={`flex items-start gap-3 rounded-md border p-3 cursor-pointer transition-colors
@@ -106,6 +129,7 @@ export function AddExtractorDialog({
                 </label>
               ))
             )}
+            </div>
           </div>
         ) : (
           <div className="space-y-3">

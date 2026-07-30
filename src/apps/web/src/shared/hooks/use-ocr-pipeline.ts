@@ -34,7 +34,7 @@ export function useOcrPipeline(schemaId: number) {
 
   // Load extractor types for configSchema lookup
   const { data: typeInfos = [] } = useQuery({
-    queryKey: ['extractor-types-info'],
+    queryKey: ['extractor-types'],
     queryFn: async () => {
       const res = await apiClient.get<ExtractorTypeInfo[]>('/extractor-types');
       return res.data;
@@ -101,6 +101,15 @@ export function useOcrPipeline(schemaId: number) {
         ocrExtractors: pipelineData,
       };
       await schemasApi.updateSchema(schemaId, { validationSettings: nextValidationSettings });
+    },
+    onMutate: () => {
+      const previous = queryClient.getQueryData(['schema', schemaId]);
+      return { previous };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['schema', schemaId], context.previous);
+      }
     },
     onSuccess: () => {
       setDraftPipeline(null);

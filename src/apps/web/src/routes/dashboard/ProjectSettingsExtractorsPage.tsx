@@ -171,7 +171,11 @@ export function ProjectSettingsExtractorsPage() {
                         variant="ghost"
                         size="sm"
                         className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => remove(index)}
+                        onClick={() => {
+                          if (window.confirm('Remove this OCR engine from the pipeline?')) {
+                            remove(index);
+                          }
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -186,7 +190,7 @@ export function ProjectSettingsExtractorsPage() {
       </div>
 
       <div className="flex items-center gap-3">
-        <Button type="button" variant="outline" onClick={() => { setEditingIndex(null); setDialogOpen(true); }}>
+        <Button type="button" variant="outline" onClick={() => { setEditingIndex(null); setDialogOpen(true); }} disabled={isSaving}>
           <Plus className="mr-2 h-4 w-4" />
           Add OCR Engine
         </Button>

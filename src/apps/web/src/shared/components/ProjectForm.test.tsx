@@ -6,21 +6,6 @@ import { vi } from 'vitest';
 import { server } from '@/tests/mocks/server';
 import { ProjectForm } from './ProjectForm';
 
-const textExtractor = {
-  id: 'extractor-1',
-  name: 'Vision LLM - GPT-4o',
-  description: 'OpenAI GPT-4o vision',
-  extractorType: 'vision-llm',
-  config: {
-    baseUrl: 'https://api.openai.com/v1',
-    apiKey: '********',
-    model: 'gpt-4o',
-  },
-  isActive: true,
-  createdAt: '2025-01-13T00:00:00.000Z',
-  updatedAt: '2025-01-13T00:00:00.000Z',
-};
-
 const llmModel = {
   id: 'llm-1',
   name: 'OpenAI GPT-4o',
@@ -43,7 +28,6 @@ const setupHandlers = () => {
       }
       return HttpResponse.json([llmModel]);
     }),
-    http.get('/api/extractors', () => HttpResponse.json([textExtractor])),
   );
 };
 
@@ -104,7 +88,6 @@ describe('ProjectForm', () => {
 
     await type(user, screen.getByLabelText(/Project Name/i), 'New Project');
 
-    await selectOption(user, /Text Extractor/i, 'Vision LLM - GPT-4o');
     await selectOption(user, /LLM model/i, 'OpenAI GPT-4o');
 
     await click(user, screen.getByRole('button', { name: /Create/i }));
@@ -142,13 +125,6 @@ describe('ProjectForm', () => {
         />,
       );
     });
-
-    await act(async () => {
-      await user.click(screen.getByLabelText(/Text Extractor/i));
-    });
-    expect(
-      within(screen.getByRole('listbox')).getByRole('option', { name: 'Vision LLM - GPT-4o' })
-    ).toHaveAttribute('aria-selected', 'true');
 
     await act(async () => {
       await user.click(screen.getByLabelText(/LLM model/i));
