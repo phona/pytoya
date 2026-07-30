@@ -12,10 +12,7 @@ export class UpdateProjectDto {
 
   @IsOptional()
   @IsString()
-  textExtractorId?: string;
-
-  @IsString()
-  llmModelId!: string;
+  llmModelId?: string;
 
   @IsOptional()
   @IsNumber()

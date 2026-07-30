@@ -5,7 +5,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 
 import { ExtractorEntity } from '../entities/extractor.entity';
-import { ProjectEntity } from '../entities/project.entity';
+import { ManifestEntity } from '../entities/manifest.entity';
 import { LlmService } from '../llm/llm.service';
 import { TextExtractorRegistry } from '../text-extractor/text-extractor.registry';
 import { PricingConfig } from '../text-extractor/types/extractor.types';
@@ -22,8 +22,8 @@ export class ExtractorsService {
     private readonly extractorRepository: ExtractorRepository,
     private readonly extractorRegistry: TextExtractorRegistry,
     private readonly llmService: LlmService,
-    @InjectRepository(ProjectEntity)
-    private readonly projectRepository: Repository<ProjectEntity>,
+    @InjectRepository(ManifestEntity)
+    private readonly manifestRepository: Repository<ManifestEntity>,
   ) {}
 
   async create(input: CreateExtractorDto): Promise<ExtractorEntity> {
@@ -106,12 +106,12 @@ export class ExtractorsService {
   }
 
   async getUsageCounts(): Promise<Record<string, number>> {
-    const rows = await this.projectRepository
-      .createQueryBuilder('project')
-      .select('project.textExtractorId', 'extractorId')
+    const rows = await this.manifestRepository
+      .createQueryBuilder('manifest')
+      .select('manifest.textExtractorId', 'extractorId')
       .addSelect('COUNT(*)', 'count')
-      .where('project.textExtractorId IS NOT NULL')
-      .groupBy('project.textExtractorId')
+      .where('manifest.textExtractorId IS NOT NULL')
+      .groupBy('manifest.textExtractorId')
       .getRawMany<{ extractorId: string; count: string }>();
 
     return rows.reduce<Record<string, number>>((acc, row) => {

@@ -630,10 +630,13 @@ export class ManifestsService {
       return manifest.ocrResult as unknown as OcrResultDto;
     }
 
-    const extractorId =
-      options.textExtractorId ?? manifest.group?.project?.textExtractorId ?? null;
+    const schemaOcrExtractors = (manifest.group?.project?.schemas?.[0]?.validationSettings as any)
+      ?.ocrExtractors as Array<{ extractorId: string }> | undefined;
+    const extractorId = options.textExtractorId ?? schemaOcrExtractors?.[0]?.extractorId ?? null;
     if (!extractorId) {
-      throw new BadRequestException('Text extractor is required for OCR preview');
+      throw new BadRequestException(
+        'No OCR engine configured. Configure the OCR pipeline in project settings.',
+      );
     }
 
     const fileBuffer = await this.fileSystem.readFile(manifest.storagePath);

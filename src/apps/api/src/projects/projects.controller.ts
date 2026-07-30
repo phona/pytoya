@@ -8,7 +8,6 @@ import {
   ParseIntPipe,
   Patch,
   Post,
-  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -20,7 +19,6 @@ import { CreateProjectDto } from './dto/create-project.dto';
 import { CreateProjectWizardDto } from './dto/create-project-wizard.dto';
 import { ProjectResponseDto } from './dto/project-response.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
-import { UpdateProjectExtractorDto } from './dto/update-project-extractor.dto';
 import { ProjectCostSummaryDto } from './dto/project-cost-summary.dto';
 import { ProjectsService } from './projects.service';
 import { AnalyticsRecommendationsService } from './analytics-recommendations.service';
@@ -85,16 +83,6 @@ export class ProjectsController {
       id,
       updateProjectDto,
     );
-    return ProjectResponseDto.fromEntity(project);
-  }
-
-  @Put(':id/extractor')
-  async updateExtractor(
-    @CurrentUser() user: UserEntity,
-    @Param('id', ParseIntPipe) id: number,
-    @Body() body: UpdateProjectExtractorDto,
-  ) {
-    const project = await this.projectsService.updateExtractor(user, id, body.textExtractorId);
     return ProjectResponseDto.fromEntity(project);
   }
 

@@ -49,10 +49,10 @@ async function main() {
     const extractorType = project?.textExtractorId ?? 'paddle-ocr-vl';
 
     const settings = schema.validationSettings ?? {};
-    (settings as any).ocrExtractors = [{ type: extractorType, config: {} }];
+    (settings as any).ocrExtractors = [{ extractorId: extractorType, config: {} }];
 
     if (isDryRun) {
-      console.log(`  [DRY RUN] Schema ${schema.id}: ocrExtractors ← [{ type: "${extractorType}" }]`);
+      console.log(`  [DRY RUN] Schema ${schema.id}: ocrExtractors ← [{ extractorId: "${extractorType}" }]`);
     } else {
       await connection.query(
         `UPDATE schemas
@@ -60,7 +60,7 @@ async function main() {
          WHERE id = $2`,
         [JSON.stringify(settings), schema.id],
       );
-      console.log(`  Schema ${schema.id}: ocrExtractors ← [{ type: "${extractorType}" }]`);
+      console.log(`  Schema ${schema.id}: ocrExtractors ← [{ extractorId: "${extractorType}" }]`);
     }
   }
 

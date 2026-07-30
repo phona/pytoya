@@ -6,7 +6,6 @@ export class ProjectResponseDto {
   description!: string | null;
   ownerId!: number;
   userId!: number;
-  textExtractorId!: string | null;
   llmModelId!: string;
   defaultSchemaId!: number | null;
   createdAt!: Date;
@@ -19,7 +18,6 @@ export class ProjectResponseDto {
       description: project.description,
       ownerId: project.ownerId,
       userId: project.ownerId,
-      textExtractorId: project.textExtractorId ?? null,
       llmModelId: project.llmModelId,
       defaultSchemaId: project.defaultSchemaId ?? null,
       createdAt: project.createdAt,

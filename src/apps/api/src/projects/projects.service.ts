@@ -3,7 +3,6 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 
-import { ExtractorEntity } from '../entities/extractor.entity';
 import { ModelEntity } from '../entities/model.entity';
 import { ManifestEntity } from '../entities/manifest.entity';
 import { OperationLogEntity } from '../entities/operation-log.entity';
@@ -159,8 +158,6 @@ export class ProjectsService {
     const project = await this.findOne(user, id);
     const projectInput = input;
     await this.ensureDefaultsExist({
-      textExtractorId:
-        (projectInput.textExtractorId ?? project.textExtractorId) ?? undefined,
       llmModelId: projectInput.llmModelId ?? project.llmModelId,
     });
     Object.assign(project, projectInput);
@@ -171,17 +168,6 @@ export class ProjectsService {
   async remove(user: UserEntity, id: number): Promise<ProjectEntity> {
     const project = await this.findOne(user, id);
     return this.projectRepository.remove(project);
-  }
-
-  async updateExtractor(
-    user: UserEntity,
-    id: number,
-    textExtractorId: string,
-  ): Promise<ProjectEntity> {
-    const project = await this.findOne(user, id);
-    await this.ensureExtractorExists(textExtractorId);
-    project.textExtractorId = textExtractorId;
-    return this.projectRepository.save(project);
   }
 
   async getCostSummary(
@@ -455,20 +441,14 @@ export class ProjectsService {
   private async ensureDefaultsExist(
     input: Pick<
       UpdateProjectDto,
-      'textExtractorId' | 'llmModelId'
+      'llmModelId'
     >,
     options: { manager?: EntityManager } = {},
   ): Promise<void> {
     if (!input.llmModelId) {
       throw new BadRequestException('LLM model is required');
     }
-    if (!input.textExtractorId) {
-      throw new BadRequestException('Text extractor is required');
-    }
-    await Promise.all([
-      this.ensureExtractorExists(input.textExtractorId, options),
-      this.ensureModelExists(input.llmModelId, 'llm', options),
-    ]);
+    await this.ensureModelExists(input.llmModelId, 'llm', options);
   }
 
   private async ensureModelExists(
@@ -499,23 +479,6 @@ export class ProjectsService {
       throw new BadRequestException(
         `Model ${modelId} is not a valid ${expectedCategory} model`,
       );
-    }
-  }
-
-  private async ensureExtractorExists(
-    extractorId: string | null | undefined,
-    options: { manager?: EntityManager } = {},
-  ): Promise<void> {
-    if (extractorId === undefined || extractorId === null) {
-      return;
-    }
-
-    const extractor = options.manager
-      ? await options.manager.getRepository(ExtractorEntity).findOne({ where: { id: extractorId } })
-      : await this.extractorRepository.findOne(extractorId);
-
-    if (!extractor) {
-      throw new NotFoundException(`Extractor ${extractorId} not found`);
     }
   }
 

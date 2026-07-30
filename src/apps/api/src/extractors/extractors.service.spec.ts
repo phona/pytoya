@@ -7,6 +7,7 @@ import { ExtractorsService } from './extractors.service';
 import { ExtractorRepository } from './extractor.repository';
 import { TextExtractorRegistry } from '../text-extractor/text-extractor.registry';
 import { LlmService } from '../llm/llm.service';
+import { ManifestEntity } from '../entities/manifest.entity';
 import { ProjectEntity } from '../entities/project.entity';
 
 describe('ExtractorsService', () => {
@@ -37,7 +38,7 @@ describe('ExtractorsService', () => {
         { provide: ExtractorRepository, useValue: extractorRepository },
         { provide: TextExtractorRegistry, useValue: extractorRegistry },
         { provide: LlmService, useValue: {} },
-        { provide: getRepositoryToken(ProjectEntity), useValue: projectRepository },
+        { provide: getRepositoryToken(ManifestEntity), useValue: {} as any },
       ],
     }).compile();
 
