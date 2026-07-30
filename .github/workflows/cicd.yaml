@@ -101,7 +101,7 @@ jobs:
           set -euo pipefail
           cd /home/github-runner/pytoya-build
           git pull origin master
-          docker compose build api web worker
+          docker compose build api web
           docker tag pytoya-build-api:latest ghcr.io/phona/pytoya/api:latest
           docker tag pytoya-build-web:latest ghcr.io/phona/pytoya/web:latest
           cd /root/pytoya
