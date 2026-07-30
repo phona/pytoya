@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { TextExtractorRegistry } from './text-extractor.registry';
 
-@Controller('extractors')
+@Controller('extractor-types')
 export class ExtractorsController {
   constructor(private readonly registry: TextExtractorRegistry) {}
 

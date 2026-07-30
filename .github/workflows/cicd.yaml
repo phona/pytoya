@@ -16,6 +16,8 @@ concurrency:
 env:
   GHCR_REGISTRY: ghcr.io
   GHCR_OWNER: ${{ vars.GHCR_OWNER || github.repository_owner }}
+  SSH_HOST: 47.107.92.78
+  SSH_USER: github-runner
 
 jobs:
   quality:
@@ -99,17 +101,20 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    runs-on: [self-hosted, linux]
+    runs-on: ubuntu-latest
     needs: [build_images]
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_name == 'master') }}
     environment: production
     steps:
-      - name: Pull and restart
-        shell: bash
-        run: |
-          set -euo pipefail
-          docker login ghcr.io -u ${{ github.actor }} --password-stdin <<< "${{ secrets.GHCR_TOKEN }}"
-          cd /home/github-runner/pytoya
-          docker compose pull
-          docker compose down
-          docker compose up -d
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/github-runner/pytoya
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose pull
+            docker compose down
+            docker compose up -d
