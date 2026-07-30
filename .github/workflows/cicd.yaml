@@ -16,8 +16,6 @@ concurrency:
 env:
   GHCR_REGISTRY: ghcr.io
   GHCR_OWNER: ${{ vars.GHCR_OWNER || github.repository_owner }}
-  SSH_HOST: 47.107.92.78
-  SSH_USER: github-runner
 
 jobs:
   quality:
@@ -79,14 +77,13 @@ jobs:
     name: Build image (${{ matrix.display }})
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v3
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ${{ env.GHCR_REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
@@ -106,18 +103,17 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_name == 'master') }}
     environment: production
     steps:
-      - name: Deploy via SSH
-        shell: bash
-        env:
-          SSH_HOST: ${{ env.SSH_HOST }}
-          SSH_USER: ${{ env.SSH_USER }}
-        run: |
-          set -euo pipefail
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
-          ssh "$SSH_USER@$SSH_HOST" docker login ghcr.io -u "${{ github.actor }}" --password-stdin <<< "${{ secrets.GHCR_TOKEN }}"
-          ssh "$SSH_USER@$SSH_HOST" docker compose -f /home/github-runner/pytoya/docker-compose.yml pull
-          ssh "$SSH_USER@$SSH_HOST" docker compose -f /home/github-runner/pytoya/docker-compose.yml down
-          ssh "$SSH_USER@$SSH_HOST" docker compose -f /home/github-runner/pytoya/docker-compose.yml up -d
+      - uses: appleboy/ssh-action@v1
+        timeout-minutes: 30
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          command_timeout: 30m
+          script: |
+            set -e
+            cd /home/github-runner/pytoya
+            docker compose pull
+            docker compose up -d
+            sleep 5
+            curl -sf http://localhost:3000/api/health || exit 1
