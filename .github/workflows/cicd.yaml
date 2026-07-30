@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: read
+  packages: write
+  id-token: write
 
 concurrency:
   group: ci-cd-${{ github.ref }}
