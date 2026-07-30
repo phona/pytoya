@@ -19,7 +19,6 @@ type JsonSchemaProperty = {
 
 export function JsonSchemaForm({ schema, value, onChange, disabled }: JsonSchemaFormProps) {
   const properties = (schema as any)?.properties as Record<string, JsonSchemaProperty> | undefined;
-  if (!properties) return <p className="text-xs text-muted-foreground">No configurable parameters</p>;
 
   const handleChange = useCallback(
     (key: string, newValue: unknown) => {
@@ -27,6 +26,10 @@ export function JsonSchemaForm({ schema, value, onChange, disabled }: JsonSchema
     },
     [value, onChange],
   );
+
+  if (!properties) {
+    return <p className="text-xs text-muted-foreground">No configurable parameters</p>;
+  }
 
   const entries = Object.entries(properties);
 
