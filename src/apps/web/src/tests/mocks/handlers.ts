@@ -1241,4 +1241,61 @@ export const handlers = [
   http.post('/api/jobs/:id/cancel', () => {
     return HttpResponse.json({ canceled: true, removedFromQueue: false, state: 'active' });
   }),
+
+  // OCR pipeline endpoints (used by frontend hooks with wildcard base URL)
+  http.get('*/extractor-types', () => {
+    return HttpResponse.json([
+      {
+        type: 'paddle-ocr-vl',
+        configSchema: {
+          type: 'object',
+          properties: {
+            timeout: { type: 'number', title: 'Timeout', default: 30000 },
+          },
+        },
+        promptContribution: 'I provide full-page markdown',
+      },
+      {
+        type: 'inference-ocr',
+        configSchema: {
+          type: 'object',
+          properties: {
+            confidenceThreshold: {
+              type: 'number',
+              title: 'Confidence Threshold',
+              default: 0.8,
+              minimum: 0,
+              maximum: 1,
+            },
+          },
+        },
+        promptContribution: 'I provide individual text boxes',
+      },
+    ]);
+  }),
+
+  http.get('*/extractors', () => {
+    return HttpResponse.json([
+      {
+        id: 'ext-1',
+        name: 'PaddleOCR Production',
+        extractorType: 'paddle-ocr-vl',
+        config: { baseUrl: 'https://ocr-prod:8080' },
+        isActive: true,
+        description: 'Production instance',
+      },
+      {
+        id: 'ext-2',
+        name: 'Inference OCR Dev',
+        extractorType: 'inference-ocr',
+        config: { baseUrl: 'http://localhost:8090' },
+        isActive: true,
+        description: 'Dev instance',
+      },
+    ]);
+  }),
+
+  http.patch('*/schemas/:id', () => {
+    return HttpResponse.json({ id: 1, validationSettings: {} });
+  }),
 ];
