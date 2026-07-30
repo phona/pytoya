@@ -99,7 +99,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd /root/pytoya-build
+          cd /home/github-runner/pytoya-build
           git pull origin master
           docker compose build api web worker
           docker tag pytoya-build-api:latest ghcr.io/phona/pytoya/api:latest
