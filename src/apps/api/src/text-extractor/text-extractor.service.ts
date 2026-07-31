@@ -181,7 +181,7 @@ export class TextExtractorService {
       extractorConfig: mergedConfig,
     });
 
-    return { extractorName: resolved.type, result };
+    return { extractorId, extractorName: resolved.type, result };
   }
 
   private async extractMultiple(
@@ -195,7 +195,7 @@ export class TextExtractorService {
     );
 
     const succeeded = extractionResults
-      .filter((r): r is PromiseFulfilledResult<{ extractorName: string; result: TextExtractionResult }> =>
+      .filter((r): r is PromiseFulfilledResult<{ extractorId: string; extractorName: string; result: TextExtractionResult }> =>
         r.status === 'fulfilled' && r.value !== null)
       .map(r => r.value);
 
@@ -221,6 +221,6 @@ export class TextExtractorService {
       }
     }
 
-    return { extractors: succeeded.map(s => s.extractorName), result: primary.result };
+    return { extractors: succeeded.map(s => s.extractorId), result: primary.result };
   }
 }
