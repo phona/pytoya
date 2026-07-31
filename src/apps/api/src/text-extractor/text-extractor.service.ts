@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 
 import { ExtractorRepository } from '../extractors/extractor.repository';
 import { ExtractorEntity } from '../entities/extractor.entity';
@@ -15,6 +15,7 @@ import {
 
 @Injectable()
 export class TextExtractorService {
+  private readonly logger = new Logger(TextExtractorService.name);
   constructor(
     private readonly extractorRepository: ExtractorRepository,
     private readonly extractorFactory: TextExtractorFactory,
@@ -181,6 +182,8 @@ export class TextExtractorService {
       extractorConfig: mergedConfig,
     });
 
+    this.logger.log(`runSingleExtractor ${extractorId} type=${resolved.type} ocrResult=${result.metadata?.ocrResult ? 'present' : 'absent'} markdownLen=${result.markdown?.length ?? 0}`);
+
     return { extractorId, extractorName: resolved.type, result };
   }
 
@@ -202,6 +205,8 @@ export class TextExtractorService {
     if (succeeded.length === 0) {
       throw new BadRequestException('All extractors failed');
     }
+
+    this.logger.log(`extractMultiple: ${succeeded.length}/${ocrExtractors.length} extractors succeeded: ${succeeded.map(s => s.extractorName).join(', ')}`);
 
     const primary = succeeded[0];
     const mergedMetadata = primary.result.metadata;
