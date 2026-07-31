@@ -26,9 +26,9 @@ export class OcrServiceClient {
       const response = await axios.post(
         `${this.baseUrl}/infer`,
         form,
-        { timeout: 30000, headers: { 'Content-Type': 'multipart/form-data' } },
+        { timeout: 120000, headers: { 'Content-Type': 'multipart/form-data' } },
       );
-      return response.data.results;
+      return Array.isArray(response.data?.results) ? response.data.results : [];
     } catch (error) {
       this.logger.warn(`inference-ocr service call failed: ${(error as Error).message}`);
       return [];
