@@ -46,21 +46,58 @@ export class CropsService {
       (item: any) => !verifiedFields.has(item.field),
     );
 
+    // Fallback: collect inference-ocr boxes from merged ocr_result for bbox matching.
+    const boxes = ((manifest.ocrResult as any)?.rawResponse?.boxes as Array<{
+      text?: string;
+      bbox?: number[];
+      page?: number;
+      confidence?: number;
+    }> | undefined) ?? [];
+
     const items: PendingCropItemDto[] = [];
     for (const item of pending) {
-      const cropBase64 = await this.cropFromFile(manifest.storagePath, item.bbox);
+      const ocrText = item.ocr_text;
+      const hasBbox = Array.isArray(item.bbox) && item.bbox.length === 4;
+      const bbox = hasBbox
+        ? (item.bbox as number[])
+        : this.matchBboxByText(boxes, ocrText, item.page);
+      const cropBase64 = bbox ? await this.cropFromFile(manifest.storagePath, bbox) : null;
       items.push({
         field: item.field,
         page: item.page,
         cropImage: cropBase64 ?? '',
-        ocrText: item.ocr_text,
-        confidence: item.confidence,
+        ocrText,
+        confidence: item.confidence ?? null,
         reason: item.reason,
-        bbox: item.bbox as number[],
+        bbox: bbox ?? [],
       });
     }
 
     return { items, total: items.length };
+  }
+
+  private matchBboxByText(
+    boxes: Array<{ text?: string; bbox?: number[]; page?: number }>,
+    ocrText: string,
+    page: number,
+  ): number[] | null {
+    if (!ocrText || boxes.length === 0) return null;
+    const normalized = ocrText.trim();
+    if (!normalized) return null;
+
+    // Prefer exact text match on the same page.
+    let best: number[] | null = null;
+    for (const box of boxes) {
+      if (box.page !== undefined && box.page !== page) continue;
+      const boxText = (box.text ?? '').trim();
+      if (boxText && (boxText === normalized || normalized.includes(boxText) || boxText.includes(normalized))) {
+        if (Array.isArray(box.bbox) && box.bbox.length === 4) {
+          best = box.bbox;
+          break;
+        }
+      }
+    }
+    return best;
   }
 
   /**

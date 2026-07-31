@@ -225,7 +225,38 @@ export class TextExtractorService {
 
       const delimiter = `\n\n=== Extractor: ${extractorName} ===\n`;
       for (let p = 0; p < Math.min(mergedMetadata.ocrResult.pages.length, ocrResult.pages.length); p++) {
-        mergedMetadata.ocrResult.pages[p].markdown += delimiter + ocrResult.pages[p].markdown;
+        const mergedPage = mergedMetadata.ocrResult.pages[p];
+        mergedPage.markdown += delimiter + ocrResult.pages[p].markdown;
+
+        // Merge layout elements (bbox/confidence) from secondary extractors so the
+        // downstream (pending-crops, backend bbox fallback) has structured box data.
+        const secondaryElements = ocrResult.pages[p].layout?.elements ?? [];
+        if (secondaryElements.length > 0) {
+          mergedPage.layout = mergedPage.layout ?? { elements: [], tables: [] };
+          mergedPage.layout.elements = [
+            ...(mergedPage.layout.elements ?? []),
+            ...secondaryElements.map((el) => ({
+              ...el,
+              source: extractorName,
+            })),
+          ];
+        }
+      }
+
+      // Preserve secondary extractor's raw boxes (text + bbox) for downstream
+      // bbox fallback matching in crops service.
+      const rawBoxes = (ocrResult as any).rawResponse?.boxes;
+      if (Array.isArray(rawBoxes) && rawBoxes.length > 0) {
+        const mergedRaw = (mergedMetadata.ocrResult as any).rawResponse as
+          | { boxes: unknown[] }
+          | undefined;
+        if (!mergedRaw) {
+          (mergedMetadata.ocrResult as any).rawResponse = { boxes: [] };
+        }
+        (mergedMetadata.ocrResult as any).rawResponse.boxes = [
+          ...(((mergedMetadata.ocrResult as any).rawResponse?.boxes as unknown[]) ?? []),
+          ...rawBoxes.map((b) => ({ ...b, source: extractorName })),
+        ];
       }
     }
 
