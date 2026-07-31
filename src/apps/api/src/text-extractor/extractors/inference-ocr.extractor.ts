@@ -73,8 +73,12 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
       '    "bbox": [x, y, w, h]',
       '  }]',
       '',
-      'IMPORTANT: bbox in _human_review must be copied verbatim from an inference-ocr',
-      'box line (bbox=[x,y,w,h]). Never invent coordinates.',
+      'RULES:',
+      '- Every _human_review item MUST include a "bbox" field, copied verbatim from an',
+      '  inference-ocr box line (bbox=[x,y,w,h]). If you cannot find a matching box,',
+      '  use the bbox of the nearest box in the same page region.',
+      '- "page" must match the inference-ocr box line that the ocr_text came from.',
+      '- NEVER output null for bbox; always provide the actual coordinates.',
     ].join('\n'),
   };
 
