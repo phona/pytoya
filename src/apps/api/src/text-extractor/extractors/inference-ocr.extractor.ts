@@ -58,8 +58,8 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
     promptContribution: [
       'INSTRUCTION: I provide individual text boxes with confidence scores and positions.',
       'Each box includes: text, confidence (0-1), bbox [x, y, w, h].',
-      'My confidence tags: [H] >= 0.95 (reliable, adopt directly),',
-      '                     [M] 0.8-0.95 (moderate, cross-check),',
+      'My confidence tags: [H] >= {{confidenceThreshold}} (reliable, adopt directly),',
+      '                     [M] 0.8-{{confidenceThreshold}} (moderate, cross-check),',
       '                     [L] < 0.8 (low, needs review).',
       '',
       'Only fields appearing in my [L] or [M] boxes (confidence < {{confidenceThreshold}})',
@@ -111,8 +111,9 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
     const processingTimeMs = Date.now() - startTime;
 
     const text = allBoxes.map((b) => b.text).join('\n');
+    const threshold = this.confidenceThreshold ?? 0.8;
     const markdown = allBoxes.map((b) => {
-      const tag = b.confidence >= 0.95 ? '[H]' : b.confidence >= 0.8 ? '[M]' : '[L]';
+      const tag = b.confidence >= threshold ? '[H]' : b.confidence >= 0.8 ? '[M]' : '[L]';
       return `${tag} ${b.text}  conf=${b.confidence}  bbox=[${b.bbox.join(',')}]  page=${b.page}`;
     }).join('\n');
 
