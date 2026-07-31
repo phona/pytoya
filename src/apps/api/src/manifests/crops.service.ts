@@ -30,9 +30,17 @@ export class CropsService {
       where: { manifestId, reason: 'extraction' },
       order: { createdAt: 'DESC' },
     });
-    if (!latestExtraction?.extractedData) return { items: [], total: 0 };
 
-    const humanReview = (latestExtraction.extractedData as any)?._human_review ?? [];
+    // Prefer manifest.extractedData (holds the actual extraction result); fall back
+    // to the latest completed history entry if the manifest field is empty.
+    const manifestData = (manifest.extractedData as Record<string, unknown> | null | undefined) ?? null;
+    const historyData = latestExtraction?.extractedData as Record<string, unknown> | null | undefined;
+    const sourceData = (manifestData && (manifestData as any)._human_review)
+      ? manifestData
+      : historyData;
+    if (!sourceData) return { items: [], total: 0 };
+
+    const humanReview = (sourceData as any)?._human_review ?? [];
     if (humanReview.length === 0) return { items: [], total: 0 };
 
     const verifiedRecords = await this.historyRepo.find({
@@ -57,8 +65,10 @@ export class CropsService {
     const items: PendingCropItemDto[] = [];
     for (const item of pending) {
       const ocrText = item.ocr_text;
-      const hasBbox = Array.isArray(item.bbox) && item.bbox.length === 4;
-      const bbox = hasBbox
+      const hasValidBbox = Array.isArray(item.bbox) &&
+        item.bbox.length === 4 &&
+        item.bbox.some((v: number) => v !== 0);
+      const bbox = hasValidBbox
         ? (item.bbox as number[])
         : this.matchBboxByText(boxes, ocrText, item.page);
       const cropBase64 = bbox ? await this.cropFromFile(manifest.storagePath, bbox) : null;
