@@ -17,16 +17,27 @@ export class OcrServiceClient {
 
   async infer(imageBuffer: Buffer): Promise<OcrBoxResult[]> {
     try {
-      const form = new FormData();
-      form.append(
-        'image',
-        new Blob([imageBuffer], { type: 'application/octet-stream' }),
-        'page.png',
-      );
+      const boundary = `----pytoya${Date.now()}`;
+      const header =
+        `--${boundary}\r\n` +
+        'Content-Disposition: form-data; name="image"; filename="page.png"\r\n' +
+        'Content-Type: application/octet-stream\r\n\r\n';
+      const footer = `\r\n--${boundary}--\r\n`;
+      const body = Buffer.concat([
+        Buffer.from(header, 'utf8'),
+        imageBuffer,
+        Buffer.from(footer, 'utf8'),
+      ]);
+
       const response = await axios.post(
         `${this.baseUrl}/infer`,
-        form,
-        { timeout: 120000, headers: { 'Content-Type': 'multipart/form-data' } },
+        body,
+        {
+          timeout: 120000,
+          headers: {
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          },
+        },
       );
       const results = Array.isArray(response.data?.results) ? response.data.results : [];
       this.logger.log(`inference-ocr /infer returned ${results.length} boxes`);
