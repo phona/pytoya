@@ -200,7 +200,7 @@ export class PaddleOcrExtractor extends BaseTextExtractor<PaddleOcrConfig> {
         label: 'Show Formula Number',
       },
     },
-    promptContribution: 'I provide text boxes from PaddleOCR with confidence scores and positions. Each box includes: text, confidence (0-1), bbox [x, y, w, h].',
+    promptContribution: 'INSTRUCTION: I provide text boxes from PaddleOCR with confidence scores and positions. Each box includes: text, confidence (0-1), bbox [x, y, w, h].',
   };
 
   private readonly axiosInstance: AxiosInstance;

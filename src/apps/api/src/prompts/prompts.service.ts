@@ -75,13 +75,20 @@ export class PromptsService {
     return RE_EXTRACT_SYSTEM_PROMPT;
   }
 
-  getExtractorContributions(ocrExtractors: Array<{ type: string }>): string {
+  getExtractorContributions(ocrExtractors: Array<{ type: string; config?: Record<string, unknown> }>): string {
     const contributions = ocrExtractors
-      .map(e => this.getPromptContributionFor(e.type))
+      .map((e) => {
+        const pc = this.getPromptContributionFor(e.type);
+        if (!pc) return '';
+        return pc.replace(/\{\{(\w+)\}\}/g, (_, key: string) => {
+          const value = e.config?.[key];
+          return value !== undefined ? String(value) : `{{${key}}}`;
+        });
+      })
       .filter(Boolean)
       .join('\n\n');
     if (!contributions) return '';
-    return '\n\nAdditional OCR sources:\n' + contributions;
+    return '\n\n<EXTRACTOR_INSTRUCTIONS>\n' + contributions + '\n</EXTRACTOR_INSTRUCTIONS>';
   }
 
   private getPromptContributionFor(type: string): string | null {

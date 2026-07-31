@@ -93,7 +93,7 @@ export class VisionLlmExtractor extends BaseTextExtractor<VisionLlmConfig> {
         placeholder: DEFAULT_PROMPT,
       },
     },
-    promptContribution: 'I provide text extracted by a vision-language model. I return the full text as seen in the image with no individual bounding boxes or confidence scores.',
+    promptContribution: 'INSTRUCTION: I provide text extracted by a vision-language model. I return the full text as seen in the image with no individual bounding boxes or confidence scores.',
   };
 
   private readonly llmService: LlmService;

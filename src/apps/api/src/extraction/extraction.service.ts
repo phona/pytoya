@@ -1277,14 +1277,19 @@ export class ExtractionService {
     current[parts[parts.length - 1]] = value;
   }
 
-  private async resolveExtractorTypes(ocrExtractors: OcrExtractorConfig[]): Promise<string[]> {
+  private async resolveExtractorTypes(ocrExtractors: OcrExtractorConfig[]): Promise<
+    Array<{ type: string; config?: Record<string, unknown> }>
+  > {
     if (ocrExtractors.length === 0) return [];
     const ids = ocrExtractors.map((e) => e.extractorId);
     const entities = await this.extractorRepository.find({
       where: { id: In(ids), isActive: true },
     });
     const typeMap = new Map(entities.map((e) => [e.id, e.extractorType]));
-    return ocrExtractors.map((e) => typeMap.get(e.extractorId) ?? 'unknown');
+    return ocrExtractors.map((e) => ({
+      type: typeMap.get(e.extractorId) ?? 'unknown',
+      config: e.config,
+    }));
   }
 
   private async getSystemPrompt(schema: SchemaEntity | null, override?: string, ocrExtractors?: OcrExtractorConfig[]): Promise<string> {
@@ -1298,9 +1303,7 @@ export class ExtractionService {
 
     if (ocrExtractors && ocrExtractors.length > 1) {
       const types = await this.resolveExtractorTypes(ocrExtractors);
-      const contributions = this.promptsService.getExtractorContributions(
-        types.map((t) => ({ type: t })),
-      );
+      const contributions = this.promptsService.getExtractorContributions(types);
       if (contributions) {
         prompt += contributions;
       }
