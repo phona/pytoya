@@ -22,7 +22,7 @@ export class CropsService {
     private readonly extractorRegistry: TextExtractorRegistry,
   ) {}
 
-  async getPendingCrops(manifestId: number, threshold: number): Promise<PendingCropsResponseDto> {
+  async getPendingCrops(manifestId: number, _threshold: number): Promise<PendingCropsResponseDto> {
     const manifest = await this.manifestRepo.findOne({ where: { id: manifestId } });
     if (!manifest) throw new NotFoundException();
 
@@ -43,7 +43,7 @@ export class CropsService {
     );
 
     const pending = humanReview.filter(
-      (item: any) => item.confidence < threshold && !verifiedFields.has(item.field),
+      (item: any) => !verifiedFields.has(item.field),
     );
 
     const items: PendingCropItemDto[] = [];

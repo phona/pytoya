@@ -7,7 +7,7 @@ export interface PendingCropItem {
   page: number;
   cropImage: string;
   ocrText: string;
-  confidence: number;
+  confidence: number | null;
   reason: string;
   bbox: { x: number; y: number; width: number; height: number };
 }

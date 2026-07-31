@@ -15,7 +15,7 @@ export class PendingCropItemDto {
   page!: number;
   cropImage!: string;
   ocrText!: string;
-  confidence!: number;
+  confidence!: number | null;
   reason!: string;
   bbox!: number[];
 }

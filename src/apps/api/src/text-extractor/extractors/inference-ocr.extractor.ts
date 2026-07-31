@@ -58,10 +58,13 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
     promptContribution: [
       'INSTRUCTION: I provide individual text boxes with confidence scores and positions.',
       'Each box includes: text, confidence (0-1), bbox [x, y, w, h].',
-      'My confidence tags: [H] >= 0.95, [M] >= 0.8, [L] < 0.8.',
+      'My confidence tags: [H] >= 0.95 (reliable, adopt directly),',
+      '                     [M] 0.8-0.95 (moderate, cross-check),',
+      '                     [L] < 0.8 (low, needs review).',
       '',
-      'For fields where my confidence < {{confidenceThreshold}}, or when my text',
-      'differs from other sources and my confidence is higher, include in _human_review:',
+      'Only fields appearing in my [L] or [M] boxes (confidence < {{confidenceThreshold}})',
+      'should be included in _human_review. High-confidence [H] fields are adopted directly.',
+      '',
       '  "_human_review": [{',
       '    "field": "<json path>",',
       '    "reason": "low_confidence" | "ocr_correction",',
@@ -69,6 +72,9 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
       '    "page": <int>,',
       '    "bbox": [x, y, w, h]',
       '  }]',
+      '',
+      'IMPORTANT: bbox in _human_review must be copied verbatim from an inference-ocr',
+      'box line (bbox=[x,y,w,h]). Never invent coordinates.',
     ].join('\n'),
   };
 
@@ -94,15 +100,11 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
     }
 
     const startTime = Date.now();
-    const threshold = this.confidenceThreshold ?? 0;
 
     const allBoxes = [];
     for (const page of pages) {
       const boxes = await this.ocrServiceClient.infer(page.buffer);
-      const filtered = threshold > 0
-        ? boxes.filter(b => b.confidence >= threshold)
-        : boxes;
-      for (const b of filtered) {
+      for (const b of boxes) {
         allBoxes.push({ ...b, page: page.pageNumber });
       }
     }

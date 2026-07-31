@@ -185,7 +185,7 @@ export function CorrectionPanel({ projectId, groupId, manifestId }: CorrectionPa
               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                 <span className="font-medium text-foreground">{currentItem.field}</span>
                 <Badge variant="outline" className="text-xs">
-                  {t('correction.confidence')}: {(currentItem.confidence * 100).toFixed(0)}%
+                  {t('correction.confidence')}: {currentItem.confidence != null ? `${(currentItem.confidence * 100).toFixed(0)}%` : 'N/A'}
                 </Badge>
               </div>
               {currentItem.reason && (
