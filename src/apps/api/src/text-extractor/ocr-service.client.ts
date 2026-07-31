@@ -28,7 +28,9 @@ export class OcrServiceClient {
         form,
         { timeout: 120000, headers: { 'Content-Type': 'multipart/form-data' } },
       );
-      return Array.isArray(response.data?.results) ? response.data.results : [];
+      const results = Array.isArray(response.data?.results) ? response.data.results : [];
+      this.logger.log(`inference-ocr /infer returned ${results.length} boxes`);
+      return results;
     } catch (error) {
       this.logger.warn(`inference-ocr service call failed: ${(error as Error).message}`);
       return [];
