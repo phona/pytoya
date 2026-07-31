@@ -69,23 +69,35 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
   }
 
   async extract(input: TextExtractionInput): Promise<TextExtractionResult> {
-    if (!input.buffer || input.buffer.length === 0) {
+    const pages = input.pages?.length
+      ? input.pages
+      : input.buffer && input.buffer.length > 0
+        ? [{ pageNumber: 1, buffer: input.buffer, mimeType: 'image/png' }]
+        : [];
+
+    if (pages.length === 0) {
       return { text: '', markdown: '', metadata: { extractorId: InferenceOcrExtractor.metadata.id, processingTimeMs: 0, textCost: 0 } };
     }
 
     const startTime = Date.now();
-    const boxes = await this.ocrServiceClient.infer(input.buffer);
+    const threshold = this.confidenceThreshold ?? 0;
+
+    const allBoxes = [];
+    for (const page of pages) {
+      const boxes = await this.ocrServiceClient.infer(page.buffer);
+      const filtered = threshold > 0
+        ? boxes.filter(b => b.confidence >= threshold)
+        : boxes;
+      for (const b of filtered) {
+        allBoxes.push({ ...b, page: page.pageNumber });
+      }
+    }
     const processingTimeMs = Date.now() - startTime;
 
-    const threshold = this.confidenceThreshold ?? 0;
-    const filteredBoxes = threshold > 0
-      ? boxes.filter(b => b.confidence >= threshold)
-      : boxes;
-
-    const text = filteredBoxes.map((b) => b.text).join('\n');
-    const markdown = filteredBoxes.map((b) => {
+    const text = allBoxes.map((b) => b.text).join('\n');
+    const markdown = allBoxes.map((b) => {
       const tag = b.confidence >= 0.95 ? '[H]' : b.confidence >= 0.8 ? '[M]' : '[L]';
-      return `${tag} ${b.text}  conf=${b.confidence}  bbox=[${b.bbox.join(',')}]`;
+      return `${tag} ${b.text}  conf=${b.confidence}  bbox=[${b.bbox.join(',')}]  page=${b.page}`;
     }).join('\n');
 
     return {
@@ -96,16 +108,16 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
         processingTimeMs,
         textCost: 0,
         ocrResult: {
-          document: { type: 'unknown', language: [], pages: 1 },
+          document: { type: 'unknown', language: [], pages: allBoxes.length > 0 ? Math.max(...allBoxes.map(b => b.page)) : 1 },
           pages: [{
             pageNumber: 1,
             text,
             markdown,
-            confidence: filteredBoxes.length > 0
-              ? filteredBoxes.reduce((s, b) => s + b.confidence, 0) / filteredBoxes.length
+            confidence: allBoxes.length > 0
+              ? allBoxes.reduce((s, b) => s + b.confidence, 0) / allBoxes.length
               : 0,
             layout: {
-              elements: filteredBoxes.map((b) => ({
+              elements: allBoxes.map((b) => ({
                 type: 'text',
                 confidence: b.confidence,
                 position: { x: b.bbox[0], y: b.bbox[1], width: b.bbox[2], height: b.bbox[3] },
@@ -114,7 +126,7 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
             },
           }],
           metadata: { processedAt: new Date().toISOString(), modelVersion: 'inference-ocr', processingTimeMs },
-          rawResponse: { boxes: filteredBoxes },
+          rawResponse: { boxes: allBoxes },
         },
       },
     };
