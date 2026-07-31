@@ -14,6 +14,7 @@ import { ProjectEntity } from '../entities/project.entity';
 import { SchemaEntity } from '../entities/schema.entity';
 import { GroupsModule } from '../groups/groups.module';
 import { ModelsModule } from '../models/models.module';
+import { PdfToImageModule } from '../pdf-to-image/pdf-to-image.module';
 import { TextExtractorModule } from '../text-extractor/text-extractor.module';
 import { StorageModule } from '../storage/storage.module';
 import { WebSocketModule } from '../websocket/websocket.module';
@@ -51,6 +52,7 @@ import {
     ]),
     GroupsModule,
     ModelsModule,
+    PdfToImageModule,
     TextExtractorModule,
     StorageModule,
     WebSocketModule,

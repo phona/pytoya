@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import { ExtractionHistoryEntity } from '../entities/extraction-history.entity';
 import { ManifestEntity } from '../entities/manifest.entity';
 import { UserEntity } from '../entities/user.entity';
+import { PdfToImageService } from '../pdf-to-image/pdf-to-image.service';
 import { TextExtractorRegistry } from '../text-extractor/text-extractor.registry';
 import { UpdateManifestUseCase } from '../usecases/update-manifest.usecase';
 import type { CorrectionData } from '../text-extractor/types/extractor.types';
@@ -20,6 +21,7 @@ export class CropsService {
     private readonly historyRepo: Repository<ExtractionHistoryEntity>,
     private readonly updateManifestUseCase: UpdateManifestUseCase,
     private readonly extractorRegistry: TextExtractorRegistry,
+    private readonly pdfToImageService: PdfToImageService,
   ) {}
 
   async getPendingCrops(manifestId: number, _threshold: number): Promise<PendingCropsResponseDto> {
@@ -71,7 +73,7 @@ export class CropsService {
       const bbox = hasValidBbox
         ? (item.bbox as number[])
         : this.matchBboxByText(boxes, ocrText, item.page);
-      const cropBase64 = bbox ? await this.cropFromFile(manifest.storagePath, bbox) : null;
+      const cropBase64 = bbox ? await this.cropFromFile(manifest.storagePath, bbox, manifest.fileType, item.page) : null;
       items.push({
         field: item.field,
         page: item.page,
@@ -183,11 +185,19 @@ export class CropsService {
     }
   }
 
-  private async cropFromFile(filePath: string | undefined, bbox: number[]) {
+  private async cropFromFile(filePath: string | undefined, bbox: number[], fileType?: string, page?: number) {
     if (!filePath || bbox.length < 4) return null;
     try {
       const [x, y, w, h] = bbox;
-      const buffer = await sharp(filePath)
+      let source: Buffer | string = filePath;
+      if (fileType === 'pdf') {
+        const converted = await this.pdfToImageService.convertPdfPageToImage(
+          filePath,
+          page ?? 1,
+        );
+        source = converted.buffer;
+      }
+      const buffer = await sharp(source)
         .extract({ left: Math.round(x), top: Math.round(y), width: Math.round(w), height: Math.round(h) })
         .png()
         .toBuffer();
