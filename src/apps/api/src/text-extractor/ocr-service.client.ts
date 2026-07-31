@@ -39,7 +39,12 @@ export class OcrServiceClient {
           },
         },
       );
-      const results = Array.isArray(response.data?.results) ? response.data.results : [];
+      const data = response.data;
+      const results = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.results)
+          ? data.results
+          : [];
       this.logger.log(`inference-ocr /infer returned ${results.length} boxes`);
       return results;
     } catch (error) {
