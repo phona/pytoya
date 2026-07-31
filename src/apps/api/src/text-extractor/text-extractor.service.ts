@@ -161,7 +161,7 @@ export class TextExtractorService {
 
     const instance = this.extractorFactory.createInstance(
       resolved.type,
-      resolved.infraConfig,
+      mergedConfig,
       extractorId,
     );
 
