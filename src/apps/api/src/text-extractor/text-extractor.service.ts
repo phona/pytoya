@@ -197,6 +197,15 @@ export class TextExtractorService {
       ),
     );
 
+    extractionResults.forEach((r, i) => {
+      const id = ocrExtractors[i]?.extractorId;
+      if (r.status === 'rejected') {
+        this.logger.error(`extractMultiple extractor ${id} rejected: ${(r.reason as Error)?.message ?? r.reason}`);
+      } else if (r.value === null) {
+        this.logger.warn(`extractMultiple extractor ${id} returned null`);
+      }
+    });
+
     const succeeded = extractionResults
       .filter((r): r is PromiseFulfilledResult<{ extractorId: string; extractorName: string; result: TextExtractionResult }> =>
         r.status === 'fulfilled' && r.value !== null)
