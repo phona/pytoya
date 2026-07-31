@@ -17,11 +17,16 @@ export class OcrServiceClient {
 
   async infer(imageBuffer: Buffer): Promise<OcrBoxResult[]> {
     try {
-      const base64 = imageBuffer.toString('base64');
+      const form = new FormData();
+      form.append(
+        'image',
+        new Blob([imageBuffer], { type: 'application/octet-stream' }),
+        'page.png',
+      );
       const response = await axios.post(
         `${this.baseUrl}/infer`,
-        { image: base64 },
-        { timeout: 30000 },
+        form,
+        { timeout: 30000, headers: { 'Content-Type': 'multipart/form-data' } },
       );
       return response.data.results;
     } catch (error) {
