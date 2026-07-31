@@ -45,7 +45,6 @@ export class OcrServiceClient {
         : Array.isArray(data?.results)
           ? data.results
           : [];
-      this.logger.log(`inference-ocr /infer returned ${results.length} boxes`);
       return results;
     } catch (error) {
       this.logger.warn(`inference-ocr service call failed: ${(error as Error).message}`);
