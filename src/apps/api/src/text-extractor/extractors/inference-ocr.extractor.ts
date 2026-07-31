@@ -39,7 +39,21 @@ export class InferenceOcrExtractor extends BaseTextExtractor<InferenceOcrConfig>
       },
       required: ['serviceUrl'],
     },
-    paramsSchema: {},
+    paramsSchema: {
+      serviceUrl: {
+        type: 'string',
+        required: false,
+        label: 'Inference Service URL',
+        default: 'http://localhost:8090',
+      },
+      confidenceThreshold: {
+        type: 'number',
+        required: false,
+        label: 'Confidence Threshold',
+        default: 0.8,
+        validation: { min: 0, max: 1 },
+      },
+    },
     onCorrection: undefined as ((data: CorrectionData) => Promise<void>) | undefined,
     promptContribution: [
       'INSTRUCTION: I provide individual text boxes with confidence scores and positions.',
