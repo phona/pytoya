@@ -31,6 +31,55 @@
 | VL max_tokens | **2048** | 用户实测更稳 |
 | schema 10 双引擎格式 | 冒烟验证，必要时 `type`→`extractorId` | schema 10 现用 `type` 字段，代码要 `extractorId` |
 
+## 操作环境
+
+### 服务器与入口
+- **生产服务器**: `root@47.107.92.78`（SSH 直连）
+- **前端**: https://pytoya.fshine.site （项目 2 = `/projects/2`）
+- **API**: 服务器本机 `localhost:3001`（前端同域代理）
+- **评估环境**: `/tmp/eval/`（脚本）、`/tmp/evalenv/`（venv，python3.6 + requests）
+- **训练工作区**: `/mnt/e/pytoya-workspace`（只读参考，不改动）
+
+### 容器（docker，服务器上）
+| 容器 | 用途 |
+|------|------|
+| `pytoya-postgres` | PostgreSQL 15（生产库 `pytoya` + restore 快照库 `pytoya_restore`）|
+| `pytoya-api` | API 服务（node v20，无 python）|
+| `pytoya-worker` | 后台队列 worker（提取 job 在此执行）|
+| `pytoya-web` | 前端静态服务 |
+| `pytoya-redis` | 队列/缓存 |
+| `ocr-service` | inference-OCR 本地服务，`http://ocr-service:8090/infer`（容器内）/ `localhost:8090`（宿主机）|
+
+### 数据库访问
+```bash
+# 生产库
+docker exec pytoya-postgres psql -U postgres -d pytoya
+# restore 快照库（GT 权威来源）
+docker exec pytoya-postgres psql -U postgres -d pytoya_restore
+```
+
+### 关键路径
+- **PDF 宿主机根目录**: `/root/pytoya/data/uploads`（对应容器 `/app/uploads`）
+- **PDF 路径映射**: 数据库 `storage_path` 形如 `/app/uploads/projects/1/groups/{gid}/manifests/{file}.pdf` → 宿主机 `/root/pytoya/data/uploads/projects/1/groups/{gid}/manifests/{file}.pdf`
+- **当前生产提取结果备份**: `/tmp/prod_current_backup.tsv`
+
+### 关键 extractor（生产 extractors 表）
+| id | 名称 | 类型 | 说明 |
+|----|------|------|------|
+| `eaa203b7-4e51-4b7c-b2f9-b811a62ac174` | Qwen/Qwen3-VL-8B-Instruct | vision-llm | VL 引擎（siliconflow），本方案 config: maxTokens=2048/temp=0/detail=high |
+| `4ca3e9e3-2318-4669-ba49-d50e217631a8` | OCR Service (Local) | inference-ocr | inference-OCR 引擎，默认 `http://localhost:8090` |
+| `61d036a4-...` | Qwen/Qwen3-VL-32B-Instruct | vision-llm | 32B 备用（已测也崩溃，不用于本方案）|
+
+### API keys（不写入仓库，运行时从配置读取）
+- **VL（siliconflow）**: 从 `extractors.config.apiKey` 读取（eaa203b7 的 config 内）
+- **DeepSeek**: 从服务器环境/配置读取（/tmp/eval 脚本中有引用）
+- 设计文档**不包含明文 secret**；实现时通过现有配置链获取
+
+### 触发提取的 API
+- 单个重提取: `POST /api/extraction/re-extract/:manifestId`
+- 批量提取: `POST /api/manifests/groups/:groupId/manifests/batch`（body: `{ manifestIds: [...] }`）
+- 低置信校对: `GET /api/manifests/:manifestId/pending-crops`、`POST /api/manifests/:manifestId/crops/verify`
+
 ## 架构
 
 ```
