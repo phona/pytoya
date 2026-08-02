@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { GripVertical, Plus, PencilLine, Trash2, Save } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { ProjectSettingsShell } from '@/shared/components/ProjectSettingsShell';
 import { AddExtractorDialog } from '@/shared/components/AddExtractorDialog';
 import { useOcrPipeline } from '@/shared/hooks/use-ocr-pipeline';
@@ -119,6 +119,7 @@ export function ProjectSettingsExtractorsPage() {
             </p>
           </div>
         ) : (
+          <TooltipProvider>
           <div className="space-y-1.5">
             {pipeline.map((entry, index) => {
               const instance = instanceMap.get(entry.extractorId);
@@ -186,6 +187,7 @@ export function ProjectSettingsExtractorsPage() {
               );
             })}
           </div>
+          </TooltipProvider>
         )}
       </div>
 
