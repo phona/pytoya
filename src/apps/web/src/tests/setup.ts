@@ -124,12 +124,24 @@ afterAll(() => {
 import.meta.env.VITE_API_URL = 'http://localhost:3000/api';
 
 vi.mock('@/shared/components/ui/tooltip', () => {
+  const TooltipContext = React.createContext(false);
+
+  const TooltipProvider = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(TooltipContext.Provider, { value: true }, children);
+
+  const Tooltip = ({ children }: { children: React.ReactNode }) => {
+    if (!React.useContext(TooltipContext)) {
+      throw new Error('`Tooltip` must be used within `TooltipProvider`');
+    }
+    return React.createElement(React.Fragment, null, children);
+  };
+
   const passthrough = ({ children }: { children: React.ReactNode }) =>
     React.createElement(React.Fragment, null, children);
 
   return {
-    TooltipProvider: passthrough,
-    Tooltip: passthrough,
+    TooltipProvider,
+    Tooltip,
     TooltipTrigger: passthrough,
     TooltipContent: ({ children }: { children: React.ReactNode }) =>
       React.createElement('span', null, children),
@@ -137,10 +149,27 @@ vi.mock('@/shared/components/ui/tooltip', () => {
 });
 
 vi.mock('@/shared/components/ui/dropdown-menu', () => {
+  const MenuContext = React.createContext(false);
+  const MenuContentContext = React.createContext(false);
+  const RadioGroupContext = React.createContext(false);
+
+  const useRequiredContext = (
+    context: React.Context<boolean>,
+    consumerName: string,
+    rootComponentName: string,
+  ) => {
+    if (!React.useContext(context)) {
+      throw new Error(`\`${consumerName}\` must be used within \`${rootComponentName}\``);
+    }
+  };
+
   const passthrough = ({ children }: { children: React.ReactNode }) =>
     React.createElement(React.Fragment, null, children);
 
-  const withProps = ({
+  const DropdownMenu = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(MenuContext.Provider, { value: true }, children);
+
+  const DropdownMenuTrigger = ({
     children,
     asChild: _asChild,
     ...props
@@ -148,31 +177,41 @@ vi.mock('@/shared/components/ui/dropdown-menu', () => {
     children: React.ReactNode;
     asChild?: boolean;
   }) => {
+    useRequiredContext(MenuContext, 'DropdownMenuTrigger', 'DropdownMenu');
     if (React.isValidElement(children)) {
       return React.cloneElement(children, { ...props, ...children.props });
     }
     return React.createElement('span', props, children);
   };
 
-  const simple = ({ children, ...props }: { children: React.ReactNode }) =>
-    React.createElement('div', props, children);
-
-  const menu = ({ children, ...props }: { children: React.ReactNode }) =>
-    React.createElement('div', { role: 'menu', ...props }, children);
+  const DropdownMenuContent = ({
+    children,
+    ...props
+  }: {
+    children: React.ReactNode;
+  }) => {
+    useRequiredContext(MenuContext, 'DropdownMenuContent', 'DropdownMenu');
+    return React.createElement(
+      MenuContentContext.Provider,
+      { value: true },
+      React.createElement('div', { role: 'menu', ...props }, children),
+    );
+  };
 
   const createMenuItem =
-    (role: 'menuitem' | 'menuitemcheckbox' | 'menuitemradio') =>
+    (role: 'menuitem' | 'menuitemcheckbox' | 'menuitemradio', consumerName: string) =>
     ({
       children,
       disabled,
       onClick,
       ...props
     }: {
-      children: React.ReactNode;
+      children?: React.ReactNode;
       disabled?: boolean;
       onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
-    }) =>
-      React.createElement(
+    }) => {
+      useRequiredContext(MenuContentContext, consumerName, 'DropdownMenuContent');
+      return React.createElement(
         'div',
         {
           role,
@@ -189,18 +228,33 @@ vi.mock('@/shared/components/ui/dropdown-menu', () => {
         },
         children,
       );
+    };
 
-  const menuItem = createMenuItem('menuitem');
-  const menuItemCheckbox = createMenuItem('menuitemcheckbox');
-  const menuItemRadio = createMenuItem('menuitemradio');
+  const menuItem = createMenuItem('menuitem', 'DropdownMenuItem');
+  const menuItemCheckbox = createMenuItem('menuitemcheckbox', 'DropdownMenuCheckboxItem');
+  const radioItemBase = createMenuItem('menuitemradio', 'DropdownMenuRadioItem');
+  const MenuItemRadio = (props: {
+    children?: React.ReactNode;
+    disabled?: boolean;
+    onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
+  }) => {
+    useRequiredContext(RadioGroupContext, 'DropdownMenuRadioItem', 'DropdownMenuRadioGroup');
+    return React.createElement(radioItemBase, props);
+  };
+
+  const DropdownMenuRadioGroup = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(RadioGroupContext.Provider, { value: true }, children);
+
+  const simple = ({ children, ...props }: { children: React.ReactNode }) =>
+    React.createElement('div', props, children);
 
   return {
-    DropdownMenu: passthrough,
-    DropdownMenuTrigger: withProps,
-    DropdownMenuContent: menu,
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
     DropdownMenuItem: menuItem,
     DropdownMenuCheckboxItem: menuItemCheckbox,
-    DropdownMenuRadioItem: menuItemRadio,
+    DropdownMenuRadioItem: MenuItemRadio,
     DropdownMenuLabel: simple,
     DropdownMenuSeparator: () => React.createElement('hr'),
     DropdownMenuShortcut: simple,
@@ -209,7 +263,7 @@ vi.mock('@/shared/components/ui/dropdown-menu', () => {
     DropdownMenuSub: passthrough,
     DropdownMenuSubContent: simple,
     DropdownMenuSubTrigger: simple,
-    DropdownMenuRadioGroup: passthrough,
+    DropdownMenuRadioGroup,
   };
 });
 
