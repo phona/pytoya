@@ -7,6 +7,7 @@ import { SchemaForm } from '@/shared/components/SchemaForm';
 import { Button } from '@/shared/components/ui/button';
 import { Dialog, DialogDescription, DialogHeader, DialogSideContent, DialogTitle } from '@/shared/components/ui/dialog';
 import { useModalDialog } from '@/shared/hooks/use-modal-dialog';
+import { useProject } from '@/shared/hooks/use-projects';
 import { useProjectSchemas, useSchema, useSchemas } from '@/shared/hooks/use-schemas';
 import { canonicalizeJsonSchemaForDisplay } from '@/shared/utils/schema';
 import { useI18n } from '@/shared/providers/I18nProvider';
@@ -24,8 +25,9 @@ export function ProjectSettingsSchemaPage() {
   const params = useParams();
   const projectId = Number(params.id);
 
+  const { project } = useProject(projectId);
   const { schemas, isLoading: projectSchemasLoading } = useProjectSchemas(projectId);
-  const schemaId = schemas[0]?.id ?? 0;
+  const schemaId = project?.defaultSchemaId ?? schemas[0]?.id ?? 0;
   const { schema, isLoading: schemaLoading } = useSchema(schemaId);
   const { createSchema, updateSchema, deleteSchema, isCreating, isUpdating, isDeleting } = useSchemas();
   const schemaRecord = schema;

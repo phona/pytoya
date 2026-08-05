@@ -39,7 +39,7 @@ export function ProjectSettingsRulesPage() {
 
   const { project, isLoading: projectLoading } = useProject(projectId);
   const { schemas, isLoading: projectSchemasLoading } = useProjectSchemas(projectId);
-  const schemaId = schemas[0]?.id ?? 0;
+  const schemaId = project?.defaultSchemaId ?? schemas[0]?.id ?? 0;
   const { schema, isLoading: schemaLoading } = useSchema(schemaId);
   const schemaRecord = schema;
   const { updateSchema, isUpdating } = useSchemas();
